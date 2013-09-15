@@ -35,7 +35,7 @@ class CeleryTestCase(unittest.TestCase):
         logger.info("scanning directory {0} and app {1} for tasks".format(directory, app))
         includes = build_includes(directory, app)
         logger.info("includes = {0}".format(includes))
-        self.assertEquals(expected, includes)
+        self.assertItemsEqual(expected, includes)
 
 
 
