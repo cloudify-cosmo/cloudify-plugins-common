@@ -2,11 +2,15 @@ language: python
 python:
   - "2.7"
 
-# command to install dependencies
+
 install:
+
+    # command to install dependencies
     - python setup.py install
 
 
-# command to run tests
 script:
-    - 'python -m unittest cosmo.tests.test_celery'
+
+    # command to run tests
+    - python -m unittest cosmo.tests.test_celery
+    - python -m unittest cosmo.tests.test_events
