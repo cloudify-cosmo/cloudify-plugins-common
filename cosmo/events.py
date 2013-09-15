@@ -14,14 +14,14 @@
 #    * limitations under the License.
 # *******************************************************************************/
 
-import os
 import json
+import os
 
 import bernhard
+import cosmo
 
 
 def send_event(node_id, host, service, type, value):
-
     event = {
         'host': host,
         'service': service,
@@ -35,25 +35,25 @@ def send_event(node_id, host, service, type, value):
 
 
 def send_log_event(log_record):
-    host = _get_cosmo_properties()['ip']
-    description = {
-        'log_record': log_record
-    }
-    event = {
-        'host': host,
-        'service': 'celery-task-log',
-        'state': '',
-        'tags': ['cosmo-log'],
-        'description': json.dumps(description)
-    }
-    try:
-        if is_cosmo_env():
+    if is_cosmo_env():
+        host = get_cosmo_properties()['ip']
+        description = {
+            'log_record': log_record
+        }
+        event = {
+            'host': host,
+            'service': 'celery-task-log',
+            'state': '',
+            'tags': ['cosmo-log'],
+            'description': json.dumps(description)
+        }
+        try:
             _send_event(event)
-        else:
-            print "not running inside cosmo. log event is not sent : {0}".format(event)
-    except BaseException as e:
-        print "caught exception while sending log event : {0} . log was : {1}".format(e.message, log_record)
-        pass
+        except BaseException as e:
+            print "caught exception while sending log event : {0} . log was : {1}".format(e.message, log_record)
+            pass
+    else:
+        print "not running inside cosmo. log event is not sent : {0}".format(log_record)
 
 
 def _send_event(event):
@@ -65,17 +65,19 @@ def _send_event(event):
 
 
 def _get_riemann_client():
-    host = _get_cosmo_properties()['management_ip']
+    host = get_cosmo_properties()['management_ip']
     return bernhard.Client(host=host)
 
-
-def _get_cosmo_properties():
-    file_path = os.path.join(os.path.dirname(__file__), 'cosmo.txt')
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as f:
-            return json.loads(f.read())
-    return None
+def get_cosmo_properties():
+    file_path = os.path.join(os.path.dirname(cosmo.__file__), 'cosmo.txt')
+    # will raise error if file not found.
+    with open(file_path, 'r') as f:
+        return json.loads(f.read())
 
 
 def is_cosmo_env():
-    return _get_cosmo_properties() is not None
+    try:
+        get_cosmo_properties()
+        return True
+    except IOError:
+        return False

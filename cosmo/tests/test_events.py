@@ -14,30 +14,29 @@
 #    * limitations under the License.
 # *******************************************************************************/
 
+import unittest
+from cosmo.tests import get_logger
+from cosmo.events import get_cosmo_properties
+from cosmo.events import send_event, send_log_event
+
+
 __author__ = 'elip'
 
-import fnmatch
-import os
+logger = get_logger("EventsTestCase")
 
 
-def build_includes(workdir, app):
-    includes = []
-    for root, dirnames, filenames in os.walk(os.path.join(workdir, app)):
-        for filename in fnmatch.filter(filenames, 'tasks.py'):
-            includes.append(os.path.join(root, filename))
+class EventsTestCase(unittest.TestCase):
 
-    # remove .py suffix from include
-    includes = map(lambda include: include[:-3], includes)
+    def test_send_event(self):
+        send_event("test", "test", "test", "test", "test")
 
-    # remove path prefix to start with cosmo
-    includes = map(lambda include: include.replace(workdir, ''), includes)
+    def test_send_log_event(self):
+        send_log_event("log")
 
-    # replace slashes with dots in include path
-    includes = map(lambda include: include.replace('/', '.'), includes)
+    def test_get_cosmo_properties(self):
+        try:
+            get_cosmo_properties()
+        except IOError:
+            pass
 
-    # remove the dot at the start
-    includes = map(lambda include: include[1:], includes)
 
-    return includes
-
-includes = build_includes(os.getcwd(), 'cosmo')
