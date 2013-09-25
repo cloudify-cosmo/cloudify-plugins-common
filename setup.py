@@ -16,6 +16,5 @@ setup(
         "protobuf",
         "bernhard",
         "celery"
-    ],
-    tests_require=['nose']
+    ]
 )
