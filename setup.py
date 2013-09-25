@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='cosmo-celery-common',
-    version='0.1.0',
+    version='feature/CLOUDIFY-2048-virtualenv-support',
     author='elip',
     author_email='elip@gigaspaces.com',
     packages=['cosmo'],
