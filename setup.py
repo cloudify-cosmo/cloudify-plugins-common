@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='cosmo-celery-common',
-    version='0.1.0',
+    version='0.1.1',
     author='elip',
     author_email='elip@gigaspaces.com',
     packages=['cosmo'],
@@ -16,6 +16,5 @@ setup(
         "protobuf",
         "bernhard",
         "celery"
-    ],
-    tests_require=['nose']
+    ]
 )
