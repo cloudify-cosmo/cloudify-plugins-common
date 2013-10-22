@@ -86,5 +86,5 @@ def is_cosmo_env():
     try:
         get_cosmo_properties()
         return True
-    except IOError:
+    except RuntimeError:
         return False
