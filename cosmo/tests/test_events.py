@@ -15,6 +15,7 @@
 # *******************************************************************************/
 
 import unittest
+import os
 from cosmo.tests import get_logger
 from cosmo.events import get_cosmo_properties
 from cosmo.events import send_event, send_log_event
@@ -36,7 +37,7 @@ class EventsTestCase(unittest.TestCase):
     def test_get_cosmo_properties(self):
         try:
             get_cosmo_properties()
-        except IOError:
+        except RuntimeError:
             pass
 
 

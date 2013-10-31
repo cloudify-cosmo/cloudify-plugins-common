@@ -68,16 +68,23 @@ def _get_riemann_client():
     host = get_cosmo_properties()['management_ip']
     return bernhard.Client(host=host)
 
+
 def get_cosmo_properties():
-    file_path = os.path.join(os.path.dirname(cosmo.__file__), 'cosmo.txt')
-    # will raise error if file not found.
-    with open(file_path, 'r') as f:
-        return json.loads(f.read())
+    management_ip_key = "MANAGEMENT_IP"
+    agent_ip_key = "AGENT_IP"
+    if management_ip_key not in os.environ:
+        raise RuntimeError("{0} is not set in environment".format(management_ip_key))
+    if agent_ip_key not in os.environ:
+        raise RuntimeError("{0} is not set in environemnt".format(agent_ip_key))
+    return {
+        "management_ip": os.environ[management_ip_key],
+        "ip": os.environ[agent_ip_key]
+    }        
 
 
 def is_cosmo_env():
     try:
         get_cosmo_properties()
         return True
-    except IOError:
+    except RuntimeError:
         return False
