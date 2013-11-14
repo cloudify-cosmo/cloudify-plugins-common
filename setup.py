@@ -15,6 +15,6 @@ setup(
         # see https://pypi.python.org/pypi/bernhard/0.1.0
         "protobuf",
         "bernhard",
-        "celery"
+        "celery==3.0.24"
     ]
 )
