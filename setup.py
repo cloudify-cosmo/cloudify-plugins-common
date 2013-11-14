@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='cosmo-celery-common',
-    version='0.1.1',
+    version='0.2',
     author='elip',
     author_email='elip@gigaspaces.com',
     packages=['cosmo'],
