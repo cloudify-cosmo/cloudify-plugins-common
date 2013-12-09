@@ -10,6 +10,7 @@ setup(
     packages=['cosmo'],
     license='LICENSE',
     description='Package that holds common cosmo modules needed by many plugins',
+    zip_safe=False,
     install_requires=[
         # we include this dependency here because protobuf may fail to install transitively.
         # see https://pypi.python.org/pypi/bernhard/0.1.0
