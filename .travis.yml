@@ -13,4 +13,4 @@ script:
 
     # command to run tests
     - python -m unittest cosmo.tests.test_celery
-    - python -m unittest cosmo.tests.test_events
+    - python -m unittest cloudify.tests.test_celery
