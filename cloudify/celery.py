@@ -30,7 +30,7 @@ from celery import Celery
 from celery.signals import after_setup_task_logger
 
 from cloudify.utils import build_includes
-from cloudify.logging import setup_logger
+from cloudify.logs import setup_logger
 
 
 celery = Celery('cosmo.celery', include=build_includes(os.path.dirname(__file__)))
