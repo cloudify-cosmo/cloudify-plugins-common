@@ -54,10 +54,13 @@ def build_includes(celery_app_root_dir):
 
     for root, dirnames, filenames in os.walk(celery_app_root_dir):
         for filename in fnmatch.filter(filenames, '*.py'):
-            includes.append(os.path.join(root, filename))
+            if filename == '__init__.py':
+                includes.append(root)
+            else:
+                includes.append(os.path.join(root, filename))
 
     # remove .py suffix from include
-    includes = map(lambda include: include[:-3], includes)
+    includes = map(lambda include: include[:-3] if include.endswith('.py') else include, includes)
 
     # remove path prefix to start with cosmo
     includes = map(lambda include: include.replace(app_root_dir, ''), includes)
