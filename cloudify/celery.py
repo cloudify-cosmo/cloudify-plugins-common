@@ -50,7 +50,7 @@ sys.excepthook = new_excepthook
 
 @after_setup_task_logger.connect
 def setup_cloudify_logger(loglevel=None, **kwargs):
-    setup_logger(loglevel, kwargs)
+    setup_logger(loglevel, **kwargs)
 
 if __name__ == '__main__':
     celery.start()
