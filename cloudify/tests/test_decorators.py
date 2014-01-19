@@ -151,7 +151,7 @@ class WithNodeStateTest(unittest.TestCase):
         return 'node_state' in kwargs and kwargs['node_state'] is not None
 
     @with_node_state(arg='custom_name')
-    def method_3(self, custom_name):
+    def method_3(self, __cloudify_id, custom_name):
         return custom_name is not None
 
     def test_node_state_injection(self):
@@ -172,7 +172,7 @@ class WithNodeStateTest(unittest.TestCase):
         self.assertEqual(1, self._get_counter)
         self.assertEqual(1, self._update_counter)
 
-    def test_node_state_arg_name(self, custom_name):
+    def test_node_state_arg_name(self):
         node_id = 'id'
         self.assertTrue(self.method_3(node_id))
         self.assertEqual(1, self._get_counter)

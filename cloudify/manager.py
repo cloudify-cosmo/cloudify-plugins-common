@@ -16,6 +16,7 @@
 __author__ = 'idanmo'
 
 
+import os
 from cosmo_manager_rest_client.cosmo_manager_rest_client \
     import CosmoManagerRestClient
 
@@ -55,15 +56,16 @@ class DeploymentNode(object):
         return {k: v for k, v in self._runtime_properties.iteritems() if len(v) == 1 or v[1] is not None}
 
 
-# TODO decorators: split to another module for handling manager related stuff
-# TODO decorators: save manager REST API port in environment
-# (already in MANAGER_REST_PORT)
+def get_rest_service_port():
+    return int(os.environ["MANAGER_REST_PORT"])
+
+
 def get_manager_rest_client():
     from cloudify.utils import get_cosmo_properties
     props = get_cosmo_properties()
     if 'management_ip' not in props:
         raise KeyError('management_ip not found in cloudify properties')
-    return CosmoManagerRestClient(props['management_ip'])
+    return CosmoManagerRestClient(props['management_ip'], get_rest_service_port())
 
 
 def get_node_state(node_id):

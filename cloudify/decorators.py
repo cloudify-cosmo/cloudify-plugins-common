@@ -74,21 +74,28 @@ def inject_argument(arg_name, arg_value, method, args, kwargs=None):
     return args, kwargs
 
 
-def with_node_state(method):
-    @wraps(method)
-    def wrapper(*args, **kwargs):
-        node_id = _get_node_id_from_args(method, args, kwargs)
-        if node_id is None:
-            raise RuntimeError(
-                'Node id property [{0}] not present in '
-                'method invocation arguments'.format(CLOUDIFY_ID_PROPERTY))
-        node_state = get_node_state(node_id)
-        args, kwargs = inject_argument('node_state', node_state, method, args,
-                                       kwargs)
-        result = method(*args, **kwargs)
-        update_node_state(node_state)
-        return result
-    return wrapper
+def with_node_state(func=None, **arguments):
+    if func is not None:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            node_id = _get_node_id_from_args(func, args, kwargs)
+            if node_id is None:
+                raise RuntimeError(
+                    'Node id property [{0}] not present in '
+                    'method invocation arguments'.format(CLOUDIFY_ID_PROPERTY))
+            node_state = get_node_state(node_id)
+            node_state_arg = arguments['arg'] if 'arg' in arguments\
+                else 'node_state'
+            args, kwargs = inject_argument(node_state_arg, node_state, func,
+                                           args, kwargs)
+            result = func(*args, **kwargs)
+            update_node_state(node_state)
+            return result
+        return wrapper
+    else:
+        def partial_wrapper(fn):
+            return with_node_state(fn, **arguments)
+        return partial_wrapper
 
 
 def with_logger(task):
