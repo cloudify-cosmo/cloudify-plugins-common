@@ -41,6 +41,11 @@ def get_cosmo_properties():
     }
 
 
+# TODO: verify/implement for both agent and manager machines.
+def get_local_ip():
+    return get_cosmo_properties()['ip']
+
+
 def build_includes(celery_app_root_dir):
     """
     Returns a list of celery included modules (all python modules under root dir).
