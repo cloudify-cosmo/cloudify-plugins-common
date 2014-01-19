@@ -16,7 +16,11 @@
 __author__ = 'idanmo'
 
 from functools import wraps
+from manager import get_node_state
+from manager import update_node_state
 
+CLOUDIFY_ID_PROPERTY = '__cloudify_id'
+CLOUDIFY_NODE_STATE_PROPERTY = 'node_state'
 
 # initialized in celery.py
 operation = None
@@ -37,6 +41,13 @@ def inject_argument(arg_name, arg_value, method, args, kwargs=None):
         An (*args, **kwargs) tuple to be used for invoking method.
     """
     method_arg_names = method.func_code.co_varnames
+    func_defaults = method.func_defaults
+
+    print "method_args:", method_arg_names
+    print "actual     :", args
+    print "defaults   :", func_defaults
+    print "kwargs     :", kwargs
+
     arg_index = None
     try:
         arg_index = method_arg_names.index(arg_name)
@@ -46,58 +57,38 @@ def inject_argument(arg_name, arg_value, method, args, kwargs=None):
         if kwargs is not None:
             kwargs[arg_name] = arg_value
     else:
-        if len(method_arg_names) == len(args):
-            args[arg_index] = arg_value
-        else:
-            args_as_list = list(args)
-            args_as_list.insert(arg_index, arg_value)
-            args = args_as_list
-    return args, kwargs
-
-
-class DeploymentNode(object):
-    """Represents a deployment node state.
-    An instance of this class contains runtime information retrieved
-    from Cloudify's runtime storage.
-    Its API allows to set and get properties of the node's state,
-     generate an updates dict to be used when requesting to save changes
-     back to the storage (in an optimistic locking manner).
-    """
-    def __init__(self, node_id, runtime_properties=None):
-        self.id = node_id
-        self._runtime_properties = runtime_properties
-        if runtime_properties is not None:
-            self._runtime_properties = {k: [v, None] for k, v in runtime_properties.iteritems()}
-
-    def get(self, key):
-        return self._runtime_properties[key][0]
-
-    def put(self, key, value):
-        if self._runtime_properties is None:
-            self._runtime_properties = {}
-        if key in self._runtime_properties:
-            values = self._runtime_properties[key]
-            if len(values) == 1:
-                self._runtime_properties[key] = [value, values[0]]
+        if len(args) != len(method_arg_names) and func_defaults is not None:
+            method_arg_names = method_arg_names[
+                :len(method_arg_names) - len(func_defaults)]
+        if arg_name in method_arg_names:
+            args = list(args)
+            if len(method_arg_names) == len(args):
+                args[arg_index] = arg_value
             else:
-                values[0] = value
+                args.insert(arg_index, arg_value)
+                if arg_name in kwargs:
+                    del kwargs[arg_name]
         else:
-            self._runtime_properties[key] = [value]
-
-    def get_updated_properties(self):
-        if self._runtime_properties is None:
-            return {}
-        return {k: v for k, v in self._runtime_properties.iteritems() if len(v) == 1 or v[1] is not None}
-
+            if kwargs is not None:
+                kwargs[arg_name] = arg_value
+    return args, kwargs
 
 
 def with_node_state(method):
     @wraps(method)
-    def wrapper(method):
-
-
-
-
+    def wrapper(*args, **kwargs):
+        node_id = _get_node_id_from_args(method, args, kwargs)
+        if node_id is None:
+            raise RuntimeError(
+                'Node id property [{0}] not present in '
+                'method invocation arguments'.format(CLOUDIFY_ID_PROPERTY))
+        node_state = get_node_state(node_id)
+        args, kwargs = inject_argument('node_state', node_state, method, args,
+                                       kwargs)
+        result = method(*args, **kwargs)
+        update_node_state(node_state)
+        return result
+    return wrapper
 
 
 def with_logger(task):
@@ -138,71 +129,24 @@ def with_logger(task):
     return task_wrapper
 
 
-CLOUDIFY_ID_PROPERTY = '__cloudify_id'
-CLOUDIFY_NODE_STATE_PROPERTY = 'node_state'
-
-
-def _get_base_uri():
-    return "http://localhost:{0}".format(os.environ['MANAGER_REST_PORT'])
-
-
-
-
-# TODO runtime-model: use manager-rest-client
-def get_node_state(node_id):
-    response = requests.get("{0}/nodes/{1}".format(_get_base_uri(), node_id))
-    if response.status_code != 200:
-        raise RuntimeError(
-            "Error getting node from cloudify runtime for node id {0} [code={1}]".format(node_id, response.status_code))
-    return DeploymentNode(node_id, response.json()['runtimeInfo'])
-
-
-# TODO runtime-model: use manager-rest-client
-def update_node_state(node_state):
-    updated_properties = node_state.get_updated_properties()
-    if len(updated_properties) == 0:
-        return None
-    import json
-    response = requests.patch("{0}/nodes/{1}".format(_get_base_uri(), node_state.id),
-                              headers={'Content-Type': 'application/json'},
-                              data=json.dumps(updated_properties))
-    if response.status_code != 200:
-        raise RuntimeError(
-            "Error getting node from cloudify runtime for node id {0} [code={1}]".format(node_state.id,
-                                                                                         response.status_code))
-    return response.json()
-
-
-def inject_node_state(task):
-    # Necessary for keeping the returned method name as the provided task's name.
-    from functools import wraps
-
-    @wraps(task)
-    def task_wrapper(*args, **kwargs):
-        node_id = _get_cloudify_id_from_method_arguments(task, args, kwargs)
-        state = None
-        if node_id is not None:
-            try:
-                state = get_node_state(node_id)
-            except Exception:
-                # TODO: log exception
-                pass
-            kwargs[CLOUDIFY_NODE_STATE_PROPERTY] = state
-        task(*args, **kwargs)
-        if state is not None:
-            try:
-                update_node_state(state)
-            except Exception as e:
-                # TODO: log exception
-                pass
-    return task_wrapper
-
-
-def _get_cloudify_id_from_method_arguments(method, args, kwargs):
+def _get_node_id_from_args(method, args, kwargs):
+    """Gets node id for method invocation.
+    Args:
+        method: Invoked method.
+        args: Invocation *args.
+        kwargs: Invocation **kwargs.
+    Returns:
+        Extracted node id or None if not found.
+    """
     if CLOUDIFY_ID_PROPERTY in kwargs:
         return kwargs[CLOUDIFY_ID_PROPERTY]
     try:
-        arg_index = method.func_code.co_varnames.index(CLOUDIFY_ID_PROPERTY)
+        arg_names = method.func_code.co_varnames
+        arg_index = None
+        for i in range(len(arg_names)):
+            if arg_names[i].endswith(CLOUDIFY_ID_PROPERTY):
+                arg_index = i
+                break
         return args[arg_index]
     except ValueError:
         pass
