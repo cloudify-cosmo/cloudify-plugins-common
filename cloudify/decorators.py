@@ -15,6 +15,7 @@
 
 __author__ = 'idanmo'
 
+import logging
 from functools import wraps
 from manager import get_node_state
 from manager import update_node_state
@@ -42,12 +43,6 @@ def inject_argument(arg_name, arg_value, method, args, kwargs=None):
     """
     method_arg_names = method.func_code.co_varnames
     func_defaults = method.func_defaults
-
-    print "method_args:", method_arg_names
-    print "actual     :", args
-    print "defaults   :", func_defaults
-    print "kwargs     :", kwargs
-
     arg_index = None
     try:
         arg_index = method_arg_names.index(arg_name)
@@ -75,6 +70,11 @@ def inject_argument(arg_name, arg_value, method, args, kwargs=None):
 
 
 def with_node_state(func=None, **arguments):
+    """Injects node state for the node in context.
+    Args:
+        arg: argument name to inject the node state as where 'node_state'
+            is the default.
+    """
     if func is not None:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -98,42 +98,27 @@ def with_node_state(func=None, **arguments):
         return partial_wrapper
 
 
-def with_logger(task):
-    @wraps(task)
-    def task_wrapper(*args, **kwargs):
-        print "## task started ##"
-        try:
-            import logging
-            logger = logging.getLogger(task.func_name)
-
-            print "arguments: {0}".format(task.func_code.co_varnames)
-            print "values   : {0}".format(args)
-
-            arg_names = task.func_code.co_varnames
-            index = None
-            try:
-                index = arg_names.index('logger')
-            except ValueError:
-                pass
-            if index is not None:
-                if len(args) != len(arg_names):
-                    args_list = list(args)
-                    args_list.insert(index, logger)
-                    args = args_list
-
-            print "updated:"
-            print "arguments: {0}".format(task.func_code.co_varnames)
-            print "values   : {0}".format(args)
-
-
-            result = task(*args, **kwargs)
-
-            print "task result is:", result
+def with_logger(func=None, **arguments):
+    """Injects a Cloudify operation logger.
+    Args:
+        arg: argument name to inject the logger as where 'logger' is the
+            default.
+    """
+    if func is not None:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            logger_arg = arguments['arg'] if 'arg' in arguments \
+                else 'logger'
+            logger = logging.getLogger('cloudify')
+            args, kwargs = inject_argument(logger_arg, logger, func,
+                                           args, kwargs)
+            result = func(*args, **kwargs)
             return result
-        finally:
-            print "## task ended ##"
-
-    return task_wrapper
+        return wrapper
+    else:
+        def partial_wrapper(fn):
+            return with_logger(fn, **arguments)
+        return partial_wrapper
 
 
 def _get_node_id_from_args(method, args, kwargs):

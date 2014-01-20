@@ -21,6 +21,11 @@ from os import path
 from constants import CLOUDIFY_APP_DIR_KEY
 
 
+MANAGER_IP_KEY = "MANAGEMENT_IP"
+LOCAL_IP_KEY = "AGENT_IP"
+MANAGER_REST_PORT_KEY = "MANAGER_REST_PORT"
+
+
 def get_app_dir():
     """
     Returns the directory celery tasks are stored within.
@@ -28,22 +33,23 @@ def get_app_dir():
     return os.environ[CLOUDIFY_APP_DIR_KEY]
 
 
-def get_cosmo_properties():
-    management_ip_key = "MANAGEMENT_IP"
-    agent_ip_key = "AGENT_IP"
-    if management_ip_key not in os.environ:
-        raise RuntimeError("{0} is not set in environment".format(management_ip_key))
-    if agent_ip_key not in os.environ:
-        raise RuntimeError("{0} is not set in environemnt".format(agent_ip_key))
-    return {
-        "management_ip": os.environ[management_ip_key],
-        "ip": os.environ[agent_ip_key]
-    }
-
-
-# TODO: verify/implement for both agent and manager machines.
 def get_local_ip():
-    return get_cosmo_properties()['ip']
+    return os.environ[LOCAL_IP_KEY]
+
+
+def get_manager_ip():
+    return os.environ[MANAGER_IP_KEY]
+
+
+def get_manager_rest_service_port():
+    return int(os.environ[MANAGER_REST_PORT_KEY])
+
+
+def get_cosmo_properties():
+    return {
+        "management_ip": get_manager_ip(),
+        "ip": get_local_ip()
+    }
 
 
 def build_includes(celery_app_root_dir):
@@ -59,7 +65,9 @@ def build_includes(celery_app_root_dir):
 
     for root, dirnames, filenames in os.walk(celery_app_root_dir):
         for filename in fnmatch.filter(filenames, '*.py'):
-            if filename == '__init__.py':
+            if filename.startswith("test"):
+                continue
+            elif filename == '__init__.py':
                 includes.append(root)
             else:
                 includes.append(os.path.join(root, filename))

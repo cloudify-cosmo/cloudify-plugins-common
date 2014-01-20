@@ -21,6 +21,7 @@ import cloudify.decorators as decorators
 from functools import wraps
 from cloudify.decorators import inject_argument
 from cloudify.decorators import with_node_state
+from cloudify.decorators import with_logger
 from cloudify.manager import DeploymentNode
 
 
@@ -178,3 +179,33 @@ class WithNodeStateTest(unittest.TestCase):
         self.assertEqual(1, self._get_counter)
         self.assertEqual(1, self._update_counter)
 
+    @with_logger
+    @with_node_state
+    def method_with_two_decorators(self, __cloudify_id, node_state, logger):
+        return node_state is not None and logger is not None
+
+    def test_with_logger(self):
+        self.assertTrue(self.method_with_two_decorators('id'))
+
+
+class WithLoggerTest(unittest.TestCase):
+
+    @with_logger
+    def some_method_logger(self, logger):
+        logger.info('hello!')
+        return logger is not None
+
+    @with_logger(arg='custom_logger')
+    def some_method_custom_logger(self, custom_logger):
+        custom_logger.info('hello!')
+        return custom_logger is not None
+
+    @with_logger(arg='custom_logger')
+    def some_method_kwargs_logger(self, **kwargs):
+        kwargs['custom_logger'].info('hello!')
+        return 'custom_logger' in kwargs
+
+    def test_with_logger(self):
+        self.assertTrue(self.some_method_logger())
+        self.assertTrue(self.some_method_custom_logger())
+        self.assertTrue(self.some_method_kwargs_logger())
