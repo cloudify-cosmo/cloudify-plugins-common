@@ -19,7 +19,9 @@ from setuptools import setup
 
 REST_CLIENT_VERSION = '0.3'
 REST_CLIENT_BRANCH = 'develop'
-REST_CLIENT = "https://github.com/CloudifySource/cosmo-manager-rest-client/tarball/{0}".format(REST_CLIENT_BRANCH)
+REST_CLIENT =\
+    "https://github.com/CloudifySource/cosmo-manager-rest-client/tarball/{0}"\
+    .format(REST_CLIENT_BRANCH)
 
 
 setup(
@@ -29,15 +31,18 @@ setup(
     author_email='elip@gigaspaces.com',
     packages=['cloudify', 'cosmo'],
     license='LICENSE',
-    description='Package that holds common cosmo modules needed by many plugins',
+    description=
+    'Package that holds common cosmo modules needed by many plugins',
     zip_safe=False,
     install_requires=[
-        # we include this dependency here because protobuf may fail to install transitively.
+        # we include this dependency here because protobuf may fail
+        # to install transitively.
         # see https://pypi.python.org/pypi/bernhard/0.1.0
         "protobuf",
         "bernhard",
         "celery==3.0.24",
         "cosmo-manager-rest-client"
     ],
-    dependency_links=["{0}#egg=cosmo-manager-rest-client-{1}".format(REST_CLIENT, REST_CLIENT_VERSION)]
+    dependency_links=["{0}#egg=cosmo-manager-rest-client-{1}"
+                      .format(REST_CLIENT, REST_CLIENT_VERSION)]
 )

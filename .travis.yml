@@ -7,10 +7,11 @@ install:
 
     # command to install dependencies
     - python setup.py install
-
+    - sudo pip install flake8
 
 script:
 
     # command to run tests
+    - flake8 .
     - python -m unittest cosmo.tests.test_celery
     - python -m unittest cloudify.tests.test_celery

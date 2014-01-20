@@ -143,4 +143,3 @@ def _get_node_id_from_args(method, args, kwargs):
     except ValueError:
         pass
     return None
-

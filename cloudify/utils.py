@@ -54,10 +54,13 @@ def get_cosmo_properties():
 
 def build_includes(celery_app_root_dir):
     """
-    Returns a list of celery included modules (all python modules under root dir).
+    Returns a list of celery included modules
+    (all python modules under root dir).
     """
     if not path.exists(celery_app_root_dir):
-        raise IOError("Celery application root directory: {0} not found".format(celery_app_root_dir))
+        raise IOError(
+            "Celery application root directory: {0} not found"
+            .format(celery_app_root_dir))
 
     includes = []
 
@@ -73,7 +76,8 @@ def build_includes(celery_app_root_dir):
                 includes.append(os.path.join(root, filename))
 
     # remove .py suffix from include
-    includes = map(lambda include: include[:-3] if include.endswith('.py') else include, includes)
+    includes = map(lambda include: include[:-3]
+                   if include.endswith('.py') else include, includes)
 
     # remove path prefix to start with cosmo
     includes = map(lambda include: include.replace(app_root_dir, ''), includes)
