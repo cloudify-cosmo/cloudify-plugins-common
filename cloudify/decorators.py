@@ -29,7 +29,7 @@ def operation(method):
     return method
 
 
-def _inject_argument(arg_name, arg_value, args, kwargs=None):
+def _inject_argument(arg_name, arg_value, kwargs=None):
     """Inject argument to kwargs.
     This is currently done by simply putting the key and value in kwargs
     since Celery's task decorator maps **kwargs to relevant arguments
@@ -45,7 +45,7 @@ def _inject_argument(arg_name, arg_value, args, kwargs=None):
         An (*args, **kwargs) tuple to be used for invoking method.
     """
     kwargs[arg_name] = arg_value
-    return args, kwargs
+    return kwargs
 
 
 def with_node_state(func=None, **arguments):
@@ -65,8 +65,7 @@ def with_node_state(func=None, **arguments):
             node_state = get_node_state(node_id)
             node_state_arg = arguments['arg'] if 'arg' in arguments\
                 else 'node_state'
-            args, kwargs = _inject_argument(node_state_arg, node_state,
-                                            args, kwargs)
+            kwargs = _inject_argument(node_state_arg, node_state, kwargs)
             result = func(*args, **kwargs)
             update_node_state(node_state)
             return result
@@ -89,8 +88,7 @@ def with_logger(func=None, **arguments):
             logger_arg = arguments['arg'] if 'arg' in arguments \
                 else 'logger'
             logger = logging.getLogger('cloudify')
-            args, kwargs = _inject_argument(logger_arg, logger,
-                                            args, kwargs)
+            kwargs = _inject_argument(logger_arg, logger, kwargs)
             result = func(*args, **kwargs)
             return result
         return wrapper
