@@ -49,10 +49,11 @@ def send_log_event(log_record):
         try:
             _send_event(event)
         except BaseException as e:
-            print "caught exception while sending log event : {0} . log was : {1}".format(e.message, log_record)
-            pass
+            print "caught exception while sending log event : " \
+                  "{0} . log was : {1}".format(e.message, log_record)
     else:
-        print "not running inside cosmo. log event is not sent : {0}".format(log_record)
+        print "not running inside cosmo. log event is not sent : {0}"\
+            .format(log_record)
 
 
 def _send_event(event):
