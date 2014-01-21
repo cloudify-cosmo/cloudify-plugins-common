@@ -23,49 +23,28 @@ from manager import update_node_state
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
 CLOUDIFY_NODE_STATE_PROPERTY = 'node_state'
 
-# initialized in celery.py
-operation = None
+
+# overridden in celery.py
+def operation(method):
+    return method
 
 
-def inject_argument(arg_name, arg_value, method, args, kwargs=None):
-    """Injects argument and its value to the provided args, if arg_name
-    was not found in argss_names a named arg will be injected to kwargs.
-
+def _inject_argument(arg_name, arg_value, args, kwargs=None):
+    """Inject argument to kwargs.
+    This is currently done by simply putting the key and value in kwargs
+    since Celery's task decorator maps **kwargs to relevant arguments
+    and when tasks are executed from workflow all arguments are passed
+    in **kwargs.
     Args:
         arg_name: The argument name to inject.
         arg_value: The argument value to inject.
-        method: The method to argument is to be injected for.
         args: Invocation arguments.
         kwargs: Invocation kwargs (optional).
 
     Returns:
         An (*args, **kwargs) tuple to be used for invoking method.
     """
-    method_arg_names = method.func_code.co_varnames
-    func_defaults = method.func_defaults
-    arg_index = None
-    try:
-        arg_index = method_arg_names.index(arg_name)
-    except ValueError:
-        pass
-    if arg_index is None:
-        if kwargs is not None:
-            kwargs[arg_name] = arg_value
-    else:
-        if len(args) != len(method_arg_names) and func_defaults is not None:
-            method_arg_names = method_arg_names[
-                :len(method_arg_names) - len(func_defaults)]
-        if arg_name in method_arg_names:
-            args = list(args)
-            if len(method_arg_names) == len(args):
-                args[arg_index] = arg_value
-            else:
-                args.insert(arg_index, arg_value)
-                if arg_name in kwargs:
-                    del kwargs[arg_name]
-        else:
-            if kwargs is not None:
-                kwargs[arg_name] = arg_value
+    kwargs[arg_name] = arg_value
     return args, kwargs
 
 
@@ -86,8 +65,8 @@ def with_node_state(func=None, **arguments):
             node_state = get_node_state(node_id)
             node_state_arg = arguments['arg'] if 'arg' in arguments\
                 else 'node_state'
-            args, kwargs = inject_argument(node_state_arg, node_state, func,
-                                           args, kwargs)
+            args, kwargs = _inject_argument(node_state_arg, node_state,
+                                            args, kwargs)
             result = func(*args, **kwargs)
             update_node_state(node_state)
             return result
@@ -110,8 +89,8 @@ def with_logger(func=None, **arguments):
             logger_arg = arguments['arg'] if 'arg' in arguments \
                 else 'logger'
             logger = logging.getLogger('cloudify')
-            args, kwargs = inject_argument(logger_arg, logger, func,
-                                           args, kwargs)
+            args, kwargs = _inject_argument(logger_arg, logger,
+                                            args, kwargs)
             result = func(*args, **kwargs)
             return result
         return wrapper

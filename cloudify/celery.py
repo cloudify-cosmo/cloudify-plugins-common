@@ -36,6 +36,7 @@ from cloudify.logs import setup_logger
 
 celery = Celery('cosmo.celery', include=build_includes(
     os.path.dirname(__file__)))
+
 cloudify.operation = celery.task
 
 current_excepthook = sys.excepthook
