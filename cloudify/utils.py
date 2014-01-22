@@ -15,9 +15,8 @@
 
 __author__ = 'idanmo'
 
-import fnmatch
 import os
-from os import path
+
 from constants import CLOUDIFY_APP_DIR_KEY
 
 
@@ -50,42 +49,3 @@ def get_cosmo_properties():
         "management_ip": get_manager_ip(),
         "ip": get_local_ip()
     }
-
-
-def build_includes(celery_app_root_dir):
-    """
-    Returns a list of celery included modules
-    (all python modules under root dir).
-    """
-    if not path.exists(celery_app_root_dir):
-        raise IOError(
-            "Celery application root directory: {0} not found"
-            .format(celery_app_root_dir))
-
-    includes = []
-
-    app_root_dir = path.realpath(path.join(celery_app_root_dir, '..'))
-
-    for root, dirnames, filenames in os.walk(celery_app_root_dir):
-        for filename in fnmatch.filter(filenames, '*.py'):
-            if filename.startswith("test"):
-                continue
-            elif filename == '__init__.py':
-                includes.append(root)
-            else:
-                includes.append(os.path.join(root, filename))
-
-    # remove .py suffix from include
-    includes = map(lambda include: include[:-3]
-                   if include.endswith('.py') else include, includes)
-
-    # remove path prefix to start with cosmo
-    includes = map(lambda include: include.replace(app_root_dir, ''), includes)
-
-    # replace slashes with dots in include path
-    includes = map(lambda include: include.replace('/', '.'), includes)
-
-    # remove the dot at the start
-    includes = map(lambda include: include[1:], includes)
-
-    return includes

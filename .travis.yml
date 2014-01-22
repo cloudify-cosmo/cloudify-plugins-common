@@ -13,5 +13,4 @@ script:
 
     # command to run tests
     - flake8 .
-    - python -m unittest cosmo.tests.test_celery
-    - python -m unittest cloudify.tests.test_celery
+    - nosetests cloudify/tests --nologcapture --nocapture

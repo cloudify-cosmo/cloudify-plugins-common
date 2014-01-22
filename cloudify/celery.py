@@ -30,14 +30,11 @@ import os
 from celery import Celery
 from celery.signals import after_setup_task_logger
 
-from cloudify.utils import build_includes
 from cloudify.logs import setup_logger
 
-celery = Celery('cosmo.celery',
+celery = Celery('cloudify.celery',
                 broker='amqp://',
-                backend='amqp://',
-                include=build_includes(
-                    os.path.dirname(__file__)))
+                backend='amqp://')
 
 current_excepthook = sys.excepthook
 
@@ -55,6 +52,3 @@ sys.excepthook = new_excepthook
 @after_setup_task_logger.connect
 def setup_cloudify_logger(loglevel=None, **kwargs):
     setup_logger(loglevel, **kwargs)
-
-if __name__ == '__main__':
-    celery.start()
