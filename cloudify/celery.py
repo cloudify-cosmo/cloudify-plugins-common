@@ -26,7 +26,6 @@ __author__ = 'idanmo'
 import sys
 import traceback
 import os
-import cloudify
 
 from celery import Celery
 from celery.signals import after_setup_task_logger
@@ -34,10 +33,11 @@ from celery.signals import after_setup_task_logger
 from cloudify.utils import build_includes
 from cloudify.logs import setup_logger
 
-celery = Celery('cosmo.celery', include=build_includes(
-    os.path.dirname(__file__)))
-
-cloudify.operation = celery.task
+celery = Celery('cosmo.celery',
+                broker='amqp://',
+                backend='amqp://',
+                include=build_includes(
+                    os.path.dirname(__file__)))
 
 current_excepthook = sys.excepthook
 
