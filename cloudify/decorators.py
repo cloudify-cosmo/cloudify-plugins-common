@@ -19,14 +19,16 @@ import logging
 from functools import wraps
 from manager import get_node_state
 from manager import update_node_state
+from cloudify.celery import celery
+
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
 CLOUDIFY_NODE_STATE_PROPERTY = 'node_state'
 
-
-# overridden in celery.py
-def operation(method):
-    return method
+"""
+A decorator for specifying a Python method is a Cloudify operation.
+"""
+operation = celery.task
 
 
 def _inject_argument(arg_name, arg_value, kwargs=None):
