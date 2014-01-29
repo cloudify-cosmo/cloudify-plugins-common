@@ -20,17 +20,20 @@ import bernhard
 from utils import get_cosmo_properties
 
 
-def send_event(node_id, host, service, type, value):
+def send_event(host, service, type, value):
     event = {
         'host': host,
         'service': service,
         type: value,
-        'tags': ['name={0}'.format(node_id)]
     }
     if is_cosmo_env():
         _send_event(event)
     else:
         print "not running inside cosmo. event is not sent : {0}".format(event)
+
+
+def send_reachable(node_id, host):
+    send_event(host, node_id, 'state', 'running')
 
 
 def send_log_event(log_record):
