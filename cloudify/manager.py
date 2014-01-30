@@ -15,7 +15,7 @@
 
 __author__ = 'idanmo'
 
-
+import notifications
 import utils
 from cosmo_manager_rest_client.cosmo_manager_rest_client \
     import CosmoManagerRestClient
@@ -97,3 +97,7 @@ def update_node_state(node_state):
         return None
     client = get_manager_rest_client()
     client.update_node_state(node_state.id, updated)
+
+
+def set_node_started(node_id, host):
+    notifications.send_event(host, node_id, 'state', 'running')

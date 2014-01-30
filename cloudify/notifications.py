@@ -32,10 +32,6 @@ def send_event(host, service, type, value):
         print "not running inside cosmo. event is not sent : {0}".format(event)
 
 
-def send_reachable(node_id, host):
-    send_event(host, node_id, 'state', 'running')
-
-
 def send_log_event(log_record):
     if is_cosmo_env():
         host = get_cosmo_properties()['ip']
