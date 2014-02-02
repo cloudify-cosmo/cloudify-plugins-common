@@ -27,10 +27,18 @@ class ContextCapabilities(object):
         self._capabilities = capabilities if capabilities is not None else {}
 
     def __getitem__(self, key):
+        value = None
         for caps in self._capabilities:
             if key in caps:
-                return caps[key]
-        return None
+                if value is not None:
+                    raise RuntimeError(
+                        "'{0}' capability ambiguity [capabilities={1}]".format(
+                            key, self._capabilities))
+                value = caps[key]
+        return value
+
+    def get_all(self):
+        return self._capabilities
 
 
 class CloudifyContext(object):
