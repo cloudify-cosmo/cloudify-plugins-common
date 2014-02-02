@@ -46,7 +46,6 @@ class CloudifyContext(object):
     def __init__(self, ctx={}):
         def default_value():
             return None
-        dict
         self._context = defaultdict(default_value, ctx)
         self._capabilities = ContextCapabilities(self._context['capabilities'])
         self._logger = getLogger(self.task_name)

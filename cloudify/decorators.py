@@ -25,6 +25,7 @@ from cloudify.context import CloudifyContext
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
 CLOUDIFY_NODE_STATE_PROPERTY = 'node_state'
 CLOUDIFY_CONTEXT_PROPERTY_KEY = '__cloudify_context'
+CLOUDIFY_CONTEXT_IDENTIFIER = '__cloudify_context'
 
 
 """
@@ -54,8 +55,8 @@ def _inject_argument(arg_name, arg_value, kwargs=None):
 
 def _find_context_arg(args, kwargs):
     for arg in args:
-        if isinstance(arg, dict) and CLOUDIFY_CONTEXT_PROPERTY_KEY in arg:
-            return arg[CLOUDIFY_CONTEXT_PROPERTY_KEY]
+        if isinstance(arg, dict) and CLOUDIFY_CONTEXT_IDENTIFIER in arg:
+            return arg
     return kwargs[CLOUDIFY_CONTEXT_PROPERTY_KEY]\
         if CLOUDIFY_CONTEXT_PROPERTY_KEY in kwargs else None
 
