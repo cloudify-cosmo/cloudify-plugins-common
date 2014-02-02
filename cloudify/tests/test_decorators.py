@@ -42,5 +42,3 @@ class OperationTest(unittest.TestCase):
         ctx = {'node_id': '1234'}
         kwargs = {'__cloudify_context': ctx}
         method_with_ctx(0, 0, **kwargs)
-
-
