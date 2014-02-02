@@ -88,24 +88,24 @@ class CloudifyContext(object):
     def logger(self):
         return self._logger
 
-    def _node_state(self):
+    def _get_node_state_if_needed(self):
         if self._node_state is None:
             self._node_state = get_node_state(self.node_id)
 
-    @_node_state
     def __getitem__(self, key):
+        self._get_node_state_if_needed()
         return self._node_state[key]
 
-    @_node_state
     def __setitem__(self, key, value):
+        self._get_node_state_if_needed()
         self._node_state[key] = value
 
-    @_node_state
     def __contains__(self, key):
+        self._get_node_state_if_needed()
         return key in self._node_state
 
-    @_node_state
     def runtime_properties(self):
+        self._get_node_state_if_needed()
         return self._node_state.runtime_properties
 
     def update(self):

@@ -17,7 +17,7 @@ __author__ = 'idanmo'
 
 
 import unittest
-from manager import NodeState
+from cloudify.manager import NodeState
 
 
 class NodeStateTest(unittest.TestCase):
