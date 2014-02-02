@@ -20,10 +20,13 @@ from functools import wraps
 from manager import get_node_state
 from manager import update_node_state
 from cloudify.celery import celery
-
+from cloudify.context import CloudifyContext
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
 CLOUDIFY_NODE_STATE_PROPERTY = 'node_state'
+CLOUDIFY_CONTEXT_PROPERTY_KEY = '__cloudify_context'
+CLOUDIFY_CONTEXT_IDENTIFIER = '__cloudify_context'
+
 
 """
 A decorator for specifying a Python method is a Cloudify operation.
@@ -48,6 +51,34 @@ def _inject_argument(arg_name, arg_value, kwargs=None):
     """
     kwargs[arg_name] = arg_value
     return kwargs
+
+
+def _find_context_arg(args, kwargs):
+    for arg in args:
+        if isinstance(arg, dict) and CLOUDIFY_CONTEXT_IDENTIFIER in arg:
+            return arg
+    return kwargs[CLOUDIFY_CONTEXT_PROPERTY_KEY]\
+        if CLOUDIFY_CONTEXT_PROPERTY_KEY in kwargs else None
+
+
+def context(func=None, **arguments):
+    if func is not None:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            ctx = _find_context_arg(args, kwargs)
+            if ctx is None:
+                raise RuntimeError(
+                    'Context property not found in method arguments')
+            ctx = CloudifyContext(ctx)
+            kwargs = _inject_argument('ctx', ctx, kwargs)
+            result = func(*args, **kwargs)
+            ctx.update()
+            return result
+        return wrapper
+    else:
+        def partial_wrapper(fn):
+            return with_node_state(fn, **arguments)
+        return partial_wrapper
 
 
 def with_node_state(func=None, **arguments):

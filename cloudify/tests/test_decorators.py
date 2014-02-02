@@ -21,7 +21,7 @@ import cloudify.decorators as decorators
 from cloudify.decorators import with_node_state
 from cloudify.decorators import with_logger
 from cloudify.decorators import operation
-from cloudify.manager import DeploymentNode
+from cloudify.manager import NodeState
 
 
 @operation
@@ -53,7 +53,7 @@ class WithNodeStateTest(unittest.TestCase):
 
     def get_state_mock(self, node_id):
         self._get_counter += 1
-        return DeploymentNode(node_id)
+        return NodeState(node_id)
 
     def update_state_mock(self, *args):
         self._update_counter += 1
