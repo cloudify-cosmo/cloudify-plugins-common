@@ -21,7 +21,7 @@ from cosmo_manager_rest_client.cosmo_manager_rest_client \
     import CosmoManagerRestClient
 
 
-class DeploymentNode(object):
+class NodeState(object):
     """Represents a deployment node state.
     An instance of this class contains runtime information retrieved
     from Cloudify's runtime storage.
@@ -29,15 +29,16 @@ class DeploymentNode(object):
      generate an updates dict to be used when requesting to save changes
      back to the storage (in an optimistic locking manner).
     """
-    def __init__(self, node_id, runtime_properties=None):
+    def __init__(self, node_id, runtime_properties={}):
         self.id = node_id
         self._runtime_properties = runtime_properties
-        if runtime_properties is not None:
-            self._runtime_properties = {k: [v, None] for k, v
-                                        in runtime_properties.iteritems()}
+        self._runtime_properties = {k: [v, None] for k, v
+                                    in runtime_properties.iteritems()}
 
     def get(self, key):
-        return self._runtime_properties[key][0]
+        if key in self._runtime_properties:
+            return self._runtime_properties[key][0]
+        return None
 
     def put(self, key, value):
         """Put a runtime property value.
@@ -48,8 +49,6 @@ class DeploymentNode(object):
         Updated runtime properties structure:
             key: [new_value, old_value]
         """
-        if self._runtime_properties is None:
-            self._runtime_properties = {}
         if key in self._runtime_properties:
             values = self._runtime_properties[key]
             if len(values) == 1 or values[1] is None:
@@ -64,6 +63,13 @@ class DeploymentNode(object):
 
     def __getitem__(self, key):
         return self.get(key)
+
+    def __contains__(self, key):
+        return key in self._runtime_properties
+
+    @property
+    def runtime_properties(self):
+        return map(lambda (k, v): (k, v[0]), self._runtime_properties)
 
     def get_updated_properties(self):
         """Get new/updated runtime properties.
@@ -88,7 +94,7 @@ def get_node_state(node_id):
     node_state = client.get_node_state(node_id)
     if 'runtimeInfo' not in node_state:
         raise KeyError('runtimeInfo not found in get_node_state response')
-    return DeploymentNode(node_id, node_state['runtimeInfo'])
+    return NodeState(node_id, node_state['runtimeInfo'])
 
 
 def update_node_state(node_state):

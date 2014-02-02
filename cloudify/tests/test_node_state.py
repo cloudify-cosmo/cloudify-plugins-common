@@ -17,13 +17,13 @@ __author__ = 'idanmo'
 
 
 import unittest
-from manager import DeploymentNode
+from manager import NodeState
 
 
-class DeploymentNodeTest(unittest.TestCase):
+class NodeStateTest(unittest.TestCase):
 
     def test_put_get(self):
-        node = DeploymentNode('id', {})
+        node = NodeState('id', {})
         node['key'] = 'value'
         self.assertEqual('value', node['key'])
         updated = node.get_updated_properties()
@@ -33,7 +33,7 @@ class DeploymentNodeTest(unittest.TestCase):
 
     def test_updated(self):
         props = {'key': 'value', 'not_updated': 'value'}
-        node = DeploymentNode('id', props)
+        node = NodeState('id', props)
         node['key'] = 'new_value'
         self.assertEqual('new_value', node['key'])
         self.assertEqual('value', node['not_updated'])
