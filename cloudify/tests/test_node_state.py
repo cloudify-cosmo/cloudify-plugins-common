@@ -42,3 +42,42 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual(2, len(updated['key']))
         self.assertEqual('new_value', updated['key'][0])
         self.assertEqual('value', updated['key'][1])
+
+    def test_no_updates_to_empty_node(self):
+        node = NodeState('id')
+        self.assertEqual(0, len(node.get_updated_properties()))
+
+    def test_no_updates(self):
+        node = NodeState('id', {'key': 'value'})
+        self.assertEqual(0, len(node.get_updated_properties()))
+
+    def test_put_new_property(self):
+        node = NodeState('id')
+        node.put('key', 'value')
+        self.assertEqual('value', node.get('key'))
+        updated = node.get_updated_properties()
+        self.assertEqual(1, len(updated))
+        self.assertEqual(1, len(updated['key']))
+        self.assertEqual('value', updated['key'][0])
+
+    def test_put_several_properties(self):
+        node = NodeState('id', {'key0': 'value0'})
+        node.put('key1', 'value1')
+        node.put('key2', 'value2')
+        updated = node.get_updated_properties()
+        self.assertEqual(2, len(updated))
+        self.assertEqual(1, len(updated['key1']))
+        self.assertEqual(1, len(updated['key2']))
+        self.assertEqual('value1', updated['key1'][0])
+        self.assertEqual('value2', updated['key2'][0])
+
+    def test_put_new_property_twice(self):
+        node = NodeState('id')
+        node.put('key', 'value')
+        node.put('key', 'v')
+        self.assertEqual('v', node.get('key'))
+        updated = node.get_updated_properties()
+        self.assertEqual(1, len(updated))
+        self.assertEqual(2, len(updated['key']))
+        self.assertEqual('v', updated['key'][0])
+        self.assertEqual('value', updated['key'][1])

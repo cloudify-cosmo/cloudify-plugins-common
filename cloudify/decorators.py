@@ -22,16 +22,11 @@ from manager import update_node_state
 from cloudify.celery import celery
 from cloudify.context import CloudifyContext
 
+
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
 CLOUDIFY_NODE_STATE_PROPERTY = 'node_state'
 CLOUDIFY_CONTEXT_PROPERTY_KEY = '__cloudify_context'
 CLOUDIFY_CONTEXT_IDENTIFIER = '__cloudify_context'
-
-
-"""
-A decorator for specifying a Python method is a Cloudify operation.
-"""
-operation = celery.task
 
 
 def _inject_argument(arg_name, arg_value, kwargs=None):
@@ -61,14 +56,14 @@ def _find_context_arg(args, kwargs):
         if CLOUDIFY_CONTEXT_PROPERTY_KEY in kwargs else None
 
 
-def context(func=None, **arguments):
+def operation(func=None, **arguments):
     if func is not None:
+        @celery.task
         @wraps(func)
         def wrapper(*args, **kwargs):
             ctx = _find_context_arg(args, kwargs)
             if ctx is None:
-                raise RuntimeError(
-                    'Context property not found in method arguments')
+                ctx = {}
             ctx = CloudifyContext(ctx)
             kwargs = _inject_argument('ctx', ctx, kwargs)
             result = func(*args, **kwargs)
@@ -77,8 +72,11 @@ def context(func=None, **arguments):
         return wrapper
     else:
         def partial_wrapper(fn):
-            return with_node_state(fn, **arguments)
+            return operation(fn, **arguments)
         return partial_wrapper
+
+
+task = operation
 
 
 def with_node_state(func=None, **arguments):
