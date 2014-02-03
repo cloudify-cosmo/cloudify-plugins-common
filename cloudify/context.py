@@ -43,8 +43,12 @@ class ContextCapabilities(object):
 
 class CloudifyRelatedNode(object):
 
-    def __init__(self, related):
-        self._related = related
+    def __init__(self, ctx):
+        self._related = ctx['related']
+        if 'capabilities' in ctx and self.node_id in ctx['capabilities']:
+            self._runtime_properties = ctx['capabilities'][self.node_id]
+        else:
+            self._runtime_properties = {}
 
     @property
     def node_id(self):
@@ -54,11 +58,17 @@ class CloudifyRelatedNode(object):
     def properties(self):
         return self._related['node_properties']
 
+    @property
+    def runtime_properties(self):
+        return self._runtime_properties
+
     def __getitem__(self, key):
-        return self.properties[key]
+        if key in self.properties:
+            return self.properties[key]
+        return self._runtime_properties[key]
 
     def __contains__(self, key):
-        return key in self.properties
+        return key in self.properties or key in self._runtime_properties
 
 
 class CloudifyContext(object):
@@ -71,7 +81,7 @@ class CloudifyContext(object):
         self._logger = getLogger(self.task_name)
         self._node_state = None
         if self._context['related'] is not None:
-            self._related = CloudifyRelatedNode(self._context['related'])
+            self._related = CloudifyRelatedNode(self._context)
         else:
             self._related = None
 
