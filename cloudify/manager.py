@@ -69,7 +69,7 @@ class NodeState(object):
 
     @property
     def runtime_properties(self):
-        return map(lambda (k, v): (k, v[0]), self._runtime_properties)
+        return {k: v[0] for k, v in self._runtime_properties.iteritems()}
 
     def get_updated_properties(self):
         """Get new/updated runtime properties.
