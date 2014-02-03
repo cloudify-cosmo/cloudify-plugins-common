@@ -45,7 +45,7 @@ class CloudifyRelatedNode(object):
 
     def __init__(self, ctx):
         self._related = ctx['related']
-        if 'capabilities' in ctx and self.node_id in ctx['capabilities']:
+        if ctx['capabilities'] and self.node_id in ctx['capabilities']:
             self._runtime_properties = ctx['capabilities'][self.node_id]
         else:
             self._runtime_properties = {}
