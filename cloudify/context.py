@@ -150,8 +150,8 @@ class CloudifyContext(object):
             self._node_state = get_node_state(self.node_id)
 
     def __getitem__(self, key):
-        if self.node_properties is not None and key in self.node_properties:
-            return self.node_properties[key]
+        if self.properties is not None and key in self.properties:
+            return self.properties[key]
         self._get_node_state_if_needed()
         return self._node_state[key]
 
@@ -160,7 +160,7 @@ class CloudifyContext(object):
         self._node_state[key] = value
 
     def __contains__(self, key):
-        if self.node_properties is not None and key in self.node_properties:
+        if self.properties is not None and key in self.properties:
             return True
         self._get_node_state_if_needed()
         return key in self._node_state
