@@ -20,12 +20,11 @@ import bernhard
 from utils import get_cosmo_properties
 
 
-def send_event(node_id, host, service, type, value):
+def send_event(host, service, type, value):
     event = {
         'host': host,
         'service': service,
         type: value,
-        'tags': ['name={0}'.format(node_id)]
     }
     if is_cosmo_env():
         _send_event(event)
