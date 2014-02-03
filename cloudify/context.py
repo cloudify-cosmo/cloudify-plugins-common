@@ -18,13 +18,14 @@ __author__ = 'idanmo'
 from logging import getLogger
 from manager import get_node_state
 from manager import update_node_state
-from collections import defaultdict
 
 
 class ContextCapabilities(object):
 
-    def __init__(self, capabilities={}):
-        self._capabilities = capabilities if capabilities is not None else {}
+    def __init__(self, capabilities=None):
+        if capabilities is None:
+            capabilities = {}
+        self._capabilities = capabilities
 
     def __getitem__(self, key):
         value = None
@@ -73,10 +74,10 @@ class CloudifyRelatedNode(object):
 
 class CloudifyContext(object):
 
-    def __init__(self, ctx={}):
-        def default_value():
-            return None
-        self._context = defaultdict(default_value, ctx)
+    def __init__(self, ctx=None):
+        if ctx is None:
+            ctx = {}
+        self._context = ctx
         self._capabilities = ContextCapabilities(self._context['capabilities'])
         self._logger = getLogger(self.task_name)
         self._node_state = None
@@ -150,8 +151,8 @@ class CloudifyContext(object):
             self._node_state = get_node_state(self.node_id)
 
     def __getitem__(self, key):
-        if self.node_properties is not None and key in self.node_properties:
-            return self.node_properties[key]
+        if self.properties is not None and key in self.properties:
+            return self.properties[key]
         self._get_node_state_if_needed()
         return self._node_state[key]
 
@@ -160,7 +161,7 @@ class CloudifyContext(object):
         self._node_state[key] = value
 
     def __contains__(self, key):
-        if self.node_properties is not None and key in self.node_properties:
+        if self.properties is not None and key in self.properties:
             return True
         self._get_node_state_if_needed()
         return key in self._node_state
