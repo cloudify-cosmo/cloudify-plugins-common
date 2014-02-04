@@ -48,7 +48,7 @@ class ContextCapabilities(object):
         dependency nodes available capabilities.
         """
         value = None
-        for caps in self._capabilities:
+        for caps in self._capabilities.values():
             if key in caps:
                 if value is not None:
                     raise RuntimeError(
