@@ -18,7 +18,6 @@ __author__ = 'idanmo'
 from logging import getLogger
 from manager import get_node_state
 from manager import update_node_state
-from collections import defaultdict
 
 
 class ContextCapabilities(object):
@@ -39,8 +38,10 @@ class ContextCapabilities(object):
             Where the returned value is a dict of node ids as keys and their
             runtime properties as values.
     """
-    def __init__(self, capabilities={}):
-        self._capabilities = capabilities if capabilities is not None else {}
+    def __init__(self, capabilities=None):
+        if capabilities is None:
+            capabilities = {}
+        self._capabilities = capabilities
 
     def __getitem__(self, key):
         """
@@ -68,7 +69,7 @@ class CloudifyRelatedNode(object):
     """
     def __init__(self, ctx):
         self._related = ctx['related']
-        if ctx['capabilities'] and self.node_id in ctx['capabilities']:
+        if 'capabilities' in ctx and self.node_id in ctx['capabilities']:
             self._runtime_properties = ctx['capabilities'][self.node_id]
         else:
             self._runtime_properties = {}
@@ -113,14 +114,23 @@ class CloudifyContext(object):
         and more...
     """
 
-    def __init__(self, ctx={}):
-        def default_value():
-            return None
-        self._context = defaultdict(default_value, ctx)
-        self._capabilities = ContextCapabilities(self._context['capabilities'])
-        self._logger = getLogger(self.task_name)
+    def __init__(self, ctx=None):
+        if ctx is None:
+            ctx = {}
+        self._context = ctx
+        if 'capabilities' in self._context:
+            context_capabilities = self._context['capabilities']
+        else:
+            context_capabilities = {}
+        self._capabilities = ContextCapabilities(context_capabilities)
+        if 'task_name' in self._context:
+            logger_name = self.task_name
+        else:
+            logger_name = 'cloudify_plugin'
+        self._logger = getLogger(logger_name)
         self._node_state = None
-        if self._context['related'] is not None:
+        self._set_started = False
+        if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
             self._related = None
@@ -241,6 +251,14 @@ class CloudifyContext(object):
         using logstash.
         """
         return self._logger
+
+    def is_set_started(self):
+        return self._set_started
+
+    def set_started(self):
+        if not 'node_id' in self._context:
+            raise RuntimeError('Set started called in a non node context')
+        self._set_started = True
 
     def _get_node_state_if_needed(self):
         if self.node_id is None:
