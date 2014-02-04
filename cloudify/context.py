@@ -39,7 +39,6 @@ class ContextCapabilities(object):
             runtime properties as values.
     """
     def __init__(self, capabilities=None):
-
         if capabilities is None:
             capabilities = {}
         self._capabilities = capabilities
