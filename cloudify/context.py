@@ -126,7 +126,7 @@ class CloudifyContext(object):
         if 'task_name' in self._context:
             logger_name = self.task_name
         else:
-            logger_name = 'plugin'
+            logger_name = 'cloudify_plugin'
         self._logger = getLogger(logger_name)
         self._node_state = None
         self._set_started = False
@@ -256,6 +256,8 @@ class CloudifyContext(object):
         return self._set_started
 
     def set_started(self):
+        if not 'node_id' in self._context:
+            raise RuntimeError('Set started called in a non node context')
         self._set_started = True
 
     def _get_node_state_if_needed(self):
