@@ -46,7 +46,7 @@ class CloudifyRelatedNode(object):
 
     def __init__(self, ctx):
         self._related = ctx['related']
-        if ctx['capabilities'] and self.node_id in ctx['capabilities']:
+        if 'capabilities' in ctx and self.node_id in ctx['capabilities']:
             self._runtime_properties = ctx['capabilities'][self.node_id]
         else:
             self._runtime_properties = {}
@@ -78,10 +78,19 @@ class CloudifyContext(object):
         if ctx is None:
             ctx = {}
         self._context = ctx
-        self._capabilities = ContextCapabilities(self._context['capabilities'])
-        self._logger = getLogger(self.task_name)
+        if 'capabilities' in self._context:
+            context_capabilities = self._context['capabilities']
+        else:
+            context_capabilities = {}
+        self._capabilities = ContextCapabilities(context_capabilities)
+        if 'task_name' in self._context:
+            logger_name = self.task_name
+        else:
+            logger_name = 'plugin'
+        self._logger = getLogger(logger_name)
         self._node_state = None
-        if self._context['related'] is not None:
+        self._set_started = False
+        if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
             self._related = None
@@ -142,6 +151,12 @@ class CloudifyContext(object):
     @property
     def logger(self):
         return self._logger
+
+    def is_set_started(self):
+        return self._set_started
+
+    def set_started(self):
+        self._set_started = True
 
     def _get_node_state_if_needed(self):
         if self.node_id is None:
