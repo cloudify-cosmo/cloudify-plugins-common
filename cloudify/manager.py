@@ -29,9 +29,10 @@ class NodeState(object):
      generate an updates dict to be used when requesting to save changes
      back to the storage (in an optimistic locking manner).
     """
-    def __init__(self, node_id, runtime_properties={}):
+    def __init__(self, node_id, runtime_properties=None):
         self.id = node_id
-        self._runtime_properties = runtime_properties
+        if runtime_properties is None:
+            runtime_properties = {}
         self._runtime_properties = {k: [v, None] for k, v
                                     in runtime_properties.iteritems()}
 
