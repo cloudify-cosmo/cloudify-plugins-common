@@ -66,7 +66,7 @@ class ContextCapabilities(object):
         if not found:
             raise KeyError(
                 "capability '{0}' not found [capabilities={1}]".format(
-                key, self._capabilities))
+                    key, self._capabilities))
         return value
 
     def __contains__(self, key):
