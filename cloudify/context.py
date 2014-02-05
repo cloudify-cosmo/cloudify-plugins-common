@@ -20,6 +20,7 @@ from manager import get_node_state
 from manager import update_node_state
 
 
+# TODO: add tests
 class ContextCapabilities(object):
     """
     Represents dependency nodes capabilities.
@@ -43,7 +44,7 @@ class ContextCapabilities(object):
             capabilities = {}
         self._capabilities = capabilities
 
-    def __getitem__(self, key):
+    def _find_item(self, key):
         """
         Returns the capability for the provided key by iterating through all
         dependency nodes available capabilities.
@@ -58,9 +59,19 @@ class ContextCapabilities(object):
                             key, self._capabilities))
                 value = caps[key]
                 found = True
+        return (found, value)
+
+    def __getitem__(self, key):
+        found, value = self._find_item(key)
         if not found:
-            raise KeyError("capability '{0}' not found".format(key))
+            raise KeyError(
+                "capability '{0}' not found [capabilities={1}]".format(
+                key, self._capabilities))
         return value
+
+    def __contains__(self, key):
+        found, _ = self._find_item(key)
+        return found
 
     def get_all(self):
         """Returns all capabilities as dict."""
@@ -313,3 +324,5 @@ class CloudifyContext(object):
         if self._node_state is not None:
             update_node_state(self._node_state)
             self._node_state = None
+
+# vim: ts=4 sw=4 et
