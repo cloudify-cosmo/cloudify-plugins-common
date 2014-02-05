@@ -41,6 +41,7 @@ setup(
         "protobuf",
         "bernhard",
         "celery==3.0.24",
+        "pika==0.9.13",
         "cosmo-manager-rest-client"
     ],
     dependency_links=["{0}#egg=cosmo-manager-rest-client-{1}"

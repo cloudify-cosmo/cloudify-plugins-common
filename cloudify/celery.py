@@ -28,10 +28,8 @@ import traceback
 import os
 
 from celery import Celery
-from celery.signals import after_setup_task_logger
-
 from cloudify.utils import build_includes
-from cloudify.logs import setup_logger
+
 
 celery = Celery('cosmo.celery',
                 broker='amqp://',
@@ -51,10 +49,6 @@ def new_excepthook(exception_type, value, the_traceback):
 
 sys.excepthook = new_excepthook
 
-
-@after_setup_task_logger.connect
-def setup_cloudify_logger(loglevel=None, **kwargs):
-    setup_logger(loglevel, **kwargs)
 
 if __name__ == '__main__':
     celery.start()

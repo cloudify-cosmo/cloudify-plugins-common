@@ -17,12 +17,7 @@ from __future__ import absolute_import
 import sys
 import traceback
 import os
-import logging
-
 from celery import Celery
-from celery.signals import after_setup_task_logger
-
-from cosmo.events import send_log_event
 from cosmo import includes
 
 
@@ -39,40 +34,6 @@ def new_excepthook(type, value, the_traceback):
     old_excepthook(type, value, the_traceback)
 
 sys.excepthook = new_excepthook
-
-
-class RiemannLoggingHandler(logging.Handler):
-    """
-    A Handler class for writing log messages to riemann.
-    """
-    def __init__(self):
-        logging.Handler.__init__(self)
-
-    def flush(self):
-        pass
-
-    def emit(self, record):
-        message = self.format(record)
-        log_record = {
-            "name": record.name,
-            "level": record.levelname,
-            "message": message
-        }
-        try:
-            send_log_event(log_record)
-        except BaseException:
-            pass
-
-
-@after_setup_task_logger.connect
-def setup_logger(loglevel=None, **kwargs):
-    logger = logging.getLogger("cosmo")
-    if not logger.handlers:
-        handler = RiemannLoggingHandler()
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        logger.addHandler(handler)
-        logger.setLevel(loglevel)
-        logger.propagate = True
 
 
 if __name__ == '__main__':

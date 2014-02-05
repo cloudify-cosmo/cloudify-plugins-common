@@ -14,6 +14,8 @@
 #    * limitations under the License.
 
 import logging
+import unittest
+from cloudify.context import CloudifyContext
 
 __author__ = 'elip'
 
@@ -25,3 +27,17 @@ def get_logger(name):
     logger = logging.getLogger(name)
     logger.level = logging.DEBUG
     return logger
+
+
+class MockCloudifyContext(CloudifyContext):
+    pass
+
+
+class TestCase(unittest.TestCase):
+
+    def create_context(self):
+        pass
+
+
+
+

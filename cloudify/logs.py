@@ -17,37 +17,70 @@ __author__ = 'idanmo'
 
 
 import logging
-from notifications import send_log_event
+import datetime
+import pika
+import json
+from cloudify.utils import get_manager_ip
 
 
-class RiemannLoggingHandler(logging.Handler):
+class CloudifyPluginLoggingHandler(logging.Handler):
     """
-    A Handler class for writing log messages to riemann.
+    A Handler class for writing log messages to RabbitMQ.
     """
-    def __init__(self):
+    amqp_client = None
+
+    def __init__(self, ctx):
         logging.Handler.__init__(self)
+        self._ctx = ctx
 
     def flush(self):
         pass
 
     def emit(self, record):
         message = self.format(record)
-        log_record = {
-            "name": record.name,
-            "level": record.levelname,
-            "message": message
+        timestamp = str(datetime.datetime.now())
+        log = {
+            'type': 'cloudify_log',
+            'message_code': None,
+            'timestamp': timestamp,
+            'context': {
+                'task_id': self._ctx.task_id,
+                'plugin': self._ctx.plugin,
+                'blueprint_id': self._ctx.blueprint_id,
+                'task_target': self._ctx.task_target,
+                'node_name': self._ctx.node_name,
+                'workflow_id': self._ctx.workflow_id,
+                'node_id': self._ctx.node_id,
+                'task_name': self._ctx.task_name,
+                'operation': self._ctx.operation,
+                'deployment_id': self._ctx.deployment_id,
+                'execution_id': self._ctx.execution_id
+            },
+            'logger': record.name,
+            'level': record.levelname.lower(),
+            'message': {
+                'text': message
+            }
         }
         try:
-            send_log_event(log_record)
-        except BaseException:
-            pass
+            self.publish_log(log)
+        except BaseException as e:
+            error_logger = logging.getLogger('cloudify_celery')
+            error_logger.warning('Error publishing log to RabbitMQ ['
+                                 'message={0}, log={1}]'.format(
+                                 e.message, json.dumps(log)))
 
+    def publish_log(self, log):
+        if self.amqp_client is None:
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=get_manager_ip()))
+            channel = connection.channel()
+            channel.queue_declare(queue='cloudify-logs',
+                                  auto_delete=True,
+                                  durable=True,
+                                  exclusive=False)
+            self.amqp_client = channel
 
-def setup_logger(loglevel=None, **kwargs):
-    logger = logging.getLogger("cosmo")
-    if not logger.handlers:
-        handler = RiemannLoggingHandler()
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        logger.addHandler(handler)
-        logger.setLevel(loglevel)
-        logger.propagate = True
+        self.amqp_client.basic_publish(exchange='',
+                                       routing_key='cloudify-logs',
+                                       body=json.dumps(log))
