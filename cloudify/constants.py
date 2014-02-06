@@ -21,7 +21,7 @@ COSMO_APP_NAME = "cloudify"
 PLUGIN_INSTALLER_PLUGIN_PATH = "plugin_installer.tasks"
 KV_STORE_PLUGIN_PATH = "kv_store.tasks"
 AGENT_INSTALLER_PLUGIN_PATH = "worker_installer.tasks"
-RIEMANN_CONFIGURER_PLUGIN_PATH = "riemann_configurer.tasks"
+RIEMANN_CONFIGURER_PLUGIN_PATH = "riemann_config_loader.tasks"
 
 MANAGEMENT_NODE_ID = "cloudify.management"
 
