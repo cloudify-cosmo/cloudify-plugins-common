@@ -17,19 +17,10 @@ __author__ = 'idanmo'
 
 import os
 
-from constants import CLOUDIFY_APP_DIR_KEY
-
 
 MANAGER_IP_KEY = "MANAGEMENT_IP"
 LOCAL_IP_KEY = "AGENT_IP"
 MANAGER_REST_PORT_KEY = "MANAGER_REST_PORT"
-
-
-def get_app_dir():
-    """
-    Returns the directory celery tasks are stored within.
-    """
-    return os.environ[CLOUDIFY_APP_DIR_KEY]
 
 
 def get_local_ip():
