@@ -17,7 +17,8 @@ __author__ = 'idanmo'
 
 import os
 
-from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, MANAGER_REST_PORT_KEY
+from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, \
+    MANAGER_REST_PORT_KEY
 
 
 def get_local_ip():
