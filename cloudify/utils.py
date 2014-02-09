@@ -17,10 +17,7 @@ __author__ = 'idanmo'
 
 import os
 
-
-MANAGER_IP_KEY = "MANAGEMENT_IP"
-LOCAL_IP_KEY = "AGENT_IP"
-MANAGER_REST_PORT_KEY = "MANAGER_REST_PORT"
+from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, MANAGER_REST_PORT_KEY
 
 
 def get_local_ip():
