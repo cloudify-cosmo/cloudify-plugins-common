@@ -29,7 +29,7 @@ setup(
     version='0.3',
     author='elip',
     author_email='elip@gigaspaces.com',
-    packages=['cloudify', 'cosmo'],
+    packages=['cloudify'],
     license='LICENSE',
     description=
     'Package that holds common cosmo modules needed by many plugins',
@@ -42,6 +42,9 @@ setup(
         "bernhard",
         "celery==3.0.24",
         "cosmo-manager-rest-client"
+    ],
+    test_requires=[
+        "nose"
     ],
     dependency_links=["{0}#egg=cosmo-manager-rest-client-{1}"
                       .format(REST_CLIENT, REST_CLIENT_VERSION)]
