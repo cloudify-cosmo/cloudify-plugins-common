@@ -278,6 +278,8 @@ class CloudifyContext(object):
         Use this logger in order to index logged messages in ElasticSearch
         using logstash.
         """
+        if self._logger is None:
+            self._init_cloudify_logger()
         return self._logger
 
     def is_set_started(self):
