@@ -44,4 +44,3 @@ def new_excepthook(exception_type, value, the_traceback):
     current_excepthook(type, value, the_traceback)
 
 sys.excepthook = new_excepthook
-

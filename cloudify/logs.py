@@ -67,8 +67,8 @@ class CloudifyPluginLoggingHandler(logging.Handler):
         except BaseException as e:
             error_logger = logging.getLogger('cloudify_celery')
             error_logger.warning('Error publishing log to RabbitMQ ['
-                                 'message={0}, log={1}]'.format(
-                                 e.message, json.dumps(log)))
+                                 'message={0}, log={1}]'
+                                 .format(e.message, json.dumps(log)))
 
     def publish_log(self, log):
         if self.amqp_client is None:
