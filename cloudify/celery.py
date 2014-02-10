@@ -26,16 +26,12 @@ __author__ = 'idanmo'
 import sys
 import traceback
 import os
-
 from celery import Celery
-from cloudify.utils import build_includes
 
 
-celery = Celery('cosmo.celery',
+celery = Celery('cloudify.celery',
                 broker='amqp://',
-                backend='amqp://',
-                include=build_includes(
-                    os.path.dirname(__file__)))
+                backend='amqp://')
 
 current_excepthook = sys.excepthook
 
@@ -49,6 +45,3 @@ def new_excepthook(exception_type, value, the_traceback):
 
 sys.excepthook = new_excepthook
 
-
-if __name__ == '__main__':
-    celery.start()
