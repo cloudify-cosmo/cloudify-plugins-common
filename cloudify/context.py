@@ -180,12 +180,12 @@ class CloudifyContext(object):
     @property
     def blueprint_id(self):
         """The blueprint id the plugin invocation belongs to."""
-        return self._context['blueprint_id']
+        return self._get_property_if_exists('blueprint_id')
 
     @property
     def deployment_id(self):
         """The deployment id the plugin invocation belongs to."""
-        return self._context['deployment_id']
+        return self._get_property_if_exists('deployment_id')
 
     @property
     def execution_id(self):
@@ -193,7 +193,7 @@ class CloudifyContext(object):
         The workflow execution id the plugin invocation was requested from.
         This is a unique value which identifies a specific workflow execution.
         """
-        return self._context['execution_id']
+        return self._get_property_if_exists('execution_id')
 
     @property
     def workflow_id(self):
@@ -202,27 +202,27 @@ class CloudifyContext(object):
         For example:
             'install', 'uninstall' etc...
         """
-        return self._context['workflow_id']
+        return self._get_property_if_exists('workflow_id')
 
     @property
     def task_id(self):
         """The plugin's task invocation unique id."""
-        return self._context['task_id']
+        return self._get_property_if_exists('task_id')
 
     @property
     def task_name(self):
         """The full task name of the invoked task."""
-        return self._context['task_name']
+        return self._get_property_if_exists('task_name')
 
     @property
     def task_target(self):
         """The task target (RabbitMQ queue name)."""
-        return self._context['task_target']
+        return self._get_property_if_exists('task_target')
 
     @property
     def plugin(self):
         """The plugin name of the invoked task."""
-        return self._context['plugin']
+        return self._get_property_if_exists('plugin')
 
     @property
     def operation(self):
@@ -230,7 +230,7 @@ class CloudifyContext(object):
         The node operation name which is mapped to this task invocation.
         For example: cloudify.interfaces.lifecycle.start
         """
-        return self._context['operation']
+        return self._get_property_if_exists('operation')
 
     @property
     def capabilities(self):
@@ -296,6 +296,11 @@ class CloudifyContext(object):
                                'in a context of node')
         if self._node_state is None:
             self._node_state = get_node_state(self.node_id)
+
+    def _get_property_if_exists(self, key):
+        if key in self._context:
+            return self._context[key]
+        return None
 
     def __getitem__(self, key):
         """
