@@ -26,11 +26,8 @@ __author__ = 'idanmo'
 import sys
 import traceback
 import os
-
 from celery import Celery
-from celery.signals import after_setup_task_logger
 
-from cloudify.logs import setup_logger
 
 celery = Celery('cloudify.celery',
                 broker='amqp://',
@@ -47,8 +44,3 @@ def new_excepthook(exception_type, value, the_traceback):
     current_excepthook(type, value, the_traceback)
 
 sys.excepthook = new_excepthook
-
-
-@after_setup_task_logger.connect
-def setup_cloudify_logger(loglevel=None, **kwargs):
-    setup_logger(loglevel, **kwargs)

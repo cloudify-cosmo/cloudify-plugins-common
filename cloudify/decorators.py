@@ -50,9 +50,28 @@ def _inject_argument(arg_name, arg_value, kwargs=None):
     return kwargs
 
 
+def _is_cloudify_context(obj):
+    """
+    Gets whether the provided obj is a CloudifyContext instance.
+    From some reason Python's isinstance returned False when it should
+    have returned True.
+    """
+    return CloudifyContext.__name__ in obj.__class__.__name__
+
+
 def _find_context_arg(args, kwargs):
+    """
+    Find cloudify context in args or kwargs.
+    Cloudify context is either a dict with a unique identifier (passed
+        from the workflow engine) or an instance of CloudifyContext.
+    """
     for arg in args:
+        if _is_cloudify_context(arg):
+            return arg
         if isinstance(arg, dict) and CLOUDIFY_CONTEXT_IDENTIFIER in arg:
+            return arg
+    for arg in kwargs.values():
+        if _is_cloudify_context(arg):
             return arg
     return kwargs[CLOUDIFY_CONTEXT_PROPERTY_KEY]\
         if CLOUDIFY_CONTEXT_PROPERTY_KEY in kwargs else None
@@ -66,9 +85,10 @@ def operation(func=None, **arguments):
             ctx = _find_context_arg(args, kwargs)
             if ctx is None:
                 ctx = {}
-            ctx = CloudifyContext(ctx)
-            kwargs = _inject_argument('ctx', ctx, kwargs)
-            result = func(*args, **kwargs)
+            if not _is_cloudify_context(ctx):
+                ctx = CloudifyContext(ctx)
+                kwargs = _inject_argument('ctx', ctx, kwargs)
+                result = func(*args, **kwargs)
             ctx.update()
             if ctx.is_set_started():
                 set_node_started(ctx.node_id, get_local_ip())

@@ -15,12 +15,12 @@
 
 __author__ = 'idanmo'
 
-from logging import getLogger
+import logging
 from manager import get_node_state
 from manager import update_node_state
+from logs import CloudifyPluginLoggingHandler
 
 
-# TODO: add tests
 class ContextCapabilities(object):
     """
     Represents dependency nodes capabilities.
@@ -138,11 +138,7 @@ class CloudifyContext(object):
         else:
             context_capabilities = {}
         self._capabilities = ContextCapabilities(context_capabilities)
-        if 'task_name' in self._context:
-            logger_name = self.task_name
-        else:
-            logger_name = 'cloudify_plugin'
-        self._logger = getLogger(logger_name)
+        self._logger = None
         self._node_state = None
         self._set_started = False
         if 'related' in self._context:
@@ -193,8 +189,20 @@ class CloudifyContext(object):
 
     @property
     def execution_id(self):
-        """The workflow execution id the plugin invocation belongs to."""
+        """
+        The workflow execution id the plugin invocation was requested from.
+        This is a unique value which identifies a specific workflow execution.
+        """
         return self._context['execution_id']
+
+    @property
+    def workflow_id(self):
+        """
+        The workflow id the plugin invocation was requested from.
+        For example:
+            'install', 'uninstall' etc...
+        """
+        return self._context['workflow_id']
 
     @property
     def task_id(self):
@@ -205,6 +213,11 @@ class CloudifyContext(object):
     def task_name(self):
         """The full task name of the invoked task."""
         return self._context['task_name']
+
+    @property
+    def task_target(self):
+        """The task target (RabbitMQ queue name)."""
+        return self._context['task_target']
 
     @property
     def plugin(self):
@@ -265,6 +278,8 @@ class CloudifyContext(object):
         Use this logger in order to index logged messages in ElasticSearch
         using logstash.
         """
+        if self._logger is None:
+            self._init_cloudify_logger()
         return self._logger
 
     def is_set_started(self):
@@ -325,4 +340,17 @@ class CloudifyContext(object):
             update_node_state(self._node_state)
             self._node_state = None
 
-# vim: ts=4 sw=4 et
+    def _init_cloudify_logger(self):
+        if self.task_name is not None:
+            logger_name = self.task_name
+        else:
+            logger_name = 'cloudify_plugin'
+        self._logger = logging.getLogger(logger_name)
+        # TODO: somehow inject logging level
+        self._logger.setLevel(logging.INFO)
+        for h in self._logger.handlers:
+            self._logger.removeHandler(h)
+        handler = CloudifyPluginLoggingHandler(self)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        self._logger.propagate = True
+        self._logger.addHandler(handler)
