@@ -88,7 +88,7 @@ def operation(func=None, **arguments):
             if not _is_cloudify_context(ctx):
                 ctx = CloudifyContext(ctx)
                 kwargs = _inject_argument('ctx', ctx, kwargs)
-                result = func(*args, **kwargs)
+            result = func(*args, **kwargs)
             ctx.update()
             if ctx.is_set_started():
                 set_node_started(ctx.node_id, get_local_ip())

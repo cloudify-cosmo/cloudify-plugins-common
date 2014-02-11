@@ -16,6 +16,7 @@
 __author__ = 'idanmo'
 
 
+import logging
 from context import CloudifyContext
 
 
@@ -51,6 +52,10 @@ class MockCloudifyContext(CloudifyContext):
     def capabilities(self):
         return self._capabilities
 
+    @property
+    def logger(self):
+        return logging.getLogger('cloudify')
+
     def __contains__(self, key):
         return key in self._properties or key in self._runtime_properties
 
@@ -61,3 +66,6 @@ class MockCloudifyContext(CloudifyContext):
         if key in self._properties:
             return self._properties[key]
         return self._runtime_properties[key]
+
+    def set_started(self):
+        pass

@@ -59,7 +59,7 @@ class ContextCapabilities(object):
                             key, self._capabilities))
                 value = caps[key]
                 found = True
-        return (found, value)
+        return found, value
 
     def __getitem__(self, key):
         found, value = self._find_item(key)
