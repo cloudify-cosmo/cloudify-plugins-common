@@ -348,6 +348,8 @@ class CloudifyContext(object):
         self._logger = logging.getLogger(logger_name)
         # TODO: somehow inject logging level
         self._logger.setLevel(logging.INFO)
+        for h in self._logger.handlers:
+            self._logger.removeHandler(h)
         handler = CloudifyPluginLoggingHandler(self)
         handler.setFormatter(logging.Formatter("%(message)s"))
         self._logger.propagate = True

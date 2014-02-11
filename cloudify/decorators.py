@@ -66,7 +66,6 @@ def _find_context_arg(args, kwargs):
         from the workflow engine) or an instance of CloudifyContext.
     """
     for arg in args:
-        print id(CloudifyContext.__class__)
         if _is_cloudify_context(arg):
             return arg
         if isinstance(arg, dict) and CLOUDIFY_CONTEXT_IDENTIFIER in arg:
