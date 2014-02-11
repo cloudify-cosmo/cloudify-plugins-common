@@ -149,12 +149,12 @@ class CloudifyContext(object):
     @property
     def node_id(self):
         """The node's in context id."""
-        return self._context['node_id']
+        return self._context.get('node_id')
 
     @property
     def node_name(self):
         """The node's in context name."""
-        return self._context['node_name']
+        return self._context.get('node_name')
 
     @property
     def properties(self):
@@ -162,7 +162,7 @@ class CloudifyContext(object):
         The node's in context properties as dict (read-only).
         These properties are the properties specified in the blueprint.
         """
-        return self._context['node_properties']
+        return self._context.get('node_properties')
 
     @property
     def runtime_properties(self):
@@ -180,12 +180,12 @@ class CloudifyContext(object):
     @property
     def blueprint_id(self):
         """The blueprint id the plugin invocation belongs to."""
-        return self._context['blueprint_id']
+        return self._context.get('blueprint_id')
 
     @property
     def deployment_id(self):
         """The deployment id the plugin invocation belongs to."""
-        return self._context['deployment_id']
+        return self._context.get('deployment_id')
 
     @property
     def execution_id(self):
@@ -193,7 +193,7 @@ class CloudifyContext(object):
         The workflow execution id the plugin invocation was requested from.
         This is a unique value which identifies a specific workflow execution.
         """
-        return self._context['execution_id']
+        return self._context.get('execution_id')
 
     @property
     def workflow_id(self):
@@ -202,27 +202,27 @@ class CloudifyContext(object):
         For example:
             'install', 'uninstall' etc...
         """
-        return self._context['workflow_id']
+        return self._context.get('workflow_id')
 
     @property
     def task_id(self):
         """The plugin's task invocation unique id."""
-        return self._context['task_id']
+        return self._context.get('task_id')
 
     @property
     def task_name(self):
         """The full task name of the invoked task."""
-        return self._context['task_name']
+        return self._context.get('task_name')
 
     @property
     def task_target(self):
         """The task target (RabbitMQ queue name)."""
-        return self._context['task_target']
+        return self._context.get('task_target')
 
     @property
     def plugin(self):
         """The plugin name of the invoked task."""
-        return self._context['plugin']
+        return self._context.get('plugin')
 
     @property
     def operation(self):
@@ -230,7 +230,7 @@ class CloudifyContext(object):
         The node operation name which is mapped to this task invocation.
         For example: cloudify.interfaces.lifecycle.start
         """
-        return self._context['operation']
+        return self._context.get('operation')
 
     @property
     def capabilities(self):
