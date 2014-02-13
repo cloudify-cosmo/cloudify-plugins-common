@@ -15,10 +15,7 @@
 
 __author__ = 'idanmo'
 
-import logging
 from functools import wraps
-from manager import get_node_state
-from manager import update_node_state
 from manager import set_node_started
 from utils import get_local_ip
 from cloudify.celery import celery
@@ -88,7 +85,13 @@ def operation(func=None, **arguments):
             if not _is_cloudify_context(ctx):
                 ctx = CloudifyContext(ctx)
                 kwargs = _inject_argument('ctx', ctx, kwargs)
-            result = func(*args, **kwargs)
+            try:
+                result = func(*args, **kwargs)
+            except BaseException as e:
+                ctx.logger.error(
+                    'Exception raised on operation [%s] invocation',
+                    ctx.task_name, exc_info=True)
+                raise e
             ctx.update()
             if ctx.is_set_started():
                 set_node_started(ctx.node_id, get_local_ip())
@@ -102,76 +105,3 @@ def operation(func=None, **arguments):
 
 task = operation
 
-
-def with_node_state(func=None, **arguments):
-    """Injects node state for the node in context.
-    Args:
-        arg: argument name to inject the node state as where 'node_state'
-            is the default.
-    """
-    if func is not None:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            node_id = _get_node_id_from_args(func, args, kwargs)
-            if node_id is None:
-                raise RuntimeError(
-                    'Node id property [{0}] not present in '
-                    'method invocation arguments'.format(CLOUDIFY_ID_PROPERTY))
-            node_state = get_node_state(node_id)
-            node_state_arg = arguments['arg'] if 'arg' in arguments\
-                else 'node_state'
-            kwargs = _inject_argument(node_state_arg, node_state, kwargs)
-            result = func(*args, **kwargs)
-            update_node_state(node_state)
-            return result
-        return wrapper
-    else:
-        def partial_wrapper(fn):
-            return with_node_state(fn, **arguments)
-        return partial_wrapper
-
-
-def with_logger(func=None, **arguments):
-    """Injects a Cloudify operation logger.
-    Args:
-        arg: argument name to inject the logger as where 'logger' is the
-            default.
-    """
-    if func is not None:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            logger_arg = arguments['arg'] if 'arg' in arguments \
-                else 'logger'
-            logger = logging.getLogger('cloudify')
-            kwargs = _inject_argument(logger_arg, logger, kwargs)
-            result = func(*args, **kwargs)
-            return result
-        return wrapper
-    else:
-        def partial_wrapper(fn):
-            return with_logger(fn, **arguments)
-        return partial_wrapper
-
-
-def _get_node_id_from_args(method, args, kwargs):
-    """Gets node id for method invocation.
-    Args:
-        method: Invoked method.
-        args: Invocation *args.
-        kwargs: Invocation **kwargs.
-    Returns:
-        Extracted node id or None if not found.
-    """
-    if CLOUDIFY_ID_PROPERTY in kwargs:
-        return kwargs[CLOUDIFY_ID_PROPERTY]
-    try:
-        arg_names = method.func_code.co_varnames
-        arg_index = None
-        for i in range(len(arg_names)):
-            if arg_names[i].endswith(CLOUDIFY_ID_PROPERTY):
-                arg_index = i
-                break
-        return args[arg_index]
-    except ValueError:
-        pass
-    return None
