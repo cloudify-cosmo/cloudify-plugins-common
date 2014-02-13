@@ -104,4 +104,3 @@ def operation(func=None, **arguments):
 
 
 task = operation
-

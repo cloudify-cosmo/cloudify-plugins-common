@@ -40,4 +40,3 @@ def _send_event(event):
 
 def _get_riemann_client():
     return bernhard.Client(host=utils.get_manager_ip())
-
