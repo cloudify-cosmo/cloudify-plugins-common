@@ -39,7 +39,3 @@ def get_cosmo_properties():
         "management_ip": get_manager_ip(),
         "ip": get_local_ip()
     }
-
-
-def get_celery_work_folder():
-    return expanduser('~/celery-work')

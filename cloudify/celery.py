@@ -20,7 +20,8 @@ application root directory.
 """
 
 from __future__ import absolute_import
-from cloudify.utils import get_celery_work_folder
+from os.path import expanduser
+
 
 __author__ = 'idanmo'
 
@@ -38,7 +39,11 @@ current_excepthook = sys.excepthook
 
 
 def new_excepthook(exception_type, value, the_traceback):
-    work_folder = get_celery_work_folder()
+
+    # this file will be placed by the pid and log file as long as CELERY_WORK_DIR_PATH_KEY
+    # is not customized in the worker configuration
+    # need to think of how we can get this information here as well.
+    work_folder = expanduser('~/celery-work')
     if not os.path.exists(work_folder):
         os.makedirs(work_folder)
     with open(os.path.join(work_folder, 'celery_error.out'), 'w') as f:
