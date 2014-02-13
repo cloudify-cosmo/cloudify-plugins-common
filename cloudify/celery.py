@@ -40,7 +40,8 @@ current_excepthook = sys.excepthook
 
 def new_excepthook(exception_type, value, the_traceback):
 
-    # this file will be placed by the pid and log file as long as CELERY_WORK_DIR_PATH_KEY
+    # this file will be placed by the pid and log file
+    # as long as CELERY_WORK_DIR_PATH_KEY
     # is not customized in the worker configuration
     # need to think of how we can get this information here as well.
     work_folder = expanduser('~/celery-work')
