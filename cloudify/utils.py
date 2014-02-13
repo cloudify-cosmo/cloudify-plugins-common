@@ -12,6 +12,7 @@
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
+from os.path import expanduser
 
 __author__ = 'idanmo'
 
@@ -38,3 +39,7 @@ def get_cosmo_properties():
         "management_ip": get_manager_ip(),
         "ip": get_local_ip()
     }
+
+
+def get_celery_work_folder():
+    return expanduser('~/celery-work')
