@@ -141,6 +141,7 @@ class CloudifyContext(object):
         self._logger = None
         self._node_state = None
         self._set_started = False
+        self._set_stopped = False
         if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
@@ -285,10 +286,34 @@ class CloudifyContext(object):
     def is_set_started(self):
         return self._set_started
 
+    def is_set_stopped(self):
+        return self._set_stopped
+
     def set_started(self):
-        if not 'node_id' in self._context:
-            raise RuntimeError('Set started called in a non node context')
+        """
+        Sets the node in context as started.
+
+        After task execution an event will be sent to Riemann which indicates
+        The node in context is started.
+        """
+        self._verify_node_in_context()
+        self._set_stopped = False
         self._set_started = True
+
+    def set_stopped(self):
+        """
+        Sets the node in context as stopped.
+
+        After task execution an event will be sent to Riemann which indicates
+        The node in context is stopped.
+        """
+        self._verify_node_in_context()
+        self._set_started = False
+        self._set_stopped = True
+
+    def _verify_node_in_context(self):
+        if self.node_id is None:
+            raise RuntimeError('Invocation requires a node in context')
 
     def _get_node_state_if_needed(self):
         if self.node_id is None:

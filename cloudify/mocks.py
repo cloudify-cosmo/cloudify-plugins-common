@@ -69,3 +69,6 @@ class MockCloudifyContext(CloudifyContext):
 
     def set_started(self):
         pass
+
+    def set_stopped(self):
+        pass
