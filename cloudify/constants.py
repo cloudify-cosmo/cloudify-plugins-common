@@ -16,6 +16,7 @@
 __author__ = 'elip'
 
 VIRTUALENV_PATH_KEY = 'VIRTUALENV'
+CELERY_WORK_DIR_PATH_KEY = "CELERY_WORK_DIR"
 COSMO_APP_NAME = "cloudify"
 
 PLUGIN_INSTALLER_PLUGIN_PATH = "plugin_installer.tasks"

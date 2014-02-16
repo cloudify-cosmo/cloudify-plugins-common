@@ -20,6 +20,8 @@ application root directory.
 """
 
 from __future__ import absolute_import
+from cloudify.constants import CELERY_WORK_DIR_PATH_KEY
+
 
 __author__ = 'idanmo'
 
@@ -37,7 +39,11 @@ current_excepthook = sys.excepthook
 
 
 def new_excepthook(exception_type, value, the_traceback):
-    with open(os.path.expanduser('~/celery_error.out'), 'w') as f:
+
+    work_folder = os.environ[CELERY_WORK_DIR_PATH_KEY]
+    if not os.path.exists(work_folder):
+        os.makedirs(work_folder)
+    with open(os.path.join(work_folder, 'celery_error.out'), 'w') as f:
         f.write('Type: {0}\n'.format(exception_type))
         f.write('Value: {0}\n'.format(value))
         traceback.print_tb(the_traceback, file=f)
