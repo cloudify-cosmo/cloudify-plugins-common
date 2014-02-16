@@ -114,4 +114,4 @@ def set_node_started(node_id, host):
 
 def set_node_stopped(node_id, host):
     events.send_event(host, node_id, 'state', 'stopped',
-                      tags=['cloudify_node'])
+                      ttl=600, tags=['cloudify_node'])
