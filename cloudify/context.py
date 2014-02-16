@@ -78,7 +78,8 @@ class ContextCapabilities(object):
         return self._capabilities
 
     def __str__(self):
-        return '<' + self.__class__.__name__ + ' ' + str(self._capabilities) + '>'
+        return ('<' + self.__class__.__name__ + ' ' +
+                str(self._capabilities) + '>')
 
 
 class CloudifyRelatedNode(object):
