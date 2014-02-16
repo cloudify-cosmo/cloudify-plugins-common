@@ -17,7 +17,7 @@ __author__ = 'idanmo'
 
 
 import logging
-from context import CloudifyContext
+from context import CloudifyContext, ContextCapabilities
 
 
 class MockCloudifyContext(CloudifyContext):
@@ -27,14 +27,16 @@ class MockCloudifyContext(CloudifyContext):
 
     def __init__(self,
                  node_id=None,
-                 properties=dict(),
-                 runtime_properties=dict(),
-                 capabilities=dict()):
+                 properties=None,
+                 runtime_properties=None,
+                 capabilities=None,
+                 related=None):
         super(MockCloudifyContext, self).__init__()
         self._node_id = node_id
-        self._properties = properties
-        self._runtime_properties = runtime_properties
-        self._capabilities = capabilities
+        self._properties = properties or {}
+        self._runtime_properties = runtime_properties or {}
+        self._capabilities = capabilities or ContextCapabilities()
+        self._related = related
 
     @property
     def node_id(self):
@@ -68,4 +70,9 @@ class MockCloudifyContext(CloudifyContext):
         return self._runtime_properties[key]
 
     def set_started(self):
-        pass
+        if not self.node_id:
+            raise RuntimeError('Set started called in a non node context')
+
+    def set_stopped(self):
+        if not self.node_id:
+            raise RuntimeError('Set stopped called in a non node context')

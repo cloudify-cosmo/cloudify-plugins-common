@@ -77,6 +77,10 @@ class ContextCapabilities(object):
         """Returns all capabilities as dict."""
         return self._capabilities
 
+    def __str__(self):
+        return ('<' + self.__class__.__name__ + ' ' +
+                str(self._capabilities) + '>')
+
 
 class CloudifyRelatedNode(object):
     """
@@ -290,6 +294,11 @@ class CloudifyContext(object):
             raise RuntimeError('Set started called in a non node context')
         self._set_started = True
 
+    def set_stopped(self):
+        if not 'node_id' in self._context:
+            raise RuntimeError('Set stopped called in a non node context')
+        self.logger.error("Using stub CloudifyContext.set_stopped()")
+
     def _get_node_state_if_needed(self):
         if self.node_id is None:
             raise RuntimeError('Cannot get node state - invocation is not '
@@ -354,3 +363,8 @@ class CloudifyContext(object):
         handler.setFormatter(logging.Formatter("%(message)s"))
         self._logger.propagate = True
         self._logger.addHandler(handler)
+
+    def __str__(self):
+        attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')
+        info = ' '.join(["{0}={1}".format(a, getattr(self, a)) for a in attrs])
+        return '<' + self.__class__.__name__ + ' ' + info + '>'
