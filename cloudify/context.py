@@ -290,6 +290,11 @@ class CloudifyContext(object):
             raise RuntimeError('Set started called in a non node context')
         self._set_started = True
 
+    def set_stopped(self):
+        if not 'node_id' in self._context:
+            raise RuntimeError('Set stopped called in a non node context')
+        self.logger.error("Using stub CloudifyContext.set_stopped()")
+
     def _get_node_state_if_needed(self):
         if self.node_id is None:
             raise RuntimeError('Cannot get node state - invocation is not '
