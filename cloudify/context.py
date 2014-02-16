@@ -77,6 +77,10 @@ class ContextCapabilities(object):
         """Returns all capabilities as dict."""
         return self._capabilities
 
+    def __str__(self):
+        return ('<' + self.__class__.__name__ + ' ' +
+                str(self._capabilities) + '>')
+
 
 class CloudifyRelatedNode(object):
     """
@@ -141,7 +145,6 @@ class CloudifyContext(object):
         self._logger = None
         self._node_state = None
         self._set_started = False
-        self._set_stopped = False
         if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
@@ -379,3 +382,8 @@ class CloudifyContext(object):
         handler.setFormatter(logging.Formatter("%(message)s"))
         self._logger.propagate = True
         self._logger.addHandler(handler)
+
+    def __str__(self):
+        attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')
+        info = ' '.join(["{0}={1}".format(a, getattr(self, a)) for a in attrs])
+        return '<' + self.__class__.__name__ + ' ' + info + '>'
