@@ -15,8 +15,9 @@
 
 __author__ = 'idanmo'
 
-import notifications
+import events
 import utils
+import sys
 from cosmo_manager_rest_client.cosmo_manager_rest_client \
     import CosmoManagerRestClient
 
@@ -107,4 +108,10 @@ def update_node_state(node_state):
 
 
 def set_node_started(node_id, host):
-    notifications.send_event(host, node_id, 'state', 'running')
+    events.send_event(host, node_id, 'state', 'started',
+                      ttl=sys.maxint, tags=['cloudify_node'])
+
+
+def set_node_stopped(node_id, host):
+    events.send_event(host, node_id, 'state', 'stopped',
+                      ttl=600, tags=['cloudify_node'])

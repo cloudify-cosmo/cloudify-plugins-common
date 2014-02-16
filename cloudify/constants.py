@@ -22,7 +22,6 @@ COSMO_APP_NAME = "cloudify"
 PLUGIN_INSTALLER_PLUGIN_PATH = "plugin_installer.tasks"
 KV_STORE_PLUGIN_PATH = "kv_store.tasks"
 AGENT_INSTALLER_PLUGIN_PATH = "worker_installer.tasks"
-RIEMANN_CONFIGURER_PLUGIN_PATH = "riemann_config_loader.tasks"
 OPENSTACK_PROVISIONER_PLUGIN_PATH = "openstack_host_provisioner.tasks"
 VAGRANT_PROVISIONER_PLUGIN_PATH = "vagrant_host_provisioner.tasks"
 
@@ -36,5 +35,4 @@ BUILT_IN_AGENT_PLUGINS = [PLUGIN_INSTALLER_PLUGIN_PATH, KV_STORE_PLUGIN_PATH]
 
 BUILT_IN_MANAGEMENT_PLUGINS = [PLUGIN_INSTALLER_PLUGIN_PATH,
                                KV_STORE_PLUGIN_PATH,
-                               AGENT_INSTALLER_PLUGIN_PATH,
-                               RIEMANN_CONFIGURER_PLUGIN_PATH]
+                               AGENT_INSTALLER_PLUGIN_PATH]
