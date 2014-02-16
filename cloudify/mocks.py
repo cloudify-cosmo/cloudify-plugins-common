@@ -67,10 +67,8 @@ class MockCloudifyContext(CloudifyContext):
             return self._properties[key]
         return self._runtime_properties[key]
 
-    def set_started(self):
-        if not self.node_id:
-            raise RuntimeError('Set started called in a non node context')
+    def is_set_started(self):
+        return False
 
-    def set_stopped(self):
-        if not self.node_id:
-            raise RuntimeError('Set stopped called in a non node context')
+    def is_set_stopped(self):
+        return False

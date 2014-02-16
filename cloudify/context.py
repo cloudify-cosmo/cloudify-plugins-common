@@ -133,6 +133,9 @@ class CloudifyContext(object):
         and more...
     """
 
+    STARTED = 'started'
+    STOPPED = 'stopped'
+
     def __init__(self, ctx=None):
         if ctx is None:
             ctx = {}
@@ -144,7 +147,7 @@ class CloudifyContext(object):
         self._capabilities = ContextCapabilities(context_capabilities)
         self._logger = None
         self._node_state = None
-        self._set_started = False
+        self._lifecycle_state = None
         if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
@@ -287,10 +290,10 @@ class CloudifyContext(object):
         return self._logger
 
     def is_set_started(self):
-        return self._set_started
+        return self._lifecycle_state == self.STARTED
 
     def is_set_stopped(self):
-        return self._set_stopped
+        return self._lifecycle_state == self.STOPPED
 
     def set_started(self):
         """
@@ -300,8 +303,7 @@ class CloudifyContext(object):
         The node in context is started.
         """
         self._verify_node_in_context()
-        self._set_stopped = False
-        self._set_started = True
+        self._lifecycle_state = self.STARTED
 
     def set_stopped(self):
         """
@@ -311,8 +313,7 @@ class CloudifyContext(object):
         The node in context is stopped.
         """
         self._verify_node_in_context()
-        self._set_started = False
-        self._set_stopped = True
+        self._lifecycle_state = self.STOPPED
 
     def _verify_node_in_context(self):
         if self.node_id is None:
