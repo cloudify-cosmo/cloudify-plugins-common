@@ -27,14 +27,14 @@ class MockCloudifyContext(CloudifyContext):
 
     def __init__(self,
                  node_id=None,
-                 properties=dict(),
-                 runtime_properties=dict(),
+                 properties=None,
+                 runtime_properties=None,
                  capabilities=None,
                  related=None):
         super(MockCloudifyContext, self).__init__()
         self._node_id = node_id
-        self._properties = properties
-        self._runtime_properties = runtime_properties
+        self._properties = properties or {}
+        self._runtime_properties = runtime_properties or {}
         self._capabilities = capabilities or ContextCapabilities()
         self._related = related
 
