@@ -17,8 +17,7 @@ import sys
 __author__ = 'idanmo'
 
 import logging
-
-from context import CloudifyContext
+from context import CloudifyContext, ContextCapabilities
 
 
 class MockCloudifyContext(CloudifyContext):
@@ -28,14 +27,16 @@ class MockCloudifyContext(CloudifyContext):
 
     def __init__(self,
                  node_id=None,
-                 properties=dict(),
-                 runtime_properties=dict(),
-                 capabilities=dict()):
+                 properties=None,
+                 runtime_properties=None,
+                 capabilities=None,
+                 related=None):
         super(MockCloudifyContext, self).__init__()
         self._node_id = node_id
-        self._properties = properties
-        self._runtime_properties = runtime_properties
-        self._capabilities = capabilities
+        self._properties = properties or {}
+        self._runtime_properties = runtime_properties or {}
+        self._capabilities = capabilities or ContextCapabilities()
+        self._related = related
 
         root = logging.getLogger()
         ch = logging.StreamHandler(sys.stdout)
@@ -84,5 +85,8 @@ class MockCloudifyContext(CloudifyContext):
             return self._properties[key]
         return self._runtime_properties[key]
 
-    def set_started(self):
-        pass
+    def is_set_started(self):
+        return False
+
+    def is_set_stopped(self):
+        return False

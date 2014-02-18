@@ -77,6 +77,10 @@ class ContextCapabilities(object):
         """Returns all capabilities as dict."""
         return self._capabilities
 
+    def __str__(self):
+        return ('<' + self.__class__.__name__ + ' ' +
+                str(self._capabilities) + '>')
+
 
 class CloudifyRelatedNode(object):
     """
@@ -129,6 +133,9 @@ class CloudifyContext(object):
         and more...
     """
 
+    STARTED = 'started'
+    STOPPED = 'stopped'
+
     def __init__(self, ctx=None):
         if ctx is None:
             ctx = {}
@@ -140,7 +147,7 @@ class CloudifyContext(object):
         self._capabilities = ContextCapabilities(context_capabilities)
         self._logger = None
         self._node_state = None
-        self._set_started = False
+        self._lifecycle_state = None
         if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
@@ -283,12 +290,34 @@ class CloudifyContext(object):
         return self._logger
 
     def is_set_started(self):
-        return self._set_started
+        return self._lifecycle_state == self.STARTED
+
+    def is_set_stopped(self):
+        return self._lifecycle_state == self.STOPPED
 
     def set_started(self):
-        if not 'node_id' in self._context:
-            raise RuntimeError('Set started called in a non node context')
-        self._set_started = True
+        """
+        Sets the node in context as started.
+
+        After task execution an event will be sent to Riemann which indicates
+        The node in context is started.
+        """
+        self._verify_node_in_context()
+        self._lifecycle_state = self.STARTED
+
+    def set_stopped(self):
+        """
+        Sets the node in context as stopped.
+
+        After task execution an event will be sent to Riemann which indicates
+        The node in context is stopped.
+        """
+        self._verify_node_in_context()
+        self._lifecycle_state = self.STOPPED
+
+    def _verify_node_in_context(self):
+        if self.node_id is None:
+            raise RuntimeError('Invocation requires a node in context')
 
     def _get_node_state_if_needed(self):
         if self.node_id is None:
@@ -354,3 +383,8 @@ class CloudifyContext(object):
         handler.setFormatter(logging.Formatter("%(message)s"))
         self._logger.propagate = True
         self._logger.addHandler(handler)
+
+    def __str__(self):
+        attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')
+        info = ' '.join(["{0}={1}".format(a, getattr(self, a)) for a in attrs])
+        return '<' + self.__class__.__name__ + ' ' + info + '>'
