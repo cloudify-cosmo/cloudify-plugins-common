@@ -12,11 +12,12 @@
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
+import sys
 
 __author__ = 'idanmo'
 
-
 import logging
+
 from context import CloudifyContext
 
 
@@ -36,6 +37,22 @@ class MockCloudifyContext(CloudifyContext):
         self._runtime_properties = runtime_properties
         self._capabilities = capabilities
 
+        root = logging.getLogger()
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
+                                      datefmt='%H:%M:%S')
+        ch.setFormatter(formatter)
+
+        # clear all other handlers
+        for handler in root.handlers:
+            root.removeHandler(handler)
+
+        root.addHandler(ch)
+        self._mock_context_logger = logging.getLogger('mock-context-logger')
+        self._mock_context_logger.setLevel(logging.DEBUG)
+
+
     @property
     def node_id(self):
         return self._node_id
@@ -54,7 +71,7 @@ class MockCloudifyContext(CloudifyContext):
 
     @property
     def logger(self):
-        return logging.getLogger('cloudify')
+        return self._mock_context_logger
 
     def __contains__(self, key):
         return key in self._properties or key in self._runtime_properties
