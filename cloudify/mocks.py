@@ -41,7 +41,8 @@ class MockCloudifyContext(CloudifyContext):
         root = logging.getLogger()
         ch = logging.StreamHandler(sys.stdout)
         ch.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
+        formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
+                                          '[%(name)s] %(message)s',
                                       datefmt='%H:%M:%S')
         ch.setFormatter(formatter)
 
@@ -52,7 +53,6 @@ class MockCloudifyContext(CloudifyContext):
         root.addHandler(ch)
         self._mock_context_logger = logging.getLogger('mock-context-logger')
         self._mock_context_logger.setLevel(logging.DEBUG)
-
 
     @property
     def node_id(self):
