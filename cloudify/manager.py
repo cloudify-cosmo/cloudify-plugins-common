@@ -34,31 +34,15 @@ class NodeState(object):
         self.id = node_id
         if runtime_properties is None:
             runtime_properties = {}
-        self._runtime_properties = {k: [v, None] for k, v
-                                    in runtime_properties.iteritems()}
+        self._runtime_properties = runtime_properties.copy()
 
     def get(self, key):
         if key in self._runtime_properties:
-            return self._runtime_properties[key][0]
+            return self._runtime_properties[key]
         return None
 
     def put(self, key, value):
-        """Put a runtime property value.
-        Initial runtime properties structure:
-            key: [value, None]
-        New runtime properties structure:
-            key: [value]
-        Updated runtime properties structure:
-            key: [new_value, old_value]
-        """
-        if key in self._runtime_properties:
-            values = self._runtime_properties[key]
-            if len(values) == 1 or values[1] is None:
-                self._runtime_properties[key] = [value, values[0]]
-            else:
-                values[0] = value
-        else:
-            self._runtime_properties[key] = [value]
+        self._runtime_properties[key] = value
 
     def __setitem__(self, key, value):
         return self.put(key, value)
@@ -71,19 +55,7 @@ class NodeState(object):
 
     @property
     def runtime_properties(self):
-        return {k: v[0] for k, v in self._runtime_properties.iteritems()}
-
-    def get_updated_properties(self):
-        """Get new/updated runtime properties.
-        Returns:
-            A dict in the following structure:
-            new values => key: [value]
-            updated values => key: [new_value, old_value]
-        """
-        if self._runtime_properties is None:
-            return {}
-        return {k: v for k, v in self._runtime_properties.iteritems()
-                if len(v) == 1 or v[1] is not None}
+        return self._runtime_properties.copy()
 
 
 def get_manager_rest_client():
@@ -100,11 +72,8 @@ def get_node_state(node_id):
 
 
 def update_node_state(node_state):
-    updated = node_state.get_updated_properties()
-    if len(updated) == 0:
-        return None
     client = get_manager_rest_client()
-    client.update_node_state(node_state.id, updated)
+    client.update_node_state(node_state.id, node_state.runtime_properties)
 
 
 def set_node_started(node_id, host):
