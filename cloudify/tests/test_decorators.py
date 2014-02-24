@@ -22,23 +22,45 @@ from cloudify.context import CloudifyContext
 
 
 @operation
-def method_empty_ctx(a, b, ctx, **kwargs):
-    if ctx is None or not isinstance(ctx, CloudifyContext):
-        raise RuntimeError()
-
-
-@operation
-def method_with_ctx(a, b, ctx=None, **kwargs):
-    if ctx is None or ctx.node_id != '1234':
-        raise RuntimeError()
+def acquire_context(a, b, ctx, **kwargs):
+    return ctx
 
 
 class OperationTest(unittest.TestCase):
 
     def test_empty_ctx(self):
-        method_empty_ctx(0, 0)
+        ctx = acquire_context(0, 0)
+        self.assertIsInstance(ctx, CloudifyContext)
 
     def test_provided_ctx(self):
         ctx = {'node_id': '1234'}
         kwargs = {'__cloudify_context': ctx}
-        method_with_ctx(0, 0, **kwargs)
+        ctx = acquire_context(0, 0, **kwargs)
+        self.assertIsInstance(ctx, CloudifyContext)
+        self.assertEquals('1234', getattr(ctx, 'node_id'))
+
+    def test_provided_capabilities(self):
+        ctx = {
+            'node_id': '5678',
+            'capabilities': {
+                'some_node': {
+                    'k': 'v'
+                }
+            }
+        }
+        kwargs = {'__cloudify_context': ctx}
+        ctx = acquire_context(0, 0, **kwargs)
+        self.assertIn('k', ctx.capabilities)
+        self.assertEquals('v', ctx.capabilities['k'])
+
+    def test_capabilities_clash(self):
+        ctx = {
+            'node_id': '5678',
+            'capabilities': {
+                'node1': {'k': 'v1'},
+                'node2': {'k': 'v2'},
+            }
+        }
+        kwargs = {'__cloudify_context': ctx}
+        ctx = acquire_context(0, 0, **kwargs)
+        self.assertRaises(RuntimeError, ctx.capabilities.__contains__, 'k')

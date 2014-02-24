@@ -137,13 +137,8 @@ class CloudifyContext(object):
     STOPPED = 'stopped'
 
     def __init__(self, ctx=None):
-        if ctx is None:
-            ctx = {}
-        self._context = ctx
-        if 'capabilities' in self._context:
-            context_capabilities = self._context['capabilities']
-        else:
-            context_capabilities = {}
+        self._context = ctx or {}
+        context_capabilities = self._context.get('capabilities')
         self._capabilities = ContextCapabilities(context_capabilities)
         self._logger = None
         self._node_state = None

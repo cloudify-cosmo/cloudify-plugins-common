@@ -30,11 +30,17 @@ class MockCloudifyContext(CloudifyContext):
                  properties=None,
                  runtime_properties=None,
                  capabilities=None,
-                 related=None):
-        super(MockCloudifyContext, self).__init__()
+                 related=None,
+                 operation=None):
+        super(MockCloudifyContext, self).__init__({'operation': operation})
         self._node_id = node_id
         self._properties = properties or {}
         self._runtime_properties = runtime_properties or {}
+        if capabilities and not isinstance(capabilities, ContextCapabilities):
+            raise ValueError(
+                "MockCloudifyContext(capabilities=?) must be "
+                "instance of ContextCapabilities, not {0}".format(
+                    capabilities))
         self._capabilities = capabilities or ContextCapabilities()
         self._related = related
 
