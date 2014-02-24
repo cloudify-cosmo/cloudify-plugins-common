@@ -57,8 +57,8 @@ class OperationTest(unittest.TestCase):
         ctx = {
             'node_id': '5678',
             'capabilities': {
-                'node1': { 'k': 'v1' },
-                'node2': { 'k': 'v2' },
+                'node1': {'k': 'v1'},
+                'node2': {'k': 'v2'},
             }
         }
         kwargs = {'__cloudify_context': ctx}
