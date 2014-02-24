@@ -39,7 +39,8 @@ class MockCloudifyContext(CloudifyContext):
         if capabilities and not isinstance(capabilities, ContextCapabilities):
             raise ValueError(
                 "MockCloudifyContext(capabilities=?) must be "
-                "instance of ContextCapabilities, not {0}".format(capabilities))
+                "instance of ContextCapabilities, not {0}".format(
+                    capabilities))
         self._capabilities = capabilities or ContextCapabilities()
         self._related = related
 
