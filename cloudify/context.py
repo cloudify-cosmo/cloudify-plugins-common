@@ -49,17 +49,14 @@ class ContextCapabilities(object):
         Returns the capability for the provided key by iterating through all
         dependency nodes available capabilities.
         """
-        found = False
-        value = None
-        for caps in self._capabilities.values():
-            if key in caps:
-                if found:
-                    raise RuntimeError(
-                        "'{0}' capability ambiguity [capabilities={1}]".format(
-                            key, self._capabilities))
-                value = caps[key]
-                found = True
-        return found, value
+        ls = [caps for caps in self._capabilities.values() if key in caps]
+        if len(ls) == 0:
+            return False, None
+        if len(ls) > 1:
+            raise RuntimeError(
+                "'{0}' capability ambiguity [capabilities={1}]".format(
+                    key, self._capabilities))
+        return True, ls[0][key]
 
     def __getitem__(self, key):
         found, value = self._find_item(key)
