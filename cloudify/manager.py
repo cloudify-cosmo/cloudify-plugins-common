@@ -32,23 +32,17 @@ class NodeState(object):
     """
     def __init__(self, node_id, runtime_properties=None):
         self.id = node_id
-        if runtime_properties is None:
-            runtime_properties = {}
-        self._runtime_properties = runtime_properties.copy()
+        self._runtime_properties = (runtime_properties or {}).copy()
 
     def get(self, key):
-        if key in self._runtime_properties:
-            return self._runtime_properties[key]
-        return None
+        return self._runtime_properties.get(key)
 
     def put(self, key, value):
         self._runtime_properties[key] = value
 
-    def __setitem__(self, key, value):
-        return self.put(key, value)
+    __setitem__ = put
 
-    def __getitem__(self, key):
-        return self.get(key)
+    __getitem__ = get
 
     def __contains__(self, key):
         return key in self._runtime_properties
