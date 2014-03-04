@@ -27,6 +27,7 @@ class MockCloudifyContext(CloudifyContext):
 
     def __init__(self,
                  node_id=None,
+                 node_name=None,
                  blueprint_id=None,
                  deployment_id=None,
                  execution_id=None,
@@ -38,6 +39,7 @@ class MockCloudifyContext(CloudifyContext):
                  resources=None):
         super(MockCloudifyContext, self).__init__({'operation': operation})
         self._node_id = node_id
+        self._node_name = node_name
         self._blueprint_id = blueprint_id
         self._deployment_id = deployment_id
         self._execution_id = execution_id
@@ -71,6 +73,10 @@ class MockCloudifyContext(CloudifyContext):
     @property
     def node_id(self):
         return self._node_id
+
+    @property
+    def node_name(self):
+        return self._node_name
 
     @property
     def blueprint_id(self):
