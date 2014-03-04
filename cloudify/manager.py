@@ -30,9 +30,10 @@ class NodeState(object):
      generate an updates dict to be used when requesting to save changes
      back to the storage (in an optimistic locking manner).
     """
-    def __init__(self, node_id, runtime_properties=None):
+    def __init__(self, node_id, runtime_properties=None, state_version=None):
         self.id = node_id
         self._runtime_properties = (runtime_properties or {}).copy()
+        self._state_version = state_version
 
     def get(self, key):
         return self._runtime_properties.get(key)
@@ -51,6 +52,10 @@ class NodeState(object):
     def runtime_properties(self):
         return self._runtime_properties.copy()
 
+    @property
+    def state_version(self):
+        return self._state_version
+
 
 def get_manager_rest_client():
     return CosmoManagerRestClient(utils.get_manager_ip(),
@@ -62,12 +67,16 @@ def get_node_state(node_id):
     node_state = client.get_node_state(node_id)
     if 'runtimeInfo' not in node_state:
         raise KeyError('runtimeInfo not found in get_node_state response')
-    return NodeState(node_id, node_state['runtimeInfo'])
+    if 'stateVersion' not in node_state:
+        raise KeyError('stateVersion not found in get_node_state response')
+    return NodeState(
+        node_id, node_state['runtimeInfo'], node_state['stateVersion'])
 
 
 def update_node_state(node_state):
     client = get_manager_rest_client()
-    client.update_node_state(node_state.id, node_state.runtime_properties)
+    client.update_node_state(node_state.id, node_state.runtime_properties,
+                             node_state.state_version)
 
 
 def set_node_started(node_id, host):
