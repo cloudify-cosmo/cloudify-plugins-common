@@ -136,7 +136,6 @@ class CloudifyContext(object):
         self._capabilities = ContextCapabilities(context_capabilities)
         self._logger = None
         self._node_state = None
-        self._lifecycle_state = None
         if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
