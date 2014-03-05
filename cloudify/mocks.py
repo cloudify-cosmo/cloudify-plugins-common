@@ -90,9 +90,3 @@ class MockCloudifyContext(CloudifyContext):
         if key in self._properties:
             return self._properties[key]
         return self._runtime_properties[key]
-
-    def is_set_started(self):
-        return False
-
-    def is_set_stopped(self):
-        return False
