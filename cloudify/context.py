@@ -130,9 +130,6 @@ class CloudifyContext(object):
         and more...
     """
 
-    STARTED = 'started'
-    STOPPED = 'stopped'
-
     def __init__(self, ctx=None):
         self._context = ctx or {}
         context_capabilities = self._context.get('capabilities')
@@ -280,32 +277,6 @@ class CloudifyContext(object):
         if self._logger is None:
             self._init_cloudify_logger()
         return self._logger
-
-    def is_set_started(self):
-        return self._lifecycle_state == self.STARTED
-
-    def is_set_stopped(self):
-        return self._lifecycle_state == self.STOPPED
-
-    def set_started(self):
-        """
-        Sets the node in context as started.
-
-        After task execution an event will be sent to Riemann which indicates
-        The node in context is started.
-        """
-        self._verify_node_in_context()
-        self._lifecycle_state = self.STARTED
-
-    def set_stopped(self):
-        """
-        Sets the node in context as stopped.
-
-        After task execution an event will be sent to Riemann which indicates
-        The node in context is stopped.
-        """
-        self._verify_node_in_context()
-        self._lifecycle_state = self.STOPPED
 
     def _verify_node_in_context(self):
         if self.node_id is None:

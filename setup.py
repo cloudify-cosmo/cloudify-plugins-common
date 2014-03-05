@@ -39,7 +39,6 @@ setup(
         # to install transitively.
         # see https://pypi.python.org/pypi/bernhard/0.1.0
         "protobuf",
-        "bernhard",
         "celery==3.0.24",
         "pika==0.9.13",
         "cosmo-manager-rest-client"

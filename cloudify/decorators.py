@@ -16,9 +16,6 @@
 __author__ = 'idanmo'
 
 from functools import wraps
-from manager import set_node_started
-from manager import set_node_stopped
-from utils import get_local_ip
 from cloudify.celery import celery
 from cloudify.context import CloudifyContext
 
@@ -94,10 +91,6 @@ def operation(func=None, **arguments):
                     ctx.task_name, exc_info=True)
                 raise e
             ctx.update()
-            if ctx.is_set_started():
-                set_node_started(ctx.node_id, get_local_ip())
-            elif ctx.is_set_stopped():
-                set_node_stopped(ctx.node_id, get_local_ip())
             return result
         return wrapper
     else:
