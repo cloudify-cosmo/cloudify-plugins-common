@@ -73,19 +73,5 @@ def get_node_state(node_id):
 
 def update_node_state(node_state):
     client = get_manager_rest_client()
-<<<<<<< Updated upstream
     client.update_node_state(node_state.id, node_state.runtime_properties,
                              node_state.state_version)
-
-
-def set_node_started(node_id, host):
-    events.send_event(host, node_id, 'state', 'started',
-                      ttl=sys.maxint, tags=['cloudify_node'])
-
-
-def set_node_stopped(node_id, host):
-    events.send_event(host, node_id, 'state', 'stopped',
-                      ttl=600, tags=['cloudify_node'])
-=======
-    client.update_node_state(node_state.id, updated)
->>>>>>> Stashed changes
