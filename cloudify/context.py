@@ -93,12 +93,12 @@ class CloudifyRelatedNode(object):
     @property
     def node_id(self):
         """The related node's id."""
-        return self._related['node_id']
+        return self._related.get('node_id')
 
     @property
     def properties(self):
         """The related node's properties as dict (read-only)."""
-        return self._related['node_properties']
+        return self._related.get('node_properties')
 
     @property
     def runtime_properties(self):
@@ -117,6 +117,11 @@ class CloudifyRelatedNode(object):
 
     def __contains__(self, key):
         return key in self.properties or key in self._runtime_properties
+
+    def __str__(self):
+        attrs = ('node_id', 'properties', 'runtime_properties')
+        info = ' '.join(["{0}={1}".format(a, getattr(self, a)) for a in attrs])
+        return '<' + self.__class__.__name__ + ' ' + info + '>'
 
 
 class CloudifyContext(object):
