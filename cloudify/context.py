@@ -79,16 +79,23 @@ class ContextCapabilities(object):
                 str(self._capabilities) + '>')
 
 
-class CloudifyRelatedNode(object):
+class CommonContextOperations(object):
+
+    def _get_node_state_if_needed(self):
+        if self.node_id is None:
+            raise RuntimeError('Cannot get node state - invocation is not '
+                               'in a context of node')
+        if self._node_state is None:
+            self._node_state = get_node_state(self.node_id)
+
+
+class CloudifyRelatedNode(CommonContextOperations):
     """
     Represents the related node of a relationship.
     """
     def __init__(self, ctx):
         self._related = ctx['related']
-        if 'capabilities' in ctx and self.node_id in ctx['capabilities']:
-            self._runtime_properties = ctx['capabilities'][self.node_id]
-        else:
-            self._runtime_properties = {}
+        self._node_state = None
 
     @property
     def node_id(self):
@@ -102,8 +109,14 @@ class CloudifyRelatedNode(object):
 
     @property
     def runtime_properties(self):
-        """The related node's runtime properties as dict (read-only)."""
-        return self._runtime_properties
+        """The related node's in context runtime properties as a dict
+        (read-only).
+
+        Runtime properties are properties set during the node's lifecycle.
+        Retrieving runtime properties involves a call to Cloudify's storage.
+        """
+        self._get_node_state_if_needed()
+        return self._node_state.runtime_properties
 
     def __getitem__(self, key):
         """
@@ -113,13 +126,13 @@ class CloudifyRelatedNode(object):
         """
         if key in self.properties:
             return self.properties[key]
-        return self._runtime_properties[key]
+        return self.runtime_properties[key]
 
     def __contains__(self, key):
-        return key in self.properties or key in self._runtime_properties
+        return key in self.properties or key in self.runtime_properties
 
 
-class CloudifyContext(object):
+class CloudifyContext(CommonContextOperations):
     """
     A context object passed to plugins tasks invocations.
     Using the context object, plugin writers can:
@@ -280,13 +293,6 @@ class CloudifyContext(object):
     def _verify_node_in_context(self):
         if self.node_id is None:
             raise RuntimeError('Invocation requires a node in context')
-
-    def _get_node_state_if_needed(self):
-        if self.node_id is None:
-            raise RuntimeError('Cannot get node state - invocation is not '
-                               'in a context of node')
-        if self._node_state is None:
-            self._node_state = get_node_state(self.node_id)
 
     def __getitem__(self, key):
         """
