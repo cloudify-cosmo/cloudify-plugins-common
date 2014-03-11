@@ -335,6 +335,9 @@ class CloudifyContext(object):
         Returns:
             The path to the resource on the local file system (identical to
             target_path parameter if used).
+            If the resource is missing, an error occurred during download,
+            or there was a problem in writing the resource to the local file
+            system, None is returned.
         """
         return get_resource_from_manager(resource_path, self.blueprint_id,
                                          self.logger, target_path)
