@@ -18,6 +18,7 @@ __author__ = 'idanmo'
 import logging
 from manager import get_node_state
 from manager import update_node_state
+from manager import get_resource as get_resource_from_manager
 from logs import CloudifyPluginLoggingHandler
 
 
@@ -317,6 +318,26 @@ class CloudifyContext(object):
             return True
         self._get_node_state_if_needed()
         return key in self._node_state
+
+    def get_resource(self, resource_path, target_path=None):
+        """
+        Retrieves a resource bundled with the blueprint and saves it under a
+        local file.
+
+        Parameters:
+            resource_path - the path to the resource. Note that this path is
+            relative to the blueprint file which was uploaded.
+
+            target_path - optional local path (including filename) to store
+            the resource at on the local file system. If missing, the location
+            will be a tempfile with a generated name.
+
+        Returns:
+            The path to the resource on the local file system (identical to
+            target_path parameter if used).
+        """
+        return get_resource_from_manager(resource_path, self.blueprint_id,
+                                         self.logger, target_path)
 
     def update(self):
         """

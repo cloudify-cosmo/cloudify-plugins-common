@@ -18,7 +18,7 @@ __author__ = 'idanmo'
 import os
 
 from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, \
-    MANAGER_REST_PORT_KEY
+    MANAGER_REST_PORT_KEY, MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL
 
 
 def get_local_ip():
@@ -27,6 +27,10 @@ def get_local_ip():
 
 def get_manager_ip():
     return os.environ[MANAGER_IP_KEY]
+
+
+def get_manager_file_server_blueprints_root_url():
+    return os.environ[MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL]
 
 
 def get_manager_rest_service_port():
