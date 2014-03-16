@@ -27,6 +27,9 @@ class MockCloudifyContext(CloudifyContext):
 
     def __init__(self,
                  node_id=None,
+                 blueprint_id=None,
+                 deployment_id=None,
+                 execution_id=None,
                  properties=None,
                  runtime_properties=None,
                  capabilities=None,
@@ -34,6 +37,9 @@ class MockCloudifyContext(CloudifyContext):
                  operation=None):
         super(MockCloudifyContext, self).__init__({'operation': operation})
         self._node_id = node_id
+        self._blueprint_id = blueprint_id
+        self._deployment_id = deployment_id
+        self._execution_id = execution_id
         self._properties = properties or {}
         self._runtime_properties = runtime_properties or {}
         if capabilities and not isinstance(capabilities, ContextCapabilities):
@@ -63,6 +69,18 @@ class MockCloudifyContext(CloudifyContext):
     @property
     def node_id(self):
         return self._node_id
+
+    @property
+    def blueprint_id(self):
+        return self._blueprint_id
+
+    @property
+    def deployment_id(self):
+        return self._deployment_id
+
+    @property
+    def execution_id(self):
+        return self._execution_id
 
     @property
     def properties(self):
