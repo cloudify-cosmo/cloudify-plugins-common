@@ -343,7 +343,8 @@ class CloudifyContext(CommonContextOperations):
             The path to the resource on the local file system (identical to
             target_path parameter if used).
 
-            raises an IOError, urllib2.HTTPError depending on the type or error.
+            raises an IOError, urllib2.HTTPError
+            depending on the type or error.
         """
         return get_resource_from_manager(resource_path, self.blueprint_id,
                                          self.logger, target_path)

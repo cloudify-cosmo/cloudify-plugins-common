@@ -17,7 +17,8 @@ class CloudifyContextTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        resources_path = os.path.join(dirname(tests_path.__file__), "resources")
+        resources_path = os.path.join(dirname(tests_path.__file__),
+                                      "resources")
 
         from cloudify.tests.file_server import FileServer
         from cloudify.tests.file_server import PORT
@@ -38,7 +39,8 @@ class CloudifyContextTest(unittest.TestCase):
         self.assertIsNotNone(resource)
 
     def test_get_non_existing_resource(self):
-        self.assertRaises(HttpException, self.context.get_resource, 'non_existing.log')
+        self.assertRaises(HttpException, self.context.get_resource,
+                          'non_existing.log')
 
     def test_get_resource_to_non_writable_location(self):
         self.assertRaises(IOError, self.context.get_resource,
