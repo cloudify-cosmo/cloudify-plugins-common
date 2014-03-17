@@ -22,6 +22,8 @@ import tempfile
 from cosmo_manager_rest_client.cosmo_manager_rest_client \
     import CosmoManagerRestClient
 
+from cloudify.exceptions import HttpException
+
 import utils
 
 
@@ -77,7 +79,13 @@ def _download(url, logger, target_path=None):
     """
     downloads a file to the local disk and returns it's disk path
     """
-    resp = urllib2.urlopen(url)
+
+    resp = None
+
+    try:
+        resp = urllib2.urlopen(url)
+    except urllib2.HTTPError as e:
+        raise HttpException(e.url, e.code, e.msg)
 
     if not target_path:
         (fd, target_path) = tempfile.mkstemp()
