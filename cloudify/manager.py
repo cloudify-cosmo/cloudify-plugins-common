@@ -18,9 +18,11 @@ __author__ = 'idanmo'
 import urllib2
 import os
 import tempfile
-import utils
+
 from cosmo_manager_rest_client.cosmo_manager_rest_client \
     import CosmoManagerRestClient
+
+import utils
 
 
 class NodeState(object):
@@ -72,23 +74,21 @@ def get_resource(resource_path, blueprint_id, logger, target_path=None):
 
 
 def _download(url, logger, target_path=None):
-    """downloads a file to the local disk and returns it's disk path"""
-    try:
-        resp = urllib2.urlopen(url)
+    """
+    downloads a file to the local disk and returns it's disk path
+    """
+    resp = urllib2.urlopen(url)
 
-        if not target_path:
-            (fd, target_path) = tempfile.mkstemp()
-            with os.fdopen(fd, 'w') as f:
-                f.write(resp.read())
-        else:
-            with open(target_path, 'w') as f:
-                f.write(resp.read())
+    if not target_path:
+        (fd, target_path) = tempfile.mkstemp()
+        with os.fdopen(fd, 'w') as f:
+            f.write(resp.read())
+    else:
+        with open(target_path, 'w') as f:
+            f.write(resp.read())
 
-        logger.info("Downloaded %s to %s" % (url, target_path))
-        return target_path
-    except (IOError, urllib2.HTTPError) as e:
-        logger.error("Error downloading file %s. %s" % (url, e))
-        return None
+    logger.info("Downloaded %s to %s" % (url, target_path))
+    return target_path
 
 
 def get_node_state(node_id):
