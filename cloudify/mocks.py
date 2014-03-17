@@ -98,6 +98,9 @@ class MockCloudifyContext(CloudifyContext):
     def logger(self):
         return self._mock_context_logger
 
+    def get_resource(self, resource_path, target_path=None):
+        return ''
+
     def __contains__(self, key):
         return key in self._properties or key in self._runtime_properties
 
