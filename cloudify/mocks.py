@@ -34,7 +34,8 @@ class MockCloudifyContext(CloudifyContext):
                  runtime_properties=None,
                  capabilities=None,
                  related=None,
-                 operation=None):
+                 operation=None,
+                 resources=None):
         super(MockCloudifyContext, self).__init__({'operation': operation})
         self._node_id = node_id
         self._blueprint_id = blueprint_id
@@ -42,6 +43,7 @@ class MockCloudifyContext(CloudifyContext):
         self._execution_id = execution_id
         self._properties = properties or {}
         self._runtime_properties = runtime_properties or {}
+        self._resources = resources or {}
         if capabilities and not isinstance(capabilities, ContextCapabilities):
             raise ValueError(
                 "MockCloudifyContext(capabilities=?) must be "
@@ -99,7 +101,15 @@ class MockCloudifyContext(CloudifyContext):
         return self._mock_context_logger
 
     def get_resource(self, resource_path, target_path=None):
-        return ''
+        if target_path:
+            raise RuntimeError("MockCloudifyContext does not support "
+                               "get_resource() with target_path yet")
+        if resource_path not in self._resources:
+            raise RuntimeError(
+                "Resource '{0}' was not found. "
+                "Available resources: {1}".format(resource_path,
+                                                  self._resources.keys()))
+        return self._resources[resource_path]
 
     def __contains__(self, key):
         return key in self._properties or key in self._runtime_properties
