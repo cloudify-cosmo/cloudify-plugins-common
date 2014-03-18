@@ -18,6 +18,7 @@ __author__ = 'idanmo'
 import logging
 from manager import get_node_state
 from manager import update_node_state
+from manager import get_resource as get_resource_from_manager
 from logs import CloudifyPluginLoggingHandler
 
 
@@ -79,16 +80,23 @@ class ContextCapabilities(object):
                 str(self._capabilities) + '>')
 
 
-class CloudifyRelatedNode(object):
+class CommonContextOperations(object):
+
+    def _get_node_state_if_needed(self):
+        if self.node_id is None:
+            raise RuntimeError('Cannot get node state - invocation is not '
+                               'in a context of node')
+        if self._node_state is None:
+            self._node_state = get_node_state(self.node_id)
+
+
+class CloudifyRelatedNode(CommonContextOperations):
     """
     Represents the related node of a relationship.
     """
     def __init__(self, ctx):
         self._related = ctx['related']
-        if 'capabilities' in ctx and self.node_id in ctx['capabilities']:
-            self._runtime_properties = ctx['capabilities'][self.node_id]
-        else:
-            self._runtime_properties = {}
+        self._node_state = None
 
     @property
     def node_id(self):
@@ -102,8 +110,14 @@ class CloudifyRelatedNode(object):
 
     @property
     def runtime_properties(self):
-        """The related node's runtime properties as dict (read-only)."""
-        return self._runtime_properties
+        """The related node's in context runtime properties as a dict
+        (read-only).
+
+        Runtime properties are properties set during the node's lifecycle.
+        Retrieving runtime properties involves a call to Cloudify's storage.
+        """
+        self._get_node_state_if_needed()
+        return self._node_state.runtime_properties
 
     def __getitem__(self, key):
         """
@@ -113,10 +127,10 @@ class CloudifyRelatedNode(object):
         """
         if key in self.properties:
             return self.properties[key]
-        return self._runtime_properties[key]
+        return self.runtime_properties[key]
 
     def __contains__(self, key):
-        return key in self.properties or key in self._runtime_properties
+        return key in self.properties or key in self.runtime_properties
 
     def __str__(self):
         attrs = ('node_id', 'properties', 'runtime_properties')
@@ -124,7 +138,7 @@ class CloudifyRelatedNode(object):
         return '<' + self.__class__.__name__ + ' ' + info + '>'
 
 
-class CloudifyContext(object):
+class CloudifyContext(CommonContextOperations):
     """
     A context object passed to plugins tasks invocations.
     Using the context object, plugin writers can:
@@ -286,13 +300,6 @@ class CloudifyContext(object):
         if self.node_id is None:
             raise RuntimeError('Invocation requires a node in context')
 
-    def _get_node_state_if_needed(self):
-        if self.node_id is None:
-            raise RuntimeError('Cannot get node state - invocation is not '
-                               'in a context of node')
-        if self._node_state is None:
-            self._node_state = get_node_state(self.node_id)
-
     def __getitem__(self, key):
         """
         Gets node in context's static/runtime property.
@@ -322,6 +329,29 @@ class CloudifyContext(object):
             return True
         self._get_node_state_if_needed()
         return key in self._node_state
+
+    def get_resource(self, resource_path, target_path=None):
+        """
+        Retrieves a resource bundled with the blueprint and saves it under a
+        local file.
+
+        Parameters:
+            resource_path - the path to the resource. Note that this path is
+            relative to the blueprint file which was uploaded.
+
+            target_path - optional local path (including filename) to store
+            the resource at on the local file system. If missing, the location
+            will be a tempfile with a generated name.
+
+        Returns:
+            The path to the resource on the local file system (identical to
+            target_path parameter if used).
+            If the resource is missing, an error occurred during download,
+            or there was a problem in writing the resource to the local file
+            system, None is returned.
+        """
+        return get_resource_from_manager(resource_path, self.blueprint_id,
+                                         self.logger, target_path)
 
     def update(self):
         """
