@@ -31,6 +31,7 @@ class HttpException(Exception):
         self.url = url
         self.code = code
         self.message = message
+        Exception.__init__(self, self.__str__())
 
     def __str__(self):
         return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
