@@ -16,6 +16,7 @@
 __author__ = 'idanmo'
 
 import logging
+
 from manager import get_node_state
 from manager import update_node_state
 from manager import get_resource as get_resource_from_manager
@@ -339,11 +340,16 @@ class CloudifyContext(CommonContextOperations):
             will be a tempfile with a generated name.
 
         Returns:
+
             The path to the resource on the local file system (identical to
             target_path parameter if used).
-            If the resource is missing, an error occurred during download,
-            or there was a problem in writing the resource to the local file
-            system, None is returned.
+
+            raises an cloudify.exceptions.HttpException
+            on any kind of Http Error.
+
+            raises an IOError if the resource
+            failed to be written to the local file system.
+
         """
         return get_resource_from_manager(resource_path, self.blueprint_id,
                                          self.logger, target_path)
