@@ -17,13 +17,11 @@ __author__ = 'idanmo'
 
 import urllib2
 import os
-import tempfile
 
 from cosmo_manager_rest_client.cosmo_manager_rest_client \
     import CosmoManagerRestClient
 
 from cloudify.exceptions import HttpException
-
 import utils
 
 
@@ -67,36 +65,45 @@ def get_manager_rest_client():
                                   utils.get_manager_rest_service_port())
 
 
-def get_resource(resource_path, blueprint_id, logger, target_path=None):
-    url = '{0}/{1}/{2}'.format(
-        utils.get_manager_file_server_blueprints_root_url(),
-        blueprint_id,
-        resource_path)
-    return _download(url, logger, target_path)
+def _save_resource(logger, resource, resource_path, target_path):
+    if not target_path:
+        target_path = os.path.join(utils.create_temp_folder(),
+                                   os.path.basename(resource_path))
+    with open(target_path, 'w') as f:
+        f.write(resource)
+    logger.info("Downloaded %s to %s" % (resource_path, target_path))
+    return target_path
 
 
-def _download(url, logger, target_path=None):
-    """
-    downloads a file to the local disk and returns it's disk path
-    """
+def download_resource(resource_path, logger, target_path=None):
+    resource = get_resource(resource_path)
+    return _save_resource(logger, resource, resource_path, target_path)
 
-    resp = None
 
+def download_blueprint_resource(blueprint_id,
+                                resource_path,
+                                logger,
+                                target_path=None):
+    resource = get_blueprint_resource(blueprint_id, resource_path)
+    return _save_resource(logger, resource, resource_path, target_path)
+
+
+def get_resource(resource_path, base_url=None):
+    if base_url is None:
+        base_url = utils.get_manager_file_server_url()
     try:
-        resp = urllib2.urlopen(url)
+        url = '{0}/{1}'.format(base_url, resource_path)
+        response = urllib2.urlopen(url)
+        return response.read()
     except urllib2.HTTPError as e:
         raise HttpException(e.url, e.code, e.msg)
 
-    if not target_path:
-        (fd, target_path) = tempfile.mkstemp()
-        with os.fdopen(fd, 'w') as f:
-            f.write(resp.read())
-    else:
-        with open(target_path, 'w') as f:
-            f.write(resp.read())
 
-    logger.info("Downloaded %s to %s" % (url, target_path))
-    return target_path
+def get_blueprint_resource(blueprint_id, resource_path):
+    base_url = "{0}/{1}".format(utils
+                                .get_manager_file_server_blueprints_root_url(),
+                                blueprint_id)
+    return get_resource(resource_path, base_url=base_url)
 
 
 def get_node_state(node_id):
