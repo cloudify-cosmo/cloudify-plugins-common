@@ -17,16 +17,16 @@ __author__ = 'elip'
 
 from setuptools import setup
 
-REST_CLIENT_VERSION = '0.3'
+REST_CLIENT_VERSION = '3.0'
 REST_CLIENT_BRANCH = 'develop'
 REST_CLIENT =\
-    "https://github.com/CloudifySource/cosmo-manager-rest-client/tarball/{0}"\
+    "https://github.com/cloudify-cosmo/cloudify-rest-client/tarball/{0}"\
     .format(REST_CLIENT_BRANCH)
 
 
 setup(
-    name='cosmo-celery-common',
-    version='0.3',
+    name='cloudify-plugins-common',
+    version='3.0',
     author='elip',
     author_email='elip@gigaspaces.com',
     packages=['cloudify'],
@@ -41,11 +41,11 @@ setup(
         "protobuf",
         "celery==3.0.24",
         "pika==0.9.13",
-        "cosmo-manager-rest-client"
+        "cloudify-rest-client"
     ],
     test_requires=[
         "nose"
     ],
-    dependency_links=["{0}#egg=cosmo-manager-rest-client-{1}"
+    dependency_links=["{0}#egg=cloudify-rest-client-{1}"
                       .format(REST_CLIENT, REST_CLIENT_VERSION)]
 )
