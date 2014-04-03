@@ -100,16 +100,19 @@ class MockCloudifyContext(CloudifyContext):
     def logger(self):
         return self._mock_context_logger
 
-    def get_resource(self, resource_path, target_path=None):
+    def download_resource(self, resource_path, target_path=None):
         if target_path:
             raise RuntimeError("MockCloudifyContext does not support "
-                               "get_resource() with target_path yet")
+                               "download_resource() with target_path yet")
         if resource_path not in self._resources:
             raise RuntimeError(
                 "Resource '{0}' was not found. "
                 "Available resources: {1}".format(resource_path,
                                                   self._resources.keys()))
         return self._resources[resource_path]
+
+    def get_resource(self, resource_path):
+        raise RuntimeError('get_resource() not implemented in context mock')
 
     def __contains__(self, key):
         return key in self._properties or key in self._runtime_properties
