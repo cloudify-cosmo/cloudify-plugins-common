@@ -35,7 +35,8 @@ class NodeState(object):
     """
     def __init__(self, node_id, runtime_properties=None, state_version=None):
         self.id = node_id
-        self._runtime_properties = (runtime_properties or {}).copy()
+        self._runtime_properties = \
+            DirtyTrackingDict((runtime_properties or {}).copy())
         self._state_version = state_version
 
     def get(self, key):
@@ -58,6 +59,10 @@ class NodeState(object):
     @property
     def state_version(self):
         return self._state_version
+
+    @property
+    def dirty(self):
+        return self._runtime_properties.dirty
 
 
 def get_manager_rest_client():
@@ -121,3 +126,14 @@ def update_node_state(node_state):
     client = get_manager_rest_client()
     client.update_node_state(node_state.id, node_state.runtime_properties,
                              node_state.state_version)
+
+
+class DirtyTrackingDict(dict):
+
+    def __init__(self, *args, **kwargs):
+        super(DirtyTrackingDict, self).__init__(*args, **kwargs)
+        self.dirty = False
+
+    def __setitem__(self, key, value):
+        super(DirtyTrackingDict, self).__setitem__(key, value)
+        self.dirty = False

@@ -379,7 +379,7 @@ class CloudifyContext(CommonContextOperations):
         update Cloudify's storage with changes. Otherwise, the method is
         automatically invoked as soon as the task execution is over.
         """
-        if self._node_state is not None:
+        if self._node_state is not None and self._node_state.dirty:
             update_node_state(self._node_state)
             self._node_state = None
 
