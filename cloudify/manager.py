@@ -136,4 +136,4 @@ class DirtyTrackingDict(dict):
 
     def __setitem__(self, key, value):
         super(DirtyTrackingDict, self).__setitem__(key, value)
-        self.dirty = False
+        self.dirty = True
