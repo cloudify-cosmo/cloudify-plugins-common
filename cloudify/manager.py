@@ -53,7 +53,7 @@ class NodeState(object):
 
     @property
     def runtime_properties(self):
-        return self._runtime_properties.copy()
+        return self._runtime_properties
 
     @property
     def state_version(self):
