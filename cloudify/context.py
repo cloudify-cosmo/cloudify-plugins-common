@@ -152,6 +152,8 @@ class CloudifyContext(CommonContextOperations):
         self._capabilities = ContextCapabilities(context_capabilities)
         self._logger = None
         self._node_state = None
+        self._node_properties = \
+            ImmutableProperties(self._context.get('node_properties') or {})
         if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
@@ -173,7 +175,7 @@ class CloudifyContext(CommonContextOperations):
         The node's in context properties as dict (read-only).
         These properties are the properties specified in the blueprint.
         """
-        return self._context.get('node_properties')
+        return self._node_properties
 
     @property
     def runtime_properties(self):
@@ -377,7 +379,7 @@ class CloudifyContext(CommonContextOperations):
         update Cloudify's storage with changes. Otherwise, the method is
         automatically invoked as soon as the task execution is over.
         """
-        if self._node_state is not None:
+        if self._node_state is not None and self._node_state.dirty:
             update_node_state(self._node_state)
             self._node_state = None
 
@@ -400,3 +402,14 @@ class CloudifyContext(CommonContextOperations):
         attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')
         info = ' '.join(["{0}={1}".format(a, getattr(self, a)) for a in attrs])
         return '<' + self.__class__.__name__ + ' ' + info + '>'
+
+
+class ImmutableProperties(dict):
+    """
+    Of course this is not actually immutable, but it is good enough to provide
+    an API that will tell you you're doing something wrong if you try updating
+    the static node properties in the normal way.
+    """
+
+    def __setitem__(self, key, value):
+        raise RuntimeError('Cannot override read only properties')

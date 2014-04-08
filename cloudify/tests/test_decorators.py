@@ -64,3 +64,10 @@ class OperationTest(unittest.TestCase):
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)
         self.assertRaises(RuntimeError, ctx.capabilities.__contains__, 'k')
+
+    def test_invalid_properties_update(self):
+        kwargs = {'__cloudify_context': {
+            'node_id': '5678'
+        }}
+        ctx = acquire_context(0, 0, **kwargs)
+        self.assertRaises(RuntimeError, ctx.properties.__setitem__, 'k', 'v')
