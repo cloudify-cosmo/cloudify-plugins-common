@@ -31,8 +31,8 @@ setup(
     author_email='elip@gigaspaces.com',
     packages=['cloudify'],
     license='LICENSE',
-    description=
-    'Package that holds common cosmo modules needed by many plugins',
+    description='Package that holds common cosmo '
+                'modules needed by many plugins',
     zip_safe=False,
     install_requires=[
         # we include this dependency here because protobuf may fail
