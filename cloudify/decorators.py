@@ -18,6 +18,7 @@ __author__ = 'idanmo'
 from functools import wraps
 from cloudify.celery import celery
 from cloudify.context import CloudifyContext
+from cloudify.workflow_context import CloudifyWorkflowContext
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -98,5 +99,27 @@ def operation(func=None, **arguments):
             return operation(fn, **arguments)
         return partial_wrapper
 
+
+def workflow(func=None, **arguments):
+    if func is not None:
+        @celery.task
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            ctx = _find_context_arg(args, kwargs)
+            if ctx is None:
+                ctx = {}
+            if not _is_cloudify_context(ctx):
+                ctx = CloudifyWorkflowContext(ctx)
+                kwargs = _inject_argument('ctx', ctx, kwargs)
+            try:
+                result = func(*args, **kwargs)
+            except BaseException as e:
+                raise e
+            return result
+        return wrapper
+    else:
+        def partial_wrapper(fn):
+            return workflow(fn, **arguments)
+        return partial_wrapper
 
 task = operation
