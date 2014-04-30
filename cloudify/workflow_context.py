@@ -33,7 +33,7 @@ class CloudifyWorkflowNode(object):
     def set_state(self, state):
         pass
 
-    def execute_operation(self, operation, **kwargs):
+    def execute_operation(self, operation, kwargs):
         node = self._node
         operations = node['operations']
         op_struct = operations.get(operation)
@@ -58,16 +58,18 @@ class CloudifyWorkflowNode(object):
                 self.properties['cloudify_runtime']
 
         task_kwargs = self._safe_update(operation_properties, kwargs)
+        task_kwargs['__cloudify_id'] = self.id
 
         self.ctx.execute_task(task_queue,
                               'plugin_installer.tasks.verify_plugin',
-                              worker_id=celery_prefix_task_queue,
-                              plugin_name=plugin_name,
-                              operation=operation_mapping,
-                              throw_on_failure=True)
+                              kwargs={
+                                  'worker_id': celery_prefix_task_queue,
+                                  'plugin_name': plugin_name,
+                                  'operation': operation_mapping,
+                                  'throw_on_failure': True})
 
         return self.ctx.execute_task(task_queue, task_name,
-                                     **task_kwargs)
+                                     kwargs=task_kwargs)
 
     @staticmethod
     def _safe_update(dict1, dict2):
@@ -83,6 +85,10 @@ class CloudifyWorkflowNode(object):
             else:
                 result[key] = value
         return result
+
+    @property
+    def id(self):
+        return self._node.get('id')
 
     @property
     def type(self):
@@ -115,7 +121,7 @@ class CloudifyWorkflowContext(object):
     def send_event(self, event):
         pass
 
-    def execute_task(self, task_queue, task_name, node=None, **kwargs):
+    def execute_task(self, task_queue, task_name, kwargs):
         task_id = uuid.uuid4()
 
         celery.send_task(task_name,
