@@ -53,9 +53,9 @@ class CloudifyWorkflowNode(object):
 
         if operation_properties is None:
             operation_properties = self.properties
-        elif 'cloudify_runtime' in self.properties:
+        else:
             operation_properties['cloudify_runtime'] = \
-                self.properties['cloudify_runtime']
+                self.properties.get('cloudify_runtime', {})
 
         task_kwargs = self._safe_update(operation_properties, kwargs)
         task_kwargs['__cloudify_id'] = self.id
@@ -68,8 +68,25 @@ class CloudifyWorkflowNode(object):
                                   'operation': operation_mapping,
                                   'throw_on_failure': True})
 
+        context_node_properties = copy.copy(operation_properties)
+        context_capabilities = operation_properties.get('cloudify_runtime', {})
+        if '__cloudify_id' in context_node_properties:
+            del context_node_properties['__cloudify_id']
+        if 'cloudify_runtime' in context_node_properties:
+            del context_node_properties['cloudify_runtime']
+
+        node_context = {
+            'node_id': self.id,
+            'node_name': self.name,
+            'node_properties': context_node_properties,
+            'plugin': plugin_name,
+            'operation': operation,
+            'capabilities': context_capabilities
+        }
+
         return self.ctx.execute_task(task_queue, task_name,
-                                     kwargs=task_kwargs)
+                                     kwargs=task_kwargs,
+                                     node_context=node_context)
 
     @staticmethod
     def _safe_update(dict1, dict2):
@@ -89,6 +106,10 @@ class CloudifyWorkflowNode(object):
     @property
     def id(self):
         return self._node.get('id')
+
+    @property
+    def name(self):
+        return self._node.get('name')
 
     @property
     def type(self):
@@ -118,13 +139,55 @@ class CloudifyWorkflowContext(object):
     def deployment_id(self):
         return self._context.get('deployment_id')
 
+    @property
+    def blueprint_id(self):
+        return self._context.get('blueprint_id')
+
+    @property
+    def execution_id(self):
+        return self._context.get('execution_id')
+
     def send_event(self, event):
         pass
 
-    def execute_task(self, task_queue, task_name, kwargs):
+    def execute_task(self,
+                     task_queue,
+                     task_name,
+                     kwargs,
+                     node_context=None):
         task_id = uuid.uuid4()
+
+        cloudify_context = self._build_cloudify_context(task_id,
+                                                        task_queue,
+                                                        task_name,
+                                                        node_context)
+        kwargs['__cloudify_context'] = cloudify_context
 
         celery.send_task(task_name,
                          task_id=task_id,
                          kwargs=kwargs,
                          queues=[task_queue])
+
+    def _build_cloudify_context(self,
+                                task_id,
+                                task_queue,
+                                task_name,
+                                node_context):
+        context = {
+            '__cloudify_context': '0.3',
+            'task_id': task_id,
+            'task_name': task_name,
+            'task_target': task_queue,
+            'blueprint_id': self.blueprint_id,
+            'deployment_id': self.deployment_id,
+            'execution_id': self.execution_id,
+            'capabilities': None,
+            'node_id': None,
+            'node_name': None,
+            'node_properties': None,
+            'plugin': None,
+            'operation': None
+        }
+        if node_context is not None:
+            context.update(node_context)
+        return context
