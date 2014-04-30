@@ -33,7 +33,10 @@ class CloudifyWorkflowNode(object):
     def set_state(self, state):
         pass
 
-    def execute_operation(self, operation, kwargs):
+    def execute_operation(self, operation, kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+
         node = self._node
         operations = node['operations']
         op_struct = operations.get(operation)
@@ -90,7 +93,7 @@ class CloudifyWorkflowNode(object):
 
     @staticmethod
     def _safe_update(dict1, dict2):
-        result = copy.copy(dict2)
+        result = copy.deepcopy(dict2)
         for key, value in dict1.items():
             if key == 'cloudify_runtime':
                 if key not in result:
@@ -128,12 +131,12 @@ class CloudifyWorkflowContext(object):
 
     def __init__(self, ctx):
         self._context = ctx
-        self._nodes = [CloudifyWorkflowNode(ctx, node) for
+        self._nodes = [CloudifyWorkflowNode(self, node) for
                        node in ctx['plan']['nodes']]
 
     @property
     def nodes(self):
-        return self.nodes
+        return self._nodes
 
     @property
     def deployment_id(self):
@@ -147,15 +150,19 @@ class CloudifyWorkflowContext(object):
     def execution_id(self):
         return self._context.get('execution_id')
 
+    @property
+    def workflow_id(self):
+        return self._context.get('workflow_id')
+
     def send_event(self, event):
         pass
 
     def execute_task(self,
                      task_queue,
                      task_name,
-                     kwargs,
+                     kwargs=None,
                      node_context=None):
-        task_id = uuid.uuid4()
+        task_id = str(uuid.uuid4())
 
         cloudify_context = self._build_cloudify_context(task_id,
                                                         task_queue,
@@ -163,10 +170,11 @@ class CloudifyWorkflowContext(object):
                                                         node_context)
         kwargs['__cloudify_context'] = cloudify_context
 
-        celery.send_task(task_name,
-                         task_id=task_id,
-                         kwargs=kwargs,
-                         queues=[task_queue])
+        result = celery.send_task(task_name,
+                                  task_id=task_id,
+                                  kwargs=kwargs,
+                                  queue=task_queue)
+        return result.get()
 
     def _build_cloudify_context(self,
                                 task_id,
@@ -181,6 +189,7 @@ class CloudifyWorkflowContext(object):
             'blueprint_id': self.blueprint_id,
             'deployment_id': self.deployment_id,
             'execution_id': self.execution_id,
+            'workflow_id': self.workflow_id,
             'capabilities': None,
             'node_id': None,
             'node_name': None,

@@ -86,11 +86,11 @@ def operation(func=None, **arguments):
                 kwargs = _inject_argument('ctx', ctx, kwargs)
             try:
                 result = func(*args, **kwargs)
-            except BaseException as e:
+            except BaseException:
                 ctx.logger.error(
                     'Exception raised on operation [%s] invocation',
                     ctx.task_name, exc_info=True)
-                raise e
+                raise
             ctx.update()
             return result
         return wrapper
@@ -113,8 +113,8 @@ def workflow(func=None, **arguments):
                 kwargs = _inject_argument('ctx', ctx, kwargs)
             try:
                 result = func(*args, **kwargs)
-            except BaseException as e:
-                raise e
+            except BaseException:
+                raise
             return result
         return wrapper
     else:
