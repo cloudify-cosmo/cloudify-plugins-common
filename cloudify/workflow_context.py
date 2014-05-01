@@ -126,6 +126,9 @@ class CloudifyWorkflowNode(object):
     def plugins_to_install(self):
         return self._node.get('plugins_to_install', [])
 
+    def send_event(self, event):
+        pass
+
 
 class CloudifyWorkflowContext(object):
 
@@ -164,11 +167,11 @@ class CloudifyWorkflowContext(object):
                      node_context=None):
         task_id = str(uuid.uuid4())
 
-        cloudify_context = self._build_cloudify_context(task_id,
-                                                        task_queue,
-                                                        task_name,
-                                                        node_context)
-        kwargs['__cloudify_context'] = cloudify_context
+        kwargs['__cloudify_context'] = self._build_cloudify_context(
+            task_id,
+            task_queue,
+            task_name,
+            node_context)
 
         result = celery.send_task(task_name,
                                   task_id=task_id,
