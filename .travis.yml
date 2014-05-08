@@ -7,10 +7,10 @@ install:
 
     # command to install dependencies
     - python setup.py install
-
+    - sudo pip install flake8
 
 script:
 
     # command to run tests
-    - python -m unittest cosmo.tests.test_celery
-    - python -m unittest cosmo.tests.test_events
+    - flake8 .
+    - nosetests cloudify/tests --nologcapture --nocapture
