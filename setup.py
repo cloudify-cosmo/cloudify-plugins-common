@@ -17,8 +17,8 @@ __author__ = 'elip'
 
 from setuptools import setup
 
-REST_CLIENT_VERSION = '3.0'
-REST_CLIENT_BRANCH = 'develop'
+REST_CLIENT_VERSION = '3.0b1'
+REST_CLIENT_BRANCH = '3.0b1'
 REST_CLIENT =\
     "https://github.com/cloudify-cosmo/cloudify-rest-client/tarball/{0}"\
     .format(REST_CLIENT_BRANCH)
@@ -26,7 +26,7 @@ REST_CLIENT =\
 
 setup(
     name='cloudify-plugins-common',
-    version='3.0',
+    version='3.0b1',
     author='elip',
     author_email='elip@gigaspaces.com',
     packages=['cloudify'],
