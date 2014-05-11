@@ -27,19 +27,6 @@ celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
 
 
 @celery_client.task
-def stub():
-    pass
-STUB = stub.subtask(immutable=True)
-
-
-@celery_client.task
-def sleep():
-    import time
-    time.sleep(5)
-SLEEP = sleep.subtask(immutable=True)
-
-
-@celery_client.task
 def set_node_state(node_id, state):
     node_state = _get_node_state(node_id)
     node_state.runtime_properties['state'] = state
@@ -52,29 +39,43 @@ def get_node_state(node_id):
     return _get_node_state(node_id).runtime_properties.get('state')
 
 
-def create_chain(tasks):
-    tasks = copy.copy(tasks)
-    tasks.insert(0, STUB)
-    return celery.chain(tasks)
-
-
 class CloudifyWorkflowNode(object):
 
     def __init__(self, ctx, node):
         self.ctx = ctx
         self._node = node
 
-    def set_state(self, state, chain=None):
-        chain.append(set_node_state.subtask(
+    def set_state(self, state, async_result=False, return_task=False):
+        task = set_node_state.subtask(
             kwargs={'node_id': self.id, 'state': state},
             queue='cloudify.management',
             immutable=True
-        ))
+        )
+        if return_task:
+            return task
+        result = task.apply_async()
+        if async_result:
+            return result
+        return result.get()
+
+    def get_state(self, async_result=False, return_task=False):
+        task = get_node_state.subtask(
+            kwargs={'node_id': self.id},
+            queue='cloudify.management',
+            immutable=True
+        )
+        if return_task:
+            return task
+        result = task.apply_async()
+        if async_result:
+            return result
+        return result.get()
 
     def send_event(self, event):
         pass
 
-    def execute_operation(self, operation, kwargs=None, chain=None):
+    def execute_operation(self, operation, kwargs=None, async_result=False,
+                          return_task=False):
         kwargs = kwargs or {}
         node = self._node
         operations = node['operations']
@@ -90,7 +91,6 @@ class CloudifyWorkflowNode(object):
             task_queue = node['host_id']
         elif node['plugins'][plugin_name]['manager_plugin'] == 'true':
             task_queue = self.ctx.deployment_id
-        celery_prefix_task_queue = 'celery.{0}'.format(task_queue)
         task_name = '{0}.{1}'.format(plugin_name, operation_mapping)
 
         if operation_properties is None:
@@ -101,15 +101,6 @@ class CloudifyWorkflowNode(object):
 
         task_kwargs = self._safe_update(operation_properties, kwargs)
         task_kwargs['__cloudify_id'] = self.id
-
-        self.ctx.execute_task(task_queue,
-                              'plugin_installer.tasks.verify_plugin',
-                              kwargs={
-                                  'worker_id': celery_prefix_task_queue,
-                                  'plugin_name': plugin_name,
-                                  'operation': operation_mapping,
-                                  'throw_on_failure': True},
-                              chain=chain)
 
         context_node_properties = copy.copy(operation_properties)
         context_capabilities = operation_properties.get('cloudify_runtime', {})
@@ -128,7 +119,8 @@ class CloudifyWorkflowNode(object):
         return self.ctx.execute_task(task_queue, task_name,
                                      kwargs=task_kwargs,
                                      node_context=node_context,
-                                     chain=chain)
+                                     async_result=async_result,
+                                     return_task=return_task)
 
     @staticmethod
     def _safe_update(dict1, dict2):
@@ -201,7 +193,8 @@ class CloudifyWorkflowContext(object):
                      task_name,
                      kwargs=None,
                      node_context=None,
-                     chain=None):
+                     async_result=False,
+                     return_task=False):
         task_id = str(uuid.uuid4())
         kwargs = kwargs or {}
         kwargs['__cloudify_context'] = self._build_cloudify_context(
@@ -215,11 +208,12 @@ class CloudifyWorkflowContext(object):
                               queue=task_queue,
                               task_id=task_id,
                               immutable=True)
-
-        if chain is None:
-            return task.apply_async().get()
-        else:
-            chain.append(task)
+        if return_task:
+            return task
+        result = task.apply_async()
+        if async_result:
+            return result
+        return result.get()
 
     def _build_cloudify_context(self,
                                 task_id,
