@@ -18,7 +18,7 @@ __author__ = 'idanmo'
 from functools import wraps
 from cloudify.celery import celery
 from cloudify.context import CloudifyContext
-from cloudify.workflow_context import CloudifyWorkflowContext
+from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'

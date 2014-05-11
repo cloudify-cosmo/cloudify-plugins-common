@@ -12,16 +12,50 @@
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
-
 __author__ = 'dank'
-
 
 import copy
 import uuid
 
-from celery import Celery
-celery = Celery(broker='amqp://', backend='amqp://')
-celery.conf.update(CELERY_TASK_SERIALIZER='json')
+import celery
+
+from cloudify.manager import (get_node_state as _get_node_state,
+                              update_node_state as _update_node_state)
+
+celery_client = celery.Celery(broker='amqp://', backend='amqp://')
+celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
+
+
+@celery_client.task
+def stub():
+    pass
+STUB = stub.subtask(immutable=True)
+
+
+@celery_client.task
+def sleep():
+    import time
+    time.sleep(5)
+SLEEP = sleep.subtask(immutable=True)
+
+
+@celery_client.task
+def set_node_state(node_id, state):
+    node_state = _get_node_state(node_id)
+    node_state.runtime_properties['state'] = state
+    _update_node_state(node_state)
+    return state
+
+
+@celery_client.task
+def get_node_state(node_id):
+    return _get_node_state(node_id).runtime_properties.get('state')
+
+
+def create_chain(tasks):
+    tasks = copy.copy(tasks)
+    tasks.insert(0, STUB)
+    return celery.chain(tasks)
 
 
 class CloudifyWorkflowNode(object):
@@ -30,13 +64,18 @@ class CloudifyWorkflowNode(object):
         self.ctx = ctx
         self._node = node
 
-    def set_state(self, state):
+    def set_state(self, state, chain=None):
+        chain.append(set_node_state.subtask(
+            kwargs={'node_id': self.id, 'state': state},
+            queue='cloudify.management',
+            immutable=True
+        ))
+
+    def send_event(self, event):
         pass
 
-    def execute_operation(self, operation, kwargs=None):
-        if kwargs is None:
-            kwargs = {}
-
+    def execute_operation(self, operation, kwargs=None, chain=None):
+        kwargs = kwargs or {}
         node = self._node
         operations = node['operations']
         op_struct = operations.get(operation)
@@ -69,14 +108,13 @@ class CloudifyWorkflowNode(object):
                                   'worker_id': celery_prefix_task_queue,
                                   'plugin_name': plugin_name,
                                   'operation': operation_mapping,
-                                  'throw_on_failure': True})
+                                  'throw_on_failure': True},
+                              chain=chain)
 
         context_node_properties = copy.copy(operation_properties)
         context_capabilities = operation_properties.get('cloudify_runtime', {})
-        if '__cloudify_id' in context_node_properties:
-            del context_node_properties['__cloudify_id']
-        if 'cloudify_runtime' in context_node_properties:
-            del context_node_properties['cloudify_runtime']
+        context_node_properties.pop('__cloudify_id', None)
+        context_node_properties.pop('cloudify_runtime', None)
 
         node_context = {
             'node_id': self.id,
@@ -89,7 +127,8 @@ class CloudifyWorkflowNode(object):
 
         return self.ctx.execute_task(task_queue, task_name,
                                      kwargs=task_kwargs,
-                                     node_context=node_context)
+                                     node_context=node_context,
+                                     chain=chain)
 
     @staticmethod
     def _safe_update(dict1, dict2):
@@ -126,9 +165,6 @@ class CloudifyWorkflowNode(object):
     def plugins_to_install(self):
         return self._node.get('plugins_to_install', [])
 
-    def send_event(self, event):
-        pass
-
 
 class CloudifyWorkflowContext(object):
 
@@ -164,20 +200,26 @@ class CloudifyWorkflowContext(object):
                      task_queue,
                      task_name,
                      kwargs=None,
-                     node_context=None):
+                     node_context=None,
+                     chain=None):
         task_id = str(uuid.uuid4())
-
+        kwargs = kwargs or {}
         kwargs['__cloudify_context'] = self._build_cloudify_context(
             task_id,
             task_queue,
             task_name,
             node_context)
 
-        result = celery.send_task(task_name,
-                                  task_id=task_id,
-                                  kwargs=kwargs,
-                                  queue=task_queue)
-        return result.get()
+        task = celery.subtask(task_name,
+                              kwargs=kwargs,
+                              queue=task_queue,
+                              task_id=task_id,
+                              immutable=True)
+
+        if chain is None:
+            return task.apply_async().get()
+        else:
+            chain.append(task)
 
     def _build_cloudify_context(self,
                                 task_id,
