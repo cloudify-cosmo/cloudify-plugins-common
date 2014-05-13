@@ -21,6 +21,8 @@ import celery
 
 from cloudify.manager import (get_node_state as _get_node_state,
                               update_node_state as _update_node_state)
+from cloudify.workflows.tasks import (RemoteWorkflowTask,
+                                      LocalWorkflowTask)
 
 celery_client = celery.Celery(broker='amqp://', backend='amqp://')
 celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
@@ -39,6 +41,15 @@ def get_node_state(node_id):
     return _get_node_state(node_id).runtime_properties.get('state')
 
 
+def _handle_task(task, async_result=False, return_task=False):
+    if return_task:
+        return RemoteWorkflowTask(task)
+    result = task.apply_async()
+    if async_result:
+        return result
+    return result.get()
+
+
 class CloudifyWorkflowNode(object):
 
     def __init__(self, ctx, node):
@@ -51,12 +62,7 @@ class CloudifyWorkflowNode(object):
             queue='cloudify.management',
             immutable=True
         )
-        if return_task:
-            return task
-        result = task.apply_async()
-        if async_result:
-            return result
-        return result.get()
+        return _handle_task(task, async_result, return_task)
 
     def get_state(self, async_result=False, return_task=False):
         task = get_node_state.subtask(
@@ -64,15 +70,12 @@ class CloudifyWorkflowNode(object):
             queue='cloudify.management',
             immutable=True
         )
-        if return_task:
-            return task
-        result = task.apply_async()
-        if async_result:
-            return result
-        return result.get()
+        return _handle_task(task, async_result, return_task)
 
-    def send_event(self, event):
-        pass
+    def send_event(self, event, return_task=False):
+        def send():
+            print '############################## {}'.format(event)
+        return LocalWorkflowTask(send)
 
     def execute_operation(self, operation, kwargs=None, async_result=False,
                           return_task=False):
@@ -82,7 +85,7 @@ class CloudifyWorkflowNode(object):
         op_struct = operations.get(operation)
         if op_struct is None:
             # nop
-            return
+            return LocalWorkflowTask(lambda: None)
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties')
@@ -195,10 +198,8 @@ class CloudifyWorkflowContext(object):
                      node_context=None,
                      async_result=False,
                      return_task=False):
-        task_id = str(uuid.uuid4())
         kwargs = kwargs or {}
         kwargs['__cloudify_context'] = self._build_cloudify_context(
-            task_id,
             task_queue,
             task_name,
             node_context)
@@ -206,23 +207,17 @@ class CloudifyWorkflowContext(object):
         task = celery.subtask(task_name,
                               kwargs=kwargs,
                               queue=task_queue,
-                              task_id=task_id,
                               immutable=True)
-        if return_task:
-            return task
-        result = task.apply_async()
-        if async_result:
-            return result
-        return result.get()
+
+        return _handle_task(task, async_result, return_task)
 
     def _build_cloudify_context(self,
-                                task_id,
                                 task_queue,
                                 task_name,
                                 node_context):
         context = {
             '__cloudify_context': '0.3',
-            'task_id': task_id,
+            'task_id': 'TODO',
             'task_name': task_name,
             'task_target': task_queue,
             'blueprint_id': self.blueprint_id,
