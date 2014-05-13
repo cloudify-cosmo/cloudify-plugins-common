@@ -23,14 +23,14 @@ import json
 from cloudify.utils import get_manager_ip
 
 
-class CloudifyPluginLoggingHandler(logging.Handler):
+class CloudifyBaseLoggingHandler(logging.Handler):
     """
     A Handler class for writing log messages to RabbitMQ.
     """
     amqp_client = None
 
     def __init__(self, ctx):
-        logging.Handler.__init__(self)
+        super(CloudifyBaseLoggingHandler, self).__init__()
         self._ctx = ctx
 
     def flush(self):
@@ -43,19 +43,7 @@ class CloudifyPluginLoggingHandler(logging.Handler):
             'type': 'cloudify_log',
             'message_code': None,
             'timestamp': timestamp,
-            'context': {
-                'task_id': self._ctx.task_id,
-                'plugin': self._ctx.plugin,
-                'blueprint_id': self._ctx.blueprint_id,
-                'task_target': self._ctx.task_target,
-                'node_name': self._ctx.node_name,
-                'workflow_id': self._ctx.workflow_id,
-                'node_id': self._ctx.node_id,
-                'task_name': self._ctx.task_name,
-                'operation': self._ctx.operation,
-                'deployment_id': self._ctx.deployment_id,
-                'execution_id': self._ctx.execution_id
-            },
+            'context': self.context(),
             'logger': record.name,
             'level': record.levelname.lower(),
             'message': {
@@ -84,3 +72,57 @@ class CloudifyPluginLoggingHandler(logging.Handler):
         self.amqp_client.basic_publish(exchange='',
                                        routing_key='cloudify-logs',
                                        body=json.dumps(log))
+
+    def context(self):
+        return {}
+
+
+class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
+    """
+    A Handler class for writing plugin log messages to RabbitMQ.
+    """
+
+    def __init__(self, ctx):
+        super(CloudifyPluginLoggingHandler, self).__init__(ctx)
+
+    def context(self):
+        return {
+            'task_id': self._ctx.task_id,
+            'plugin': self._ctx.plugin,
+            'blueprint_id': self._ctx.blueprint_id,
+            'task_target': self._ctx.task_target,
+            'node_name': self._ctx.node_name,
+            'workflow_id': self._ctx.workflow_id,
+            'node_id': self._ctx.node_id,
+            'task_name': self._ctx.task_name,
+            'operation': self._ctx.operation,
+            'deployment_id': self._ctx.deployment_id,
+            'execution_id': self._ctx.execution_id,
+        }
+
+
+class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
+
+    def __init__(self, ctx):
+        super(CloudifyWorkflowLoggingHandler, self).__init__(ctx)
+
+    def context(self):
+        return {
+            'blueprint_id': self._ctx.blueprint_id,
+            'deployment_id': self._ctx.deployment_id,
+            'execution_id': self._ctx.execution_id,
+            'workflow_id': self._ctx.workflow_id,
+        }
+
+
+def init_cloudify_logger(ctx, handler_class, logger_name):
+    logger = logging.getLogger(logger_name)
+    # TODO: somehow inject logging level
+    logger.setLevel(logging.INFO)
+    for h in logger.handlers:
+        logger.removeHandler(h)
+    handler = handler_class(ctx)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.propagate = True
+    logger.addHandler(handler)
+    ctx._logger = logger

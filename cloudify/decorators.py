@@ -55,19 +55,28 @@ def _is_cloudify_context(obj):
     return CloudifyContext.__name__ in obj.__class__.__name__
 
 
-def _find_context_arg(args, kwargs):
+def _is_cloudify_workflow_context(obj):
+    """
+    Gets whether the provided obj is a CloudifyWorkflowContext instance.
+    From some reason Python's isinstance returned False when it should
+    have returned True.
+    """
+    return CloudifyWorkflowContext.__name__ in obj.__class__.__name__
+
+
+def _find_context_arg(args, kwargs, is_context):
     """
     Find cloudify context in args or kwargs.
     Cloudify context is either a dict with a unique identifier (passed
         from the workflow engine) or an instance of CloudifyContext.
     """
     for arg in args:
-        if _is_cloudify_context(arg):
+        if is_context(arg):
             return arg
         if isinstance(arg, dict) and CLOUDIFY_CONTEXT_IDENTIFIER in arg:
             return arg
     for arg in kwargs.values():
-        if _is_cloudify_context(arg):
+        if is_context(arg):
             return arg
     return kwargs[CLOUDIFY_CONTEXT_PROPERTY_KEY]\
         if CLOUDIFY_CONTEXT_PROPERTY_KEY in kwargs else None
@@ -78,7 +87,8 @@ def operation(func=None, **arguments):
         @celery.task
         @wraps(func)
         def wrapper(*args, **kwargs):
-            ctx = _find_context_arg(args, kwargs)
+            ctx = _find_context_arg(args, kwargs,
+                                    _is_cloudify_workflow_context)
             if ctx is None:
                 ctx = {}
             if not _is_cloudify_context(ctx):
@@ -105,10 +115,11 @@ def workflow(func=None, **arguments):
         @celery.task
         @wraps(func)
         def wrapper(*args, **kwargs):
-            ctx = _find_context_arg(args, kwargs)
+            ctx = _find_context_arg(args, kwargs,
+                                    _is_cloudify_workflow_context)
             if ctx is None:
                 ctx = {}
-            if not _is_cloudify_context(ctx):
+            if not _is_cloudify_workflow_context(ctx):
                 ctx = CloudifyWorkflowContext(ctx)
                 kwargs = _inject_argument('ctx', ctx, kwargs)
             try:

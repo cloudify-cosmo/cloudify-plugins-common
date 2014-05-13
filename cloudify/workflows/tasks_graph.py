@@ -26,7 +26,8 @@ class TaskDependencyGraph(object):
 
     done_states = [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED]
 
-    def __init__(self):
+    def __init__(self, workflow_context):
+        self.ctx = workflow_context
         self.graph = nx.DiGraph()
 
     def add_task(self, task):

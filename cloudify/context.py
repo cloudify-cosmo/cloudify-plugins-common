@@ -15,13 +15,11 @@
 
 __author__ = 'idanmo'
 
-import logging
-
 from manager import get_node_state
 from manager import update_node_state
 from manager import get_blueprint_resource
 from manager import download_blueprint_resource
-from logs import CloudifyPluginLoggingHandler
+from logs import CloudifyPluginLoggingHandler, init_cloudify_logger
 
 
 class ContextCapabilities(object):
@@ -384,19 +382,9 @@ class CloudifyContext(CommonContextOperations):
             self._node_state = None
 
     def _init_cloudify_logger(self):
-        if self.task_name is not None:
-            logger_name = self.task_name
-        else:
-            logger_name = 'cloudify_plugin'
-        self._logger = logging.getLogger(logger_name)
-        # TODO: somehow inject logging level
-        self._logger.setLevel(logging.INFO)
-        for h in self._logger.handlers:
-            self._logger.removeHandler(h)
-        handler = CloudifyPluginLoggingHandler(self)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        self._logger.propagate = True
-        self._logger.addHandler(handler)
+        logger_name = self.task_name if self.task_name is not None \
+            else 'cloudify_plugin'
+        init_cloudify_logger(self, CloudifyPluginLoggingHandler, logger_name)
 
     def __str__(self):
         attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')

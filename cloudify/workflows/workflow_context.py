@@ -15,7 +15,6 @@
 __author__ = 'dank'
 
 import copy
-import uuid
 
 import celery
 
@@ -23,31 +22,14 @@ from cloudify.manager import (get_node_state as _get_node_state,
                               update_node_state as _update_node_state)
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask)
+from cloudify.logs import CloudifyWorkflowLoggingHandler, init_cloudify_logger
 
 celery_client = celery.Celery(broker='amqp://', backend='amqp://')
 celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
 
 
-@celery_client.task
-def set_node_state(node_id, state):
-    node_state = _get_node_state(node_id)
-    node_state.runtime_properties['state'] = state
-    _update_node_state(node_state)
-    return state
-
-
-@celery_client.task
-def get_node_state(node_id):
-    return _get_node_state(node_id).runtime_properties.get('state')
-
-
-def _handle_task(task, async_result=False, return_task=False):
-    if return_task:
-        return RemoteWorkflowTask(task)
-    result = task.apply_async()
-    if async_result:
-        return result
-    return result.get()
+def _handle_task(task, cloudify_context):
+    return RemoteWorkflowTask(task, cloudify_context)
 
 
 class CloudifyWorkflowNode(object):
@@ -56,36 +38,32 @@ class CloudifyWorkflowNode(object):
         self.ctx = ctx
         self._node = node
 
-    def set_state(self, state, async_result=False, return_task=False):
-        task = set_node_state.subtask(
-            kwargs={'node_id': self.id, 'state': state},
-            queue='cloudify.management',
-            immutable=True
-        )
-        return _handle_task(task, async_result, return_task)
+    def set_state(self, state):
+        def set_node_state():
+            node_state = _get_node_state(self.id)
+            node_state.runtime_properties['state'] = state
+            _update_node_state(node_state)
+            return node_state
+        return LocalWorkflowTask(set_node_state, self.ctx, self)
 
-    def get_state(self, async_result=False, return_task=False):
-        task = get_node_state.subtask(
-            kwargs={'node_id': self.id},
-            queue='cloudify.management',
-            immutable=True
-        )
-        return _handle_task(task, async_result, return_task)
+    def get_state(self, ):
+        def get_node_state():
+            return _get_node_state(self.id).runtime_properties.get('state')
+        return LocalWorkflowTask(get_node_state, self.ctx, self)
 
-    def send_event(self, event, return_task=False):
+    def send_event(self, event):
         def send():
-            print '############################## {}'.format(event)
-        return LocalWorkflowTask(send)
+            self.ctx.logger.info('Event[{}][{}]'.format(self.id, event))
+        return LocalWorkflowTask(send, self.ctx, self)
 
-    def execute_operation(self, operation, kwargs=None, async_result=False,
-                          return_task=False):
+    def execute_operation(self, operation, kwargs=None):
         kwargs = kwargs or {}
         node = self._node
         operations = node['operations']
         op_struct = operations.get(operation)
         if op_struct is None:
             # nop
-            return LocalWorkflowTask(lambda: None)
+            return LocalWorkflowTask(lambda: None, self.ctx, self)
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties')
@@ -121,9 +99,7 @@ class CloudifyWorkflowNode(object):
 
         return self.ctx.execute_task(task_queue, task_name,
                                      kwargs=task_kwargs,
-                                     node_context=node_context,
-                                     async_result=async_result,
-                                     return_task=return_task)
+                                     node_context=node_context)
 
     @staticmethod
     def _safe_update(dict1, dict2):
@@ -167,6 +143,7 @@ class CloudifyWorkflowContext(object):
         self._context = ctx
         self._nodes = [CloudifyWorkflowNode(self, node) for
                        node in ctx['plan']['nodes']]
+        self._logger = None
 
     @property
     def nodes(self):
@@ -188,6 +165,17 @@ class CloudifyWorkflowContext(object):
     def workflow_id(self):
         return self._context.get('workflow_id')
 
+    @property
+    def logger(self):
+        if self._logger is None:
+            self._init_cloudify_logger()
+        return self._logger
+
+    def _init_cloudify_logger(self):
+        logger_name = self.workflow_id if self.workflow_id is not None \
+            else 'cloudify_workflow'
+        init_cloudify_logger(self, CloudifyWorkflowLoggingHandler, logger_name)
+
     def send_event(self, event):
         pass
 
@@ -195,21 +183,20 @@ class CloudifyWorkflowContext(object):
                      task_queue,
                      task_name,
                      kwargs=None,
-                     node_context=None,
-                     async_result=False,
-                     return_task=False):
+                     node_context=None):
         kwargs = kwargs or {}
-        kwargs['__cloudify_context'] = self._build_cloudify_context(
+        cloudify_context = self._build_cloudify_context(
             task_queue,
             task_name,
             node_context)
+        kwargs['__cloudify_context'] = cloudify_context
 
         task = celery.subtask(task_name,
                               kwargs=kwargs,
                               queue=task_queue,
                               immutable=True)
 
-        return _handle_task(task, async_result, return_task)
+        return _handle_task(task, cloudify_context)
 
     def _build_cloudify_context(self,
                                 task_queue,

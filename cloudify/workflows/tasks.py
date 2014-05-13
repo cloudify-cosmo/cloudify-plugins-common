@@ -53,9 +53,14 @@ class WorkflowTask(object):
 
 class RemoteWorkflowTask(WorkflowTask):
 
-    def __init__(self, task):
+    def __init__(self, task, cloudify_context):
+        """
+        :param task: The celery (sub)task
+        :param cloudify_context: the cloudify_context dict argument
+        """
         super(RemoteWorkflowTask, self).__init__()
         self.task = task
+        self.cloudify_context = cloudify_context
 
     def apply_async(self):
         self.set_state(TASK_SENT)
@@ -68,14 +73,25 @@ class RemoteWorkflowTask(WorkflowTask):
         return False
 
     def duplicate(self):
-        return RemoteWorkflowTask(self.task)
+        return RemoteWorkflowTask(self.task, self.cloudify_context)
+
+    @property
+    def name(self):
+        return self.cloudify_context['task_name']
 
 
 class LocalWorkflowTask(WorkflowTask):
 
-    def __init__(self, local_task):
+    def __init__(self, local_task, workflow_context, node=None):
+        """
+        :param local_task: A callable
+        :param workflow_context: the CloudifyWorkflowContext instance
+        :param node: The CloudifyWorkflowNode instance (if in node context)
+        """
         super(LocalWorkflowTask, self).__init__()
         self.local_task = local_task
+        self.workflow_context = workflow_context
+        self.node = node
 
     def apply_async(self):
         self.set_state(TASK_SENT)
@@ -93,7 +109,12 @@ class LocalWorkflowTask(WorkflowTask):
         return True
 
     def duplicate(self):
-        return LocalWorkflowTask(self.local_task)
+        return LocalWorkflowTask(self.local_task, self.workflow_context,
+                                 self.node)
+
+    @property
+    def name(self):
+        return self.local_task.__name__
 
 
 class RemoteWorkflowTaskResult(object):

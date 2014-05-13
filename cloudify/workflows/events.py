@@ -9,6 +9,7 @@ class Monitor(object):
 
     def __init__(self, tasks_graph):
         self.tasks_graph = tasks_graph
+        self.ctx = tasks_graph.ctx
 
     def task_sent(self, event):
         pass
@@ -32,8 +33,10 @@ class Monitor(object):
         pass
 
     def _update_task_state(self, state, event):
-        task = self.tasks_graph.get_task(event['uuid'])
+        task_id = event['uuid']
+        task = self.tasks_graph.get_task(task_id)
         if task is not None:
+            self.ctx.logger.info('task[{}] state[{}]'.format(task.name, state))
             task.set_state(state)
 
     def capture(self):
