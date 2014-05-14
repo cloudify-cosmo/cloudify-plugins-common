@@ -28,17 +28,33 @@ celery_client = celery.Celery(broker='amqp://', backend='amqp://')
 celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
 
 
+class CloudifyWorkflowRelationship(object):
+
+    def __init__(self, ctx, node, relationship):
+        self.ctx = ctx
+        self.node = node
+        self._relationship = relationship
+
+    @property
+    def target_id(self):
+        return self._relationship.get('target_id')
+
+
 class CloudifyWorkflowNode(object):
 
     def __init__(self, ctx, node):
         self.ctx = ctx
         self._node = node
+        self._relationships = [
+            CloudifyWorkflowRelationship(self, node, relationship) for
+            relationship in node.get('relationships', [])]
 
     def set_state(self, state):
         def set_state_task():
             node_state = get_node_state(self.id)
             node_state.runtime_properties['state'] = state
             update_node_state(node_state)
+            self.ctx.logger.info('State[{}][{}]'.format(self.id, state))
             return node_state
         return LocalWorkflowTask(set_state_task, self.ctx, self)
 
@@ -130,6 +146,10 @@ class CloudifyWorkflowNode(object):
     @property
     def plugins_to_install(self):
         return self._node.get('plugins_to_install', [])
+
+    @property
+    def relationships(self):
+        return self._relationships
 
 
 class CloudifyWorkflowContext(object):
