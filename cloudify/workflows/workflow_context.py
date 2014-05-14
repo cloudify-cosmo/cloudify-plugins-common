@@ -42,24 +42,33 @@ class CloudifyWorkflowRelationship(object):
     def target_id(self):
         return self._relationship.get('target_id')
 
-    def execute_relationship_operation(self,
-                                       operation,
-                                       run_on_source=True,
-                                       kwargs=None):
-        target_node = self.ctx.get_node(self.target_id)
-        if run_on_source:
-            operations = self._relationship.get('source_operations', {})
-            node = self.node
-            related_node = target_node
-        else:  # run_on_target
-            operations = self._relationship.get('target_operations', {})
-            node = target_node
-            related_node = self
-        return self.ctx._execute_operation(operation=operation,
-                                           node=node,
-                                           operations=operations,
-                                           related_node=related_node,
-                                           kwargs=kwargs)
+    @property
+    def target_node(self):
+        return self.ctx.get_node(self.target_id)
+
+    @property
+    def source_operations(self):
+        return self._relationship.get('source_operations', {})
+
+    @property
+    def target_operations(self):
+        return self._relationship.get('target_operations', {})
+
+    def execute_source_operation(self, operation, kwargs=None):
+        return self.ctx._execute_operation(
+            operation,
+            node=self,
+            related_node=self.target_node,
+            operations=self.source_operations,
+            kwargs=kwargs)
+
+    def execute_target_operation(self, operation, kwargs=None):
+        return self.ctx._execute_operation(
+            operation,
+            node=self.target_node,
+            related_node=self,
+            operations=self.target_operations,
+            kwargs=kwargs)
 
 
 class CloudifyWorkflowNode(object):
@@ -93,7 +102,7 @@ class CloudifyWorkflowNode(object):
     def execute_operation(self, operation, kwargs=None):
         return self.ctx._execute_operation(operation=operation,
                                            node=self,
-                                           operations=self._node['operations'],
+                                           operations=self.operations,
                                            kwargs=kwargs)
 
     @property
@@ -119,6 +128,10 @@ class CloudifyWorkflowNode(object):
     @property
     def relationships(self):
         return self._relationships
+
+    @property
+    def operations(self):
+        return self._node.get('operations', {})
 
 
 class CloudifyWorkflowContext(object):
@@ -169,6 +182,7 @@ class CloudifyWorkflowContext(object):
     def _execute_operation(self, operation, node, operations,
                            related_node=None,
                            kwargs=None):
+        relationship_operation = related_node is not None
         kwargs = kwargs or {}
         raw_node = node._node
         op_struct = operations.get(operation)
@@ -184,9 +198,8 @@ class CloudifyWorkflowContext(object):
             task_queue = self.deployment_id
         task_name = '{0}.{1}'.format(plugin_name, operation_mapping)
 
-        if related_node is not None:
+        if relationship_operation:
             operation_properties = {}
-
         if operation_properties is None:
             operation_properties = node.properties
         else:
@@ -194,7 +207,8 @@ class CloudifyWorkflowContext(object):
                 node.properties.get('cloudify_runtime', {})
 
         task_kwargs = _safe_update(operation_properties, kwargs)
-        task_kwargs['__cloudify_id'] = node.id
+        if not relationship_operation:
+            task_kwargs['__cloudify_id'] = node.id
 
         context_node_properties = copy.copy(operation_properties)
         context_capabilities = operation_properties.get('cloudify_runtime', {})
@@ -209,7 +223,7 @@ class CloudifyWorkflowContext(object):
             'operation': operation,
             'capabilities': context_capabilities
         }
-        if related_node is not None:
+        if relationship_operation:
             related_properties = copy.copy(related_node.properties)
             related_properties.pop('cloudify_runtime', None)
             node_context['related'] = {
@@ -247,6 +261,7 @@ class CloudifyWorkflowContext(object):
                                 task_queue,
                                 task_name,
                                 node_context):
+        node_context = node_context or {}
         context = {
             '__cloudify_context': '0.3',
             'task_id': task_id,
@@ -257,8 +272,7 @@ class CloudifyWorkflowContext(object):
             'execution_id': self.execution_id,
             'workflow_id': self.workflow_id,
         }
-        if node_context is not None:
-            context.update(node_context)
+        context.update(node_context)
         return context
 
 
