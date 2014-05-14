@@ -18,18 +18,14 @@ import copy
 
 import celery
 
-from cloudify.manager import (get_node_state as _get_node_state,
-                              update_node_state as _update_node_state)
+from cloudify.manager import get_node_state, update_node_state
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
-                                      LocalWorkflowTask)
+                                      LocalWorkflowTask,
+                                      NOP)
 from cloudify.logs import CloudifyWorkflowLoggingHandler, init_cloudify_logger
 
 celery_client = celery.Celery(broker='amqp://', backend='amqp://')
 celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
-
-
-def _handle_task(task, cloudify_context):
-    return RemoteWorkflowTask(task, cloudify_context)
 
 
 class CloudifyWorkflowNode(object):
@@ -39,22 +35,22 @@ class CloudifyWorkflowNode(object):
         self._node = node
 
     def set_state(self, state):
-        def set_node_state():
-            node_state = _get_node_state(self.id)
+        def set_state_task():
+            node_state = get_node_state(self.id)
             node_state.runtime_properties['state'] = state
-            _update_node_state(node_state)
+            update_node_state(node_state)
             return node_state
-        return LocalWorkflowTask(set_node_state, self.ctx, self)
+        return LocalWorkflowTask(set_state_task, self.ctx, self)
 
-    def get_state(self, ):
-        def get_node_state():
-            return _get_node_state(self.id).runtime_properties.get('state')
-        return LocalWorkflowTask(get_node_state, self.ctx, self)
+    def get_state(self):
+        def get_state_task():
+            return get_node_state(self.id).runtime_properties.get('state')
+        return LocalWorkflowTask(get_state_task, self.ctx, self)
 
     def send_event(self, event):
-        def send():
+        def send_event_task():
             self.ctx.logger.info('Event[{}][{}]'.format(self.id, event))
-        return LocalWorkflowTask(send, self.ctx, self)
+        return LocalWorkflowTask(send_event_task, self.ctx, self)
 
     def execute_operation(self, operation, kwargs=None):
         kwargs = kwargs or {}
@@ -62,8 +58,7 @@ class CloudifyWorkflowNode(object):
         operations = node['operations']
         op_struct = operations.get(operation)
         if op_struct is None:
-            # nop
-            return LocalWorkflowTask(lambda: None, self.ctx, self)
+            return NOP
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties')
@@ -196,7 +191,7 @@ class CloudifyWorkflowContext(object):
                               queue=task_queue,
                               immutable=True)
 
-        return _handle_task(task, cloudify_context)
+        return RemoteWorkflowTask(task, cloudify_context)
 
     def _build_cloudify_context(self,
                                 task_queue,

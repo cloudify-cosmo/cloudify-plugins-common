@@ -116,6 +116,8 @@ class LocalWorkflowTask(WorkflowTask):
     def name(self):
         return self.local_task.__name__
 
+NOP = LocalWorkflowTask(lambda: None, None, None)
+
 
 class RemoteWorkflowTaskResult(object):
 

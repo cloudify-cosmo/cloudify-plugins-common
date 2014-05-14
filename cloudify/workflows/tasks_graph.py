@@ -96,6 +96,8 @@ class TaskSequence(object):
 
     def add(self, *tasks):
         for task in tasks:
+            if task is tasks_api.NOP:
+                continue
             self.graph.add_task(task)
             if self.last_task is not None:
                 self.graph.add_dependency(task, self.last_task)
