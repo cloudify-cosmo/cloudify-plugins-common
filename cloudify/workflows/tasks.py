@@ -28,8 +28,8 @@ TASK_FAILED = 'failed'
 
 class WorkflowTask(object):
 
-    def __init__(self):
-        self.id = str(uuid.uuid4())
+    def __init__(self, task_id=None):
+        self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
         self.async_result = None
         self.on_success = None
@@ -53,12 +53,12 @@ class WorkflowTask(object):
 
 class RemoteWorkflowTask(WorkflowTask):
 
-    def __init__(self, task, cloudify_context):
+    def __init__(self, task, cloudify_context, task_id=None):
         """
         :param task: The celery (sub)task
         :param cloudify_context: the cloudify_context dict argument
         """
-        super(RemoteWorkflowTask, self).__init__()
+        super(RemoteWorkflowTask, self).__init__(task_id)
         self.task = task
         self.cloudify_context = cloudify_context
 
