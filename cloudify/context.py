@@ -40,10 +40,9 @@ class ContextCapabilities(object):
             Where the returned value is a dict of node ids as keys and their
             runtime properties as values.
     """
-    def __init__(self, capabilities=None):
-        if capabilities is None:
-            capabilities = {}
-        self._capabilities = capabilities
+    def __init__(self, relationships=None):
+        self._relationships = relationships or []
+        self._relationship_runtimes = None
 
     def _find_item(self, key):
         """
@@ -78,6 +77,13 @@ class ContextCapabilities(object):
     def __str__(self):
         return ('<' + self.__class__.__name__ + ' ' +
                 str(self._capabilities) + '>')
+
+    @property
+    def _capabilities(self):
+        if self._relationship_runtimes is None:
+            self._relationship_runtimes = {rel_id: get_node_state(rel_id)
+                                           for rel_id in self._relationships}
+        return self._relationship_runtimes
 
 
 class CommonContextOperations(object):
@@ -146,7 +152,7 @@ class CloudifyContext(CommonContextOperations):
 
     def __init__(self, ctx=None):
         self._context = ctx or {}
-        context_capabilities = self._context.get('capabilities')
+        context_capabilities = self._context.get('relationships')
         self._capabilities = ContextCapabilities(context_capabilities)
         self._logger = None
         self._node_state = None

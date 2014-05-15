@@ -182,7 +182,6 @@ class CloudifyWorkflowContext(object):
     def _execute_operation(self, operation, node, operations,
                            related_node=None,
                            kwargs=None):
-        relationship_operation = related_node is not None
         kwargs = kwargs or {}
         raw_node = node._node
         op_struct = operations.get(operation)
@@ -190,7 +189,7 @@ class CloudifyWorkflowContext(object):
             return NOP
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
-        operation_properties = op_struct.get('properties')
+        operation_properties = op_struct.get('properties', node.properties)
         task_queue = 'cloudify.management'
         if raw_node['plugins'][plugin_name]['agent_plugin'] == 'true':
             task_queue = raw_node['host_id']
@@ -198,41 +197,22 @@ class CloudifyWorkflowContext(object):
             task_queue = self.deployment_id
         task_name = '{0}.{1}'.format(plugin_name, operation_mapping)
 
-        if relationship_operation:
-            operation_properties = {}
-        if operation_properties is None:
-            operation_properties = node.properties
-        else:
-            operation_properties['cloudify_runtime'] = \
-                node.properties.get('cloudify_runtime', {})
-
-        task_kwargs = _safe_update(operation_properties, kwargs)
-        if not relationship_operation:
-            task_kwargs['__cloudify_id'] = node.id
-
-        context_node_properties = copy.copy(operation_properties)
-        context_capabilities = operation_properties.get('cloudify_runtime', {})
-        context_node_properties.pop('__cloudify_id', None)
-        context_node_properties.pop('cloudify_runtime', None)
-
         node_context = {
             'node_id': node.id,
             'node_name': node.name,
-            'node_properties': context_node_properties,
+            'node_properties': copy.copy(operation_properties),
             'plugin': plugin_name,
             'operation': operation,
-            'capabilities': context_capabilities
+            'relationships': [rel.target_id for rel in node.relationships]
         }
-        if relationship_operation:
-            related_properties = copy.copy(related_node.properties)
-            related_properties.pop('cloudify_runtime', None)
+        if related_node is not None:
             node_context['related'] = {
                 'node_id': related_node.id,
-                'node_properties': related_properties
+                'node_properties': copy.copy(related_node.properties)
             }
 
         return self.execute_task(task_queue, task_name,
-                                 kwargs=task_kwargs,
+                                 kwargs=kwargs,
                                  node_context=node_context)
 
     def execute_task(self,
