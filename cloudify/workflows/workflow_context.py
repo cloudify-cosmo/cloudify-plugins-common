@@ -63,7 +63,6 @@ class CloudifyWorkflowNode(object):
         return state
 
 
-
     def get_state(self, async_result=False, return_task=False):
         # task = get_node_state.subtask(
         #     kwargs={'node_id': self.id},
