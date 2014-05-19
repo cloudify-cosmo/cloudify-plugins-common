@@ -128,6 +128,20 @@ def update_node_state(node_state):
                              node_state.state_version)
 
 
+def get_bootstrap_context():
+    client = get_manager_rest_client()
+    context = client.get_provider_context()['context']
+    return context.get('cloudify', {})
+
+
+def get_provider_context(name):
+    client = get_manager_rest_client()
+    context = client.get_provider_context()
+    if context['name'] != name:
+        return None
+    return context['context']
+
+
 class DirtyTrackingDict(dict):
 
     def __init__(self, *args, **kwargs):

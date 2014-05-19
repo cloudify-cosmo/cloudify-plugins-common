@@ -21,6 +21,8 @@ from manager import get_node_state
 from manager import update_node_state
 from manager import get_blueprint_resource
 from manager import download_blueprint_resource
+from manager import get_provider_context
+from manager import get_bootstrap_context
 from logs import CloudifyPluginLoggingHandler
 
 
@@ -135,6 +137,36 @@ class CloudifyRelatedNode(CommonContextOperations):
         return key in self.properties or key in self.runtime_properties
 
 
+class BootstrapContext(object):
+
+    class CloudifyAgent(object):
+
+        def __init__(self, cloudify_agent):
+            self._cloudify_agent = cloudify_agent
+
+        @property
+        def min_workers(self):
+            return self._cloudify_agent.get('min_workers')
+
+        @property
+        def max_workers(self):
+            return self._cloudify_agent.get('min_workers')
+
+        @property
+        def agent_key_path(self):
+            return self._cloudify_agent.get('agent_key_path')
+
+    def __init__(self, bootstrap_context):
+        self._bootstrap_context = bootstrap_context
+
+        cloudify_agent = bootstrap_context.get('cloudify_agent', {})
+        self._cloudify_agent = self.CloudifyAgent(cloudify_agent)
+
+    @property
+    def cloudify_agent(self):
+        return self._cloudify_agent
+
+
 class CloudifyContext(CommonContextOperations):
     """
     A context object passed to plugins tasks invocations.
@@ -158,6 +190,8 @@ class CloudifyContext(CommonContextOperations):
             self._related = CloudifyRelatedNode(self._context)
         else:
             self._related = None
+        self._provider_contexts = {}
+        self._bootstrap_context = None
 
     @property
     def node_id(self):
@@ -294,6 +328,25 @@ class CloudifyContext(CommonContextOperations):
         if self._logger is None:
             self._init_cloudify_logger()
         return self._logger
+
+    @property
+    def bootstrap_context(self):
+        """
+        System context provided during the bootstrap process
+        """
+        if self._bootstrap_context is None:
+            context = get_bootstrap_context()
+            self._bootstrap_context = BootstrapContext(context)
+        return self._bootstrap_context
+
+    def get_provider_context(self, name):
+        """
+        Provider context provided during the bootstrap process
+        """
+        if self._provider_contexts.get(name) is None:
+            provider_context = get_provider_context(name)
+            self._provider_contexts[name] = provider_context
+        return self._provider_contexts.get(name)
 
     def _verify_node_in_context(self):
         if self.node_id is None:
