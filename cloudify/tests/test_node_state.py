@@ -17,13 +17,13 @@ __author__ = 'idanmo'
 
 
 import unittest
-from cloudify.manager import NodeState
+from cloudify.manager import NodeInstance
 
 
 class NodeStateTest(unittest.TestCase):
 
     def test_put_get(self):
-        node = NodeState('id', {})
+        node = NodeInstance('id', {})
         node['key'] = 'value'
         self.assertEqual('value', node['key'])
         props = node.runtime_properties
@@ -31,11 +31,11 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('value', props['key'])
 
     def test_no_updates_to_empty_node(self):
-        node = NodeState('id')
+        node = NodeInstance('id')
         self.assertEqual(0, len(node.runtime_properties))
 
     def test_put_new_property(self):
-        node = NodeState('id')
+        node = NodeInstance('id')
         node.put('key', 'value')
         self.assertEqual('value', node.get('key'))
         props = node.runtime_properties
@@ -43,7 +43,7 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('value', props['key'])
 
     def test_put_several_properties(self):
-        node = NodeState('id', {'key0': 'value0'})
+        node = NodeInstance('id', {'key0': 'value0'})
         node.put('key1', 'value1')
         node.put('key2', 'value2')
         props = node.runtime_properties
@@ -53,7 +53,7 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('value2', props['key2'])
 
     def test_update_property(self):
-        node = NodeState('id')
+        node = NodeInstance('id')
         node.put('key', 'value')
         self.assertEqual('value', node.get('key'))
         props = node.runtime_properties
@@ -61,7 +61,7 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('value', props['key'])
 
     def test_put_new_property_twice(self):
-        node = NodeState('id')
+        node = NodeInstance('id')
         node.put('key', 'value')
         node.put('key', 'v')
         self.assertEqual('v', node.get('key'))
