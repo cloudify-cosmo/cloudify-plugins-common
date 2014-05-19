@@ -82,9 +82,6 @@ class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
     A Handler class for writing plugin log messages to RabbitMQ.
     """
 
-    def __init__(self, ctx):
-        super(CloudifyPluginLoggingHandler, self).__init__(ctx)
-
     def context(self):
         return {
             'task_id': self._ctx.task_id,
@@ -102,9 +99,9 @@ class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
 
 
 class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
-
-    def __init__(self, ctx):
-        super(CloudifyWorkflowLoggingHandler, self).__init__(ctx)
+    """
+    A Handler class for writing workflow log messages to RabbitMQ.
+    """
 
     def context(self):
         return {
@@ -115,10 +112,12 @@ class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
         }
 
 
-def init_cloudify_logger(ctx, handler_class, logger_name):
+def init_cloudify_logger(ctx, handler_class, logger_name,
+                         logging_level=logging.INFO):
+    # TODO: somehow inject logging level (no one currently passes
+    # logging_level)
     logger = logging.getLogger(logger_name)
-    # TODO: somehow inject logging level
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging_level)
     for h in logger.handlers:
         logger.removeHandler(h)
     handler = handler_class(ctx)

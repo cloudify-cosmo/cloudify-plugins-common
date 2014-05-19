@@ -31,6 +31,7 @@ class TaskDependencyGraph(object):
         self.graph = nx.DiGraph()
 
     def add_task(self, task):
+        self.ctx.logger.debug('adding task: {}'.format(task))
         self.graph.add_node(task.id, task=task)
 
     def get_task(self, task_id):
@@ -39,6 +40,8 @@ class TaskDependencyGraph(object):
 
     # src depends on dst
     def add_dependency(self, src_task, dst_task):
+        self.ctx.logger.debug('adding dependency: {} -> {}'.format(src_task,
+                                                                   dst_task))
         self.graph.add_edge(src_task.id, dst_task.id)
 
     def sequence(self):
@@ -92,13 +95,37 @@ class TaskSequence(object):
 
     def __init__(self, graph):
         self.graph = graph
-        self.last_task = None
+        self.last_fork_join_tasks = None
 
     def add(self, *tasks):
-        for task in tasks:
-            if task is tasks_api.NOP:
+        """
+        Adding tasks to the sequence. any iterable item in `tasks`
+        will be considered a "fork-join"
+        :param tasks: A list of elements where each element might be:
+            1) A task, in which case, it will be added to the sequence
+            2) An iterable of tasks, in which case it will be treated
+               as a "fork-join" task in the sequence, i.e. all the fork-join
+               tasks will depend on the last task in the sequence (could be
+               fork join) and the next added task will depend on all tasks
+               in this fork-join task
+        """
+        for fork_join_tasks in tasks:
+            if fork_join_tasks is tasks_api.NOP:
                 continue
-            self.graph.add_task(task)
-            if self.last_task is not None:
-                self.graph.add_dependency(task, self.last_task)
-            self.last_task = task
+            if not hasattr(fork_join_tasks, '__iter__'):
+                fork_join_tasks = [fork_join_tasks]
+
+            fork_join_tasks = [t for t in fork_join_tasks
+                               if t is not tasks_api.NOP]
+            for task in fork_join_tasks:
+                self.graph.add_task(task)
+                if self.last_fork_join_tasks is not None:
+                    for last_fork_join_task in self.last_fork_join_tasks:
+                        self.graph.add_dependency(task, last_fork_join_task)
+            if fork_join_tasks:
+                self.last_fork_join_tasks = fork_join_tasks
+
+    def add_dependency_to_last(self, task):
+        if self.last_fork_join_tasks is not None:
+            for last_fork_join_task in self.last_fork_join_tasks:
+                self.graph.add_dependency(task, last_fork_join_task)

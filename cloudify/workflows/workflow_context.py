@@ -57,7 +57,7 @@ class CloudifyWorkflowRelationship(object):
     def execute_source_operation(self, operation, kwargs=None):
         return self.ctx._execute_operation(
             operation,
-            node=self,
+            node=self.node,
             related_node=self.target_node,
             operations=self.source_operations,
             kwargs=kwargs)
@@ -66,7 +66,7 @@ class CloudifyWorkflowRelationship(object):
         return self.ctx._execute_operation(
             operation,
             node=self.target_node,
-            related_node=self,
+            related_node=self.node,
             operations=self.target_operations,
             kwargs=kwargs)
 
@@ -77,7 +77,7 @@ class CloudifyWorkflowNode(object):
         self.ctx = ctx
         self._node = node
         self._relationships = [
-            CloudifyWorkflowRelationship(self, node, relationship) for
+            CloudifyWorkflowRelationship(self.ctx, self, relationship) for
             relationship in node.get('relationships', [])]
 
     def set_state(self, state):
@@ -87,7 +87,7 @@ class CloudifyWorkflowNode(object):
             update_node_state(node_state)
             self.ctx.logger.info('State[{}][{}]'.format(self.id, state))
             return node_state
-        return LocalWorkflowTask(set_state_task, self.ctx, self)
+        return LocalWorkflowTask(set_state_task, self.ctx, self, info=state)
 
     def get_state(self):
         def get_state_task():
@@ -97,7 +97,7 @@ class CloudifyWorkflowNode(object):
     def send_event(self, event):
         def send_event_task():
             self.ctx.logger.info('Event[{}][{}]'.format(self.id, event))
-        return LocalWorkflowTask(send_event_task, self.ctx, self)
+        return LocalWorkflowTask(send_event_task, self.ctx, self, info=event)
 
     def execute_operation(self, operation, kwargs=None):
         return self.ctx._execute_operation(operation=operation,

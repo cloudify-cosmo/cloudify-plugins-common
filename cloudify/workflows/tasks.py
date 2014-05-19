@@ -28,12 +28,13 @@ TASK_FAILED = 'failed'
 
 class WorkflowTask(object):
 
-    def __init__(self, task_id=None):
+    def __init__(self, task_id=None, info=None):
         self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
         self.async_result = None
         self.on_success = None
         self.on_failure = None
+        self.info = info
 
     def is_remote(self):
         return not self.is_local()
@@ -50,15 +51,19 @@ class WorkflowTask(object):
         elif self._state == TASK_FAILED and self.on_failure:
             return self.on_failure(self)
 
+    def __str__(self):
+        suffix = self.info if self.info is not None else ''
+        return '{}({})'.format(self.name, suffix)
+
 
 class RemoteWorkflowTask(WorkflowTask):
 
-    def __init__(self, task, cloudify_context, task_id=None):
+    def __init__(self, task, cloudify_context, task_id=None, info=None):
         """
         :param task: The celery (sub)task
         :param cloudify_context: the cloudify_context dict argument
         """
-        super(RemoteWorkflowTask, self).__init__(task_id)
+        super(RemoteWorkflowTask, self).__init__(task_id, info=info)
         self.task = task
         self.cloudify_context = cloudify_context
 
@@ -82,13 +87,13 @@ class RemoteWorkflowTask(WorkflowTask):
 
 class LocalWorkflowTask(WorkflowTask):
 
-    def __init__(self, local_task, workflow_context, node=None):
+    def __init__(self, local_task, workflow_context, node=None, info=None):
         """
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
         :param node: The CloudifyWorkflowNode instance (if in node context)
         """
-        super(LocalWorkflowTask, self).__init__()
+        super(LocalWorkflowTask, self).__init__(info=info)
         self.local_task = local_task
         self.workflow_context = workflow_context
         self.node = node
