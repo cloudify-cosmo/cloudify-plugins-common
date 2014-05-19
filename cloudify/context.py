@@ -17,10 +17,12 @@ __author__ = 'idanmo'
 
 import logging
 
-from manager import get_node_state
-from manager import update_node_state
+from manager import get_node_instance
+from manager import update_node_instance
 from manager import get_blueprint_resource
 from manager import download_blueprint_resource
+from manager import get_provider_context
+from manager import get_bootstrap_context
 from logs import CloudifyPluginLoggingHandler
 
 
@@ -84,12 +86,12 @@ class ContextCapabilities(object):
 
 class CommonContextOperations(object):
 
-    def _get_node_state_if_needed(self):
+    def _get_node_instance_if_needed(self):
         if self.node_id is None:
             raise RuntimeError('Cannot get node state - invocation is not '
                                'in a context of node')
-        if self._node_state is None:
-            self._node_state = get_node_state(self.node_id)
+        if self._node_instance is None:
+            self._node_instance = get_node_instance(self.node_id)
 
 
 class CloudifyRelatedNode(CommonContextOperations):
@@ -98,7 +100,7 @@ class CloudifyRelatedNode(CommonContextOperations):
     """
     def __init__(self, ctx):
         self._related = ctx['related']
-        self._node_state = None
+        self._node_instance = None
 
     @property
     def node_id(self):
@@ -118,8 +120,8 @@ class CloudifyRelatedNode(CommonContextOperations):
         Runtime properties are properties set during the node's lifecycle.
         Retrieving runtime properties involves a call to Cloudify's storage.
         """
-        self._get_node_state_if_needed()
-        return self._node_state.runtime_properties
+        self._get_node_instance_if_needed()
+        return self._node_instance.runtime_properties
 
     def __getitem__(self, key):
         """
@@ -133,6 +135,36 @@ class CloudifyRelatedNode(CommonContextOperations):
 
     def __contains__(self, key):
         return key in self.properties or key in self.runtime_properties
+
+
+class BootstrapContext(object):
+
+    class CloudifyAgent(object):
+
+        def __init__(self, cloudify_agent):
+            self._cloudify_agent = cloudify_agent
+
+        @property
+        def min_workers(self):
+            return self._cloudify_agent.get('min_workers')
+
+        @property
+        def max_workers(self):
+            return self._cloudify_agent.get('min_workers')
+
+        @property
+        def agent_key_path(self):
+            return self._cloudify_agent.get('agent_key_path')
+
+    def __init__(self, bootstrap_context):
+        self._bootstrap_context = bootstrap_context
+
+        cloudify_agent = bootstrap_context.get('cloudify_agent', {})
+        self._cloudify_agent = self.CloudifyAgent(cloudify_agent)
+
+    @property
+    def cloudify_agent(self):
+        return self._cloudify_agent
 
 
 class CloudifyContext(CommonContextOperations):
@@ -151,13 +183,15 @@ class CloudifyContext(CommonContextOperations):
         context_capabilities = self._context.get('capabilities')
         self._capabilities = ContextCapabilities(context_capabilities)
         self._logger = None
-        self._node_state = None
+        self._node_instance = None
         self._node_properties = \
             ImmutableProperties(self._context.get('node_properties') or {})
         if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._context)
         else:
             self._related = None
+        self._provider_contexts = {}
+        self._bootstrap_context = None
 
     @property
     def node_id(self):
@@ -187,8 +221,14 @@ class CloudifyContext(CommonContextOperations):
         In order to set runtime properties for the node in context use the
         __setitem__(key, value) method (square brackets notation).
         """
-        self._get_node_state_if_needed()
-        return self._node_state.runtime_properties
+        self._get_node_instance_if_needed()
+        return self._node_instance.runtime_properties
+
+    @property
+    def node_state(self):
+        """The node's state."""
+        self._get_node_instance_if_needed()
+        return self._node_instance.state
 
     @property
     def blueprint_id(self):
@@ -295,6 +335,25 @@ class CloudifyContext(CommonContextOperations):
             self._init_cloudify_logger()
         return self._logger
 
+    @property
+    def bootstrap_context(self):
+        """
+        System context provided during the bootstrap process
+        """
+        if self._bootstrap_context is None:
+            context = get_bootstrap_context()
+            self._bootstrap_context = BootstrapContext(context)
+        return self._bootstrap_context
+
+    def get_provider_context(self, name):
+        """
+        Provider context provided during the bootstrap process
+        """
+        if self._provider_contexts.get(name) is None:
+            provider_context = get_provider_context(name)
+            self._provider_contexts[name] = provider_context
+        return self._provider_contexts.get(name)
+
     def _verify_node_in_context(self):
         if self.node_id is None:
             raise RuntimeError('Invocation requires a node in context')
@@ -309,8 +368,8 @@ class CloudifyContext(CommonContextOperations):
         """
         if self.properties is not None and key in self.properties:
             return self.properties[key]
-        self._get_node_state_if_needed()
-        return self._node_state[key]
+        self._get_node_instance_if_needed()
+        return self._node_instance[key]
 
     def __setitem__(self, key, value):
         """
@@ -320,14 +379,14 @@ class CloudifyContext(CommonContextOperations):
         as the task execution is over or if ctx.update() was
         explicitly invoked.
         """
-        self._get_node_state_if_needed()
-        self._node_state[key] = value
+        self._get_node_instance_if_needed()
+        self._node_instance[key] = value
 
     def __contains__(self, key):
         if self.properties is not None and key in self.properties:
             return True
-        self._get_node_state_if_needed()
-        return key in self._node_state
+        self._get_node_instance_if_needed()
+        return key in self._node_instance
 
     def get_resource(self, resource_path):
         """
@@ -379,9 +438,9 @@ class CloudifyContext(CommonContextOperations):
         update Cloudify's storage with changes. Otherwise, the method is
         automatically invoked as soon as the task execution is over.
         """
-        if self._node_state is not None and self._node_state.dirty:
-            update_node_state(self._node_state)
-            self._node_state = None
+        if self._node_instance is not None and self._node_instance.dirty:
+            update_node_instance(self._node_instance)
+            self._node_instance = None
 
     def _init_cloudify_logger(self):
         if self.task_name is not None:

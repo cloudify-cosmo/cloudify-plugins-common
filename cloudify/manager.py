@@ -25,18 +25,18 @@ from cloudify.exceptions import HttpException
 import utils
 
 
-class NodeState(object):
-    """Represents a deployment node state.
+class NodeInstance(object):
+    """Represents a deployment node instance.
     An instance of this class contains runtime information retrieved
-    from Cloudify's runtime storage.
-    Its API allows to set and get properties of the node's state,
-     generate an updates dict to be used when requesting to save changes
-     back to the storage (in an optimistic locking manner).
+    from Cloudify's runtime storage as well as the node's state.
+    Its API allows to set and get the node instance's state and properties.
     """
-    def __init__(self, node_id, runtime_properties=None, state_version=None):
+    def __init__(self, node_id, runtime_properties=None,
+                 state=None, state_version=None):
         self.id = node_id
         self._runtime_properties = \
             DirtyTrackingDict((runtime_properties or {}).copy())
+        self._state = state
         self._state_version = state_version
 
     def get(self, key):
@@ -59,6 +59,14 @@ class NodeState(object):
     @property
     def state_version(self):
         return self._state_version
+
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        self._state = value
 
     @property
     def dirty(self):
@@ -111,21 +119,41 @@ def get_blueprint_resource(blueprint_id, resource_path):
     return get_resource(resource_path, base_url=base_url)
 
 
-def get_node_state(node_id):
+def get_node_instance(node_id):
     client = get_manager_rest_client()
-    node_state = client.get_node_state(node_id)
-    if 'runtimeInfo' not in node_state:
-        raise KeyError('runtimeInfo not found in get_node_state response')
-    if 'stateVersion' not in node_state:
-        raise KeyError('stateVersion not found in get_node_state response')
-    return NodeState(
-        node_id, node_state['runtimeInfo'], node_state['stateVersion'])
+    node_instance = client.get_node_instance(node_id)
+
+    if 'runtimeInfo' not in node_instance:
+        raise KeyError('runtimeInfo not found in get_node_instance response')
+    if 'state' not in node_instance:
+        raise KeyError('state not found in get_node_instance response')
+    if 'stateVersion' not in node_instance:
+        raise KeyError('stateVersion not found in get_node_instance response')
+    return NodeInstance(
+        node_id, node_instance['runtimeInfo'], node_instance[
+            'state'], node_instance['stateVersion'])
 
 
-def update_node_state(node_state):
+def update_node_instance(node_instance):
     client = get_manager_rest_client()
-    client.update_node_state(node_state.id, node_state.runtime_properties,
-                             node_state.state_version)
+    client.update_node_instance(node_instance.id,
+                                node_instance.state_version,
+                                node_instance.runtime_properties,
+                                node_instance.state)
+
+
+def get_bootstrap_context():
+    client = get_manager_rest_client()
+    context = client.get_provider_context()['context']
+    return context.get('cloudify', {})
+
+
+def get_provider_context(name):
+    client = get_manager_rest_client()
+    context = client.get_provider_context()
+    if context['name'] != name:
+        return None
+    return context['context']
 
 
 class DirtyTrackingDict(dict):
