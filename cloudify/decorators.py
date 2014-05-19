@@ -18,6 +18,7 @@ __author__ = 'idanmo'
 from functools import wraps
 from cloudify.celery import celery
 from cloudify.context import CloudifyContext
+from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -85,11 +86,11 @@ def operation(func=None, **arguments):
                 kwargs = _inject_argument('ctx', ctx, kwargs)
             try:
                 result = func(*args, **kwargs)
-            except BaseException as e:
+            except BaseException:
                 ctx.logger.error(
                     'Exception raised on operation [%s] invocation',
                     ctx.task_name, exc_info=True)
-                raise e
+                raise
             ctx.update()
             return result
         return wrapper
@@ -98,5 +99,27 @@ def operation(func=None, **arguments):
             return operation(fn, **arguments)
         return partial_wrapper
 
+
+def workflow(func=None, **arguments):
+    if func is not None:
+        @celery.task
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            ctx = _find_context_arg(args, kwargs)
+            if ctx is None:
+                ctx = {}
+            if not _is_cloudify_context(ctx):
+                ctx = CloudifyWorkflowContext(ctx)
+                kwargs = _inject_argument('ctx', ctx, kwargs)
+            try:
+                result = func(*args, **kwargs)
+            except BaseException:
+                raise
+            return result
+        return wrapper
+    else:
+        def partial_wrapper(fn):
+            return workflow(fn, **arguments)
+        return partial_wrapper
 
 task = operation
