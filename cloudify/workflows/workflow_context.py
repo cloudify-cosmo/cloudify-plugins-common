@@ -21,7 +21,8 @@ import uuid
 
 import celery
 
-from cloudify.manager import get_node_instance, update_node_instance
+from cloudify.manager import get_node_instance, update_node_instance, \
+    update_execution_status
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOP)
@@ -214,6 +215,13 @@ class CloudifyWorkflowContext(object):
         return self.execute_task(task_queue, task_name,
                                  kwargs=kwargs,
                                  node_context=node_context)
+
+    def update_execution_status(self, new_status):
+        """
+        Updates the execution status to new_status.
+        Note that
+        """
+        update_execution_status(self.execution_id, new_status)
 
     def execute_task(self,
                      task_queue,

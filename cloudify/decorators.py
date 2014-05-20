@@ -19,6 +19,7 @@ from functools import wraps
 from cloudify.celery import celery
 from cloudify.context import CloudifyContext
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
+from cloudify.manager import update_execution_status
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -123,8 +124,11 @@ def workflow(func=None, **arguments):
                 ctx = CloudifyWorkflowContext(ctx)
                 kwargs = _inject_argument('ctx', ctx, kwargs)
             try:
+                update_execution_status(ctx.execution_id, 'launched')
                 result = func(*args, **kwargs)
-            except BaseException:
+                update_execution_status(ctx.execution_id, 'terminated')
+            except BaseException, e:
+                update_execution_status(ctx.execution_id, 'failed', str(e))
                 raise
             return result
         return wrapper

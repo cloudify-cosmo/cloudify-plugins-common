@@ -140,5 +140,3 @@ class LocalWorkflowTaskResult(object):
 
     def get(self):
         return self.result
-
-
