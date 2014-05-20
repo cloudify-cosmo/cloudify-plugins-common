@@ -219,7 +219,8 @@ class CloudifyWorkflowContext(object):
     def update_execution_status(self, new_status):
         """
         Updates the execution status to new_status.
-        Note that
+        Note that the workflow status gets automatically updated before and
+        after its run (whether the run succeeded or failed)
         """
         update_execution_status(self.execution_id, new_status)
 
