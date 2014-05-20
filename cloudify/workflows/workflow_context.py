@@ -19,24 +19,24 @@ import uuid
 
 import celery
 
-from cloudify.manager import (get_node_state as _get_node_state,
-                              update_node_state as _update_node_state)
+from cloudify.manager import (get_node_instance as _get_node_instance,
+                              update_node_instance as _update_node_instance)
 
 celery_client = celery.Celery(broker='amqp://', backend='amqp://')
 celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
 
 
 @celery_client.task
-def set_node_state(node_id, state):
-    node_state = _get_node_state(node_id)
-    node_state.runtime_properties['state'] = state
-    _update_node_state(node_state)
+def set_node_instance(node_id, state):
+    node_instance = _get_node_instance(node_id)
+    node_instance.runtime_properties['state'] = state
+    _update_node_instance(node_instance)
     return state
 
 
 @celery_client.task
-def get_node_state(node_id):
-    return _get_node_state(node_id).runtime_properties.get('state')
+def get_node_instance(node_id):
+    return _get_node_instance(node_id).runtime_properties.get('state')
 
 
 class CloudifyWorkflowNode(object):
@@ -46,30 +46,35 @@ class CloudifyWorkflowNode(object):
         self._node = node
 
     def set_state(self, state, async_result=False, return_task=False):
-        task = set_node_state.subtask(
-            kwargs={'node_id': self.id, 'state': state},
-            queue='cloudify.management',
-            immutable=True
-        )
-        if return_task:
-            return task
-        result = task.apply_async()
-        if async_result:
-            return result
-        return result.get()
+        # task = set_node_instance.subtask(
+        #     kwargs={'node_id': self.id, 'state': state},
+        #     queue='cloudify.management',
+        #     immutable=True
+        # )
+        # if return_task:
+        #     return task
+        # result = task.apply_async()
+        # if async_result:
+        #     return result
+        # return result.get()
+        node_state = _get_node_instance(self._node['id'])
+        node_state.state = state
+        _update_node_instance(node_state)
+        return state
 
     def get_state(self, async_result=False, return_task=False):
-        task = get_node_state.subtask(
-            kwargs={'node_id': self.id},
-            queue='cloudify.management',
-            immutable=True
-        )
-        if return_task:
-            return task
-        result = task.apply_async()
-        if async_result:
-            return result
-        return result.get()
+        # task = get_node_instance.subtask(
+        #     kwargs={'node_id': self.id},
+        #     queue='cloudify.management',
+        #     immutable=True
+        # )
+        # if return_task:
+        #     return task
+        # result = task.apply_async()
+        # if async_result:
+        #     return result
+        # return result.get()
+        return _get_node_instance(self._node['id']).state
 
     def send_event(self, event):
         pass
