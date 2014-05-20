@@ -21,7 +21,7 @@ import uuid
 
 import celery
 
-from cloudify.manager import get_node_state, update_node_state
+from cloudify.manager import get_node_instance, update_node_instance
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOP)
@@ -82,16 +82,16 @@ class CloudifyWorkflowNode(object):
 
     def set_state(self, state):
         def set_state_task():
-            node_state = get_node_state(self.id)
-            node_state.runtime_properties['state'] = state
-            update_node_state(node_state)
+            node_state = get_node_instance(self.id)
+            node_state.state = state
+            update_node_instance(node_state)
             self.ctx.logger.info('State[{}][{}]'.format(self.id, state))
             return node_state
         return LocalWorkflowTask(set_state_task, self.ctx, self, info=state)
 
     def get_state(self):
         def get_state_task():
-            return get_node_state(self.id).runtime_properties.get('state')
+            return get_node_instance(self.id).state
         return LocalWorkflowTask(get_state_task, self.ctx, self)
 
     def send_event(self, event):
