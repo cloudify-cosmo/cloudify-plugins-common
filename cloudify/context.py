@@ -24,6 +24,7 @@ from manager import get_provider_context
 from manager import get_bootstrap_context
 from logs import CloudifyPluginLoggingHandler
 from logs import init_cloudify_logger
+from logs import send_plugin_event
 
 
 class ContextCapabilities(object):
@@ -338,7 +339,7 @@ class CloudifyContext(CommonContextOperations):
         using logstash.
         """
         if self._logger is None:
-            self._init_cloudify_logger()
+            self._logger = self._init_cloudify_logger()
         return self._logger
 
     @property
@@ -350,6 +351,14 @@ class CloudifyContext(CommonContextOperations):
             context = get_bootstrap_context()
             self._bootstrap_context = BootstrapContext(context)
         return self._bootstrap_context
+
+    def send_event(self, event):
+        """
+        Send an event to rabbitmq
+
+        :param event: the event message
+        """
+        send_plugin_event(ctx=self, message=event)
 
     def get_provider_context(self, name):
         """
@@ -451,7 +460,8 @@ class CloudifyContext(CommonContextOperations):
     def _init_cloudify_logger(self):
         logger_name = self.task_name if self.task_name is not None \
             else 'cloudify_plugin'
-        init_cloudify_logger(self, CloudifyPluginLoggingHandler, logger_name)
+        handler = CloudifyPluginLoggingHandler(self)
+        return init_cloudify_logger(handler, logger_name)
 
     def __str__(self):
         attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')

@@ -78,7 +78,9 @@ class RemoteWorkflowTask(WorkflowTask):
         return False
 
     def duplicate(self):
-        return RemoteWorkflowTask(self.task, self.cloudify_context)
+        dup = RemoteWorkflowTask(self.task, self.cloudify_context)
+        dup.cloudify_context['task_id'] = dup.id
+        return dup
 
     @property
     def name(self):
@@ -140,5 +142,3 @@ class LocalWorkflowTaskResult(object):
 
     def get(self):
         return self.result
-
-

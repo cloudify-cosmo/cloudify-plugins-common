@@ -56,6 +56,10 @@ class TaskDependencyGraph(object):
                 task.apply_async()
 
             for task in self._terminated_tasks():
+                if task.get_state() == tasks_api.TASK_FAILED:
+                    raise RuntimeError('Workflow failed due to failed task '
+                                       '{}'.format(task.name))
+
                 retry = task.handle_task_terminated()
                 dependents = self.graph.predecessors(task.id)
                 removed_edges = [(dependent, task.id)
