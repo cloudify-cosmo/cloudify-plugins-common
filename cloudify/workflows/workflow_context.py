@@ -26,7 +26,11 @@ from cloudify.manager import get_node_instance, update_node_instance, \
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOP)
-from cloudify.logs import CloudifyWorkflowLoggingHandler, init_cloudify_logger
+from cloudify.logs import (CloudifyWorkflowLoggingHandler,
+                           CloudifyWorkflowNodeLoggingHandler,
+                           init_cloudify_logger,
+                           send_workflow_event,
+                           send_workflow_node_event)
 
 celery_client = celery.Celery(broker='amqp://', backend='amqp://')
 celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
@@ -80,13 +84,14 @@ class CloudifyWorkflowNode(object):
         self._relationships = [
             CloudifyWorkflowRelationship(self.ctx, self, relationship) for
             relationship in node.get('relationships', [])]
+        self._logger = None
 
     def set_state(self, state):
         def set_state_task():
             node_state = get_node_instance(self.id)
             node_state.state = state
             update_node_instance(node_state)
-            self.ctx.logger.info('State[{}][{}]'.format(self.id, state))
+            self.logger.info('set_state({})'.format(state))
             return node_state
         return LocalWorkflowTask(set_state_task, self.ctx, self, info=state)
 
@@ -95,9 +100,12 @@ class CloudifyWorkflowNode(object):
             return get_node_instance(self.id).state
         return LocalWorkflowTask(get_state_task, self.ctx, self)
 
-    def send_event(self, event):
+    def send_event(self, event, additional_context=None):
         def send_event_task():
-            self.ctx.logger.info('Event[{}][{}]'.format(self.id, event))
+            send_workflow_node_event(ctx=self,
+                                     event_type='workflow_node_event',
+                                     message=event,
+                                     additional_context=additional_context)
         return LocalWorkflowTask(send_event_task, self.ctx, self, info=event)
 
     def execute_operation(self, operation, kwargs=None):
@@ -134,6 +142,18 @@ class CloudifyWorkflowNode(object):
     def operations(self):
         return self._node.get('operations', {})
 
+    @property
+    def logger(self):
+        if self._logger is None:
+            self._logger = self._init_cloudify_logger()
+        return self._logger
+
+    def _init_cloudify_logger(self):
+        logger_name = self.id if self.id is not None \
+            else 'cloudify_workflow_node'
+        handler = CloudifyWorkflowNodeLoggingHandler(self)
+        return init_cloudify_logger(handler, logger_name)
+
 
 class CloudifyWorkflowContext(object):
 
@@ -166,19 +186,26 @@ class CloudifyWorkflowContext(object):
     @property
     def logger(self):
         if self._logger is None:
-            self._init_cloudify_logger()
+            self._logger = self._init_cloudify_logger()
         return self._logger
-
-    def get_node(self, node_id):
-        return self._nodes.get(node_id)
 
     def _init_cloudify_logger(self):
         logger_name = self.workflow_id if self.workflow_id is not None \
             else 'cloudify_workflow'
-        init_cloudify_logger(self, CloudifyWorkflowLoggingHandler, logger_name)
+        handler = CloudifyWorkflowLoggingHandler(self)
+        return init_cloudify_logger(handler, logger_name)
 
-    def send_event(self, event):
-        pass
+    def send_event(self, event, event_type='workflow_stage',
+                   additional_context=None):
+        def send_event_task():
+            send_workflow_event(ctx=self,
+                                event_type=event_type,
+                                message=event,
+                                additional_context=additional_context)
+        return LocalWorkflowTask(send_event_task, self, info=event)
+
+    def get_node(self, node_id):
+        return self._nodes.get(node_id)
 
     def _execute_operation(self, operation, node, operations,
                            related_node=None,

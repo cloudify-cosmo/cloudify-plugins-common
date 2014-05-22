@@ -1,8 +1,12 @@
 import threading
 
 
+from cloudify.logs import send_remote_task_event
 from cloudify.celery import celery as app
 from cloudify.workflows import tasks as tasks_api
+
+
+TASK_TO_FILTER = ['worker_installer.tasks.restart']
 
 
 class Monitor(object):
@@ -15,16 +19,16 @@ class Monitor(object):
         pass
 
     def task_received(self, event):
-        self._update_task_state(tasks_api.TASK_RECEIVED, event)
+        pass
 
     def task_started(self, event):
-        self._update_task_state(tasks_api.TASK_STARTED, event)
+        self._handle(tasks_api.TASK_STARTED, event)
 
     def task_succeeded(self, event):
-        self._update_task_state(tasks_api.TASK_SUCCEEDED, event)
+        self._handle(tasks_api.TASK_SUCCEEDED, event)
 
     def task_failed(self, event):
-        self._update_task_state(tasks_api.TASK_FAILED, event)
+        self._handle(tasks_api.TASK_FAILED, event)
 
     def task_revoked(self, event):
         pass
@@ -32,11 +36,11 @@ class Monitor(object):
     def task_retried(self, event):
         pass
 
-    def _update_task_state(self, state, event):
+    def _handle(self, state, event):
         task_id = event['uuid']
         task = self.tasks_graph.get_task(task_id)
         if task is not None:
-            self.ctx.logger.info('task[{}] state[{}]'.format(task.name, state))
+            self._send_task_event(state, task, event)
             task.set_state(state)
 
     def capture(self):
@@ -52,8 +56,36 @@ class Monitor(object):
             })
             receive.capture(limit=None, timeout=None, wakeup=True)
 
+    @staticmethod
+    def _send_task_event(state, task, event):
+        if task.name in TASK_TO_FILTER:
+            return
+
+        if state == tasks_api.TASK_SENT:
+            message = "Sending task '{}'".format(task.name)
+            event_type = 'sending_task'
+        elif state == tasks_api.TASK_STARTED:
+            message = "Task started '{}'".format(task.name)
+            event_type = 'task_started'
+        elif state == tasks_api.TASK_SUCCEEDED:
+            message = "Task succeeded '{} ({})'".format(task.name,
+                                                        event.get('result'))
+            event_type = 'task_succeeded'
+        elif state == tasks_api.TASK_FAILED:
+            message = "Task failed '{}' {} {}".format(task.name,
+                                                      event.get('traceback'),
+                                                      event.get('exception'))
+            event_type = 'task_failed'
+        else:
+            raise RuntimeError('unhandled event type: {}'.format(state))
+
+        send_remote_task_event(remote_task=task,
+                               event_type=event_type,
+                               message=message)
+
 
 def start_event_monitor(tasks_graph):
     monitor = Monitor(tasks_graph)
     thread = threading.Thread(target=monitor.capture)
+    thread.daemon = True
     thread.start()

@@ -17,10 +17,43 @@ __author__ = 'idanmo'
 
 
 import logging
-import datetime
-import pika
 import json
-from cloudify.utils import get_manager_ip
+
+from cloudify.amqp_client import create_client
+
+
+def message_context_from_cloudify_context(ctx):
+    return {
+        'blueprint_id': ctx.blueprint_id,
+        'deployment_id': ctx.deployment_id,
+        'execution_id': ctx.execution_id,
+        'workflow_id': ctx.workflow_id,
+        'task_id': ctx.task_id,
+        'task_name': ctx.task_name,
+        'task_target': ctx.task_target,
+        'node_name': ctx.node_name,
+        'node_id': ctx.node_id,
+        'operation': ctx.operation,
+        'plugin': ctx.plugin,
+    }
+
+
+def message_context_from_workflow_context(ctx):
+    return {
+        'blueprint_id': ctx.blueprint_id,
+        'deployment_id': ctx.deployment_id,
+        'execution_id': ctx.execution_id,
+        'workflow_id': ctx.workflow_id,
+    }
+
+
+def message_context_from_workflow_node_context(ctx):
+    message_context = message_context_from_workflow_context(ctx.ctx)
+    message_context.update({
+        'node_name': ctx.name,
+        'node_id': ctx.id,
+    })
+    return message_context
 
 
 class CloudifyBaseLoggingHandler(logging.Handler):
@@ -38,11 +71,7 @@ class CloudifyBaseLoggingHandler(logging.Handler):
 
     def emit(self, record):
         message = self.format(record)
-        timestamp = str(datetime.datetime.now())
         log = {
-            'type': 'cloudify_log',
-            'message_code': None,
-            'timestamp': timestamp,
             'context': self.context(),
             'logger': record.name,
             'level': record.levelname.lower(),
@@ -60,21 +89,11 @@ class CloudifyBaseLoggingHandler(logging.Handler):
 
     def publish_log(self, log):
         if self.amqp_client is None:
-            connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host=get_manager_ip()))
-            channel = connection.channel()
-            channel.queue_declare(queue='cloudify-logs',
-                                  auto_delete=True,
-                                  durable=True,
-                                  exclusive=False)
-            self.amqp_client = channel
-
-        self.amqp_client.basic_publish(exchange='',
-                                       routing_key='cloudify-logs',
-                                       body=json.dumps(log))
+            CloudifyBaseLoggingHandler.amqp_client = create_client()
+        self.amqp_client.publish_log(log)
 
     def context(self):
-        return {}
+        raise NotImplementedError()
 
 
 class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
@@ -83,19 +102,7 @@ class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
     """
 
     def context(self):
-        return {
-            'task_id': self._ctx.task_id,
-            'plugin': self._ctx.plugin,
-            'blueprint_id': self._ctx.blueprint_id,
-            'task_target': self._ctx.task_target,
-            'node_name': self._ctx.node_name,
-            'workflow_id': self._ctx.workflow_id,
-            'node_id': self._ctx.node_id,
-            'task_name': self._ctx.task_name,
-            'operation': self._ctx.operation,
-            'deployment_id': self._ctx.deployment_id,
-            'execution_id': self._ctx.execution_id,
-        }
+        return message_context_from_cloudify_context(self._ctx)
 
 
 class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
@@ -104,15 +111,19 @@ class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
     """
 
     def context(self):
-        return {
-            'blueprint_id': self._ctx.blueprint_id,
-            'deployment_id': self._ctx.deployment_id,
-            'execution_id': self._ctx.execution_id,
-            'workflow_id': self._ctx.workflow_id,
-        }
+        return message_context_from_workflow_context(self._ctx)
 
 
-def init_cloudify_logger(ctx, handler_class, logger_name,
+class CloudifyWorkflowNodeLoggingHandler(CloudifyBaseLoggingHandler):
+    """
+    A Handler class for writing workflow log messages to RabbitMQ.
+    """
+
+    def context(self):
+        return message_context_from_workflow_node_context(self._ctx)
+
+
+def init_cloudify_logger(handler, logger_name,
                          logging_level=logging.INFO):
     # TODO: somehow inject logging level (no one currently passes
     # logging_level)
@@ -120,8 +131,71 @@ def init_cloudify_logger(ctx, handler_class, logger_name,
     logger.setLevel(logging_level)
     for h in logger.handlers:
         logger.removeHandler(h)
-    handler = handler_class(ctx)
     handler.setFormatter(logging.Formatter("%(message)s"))
     logger.propagate = True
     logger.addHandler(handler)
-    ctx._logger = logger
+    return logger
+
+
+def send_workflow_event(ctx, event_type,
+                        message=None,
+                        args=None,
+                        additional_context=None):
+    _send_event(ctx, 'workflow', event_type, message, args, additional_context)
+
+
+def send_workflow_node_event(ctx, event_type,
+                             message=None,
+                             args=None,
+                             additional_context=None):
+    _send_event(ctx, 'workflow_node', event_type, message, args,
+                additional_context)
+
+
+def send_plugin_event(ctx,
+                      message=None,
+                      args=None,
+                      additional_context=None):
+    _send_event(ctx, 'plugin', 'plugin_event', message, args,
+                additional_context)
+
+
+def send_remote_task_event(remote_task,
+                           event_type,
+                           message=None,
+                           args=None,
+                           additional_context=None):
+    from cloudify.context import CloudifyContext
+    _send_event(CloudifyContext(remote_task.cloudify_context),
+                'remote_task', event_type, message, args,
+                additional_context)
+
+
+def _send_event(ctx, context_type, event_type,
+                message, args, additional_context):
+    if CloudifyBaseLoggingHandler.amqp_client is None:
+        CloudifyBaseLoggingHandler.amqp_client = create_client()
+    client = CloudifyWorkflowNodeLoggingHandler.amqp_client
+
+    if context_type in ['plugin', 'remote_task']:
+        message_context = message_context_from_cloudify_context(
+            ctx)
+    elif context_type == 'workflow':
+        message_context = message_context_from_workflow_context(ctx)
+    elif context_type == 'workflow_node':
+        message_context = message_context_from_workflow_node_context(ctx)
+    else:
+        raise RuntimeError('Invalid context_type: {}'.format(context_type))
+
+    additional_context = additional_context or {}
+    message_context.update(additional_context)
+
+    event = {
+        'event_type': event_type,
+        'context': message_context,
+        'message': {
+            'text': message,
+            'arguments': args
+        }
+    }
+    client.publish_event(event)
