@@ -17,6 +17,9 @@
 import uuid
 
 
+from cloudify.celery import celery as celery_client
+
+
 TASK_PENDING = 'pending'
 TASK_SENDING = 'sending'
 TASK_SENT = 'sent'
@@ -65,6 +68,8 @@ class WorkflowTask(object):
 
 class RemoteWorkflowTask(WorkflowTask):
 
+    cache = {}
+
     def __init__(self,
                  task,
                  cloudify_context,
@@ -84,6 +89,8 @@ class RemoteWorkflowTask(WorkflowTask):
         self.cloudify_context = cloudify_context
 
     def apply_async(self):
+        self._verify_task_registered()
+
         # here to avoid cyclic dependencies
         from events import send_task_event
         send_task_event(TASK_SENDING, self)
@@ -109,6 +116,28 @@ class RemoteWorkflowTask(WorkflowTask):
     @property
     def name(self):
         return self.cloudify_context['task_name']
+
+    @property
+    def target(self):
+        return self.cloudify_context['task_target']
+
+    def _verify_task_registered(self):
+        cache = RemoteWorkflowTask.cache
+        registered = cache.get(self.target, set())
+        if self.name not in registered:
+            registered = self._get_registered()
+            cache[self.target] = registered
+
+        if self.name not in registered:
+            raise RuntimeError('Missing task: {} in worker celery.{} \n'
+                               'Registered tasks are: {}'
+                               .format(self.name, self.target, registered))
+
+    def _get_registered(self):
+        worker_name = 'celery.{}'.format(self.target)
+        inspect = celery_client.control.inspect(destination=[worker_name])
+        result = inspect.registered().get(worker_name, set())
+        return set(result)
 
 
 class LocalWorkflowTask(WorkflowTask):
