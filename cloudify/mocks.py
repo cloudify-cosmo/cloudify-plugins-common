@@ -12,12 +12,12 @@
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
-import sys
 
 __author__ = 'idanmo'
 
+import sys
 import logging
-from context import CloudifyContext, ContextCapabilities
+from context import CloudifyContext, ContextCapabilities, BootstrapContext
 
 
 class MockCloudifyContext(CloudifyContext):
@@ -36,7 +36,8 @@ class MockCloudifyContext(CloudifyContext):
                  capabilities=None,
                  related=None,
                  operation=None,
-                 resources=None):
+                 resources=None,
+                 bootstrap_context=None):
         super(MockCloudifyContext, self).__init__({'operation': operation})
         self._node_id = node_id
         self._node_name = node_name
@@ -53,6 +54,7 @@ class MockCloudifyContext(CloudifyContext):
                     capabilities))
         self._capabilities = capabilities or ContextCapabilities()
         self._related = related
+        self._bootstrap_context = bootstrap_context or BootstrapContext({})
 
         root = logging.getLogger()
         ch = logging.StreamHandler(sys.stdout)
@@ -105,6 +107,10 @@ class MockCloudifyContext(CloudifyContext):
     @property
     def logger(self):
         return self._mock_context_logger
+
+    @property
+    def bootstrap_context(self):
+        return self._bootstrap_context
 
     def download_resource(self, resource_path, target_path=None):
         if target_path:
