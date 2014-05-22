@@ -88,7 +88,6 @@ class CloudifyWorkflowNode(object):
             node_state = get_node_instance(self.id)
             node_state.state = state
             update_node_instance(node_state)
-            self.logger.info('set_state({})'.format(state))
             return node_state
         return LocalWorkflowTask(set_state_task, self.ctx, self, info=state)
 

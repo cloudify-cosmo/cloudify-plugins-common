@@ -71,8 +71,9 @@ def send_task_event(state, task, event=None):
         message = "Task started '{}'".format(task.name)
         event_type = 'task_started'
     elif state == tasks_api.TASK_SUCCEEDED:
-        message = "Task succeeded '{} ({})'".format(task.name,
-                                                    event.get('result'))
+        result = str(event.get('result'))
+        suffix = ' ({})'.format(result) if result != str(None) else ''
+        message = "Task succeeded '{}{}'".format(task.name, suffix)
         event_type = 'task_succeeded'
     elif state == tasks_api.TASK_FAILED:
         message = "Task failed '{}' -> {}".format(task.name,
