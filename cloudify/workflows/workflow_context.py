@@ -32,9 +32,6 @@ from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            send_workflow_event,
                            send_workflow_node_event)
 
-celery_client = celery.Celery(broker='amqp://', backend='amqp://')
-celery_client.conf.update(CELERY_TASK_SERIALIZER='json')
-
 
 class CloudifyWorkflowRelationship(object):
 
@@ -196,11 +193,13 @@ class CloudifyWorkflowContext(object):
         return init_cloudify_logger(handler, logger_name)
 
     def send_event(self, event, event_type='workflow_stage',
+                   args=None,
                    additional_context=None):
         def send_event_task():
             send_workflow_event(ctx=self,
                                 event_type=event_type,
                                 message=event,
+                                args=args,
                                 additional_context=additional_context)
         return LocalWorkflowTask(send_event_task, self, info=event)
 
@@ -249,7 +248,10 @@ class CloudifyWorkflowContext(object):
         Note that the workflow status gets automatically updated before and
         after its run (whether the run succeeded or failed)
         """
-        update_execution_status(self.execution_id, new_status)
+        def update_execution_status_task():
+            update_execution_status(self.execution_id, new_status)
+        return LocalWorkflowTask(update_execution_status_task,
+                                 self, info=new_status)
 
     def execute_task(self,
                      task_queue,

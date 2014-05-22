@@ -16,7 +16,9 @@
 
 import uuid
 
+
 TASK_PENDING = 'pending'
+TASK_SENDING = 'sending'
 TASK_SENT = 'sent'
 TASK_STARTED = 'started'
 TASK_RECEIVED = 'received'
@@ -28,13 +30,18 @@ TASK_FAILED = 'failed'
 
 class WorkflowTask(object):
 
-    def __init__(self, task_id=None, info=None):
+    def __init__(self,
+                 task_id=None,
+                 info=None,
+                 on_success=None,
+                 on_failure=None):
         self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
         self.async_result = None
-        self.on_success = None
-        self.on_failure = None
+        self.on_success = on_success
+        self.on_failure = on_failure
         self.info = info
+        self.error = None
 
     def is_remote(self):
         return not self.is_local()
@@ -58,18 +65,31 @@ class WorkflowTask(object):
 
 class RemoteWorkflowTask(WorkflowTask):
 
-    def __init__(self, task, cloudify_context, task_id=None, info=None):
+    def __init__(self,
+                 task,
+                 cloudify_context,
+                 task_id=None,
+                 info=None,
+                 on_success=None,
+                 on_failure=None):
         """
         :param task: The celery (sub)task
         :param cloudify_context: the cloudify_context dict argument
         """
-        super(RemoteWorkflowTask, self).__init__(task_id, info=info)
+        super(RemoteWorkflowTask, self).__init__(task_id,
+                                                 info=info,
+                                                 on_success=on_success,
+                                                 on_failure=on_failure)
         self.task = task
         self.cloudify_context = cloudify_context
 
     def apply_async(self):
-        self.set_state(TASK_SENT)
+        # here to avoid cyclic dependencies
+        from events import send_task_event
+        send_task_event(TASK_SENDING, self)
+
         async_result = self.task.apply_async(task_id=self.id)
+        self.set_state(TASK_SENT)
         self.async_result = RemoteWorkflowTaskResult(async_result)
         return self.async_result
 
@@ -78,7 +98,11 @@ class RemoteWorkflowTask(WorkflowTask):
         return False
 
     def duplicate(self):
-        dup = RemoteWorkflowTask(self.task, self.cloudify_context)
+        dup = RemoteWorkflowTask(self.task,
+                                 self.cloudify_context,
+                                 info=self.info,
+                                 on_success=self.on_success,
+                                 on_failure=self.on_failure)
         dup.cloudify_context['task_id'] = dup.id
         return dup
 
@@ -89,13 +113,19 @@ class RemoteWorkflowTask(WorkflowTask):
 
 class LocalWorkflowTask(WorkflowTask):
 
-    def __init__(self, local_task, workflow_context, node=None, info=None):
+    def __init__(self, local_task, workflow_context,
+                 node=None,
+                 info=None,
+                 on_success=None,
+                 on_failure=None):
         """
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
         :param node: The CloudifyWorkflowNode instance (if in node context)
         """
-        super(LocalWorkflowTask, self).__init__(info=info)
+        super(LocalWorkflowTask, self).__init__(info=info,
+                                                on_success=on_success,
+                                                on_failure=on_failure)
         self.local_task = local_task
         self.workflow_context = workflow_context
         self.node = node
@@ -116,8 +146,12 @@ class LocalWorkflowTask(WorkflowTask):
         return True
 
     def duplicate(self):
-        return LocalWorkflowTask(self.local_task, self.workflow_context,
-                                 self.node)
+        return LocalWorkflowTask(self.local_task,
+                                 self.workflow_context,
+                                 self.node,
+                                 info=self.info,
+                                 on_success=self.on_success,
+                                 on_failure=self.on_failure)
 
     @property
     def name(self):

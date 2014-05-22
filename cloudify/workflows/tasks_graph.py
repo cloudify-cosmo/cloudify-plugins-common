@@ -57,8 +57,9 @@ class TaskDependencyGraph(object):
 
             for task in self._terminated_tasks():
                 if task.get_state() == tasks_api.TASK_FAILED:
-                    raise RuntimeError('Workflow failed due to failed task '
-                                       '{}'.format(task.name))
+                    raise RuntimeError(
+                        "Workflow failed: Task failed '{}' -> {}"
+                        .format(task.name, task.error))
 
                 retry = task.handle_task_terminated()
                 dependents = self.graph.predecessors(task.id)
