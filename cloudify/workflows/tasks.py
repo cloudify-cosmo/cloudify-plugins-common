@@ -136,7 +136,8 @@ class RemoteWorkflowTask(WorkflowTask):
     def _get_registered(self):
         worker_name = 'celery.{}'.format(self.target)
         inspect = celery_client.control.inspect(destination=[worker_name])
-        result = inspect.registered().get(worker_name, set())
+        registered = inspect.registered() or {}
+        result = registered.get(worker_name, set())
         return set(result)
 
 
