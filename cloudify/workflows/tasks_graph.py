@@ -96,6 +96,11 @@ class TaskDependencyGraph(object):
         return (data['task'] for _, data in self.graph.nodes_iter(data=True))
 
 
+class forkjoin(object):
+    def __init__(self, *tasks):
+        self.tasks = tasks
+
+
 class TaskSequence(object):
 
     def __init__(self, graph):
@@ -108,18 +113,17 @@ class TaskSequence(object):
         will be considered a "fork-join"
         :param tasks: A list of elements where each element might be:
             1) A task, in which case, it will be added to the sequence
-            2) An iterable of tasks, in which case it will be treated
+            2) A forkjoin of tasks, in which case it will be treated
                as a "fork-join" task in the sequence, i.e. all the fork-join
                tasks will depend on the last task in the sequence (could be
                fork join) and the next added task will depend on all tasks
                in this fork-join task
         """
         for fork_join_tasks in tasks:
-            if fork_join_tasks is tasks_api.NOP:
-                continue
-            if not hasattr(fork_join_tasks, '__iter__'):
+            if isinstance(fork_join_tasks, forkjoin):
+                fork_join_tasks = fork_join_tasks.tasks
+            else:
                 fork_join_tasks = [fork_join_tasks]
-
             fork_join_tasks = [t for t in fork_join_tasks
                                if t is not tasks_api.NOP]
             for task in fork_join_tasks:
