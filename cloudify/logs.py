@@ -16,10 +16,20 @@
 __author__ = 'idanmo'
 
 
+import threading
 import logging
 import json
 
 from cloudify.amqp_client import create_client
+
+
+clients = threading.local()
+
+
+def amqp_client():
+    if not hasattr(clients, 'amqp_client'):
+        clients.amqp_client = create_client()
+    return clients.amqp_client
 
 
 def message_context_from_cloudify_context(ctx):
@@ -60,7 +70,6 @@ class CloudifyBaseLoggingHandler(logging.Handler):
     """
     A Handler class for writing log messages to RabbitMQ.
     """
-    amqp_client = None
 
     def __init__(self, ctx):
         super(CloudifyBaseLoggingHandler, self).__init__()
@@ -88,9 +97,7 @@ class CloudifyBaseLoggingHandler(logging.Handler):
                                  .format(e.message, json.dumps(log)))
 
     def publish_log(self, log):
-        if self.amqp_client is None:
-            CloudifyBaseLoggingHandler.amqp_client = create_client()
-        self.amqp_client.publish_log(log)
+        amqp_client().publish_log(log)
 
     def context(self):
         raise NotImplementedError()
@@ -173,10 +180,6 @@ def send_remote_task_event(remote_task,
 
 def _send_event(ctx, context_type, event_type,
                 message, args, additional_context):
-    if CloudifyBaseLoggingHandler.amqp_client is None:
-        CloudifyBaseLoggingHandler.amqp_client = create_client()
-    client = CloudifyWorkflowNodeLoggingHandler.amqp_client
-
     if context_type in ['plugin', 'remote_task']:
         message_context = message_context_from_cloudify_context(
             ctx)
@@ -198,4 +201,10 @@ def _send_event(ctx, context_type, event_type,
             'arguments': args
         }
     }
-    client.publish_event(event)
+    try:
+        amqp_client().publish_event(event)
+    except BaseException as e:
+        error_logger = logging.getLogger('cloudify_events')
+        error_logger.warning('Error publishing event to RabbitMQ ['
+                             'message={0}, event={1}]'
+                             .format(e.message, json.dumps(event)))
