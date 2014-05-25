@@ -15,11 +15,17 @@
 
 __author__ = 'idanmo'
 
+
+from StringIO import StringIO
 from functools import wraps
+import traceback
+
+
 from cloudify.celery import celery
 from cloudify.context import CloudifyContext
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status
+from cloudify.logs import send_workflow_event
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -124,11 +130,28 @@ def workflow(func=None, **arguments):
                 ctx = CloudifyWorkflowContext(ctx)
                 kwargs = _inject_argument('ctx', ctx, kwargs)
             try:
+                send_workflow_event(ctx,
+                                    event_type='workflow_started',
+                                    message="Starting '{}' workflow execution"
+                                            .format(ctx.workflow_id))
                 update_execution_status(ctx.execution_id, 'launched')
                 result = func(*args, **kwargs)
+                send_workflow_event(
+                    ctx, event_type='workflow_succeeded',
+                    message="'{}' workflow execution succeeded"
+                            .format(ctx.workflow_id))
                 update_execution_status(ctx.execution_id, 'terminated')
             except BaseException, e:
-                update_execution_status(ctx.execution_id, 'failed', str(e))
+                error = StringIO()
+                traceback.print_exc(file=error)
+                send_workflow_event(
+                    ctx,
+                    event_type='workflow_failed',
+                    message="'{}' workflow execution failed: {}"
+                            .format(ctx.workflow_id, str(e)),
+                    args={'error': error.getvalue()})
+                update_execution_status(ctx.execution_id, 'failed',
+                                        error.getvalue())
                 raise
             return result
         return wrapper

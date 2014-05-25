@@ -40,7 +40,7 @@ class Monitor(object):
         task_id = event['uuid']
         task = self.tasks_graph.get_task(task_id)
         if task is not None:
-            self._send_task_event(state, task, event)
+            send_task_event(state, task, event)
             task.set_state(state)
 
     def capture(self):
@@ -56,32 +56,36 @@ class Monitor(object):
             })
             receive.capture(limit=None, timeout=None, wakeup=True)
 
-    @staticmethod
-    def _send_task_event(state, task, event):
-        if task.name in TASK_TO_FILTER:
-            return
 
-        if state == tasks_api.TASK_SENT:
-            message = "Sending task '{}'".format(task.name)
-            event_type = 'sending_task'
-        elif state == tasks_api.TASK_STARTED:
-            message = "Task started '{}'".format(task.name)
-            event_type = 'task_started'
-        elif state == tasks_api.TASK_SUCCEEDED:
-            message = "Task succeeded '{} ({})'".format(task.name,
-                                                        event.get('result'))
-            event_type = 'task_succeeded'
-        elif state == tasks_api.TASK_FAILED:
-            message = "Task failed '{}' {} {}".format(task.name,
-                                                      event.get('traceback'),
-                                                      event.get('exception'))
-            event_type = 'task_failed'
-        else:
-            raise RuntimeError('unhandled event type: {}'.format(state))
+def send_task_event(state, task, event=None):
+    if task.name in TASK_TO_FILTER:
+        return
 
-        send_remote_task_event(remote_task=task,
-                               event_type=event_type,
-                               message=message)
+    if state != tasks_api.TASK_SENDING and event is None:
+        raise RuntimeError('missing required event parameter')
+
+    if state == tasks_api.TASK_SENDING:
+        message = "Sending task '{}'".format(task.name)
+        event_type = 'sending_task'
+    elif state == tasks_api.TASK_STARTED:
+        message = "Task started '{}'".format(task.name)
+        event_type = 'task_started'
+    elif state == tasks_api.TASK_SUCCEEDED:
+        result = str(event.get('result'))
+        suffix = ' ({})'.format(result) if result != str(None) else ''
+        message = "Task succeeded '{}{}'".format(task.name, suffix)
+        event_type = 'task_succeeded'
+    elif state == tasks_api.TASK_FAILED:
+        message = "Task failed '{}' -> {}".format(task.name,
+                                                  event.get('exception'))
+        event_type = 'task_failed'
+        task.error = event.get('exception')
+    else:
+        raise RuntimeError('unhandled event type: {}'.format(state))
+
+    send_remote_task_event(remote_task=task,
+                           event_type=event_type,
+                           message=message)
 
 
 def start_event_monitor(tasks_graph):
