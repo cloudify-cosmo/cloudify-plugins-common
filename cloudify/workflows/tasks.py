@@ -13,9 +13,10 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+__author__ = 'dank'
+
 
 import uuid
-
 
 from cloudify.celery import celery as celery_client
 
