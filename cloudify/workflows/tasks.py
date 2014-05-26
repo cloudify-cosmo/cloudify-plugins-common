@@ -25,20 +25,26 @@ TASK_PENDING = 'pending'
 TASK_SENDING = 'sending'
 TASK_SENT = 'sent'
 TASK_STARTED = 'started'
-TASK_RECEIVED = 'received'
 TASK_SUCCEEDED = 'succeeded'
 TASK_FAILED = 'failed'
-# TASK_REVOKED = 'revoked'
-# TASK_RETRIED = 'retried'
 
 
 class WorkflowTask(object):
+    """A base class for workflow tasks"""
 
     def __init__(self,
                  task_id=None,
                  info=None,
                  on_success=None,
                  on_failure=None):
+        """
+        :param task_id: The id of this task (generated if none is provided)
+        :param info: A short description of this task (for logging)
+        :param on_success: A handler called when the task's execution
+                           terminates successfully
+        :param on_failure: Not implemented yet (currently, when a task fails,
+                           it fails the entire workflow)
+        """
         self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
         self.async_result = None
@@ -48,15 +54,37 @@ class WorkflowTask(object):
         self.error = None
 
     def is_remote(self):
+        """
+        :return: Is this a remote task
+        """
         return not self.is_local()
 
     def get_state(self):
+        """
+        Get the task state
+
+        :return: The task state [pending, sending, sent, started, succeeded,
+                                 failed]
+        """
         return self._state
 
     def set_state(self, state):
+        """
+        Set the task state
+
+        :param state: The state to set [pending, sending, sent, started,
+                                           succeeded, failed]
+        """
+
+        if state not in [TASK_PENDING, TASK_SENDING, TASK_SENT, TASK_STARTED,
+                         TASK_SUCCEEDED, TASK_FAILED]:
+            raise RuntimeError('Illegal state set on task: {} '
+                               '[task={}]'.format(state, str(self)))
+
         self._state = state
 
     def handle_task_terminated(self):
+        """Call handler based on task terminated state"""
         if self._state == TASK_SUCCEEDED and self.on_success:
             return self.on_success(self)
         elif self._state == TASK_FAILED and self.on_failure:
@@ -68,7 +96,9 @@ class WorkflowTask(object):
 
 
 class RemoteWorkflowTask(WorkflowTask):
+    """A WorkflowTask wrapping a celery based task"""
 
+    # cache for registered tasks queries to celery workers
     cache = {}
 
     def __init__(self,
@@ -79,8 +109,14 @@ class RemoteWorkflowTask(WorkflowTask):
                  on_success=None,
                  on_failure=None):
         """
-        :param task: The celery (sub)task
-        :param cloudify_context: the cloudify_context dict argument
+        :param task: The celery task
+        :param cloudify_context: the cloudify context dict
+        :param task_id: The id of this task (generated if none is provided)
+        :param info: A short description of this task (for logging)
+        :param on_success: A handler called when the task's execution
+                           terminates successfully
+        :param on_failure: Not implemented yet (currently, when a task fails,
+                           it fails the entire workflow)
         """
         super(RemoteWorkflowTask, self).__init__(task_id,
                                                  info=info,
@@ -90,6 +126,13 @@ class RemoteWorkflowTask(WorkflowTask):
         self.cloudify_context = cloudify_context
 
     def apply_async(self):
+        """
+        
+
+        :return: a RemoteWorkflowTaskResult instance wrapping the
+                 celery async result
+        """
+
         self._verify_task_registered()
 
         # here to avoid cyclic dependencies

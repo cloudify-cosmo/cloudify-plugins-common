@@ -22,17 +22,12 @@ import json
 
 from cloudify.amqp_client import create_client
 
-
+# A thread local for storing a separate amqp client for each thread
 clients = threading.local()
 
 
-def amqp_client():
-    if not hasattr(clients, 'amqp_client'):
-        clients.amqp_client = create_client()
-    return clients.amqp_client
-
-
 def message_context_from_cloudify_context(ctx):
+    """Build a message context from a CloudifyContext instance"""
     return {
         'blueprint_id': ctx.blueprint_id,
         'deployment_id': ctx.deployment_id,
@@ -49,6 +44,7 @@ def message_context_from_cloudify_context(ctx):
 
 
 def message_context_from_workflow_context(ctx):
+    """Build a message context from a CloudifyWorkflowContext instance"""
     return {
         'blueprint_id': ctx.blueprint_id,
         'deployment_id': ctx.deployment_id,
@@ -58,6 +54,7 @@ def message_context_from_workflow_context(ctx):
 
 
 def message_context_from_workflow_node_context(ctx):
+    """Build a message context from a CloudifyWorkflowNode instance"""
     message_context = message_context_from_workflow_context(ctx.ctx)
     message_context.update({
         'node_name': ctx.name,
@@ -67,13 +64,11 @@ def message_context_from_workflow_node_context(ctx):
 
 
 class CloudifyBaseLoggingHandler(logging.Handler):
-    """
-    A Handler class for writing log messages to RabbitMQ.
-    """
+    """A base handler class for writing log messages to RabbitMQ"""
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, message_context_builder):
         super(CloudifyBaseLoggingHandler, self).__init__()
-        self._ctx = ctx
+        self.context = message_context_builder(ctx)
 
     def flush(self):
         pass
@@ -81,7 +76,7 @@ class CloudifyBaseLoggingHandler(logging.Handler):
     def emit(self, record):
         message = self.format(record)
         log = {
-            'context': self.context(),
+            'context': self.context,
             'logger': record.name,
             'level': record.levelname.lower(),
             'message': {
@@ -89,49 +84,47 @@ class CloudifyBaseLoggingHandler(logging.Handler):
             }
         }
         try:
-            self.publish_log(log)
+            _amqp_client().publish_log(log)
         except BaseException as e:
             error_logger = logging.getLogger('cloudify_celery')
             error_logger.warning('Error publishing log to RabbitMQ ['
                                  'message={0}, log={1}]'
                                  .format(e.message, json.dumps(log)))
 
-    def publish_log(self, log):
-        amqp_client().publish_log(log)
-
-    def context(self):
-        raise NotImplementedError()
-
 
 class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
-    """
-    A Handler class for writing plugin log messages to RabbitMQ.
-    """
-
-    def context(self):
-        return message_context_from_cloudify_context(self._ctx)
+    """A handler class for writing plugin log messages to RabbitMQ"""
+    def __init__(self, ctx):
+        super(CloudifyPluginLoggingHandler, self).__init__(
+            ctx, message_context_from_cloudify_context)
 
 
 class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
-    """
-    A Handler class for writing workflow log messages to RabbitMQ.
-    """
-
-    def context(self):
-        return message_context_from_workflow_context(self._ctx)
+    """A Handler class for writing workflow log messages to RabbitMQ"""
+    def __init__(self, ctx):
+        super(CloudifyWorkflowLoggingHandler, self).__init__(
+            ctx, message_context_from_workflow_context)
 
 
 class CloudifyWorkflowNodeLoggingHandler(CloudifyBaseLoggingHandler):
-    """
-    A Handler class for writing workflow log messages to RabbitMQ.
-    """
-
-    def context(self):
-        return message_context_from_workflow_node_context(self._ctx)
+    """A Handler class for writing workflow log messages to RabbitMQ"""
+    def __init__(self, ctx):
+        super(CloudifyWorkflowNodeLoggingHandler, self).__init__(
+            ctx, message_context_from_workflow_node_context)
 
 
 def init_cloudify_logger(handler, logger_name,
                          logging_level=logging.INFO):
+    """
+    Instantiate an amqp backed logger based on the provided handler
+    for sending log messages to RabbitMQ
+
+    :param handler: A logger handler based on the context
+    :param logger_name: The logger name
+    :param logging_level: The logging level
+    :return: An amqp backed logger
+    """
+
     # TODO: somehow inject logging level (no one currently passes
     # logging_level)
     logger = logging.getLogger(logger_name)
@@ -148,6 +141,14 @@ def send_workflow_event(ctx, event_type,
                         message=None,
                         args=None,
                         additional_context=None):
+    """Send a workflow event to RabbitMQ
+
+    :param ctx: A CloudifyWorkflowContext instance
+    :param event_type: The event type
+    :param message: The message
+    :param args: additional arguments that may be added to the message
+    :param additional_context: additional context to be added to the context
+    """
     _send_event(ctx, 'workflow', event_type, message, args, additional_context)
 
 
@@ -155,6 +156,14 @@ def send_workflow_node_event(ctx, event_type,
                              message=None,
                              args=None,
                              additional_context=None):
+    """Send a workflow node event to RabbitMQ
+
+    :param ctx: A CloudifyWorkflowNode instance
+    :param event_type: The event type
+    :param message: The message
+    :param args: additional arguments that may be added to the message
+    :param additional_context: additional context to be added to the context
+    """
     _send_event(ctx, 'workflow_node', event_type, message, args,
                 additional_context)
 
@@ -163,6 +172,13 @@ def send_plugin_event(ctx,
                       message=None,
                       args=None,
                       additional_context=None):
+    """Send a plugin event to RabbitMQ
+
+    :param ctx: A CloudifyContext instance
+    :param message: The message
+    :param args: additional arguments that may be added to the message
+    :param additional_context: additional context to be added to the context
+    """
     _send_event(ctx, 'plugin', 'plugin_event', message, args,
                 additional_context)
 
@@ -172,6 +188,15 @@ def send_remote_task_event(remote_task,
                            message=None,
                            args=None,
                            additional_context=None):
+    """Send a remote task event to RabbitMQ
+
+    :param remote_task: A RemoteWorkflowTask instance
+    :param event_type: The event type
+    :param message: The message
+    :param args: additional arguments that may be added to the message
+    :param additional_context: additional context to be added to the context
+    """
+    # import here to avoid cyclic dependencies
     from cloudify.context import CloudifyContext
     _send_event(CloudifyContext(remote_task.cloudify_context),
                 'remote_task', event_type, message, args,
@@ -202,9 +227,21 @@ def _send_event(ctx, context_type, event_type,
         }
     }
     try:
-        amqp_client().publish_event(event)
+        _amqp_client().publish_event(event)
     except BaseException as e:
         error_logger = logging.getLogger('cloudify_events')
         error_logger.warning('Error publishing event to RabbitMQ ['
                              'message={0}, event={1}]'
                              .format(e.message, json.dumps(event)))
+
+
+def _amqp_client():
+    """
+    Get an AMQPClient for the current thread. If non currently exists,
+    create one.
+
+    :return: An AMQPClient belonging to the current thread
+    """
+    if not hasattr(clients, 'amqp_client'):
+        clients.amqp_client = create_client()
+    return clients.amqp_client
