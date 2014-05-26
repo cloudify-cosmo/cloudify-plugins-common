@@ -94,6 +94,13 @@ class WorkflowTask(object):
         suffix = self.info if self.info is not None else ''
         return '{}({})'.format(self.name, suffix)
 
+    def duplicate(self):
+        """
+        :return: A new instance of this task with a new task id
+        """
+
+        raise NotImplementedError('Implemented by subclasses')
+
 
 class RemoteWorkflowTask(WorkflowTask):
     """A WorkflowTask wrapping a celery based task"""
@@ -127,7 +134,8 @@ class RemoteWorkflowTask(WorkflowTask):
 
     def apply_async(self):
         """
-        
+        Call the underlying celery tasks apply_async. Verify the task
+        is registered and send an event before doing so.
 
         :return: a RemoteWorkflowTaskResult instance wrapping the
                  celery async result
@@ -159,10 +167,12 @@ class RemoteWorkflowTask(WorkflowTask):
 
     @property
     def name(self):
+        """The task name"""
         return self.cloudify_context['task_name']
 
     @property
     def target(self):
+        """The task target (queue name)"""
         return self.cloudify_context['task_target']
 
     def _verify_task_registered(self):
@@ -186,6 +196,7 @@ class RemoteWorkflowTask(WorkflowTask):
 
 
 class LocalWorkflowTask(WorkflowTask):
+    """A WorkflowTask wrapping a local callable"""
 
     def __init__(self, local_task, workflow_context,
                  node=None,
@@ -196,6 +207,11 @@ class LocalWorkflowTask(WorkflowTask):
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
         :param node: The CloudifyWorkflowNode instance (if in node context)
+        :param info: A short description of this task (for logging)
+        :param on_success: A handler called when the task's execution
+                           terminates successfully
+        :param on_failure: Not implemented yet (currently, when a task fails,
+                           it fails the entire workflow)
         """
         super(LocalWorkflowTask, self).__init__(info=info,
                                                 on_success=on_success,
@@ -205,6 +221,11 @@ class LocalWorkflowTask(WorkflowTask):
         self.node = node
 
     def apply_async(self):
+        """
+        Execute the task in the current thread
+        :return: A wrapper for the task result
+        """
+
         self.set_state(TASK_SENT)
         try:
             result = self.local_task()
@@ -229,24 +250,38 @@ class LocalWorkflowTask(WorkflowTask):
 
     @property
     def name(self):
+        """The task name"""
         return self.local_task.__name__
 
+
+# A NOP task
 NOP = LocalWorkflowTask(lambda: None, None, None)
 
 
 class RemoteWorkflowTaskResult(object):
+    """A wrapper for celery's AsyncResult"""
 
     def __init__(self, async_result):
         self.async_result = async_result
 
     def get(self):
+        """
+        Get the task result.
+        Will block until the task execution ends.
+
+        :return: The task result
+        """
         return self.async_result.get()
 
 
 class LocalWorkflowTaskResult(object):
+    """A wrapper for local workflow task results"""
 
     def __init__(self, result):
         self.result = result
 
     def get(self):
+        """
+        :return: The local task result
+        """
         return self.result
