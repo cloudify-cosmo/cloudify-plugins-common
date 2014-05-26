@@ -245,3 +245,4 @@ def _amqp_client():
     if not hasattr(clients, 'amqp_client'):
         clients.amqp_client = create_client()
     return clients.amqp_client
+7
