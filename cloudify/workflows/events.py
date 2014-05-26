@@ -27,8 +27,13 @@ TASK_TO_FILTER = ['worker_installer.tasks.restart']
 
 
 class Monitor(object):
+    """Monitor with handlers for different celery events"""
 
     def __init__(self, tasks_graph):
+        """
+        :param tasks_graph: The task graph. Used to extract tasks based on the
+                            events task id.
+        """
         self.tasks_graph = tasks_graph
         self.ctx = tasks_graph.ctx
 
@@ -75,6 +80,16 @@ class Monitor(object):
 
 
 def send_task_event(state, task, event=None):
+    """
+    Send a task event to RabbitMQ
+
+    :param state: the task state (valid: ['sending', 'started', 'succeeded',
+                  'failed'])
+    :param task: a WorkflowTask instance to send the event for
+    :param event: the celery monitor event (for states ['started', 'succeed',
+                  'failed'])
+    """
+
     if task.name in TASK_TO_FILTER:
         return
 
@@ -106,6 +121,12 @@ def send_task_event(state, task, event=None):
 
 
 def start_event_monitor(tasks_graph):
+    """
+    Start an event monitor in its own thread for handling tasks
+    defined in the task dependency graph
+
+    :param tasks_graph: a TaskDependencyGraph instance
+    """
     monitor = Monitor(tasks_graph)
     thread = threading.Thread(target=monitor.capture)
     thread.daemon = True
