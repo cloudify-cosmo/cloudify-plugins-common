@@ -123,6 +123,10 @@ class CloudifyWorkflowNode(object):
         return self._node.get('type')
 
     @property
+    def type_hierarchy(self):
+        return self._node.get('type_hierarchy')
+
+    @property
     def properties(self):
         return self._node.get('properties', {})
 
