@@ -182,6 +182,11 @@ class CloudifyWorkflowNode(object):
         return self._node.get('type_hierarchy')
 
     @property
+    def dependents(self):
+        """The node dependents"""
+        return self._node.get('dependents', [])
+
+    @property
     def properties(self):
         """The node properties"""
         return self._node.get('properties', {})
