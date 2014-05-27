@@ -6,9 +6,9 @@ python:
 install:
 
     # command to install dependencies
-    - python setup.py install
-    - sudo pip install flake8
     - pip install --process-dependency-links https://github.com/cloudify-cosmo/cloudify-rest-client/archive/feature/CFY-642-workflow-framework.zip
+    - python setup.py install
+    - sudo pip install flake8    
 
 script:
 
