@@ -160,6 +160,14 @@ class BootstrapContext(object):
             return self._cloudify_agent.get('min_workers')
 
         @property
+        def user(self):
+            return self._cloudify_agent.get('user')
+
+        @property
+        def remote_execution_port(self):
+            return self._cloudify_agent.get('remote_execution_port')
+
+        @property
         def agent_key_path(self):
             return self._cloudify_agent.get('agent_key_path')
 
