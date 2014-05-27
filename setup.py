@@ -16,6 +16,10 @@
 __author__ = 'elip'
 
 from setuptools import setup
+from pip.req import parse_requirements
+
+install_reqs = parse_requirements('requirements.txt')
+reqs = [str(ir.req) for ir in install_reqs]
 
 
 setup(
@@ -28,15 +32,7 @@ setup(
     description='Package that holds common cosmo '
                 'modules needed by many plugins',
     zip_safe=False,
-    install_requires=[
-        # we include this dependency here because protobuf may fail
-        # to install transitively.
-        # see https://pypi.python.org/pypi/bernhard/0.1.0
-        "protobuf",
-        "celery==3.0.24",
-        "pika==0.9.13",
-        "cloudify-rest-client==3.0"
-    ],
+    install_requires=reqs,
     test_requires=[
         "nose"
     ],
