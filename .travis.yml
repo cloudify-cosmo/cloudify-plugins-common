@@ -6,7 +6,8 @@ python:
 install:
 
     # command to install dependencies
-    - python setup.py install
+    - pip install https://github.com/cloudify-cosmo/cloudify-rest-client/archive/develop.zip
+    - pip install .
     - sudo pip install flake8
 
 script:
