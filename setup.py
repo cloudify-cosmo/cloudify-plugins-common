@@ -17,12 +17,6 @@ __author__ = 'elip'
 
 from setuptools import setup
 
-REST_CLIENT_VERSION = '3.0'
-REST_CLIENT_BRANCH = 'develop'
-REST_CLIENT =\
-    "https://github.com/cloudify-cosmo/cloudify-rest-client/tarball/{0}"\
-    .format(REST_CLIENT_BRANCH)
-
 
 setup(
     name='cloudify-plugins-common',
@@ -41,11 +35,9 @@ setup(
         "protobuf",
         "celery==3.0.24",
         "pika==0.9.13",
-        "cloudify-rest-client"
+        "cloudify-rest-client==3.0"
     ],
     test_requires=[
         "nose"
     ],
-    dependency_links=["{0}#egg=cloudify-rest-client-{1}"
-                      .format(REST_CLIENT, REST_CLIENT_VERSION)]
 )
