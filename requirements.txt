@@ -1,0 +1,5 @@
+-e git+https://github.com/cloudify-cosmo/cloudify-rest-client@develop#egg=cloudify-rest-client==3.0
+protobuf
+celery==3.0.24
+pika==0.9.13
+
