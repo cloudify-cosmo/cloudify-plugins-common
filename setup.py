@@ -29,7 +29,7 @@ setup(
     version='3.0',
     author='elip',
     author_email='elip@gigaspaces.com',
-    packages=['cloudify'],
+    packages=['cloudify', 'cloudify.workflows'],
     license='LICENSE',
     description='Package that holds common cosmo '
                 'modules needed by many plugins',
@@ -41,6 +41,7 @@ setup(
         "protobuf",
         "celery==3.0.24",
         "pika==0.9.13",
+        'networkx==1.8.1',
         "cloudify-rest-client"
     ],
     test_requires=[

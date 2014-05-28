@@ -17,8 +17,10 @@ __author__ = 'idanmo'
 
 
 import unittest
+from cloudify import manager
 from cloudify.decorators import operation
 from cloudify.context import CloudifyContext
+import cloudify.tests.mocks.mock_rest_client as rest_client_mock
 
 
 @operation
@@ -42,25 +44,42 @@ class OperationTest(unittest.TestCase):
     def test_provided_capabilities(self):
         ctx = {
             'node_id': '5678',
-            'capabilities': {
+            'relationships': {
                 'some_node': {
                     'k': 'v'
                 }
             }
         }
+
+        # using a mock rest client
+        manager.get_manager_rest_client = \
+            lambda: rest_client_mock.MockRestclient()
+
+        rest_client_mock.put_node_instance('some_node', {'k': 'v'})
+
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)
         self.assertIn('k', ctx.capabilities)
         self.assertEquals('v', ctx.capabilities['k'])
 
     def test_capabilities_clash(self):
+        capabilities = {
+            'node1': {'k': 'v1'},
+            'node2': {'k': 'v2'},
+        }
+
         ctx = {
             'node_id': '5678',
-            'capabilities': {
-                'node1': {'k': 'v1'},
-                'node2': {'k': 'v2'},
-            }
+            'relationships': capabilities
         }
+
+        # using a mock rest client
+        manager.get_manager_rest_client = \
+            lambda: rest_client_mock.MockRestclient()
+
+        rest_client_mock.put_node_instance('node1', {'k': 'v1'})
+        rest_client_mock.put_node_instance('node2', {'k': 'v2'})
+
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)
         self.assertRaises(RuntimeError, ctx.capabilities.__contains__, 'k')
