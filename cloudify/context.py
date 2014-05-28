@@ -86,8 +86,9 @@ class ContextCapabilities(object):
     @property
     def _capabilities(self):
         if self._relationship_runtimes is None:
-            self._relationship_runtimes = {rel_id: get_node_instance(rel_id)
-                                           for rel_id in self._relationships}
+            self._relationship_runtimes = {
+                rel_id: get_node_instance(rel_id).runtime_properties
+                for rel_id in self._relationships}
         return self._relationship_runtimes
 
 
