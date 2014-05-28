@@ -95,7 +95,7 @@ def operation(func=None, **arguments):
         @wraps(func)
         def wrapper(*args, **kwargs):
             ctx = _find_context_arg(args, kwargs,
-                                    _is_cloudify_workflow_context)
+                                    _is_cloudify_context)
             if ctx is None:
                 ctx = {}
             if not _is_cloudify_context(ctx):
