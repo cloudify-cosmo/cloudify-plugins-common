@@ -97,18 +97,23 @@ class TaskDependencyGraph(object):
                 task.apply_async()
 
             # for each terminated task
-            # 1. if if failed, fail the workflow
+            # 1. if it failed, call its handler. if the handler returns
+            #    false, fail the workflow. otherwise continue normally.
             # 2. if it succeeded remove it and its dependencies
             #    from the graph. if its handler returned true,
             #    duplicate the task and reinsert it to the graph
             #    with its original dependents
             for task in self._terminated_tasks():
+                retry = False
                 if task.get_state() == tasks_api.TASK_FAILED:
-                    raise RuntimeError(
-                        "Workflow failed: Task failed '{}' -> {}"
-                        .format(task.name, task.error))
+                    ignore_fail = task.handle_task_failed()
+                    if not ignore_fail:
+                        raise RuntimeError(
+                            "Workflow failed: Task failed '{}' -> {}"
+                            .format(task.name, task.error))
+                else:
+                    retry = task.handle_task_succeeded()
 
-                retry = task.handle_task_terminated()
                 dependents = self.graph.predecessors(task.id)
                 removed_edges = [(dependent, task.id)
                                  for dependent in dependents]
@@ -143,7 +148,7 @@ class TaskDependencyGraph(object):
 
     def _terminated_tasks(self):
         """
-        A task is terminated if it is in 'pending' or 'failed' state
+        A task is terminated if it is in 'succeeded' or 'failed' state
 
         :return: An iterator for terminated tasks
         """

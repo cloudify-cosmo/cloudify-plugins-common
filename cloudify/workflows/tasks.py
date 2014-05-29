@@ -42,8 +42,8 @@ class WorkflowTask(object):
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
                            terminates successfully
-        :param on_failure: Not implemented yet (currently, when a task fails,
-                           it fails the entire workflow)
+        :param on_failure: A handler called when the task's execution
+                           fails
         """
         self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
@@ -83,12 +83,17 @@ class WorkflowTask(object):
 
         self._state = state
 
-    def handle_task_terminated(self):
-        """Call handler based on task terminated state"""
-        if self._state == TASK_SUCCEEDED and self.on_success:
+    def handle_task_succeeded(self):
+        """Call handler for task success"""
+        if self.on_success:
             return self.on_success(self)
-        elif self._state == TASK_FAILED and self.on_failure:
+        return False
+
+    def handle_task_failed(self):
+        """Call handler for task failure"""
+        if self.on_failure:
             return self.on_failure(self)
+        return False
 
     def __str__(self):
         suffix = self.info if self.info is not None else ''
@@ -122,8 +127,8 @@ class RemoteWorkflowTask(WorkflowTask):
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
                            terminates successfully
-        :param on_failure: Not implemented yet (currently, when a task fails,
-                           it fails the entire workflow)
+        :param on_failure: A handler called when the task's execution
+                           fails
         """
         super(RemoteWorkflowTask, self).__init__(task_id,
                                                  info=info,
@@ -210,8 +215,8 @@ class LocalWorkflowTask(WorkflowTask):
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
                            terminates successfully
-        :param on_failure: Not implemented yet (currently, when a task fails,
-                           it fails the entire workflow)
+        :param on_failure: A handler called when the task's execution
+                           fails
         """
         super(LocalWorkflowTask, self).__init__(info=info,
                                                 on_success=on_success,
