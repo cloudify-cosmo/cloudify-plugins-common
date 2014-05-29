@@ -27,7 +27,7 @@ setup(
     version='3.0',
     author='elip',
     author_email='elip@gigaspaces.com',
-    packages=['cloudify'],
+    packages=['cloudify', 'cloudify.workflows'],
     license='LICENSE',
     description='Package that holds common cosmo '
                 'modules needed by many plugins',

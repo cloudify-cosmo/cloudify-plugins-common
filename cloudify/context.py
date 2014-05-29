@@ -15,7 +15,6 @@
 
 __author__ = 'idanmo'
 
-import logging
 
 from manager import get_node_instance
 from manager import update_node_instance
@@ -24,6 +23,8 @@ from manager import download_blueprint_resource
 from manager import get_provider_context
 from manager import get_bootstrap_context
 from logs import CloudifyPluginLoggingHandler
+from logs import init_cloudify_logger
+from logs import send_plugin_event
 
 
 class ContextCapabilities(object):
@@ -44,10 +45,9 @@ class ContextCapabilities(object):
             Where the returned value is a dict of node ids as keys and their
             runtime properties as values.
     """
-    def __init__(self, capabilities=None):
-        if capabilities is None:
-            capabilities = {}
-        self._capabilities = capabilities
+    def __init__(self, relationships=None):
+        self._relationships = relationships or []
+        self._relationship_runtimes = None
 
     def _find_item(self, key):
         """
@@ -82,6 +82,14 @@ class ContextCapabilities(object):
     def __str__(self):
         return ('<' + self.__class__.__name__ + ' ' +
                 str(self._capabilities) + '>')
+
+    @property
+    def _capabilities(self):
+        if self._relationship_runtimes is None:
+            self._relationship_runtimes = {
+                rel_id: get_node_instance(rel_id).runtime_properties
+                for rel_id in self._relationships}
+        return self._relationship_runtimes
 
 
 class CommonContextOperations(object):
@@ -188,7 +196,7 @@ class CloudifyContext(CommonContextOperations):
 
     def __init__(self, ctx=None):
         self._context = ctx or {}
-        context_capabilities = self._context.get('capabilities')
+        context_capabilities = self._context.get('relationships')
         self._capabilities = ContextCapabilities(context_capabilities)
         self._logger = None
         self._node_instance = None
@@ -340,7 +348,7 @@ class CloudifyContext(CommonContextOperations):
         using logstash.
         """
         if self._logger is None:
-            self._init_cloudify_logger()
+            self._logger = self._init_cloudify_logger()
         return self._logger
 
     @property
@@ -352,6 +360,14 @@ class CloudifyContext(CommonContextOperations):
             context = get_bootstrap_context()
             self._bootstrap_context = BootstrapContext(context)
         return self._bootstrap_context
+
+    def send_event(self, event):
+        """
+        Send an event to rabbitmq
+
+        :param event: the event message
+        """
+        send_plugin_event(ctx=self, message=event)
 
     def get_provider_context(self, name):
         """
@@ -451,19 +467,10 @@ class CloudifyContext(CommonContextOperations):
             self._node_instance = None
 
     def _init_cloudify_logger(self):
-        if self.task_name is not None:
-            logger_name = self.task_name
-        else:
-            logger_name = 'cloudify_plugin'
-        self._logger = logging.getLogger(logger_name)
-        # TODO: somehow inject logging level
-        self._logger.setLevel(logging.INFO)
-        for h in self._logger.handlers:
-            self._logger.removeHandler(h)
+        logger_name = self.task_name if self.task_name is not None \
+            else 'cloudify_plugin'
         handler = CloudifyPluginLoggingHandler(self)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        self._logger.propagate = True
-        self._logger.addHandler(handler)
+        return init_cloudify_logger(handler, logger_name)
 
     def __str__(self):
         attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')

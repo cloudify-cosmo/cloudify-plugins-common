@@ -142,6 +142,11 @@ def update_node_instance(node_instance):
                                 node_instance.state)
 
 
+def update_execution_status(execution_id, status, error=None):
+    client = get_manager_rest_client()
+    return client.update_execution_status(execution_id, status, error)
+
+
 def get_bootstrap_context():
     client = get_manager_rest_client()
     context = client.get_provider_context()['context']
