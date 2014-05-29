@@ -18,8 +18,8 @@ __author__ = 'elip'
 from setuptools import setup
 from pip.req import parse_requirements
 
-install_reqs = parse_requirements('requirements.txt')
-reqs = [str(ir.req) for ir in install_reqs]
+install_requires = [
+    str(ir.req) for ir in parse_requirements('requirements.txt')]
 
 
 setup(
@@ -29,11 +29,8 @@ setup(
     author_email='elip@gigaspaces.com',
     packages=['cloudify', 'cloudify.workflows'],
     license='LICENSE',
-    description='Package that holds common cosmo '
-                'modules needed by many plugins',
+    description='Contains necessary decorators and utility methods for '
+                'writing Cloudify plugins',
     zip_safe=False,
-    install_requires=reqs,
-    test_requires=[
-        "nose"
-    ],
+    install_requires=install_requires
 )
