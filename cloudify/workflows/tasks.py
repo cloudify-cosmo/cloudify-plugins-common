@@ -41,9 +41,16 @@ class WorkflowTask(object):
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
-                           terminates successfully
-        :param on_failure: Not implemented yet (currently, when a task fails,
-                           it fails the entire workflow)
+                           terminates successfully.
+                           Expected to return a bool, where True signifies
+                           the task should be retried, and False signifies
+                           no additional action for this task should be taken
+        :param on_failure: A handler called when the task's execution
+                           fails.
+                           Expected to return a bool, where True signifies
+                           the error was handled and should be ignored by
+                           the workflow engine, and False signifies the
+                           workflow should end immediately with a failure.
         """
         self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
@@ -83,12 +90,17 @@ class WorkflowTask(object):
 
         self._state = state
 
-    def handle_task_terminated(self):
-        """Call handler based on task terminated state"""
-        if self._state == TASK_SUCCEEDED and self.on_success:
+    def handle_task_succeeded(self):
+        """Call handler for task success"""
+        if self.on_success:
             return self.on_success(self)
-        elif self._state == TASK_FAILED and self.on_failure:
+        return False
+
+    def handle_task_failed(self):
+        """Call handler for task failure"""
+        if self.on_failure:
             return self.on_failure(self)
+        return False
 
     def __str__(self):
         suffix = self.info if self.info is not None else ''
@@ -121,9 +133,16 @@ class RemoteWorkflowTask(WorkflowTask):
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
-                           terminates successfully
-        :param on_failure: Not implemented yet (currently, when a task fails,
-                           it fails the entire workflow)
+                           terminates successfully.
+                           Expected to return a bool, where True signifies
+                           the task should be retried, and False signifies
+                           no additional action for this task should be taken
+        :param on_failure: A handler called when the task's execution
+                           fails.
+                           Expected to return a bool, where True signifies
+                           the error was handled and should be ignored by
+                           the workflow engine, and False signifies the
+                           workflow should end immediately with a failure.
         """
         super(RemoteWorkflowTask, self).__init__(task_id,
                                                  info=info,
@@ -209,9 +228,16 @@ class LocalWorkflowTask(WorkflowTask):
         :param node: The CloudifyWorkflowNode instance (if in node context)
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
-                           terminates successfully
-        :param on_failure: Not implemented yet (currently, when a task fails,
-                           it fails the entire workflow)
+                           terminates successfully.
+                           Expected to return a bool, where True signifies
+                           the task should be retried, and False signifies
+                           no additional action for this task should be taken
+        :param on_failure: A handler called when the task's execution
+                           fails.
+                           Expected to return a bool, where True signifies
+                           the error was handled and should be ignored by
+                           the workflow engine, and False signifies the
+                           workflow should end immediately with a failure.
         """
         super(LocalWorkflowTask, self).__init__(info=info,
                                                 on_success=on_success,
