@@ -25,7 +25,7 @@ from cloudify.manager import get_node_instance, update_node_instance, \
     update_execution_status
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
-                                      NOP)
+                                      NOPLocalWorkflowTask)
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            init_cloudify_logger,
@@ -310,7 +310,7 @@ class CloudifyWorkflowContext(object):
         raw_node = node._node
         op_struct = operations.get(operation)
         if op_struct is None:
-            return NOP
+            return NOPLocalWorkflowTask()
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties', node.properties)
