@@ -280,8 +280,16 @@ class LocalWorkflowTask(WorkflowTask):
         return self.local_task.__name__
 
 
-# A NOP task
-NOP = LocalWorkflowTask(lambda: None, None, None)
+# NOP tasks class
+class NOPLocalWorkflowTask(LocalWorkflowTask):
+
+    def __init__(self):
+        super(NOPLocalWorkflowTask, self).__init__(lambda: None, None, None)
+
+    @property
+    def name(self):
+        """The task name"""
+        return 'NOP'
 
 
 class RemoteWorkflowTaskResult(object):

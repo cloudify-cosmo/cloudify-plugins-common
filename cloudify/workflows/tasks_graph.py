@@ -15,7 +15,6 @@
 
 __author__ = 'dank'
 
-
 import time
 
 import networkx as nx
@@ -68,6 +67,12 @@ class TaskDependencyGraph(object):
 
         self.ctx.logger.debug('adding dependency: {} -> {}'.format(src_task,
                                                                    dst_task))
+        if not self.graph.has_node(src_task.id):
+            raise RuntimeError('source task {0} is not in graph (task id: '
+                               '{1})'.format(src_task, src_task.id))
+        if not self.graph.has_node(dst_task.id):
+            raise RuntimeError('destination task {0} is not in graph (task '
+                               'id: {1})'.format(dst_task, dst_task.id))
         self.graph.add_edge(src_task.id, dst_task.id)
 
     def sequence(self):
@@ -211,12 +216,11 @@ class TaskSequence(object):
                 fork_join_tasks = fork_join_tasks.tasks
             else:
                 fork_join_tasks = [fork_join_tasks]
-            # filter out NOPs
-            fork_join_tasks = [t for t in fork_join_tasks
-                               if t is not tasks_api.NOP]
             for task in fork_join_tasks:
                 self.graph.add_task(task)
                 if self.last_fork_join_tasks is not None:
+                    # TODO: consider batch insertion of edges (see
+                    # TODO: digraph.add_edges_from method)
                     for last_fork_join_task in self.last_fork_join_tasks:
                         self.graph.add_dependency(task, last_fork_join_task)
             if fork_join_tasks:
