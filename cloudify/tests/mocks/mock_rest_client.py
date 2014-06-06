@@ -45,6 +45,6 @@ class MockNodeInstancesClient(object):
 
     def get(self, node_instance_id):
         if node_instance_id not in node_instances:
-            raise RuntimeError('No info for node with id {0}'.format(node_id))
+            raise RuntimeError(
+                'No info for node with id {0}'.format(node_instance_id))
         return node_instances[node_instance_id]
-

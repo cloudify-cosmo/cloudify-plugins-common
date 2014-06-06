@@ -21,18 +21,11 @@ from cloudify import manager
 from cloudify.decorators import operation
 from cloudify.context import CloudifyContext
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
-from cloudify_rest_client import CloudifyClient
 
 
 @operation
 def acquire_context(a, b, ctx, **kwargs):
     return ctx
-
-
-def get_node_instance_mock(node_instance_id):
-    if node_instance_id not in node_instances:
-        raise RuntimeError('No info for node with id {0}'.format(node_id))
-    return node_instances[node_id]
 
 
 class OperationTest(unittest.TestCase):
