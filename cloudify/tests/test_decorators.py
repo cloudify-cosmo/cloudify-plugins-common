@@ -21,11 +21,18 @@ from cloudify import manager
 from cloudify.decorators import operation
 from cloudify.context import CloudifyContext
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
+from cloudify_rest_client import CloudifyClient
 
 
 @operation
 def acquire_context(a, b, ctx, **kwargs):
     return ctx
+
+
+def get_node_instance_mock(node_instance_id):
+    if node_instance_id not in node_instances:
+        raise RuntimeError('No info for node with id {0}'.format(node_id))
+    return node_instances[node_id]
 
 
 class OperationTest(unittest.TestCase):
@@ -52,10 +59,11 @@ class OperationTest(unittest.TestCase):
         }
 
         # using a mock rest client
-        manager.get_manager_rest_client = \
+        manager.get_new_rest_client = \
             lambda: rest_client_mock.MockRestclient()
 
-        rest_client_mock.put_node_instance('some_node', {'k': 'v'})
+        rest_client_mock.put_node_instance('some_node',
+                                           runtime_properties={'k': 'v'})
 
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)
@@ -74,11 +82,13 @@ class OperationTest(unittest.TestCase):
         }
 
         # using a mock rest client
-        manager.get_manager_rest_client = \
+        manager.get_new_rest_client = \
             lambda: rest_client_mock.MockRestclient()
 
-        rest_client_mock.put_node_instance('node1', {'k': 'v1'})
-        rest_client_mock.put_node_instance('node2', {'k': 'v2'})
+        rest_client_mock.put_node_instance('node1',
+                                           runtime_properties={'k': 'v1'})
+        rest_client_mock.put_node_instance('node2',
+                                           runtime_properties={'k': 'v2'})
 
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)
