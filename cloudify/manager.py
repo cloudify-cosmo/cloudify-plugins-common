@@ -130,9 +130,9 @@ def get_node_instance(node_instance_id):
     client = get_new_rest_client()
     instance = client.node_instances.get(node_instance_id)
     return NodeInstance(node_instance_id,
-                        runtime_properties=instance['runtimeProperties'],
-                        state=instance['state'],
-                        version=instance['version'])
+                        runtime_properties=instance.runtime_properties,
+                        state=instance.state,
+                        version=instance.version)
 
 
 def update_node_instance(node_instance):
