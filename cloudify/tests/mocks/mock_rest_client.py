@@ -14,22 +14,38 @@
 __author__ = 'ran'
 
 
+from cloudify_rest_client import CloudifyClient
+from cloudify_rest_client.node_instances import NodeInstance
+
+
 node_instances = {}
 
 
-class MockRestclient(object):
-
-    def get_node_instance(self, node_id):
-        if node_id not in node_instances:
-            raise RuntimeError('No info for node with id {0}'.format(node_id))
-        return node_instances[node_id]
-
-
-def put_node_instance(node_id, runtime_properties, state='started',
-                      state_version=1):
-
-    node_instances[node_id] = {
+def put_node_instance(node_instance_id,
+                      state='started',
+                      runtime_properties=None):
+    node_instances[node_instance_id] = NodeInstance({
+        'id': node_instance_id,
         'state': state,
-        'stateVersion': state_version,
-        'runtimeInfo': runtime_properties
-    }
+        'version': 0,
+        'runtimeProperties': runtime_properties
+    })
+
+
+class MockRestclient(CloudifyClient):
+
+    def __init__(self):
+        pass
+
+    @property
+    def node_instances(self):
+        return MockNodeInstancesClient()
+
+
+class MockNodeInstancesClient(object):
+
+    def get(self, node_instance_id):
+        if node_instance_id not in node_instances:
+            raise RuntimeError(
+                'No info for node with id {0}'.format(node_instance_id))
+        return node_instances[node_instance_id]

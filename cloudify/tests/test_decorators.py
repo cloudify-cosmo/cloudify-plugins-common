@@ -52,10 +52,11 @@ class OperationTest(unittest.TestCase):
         }
 
         # using a mock rest client
-        manager.get_manager_rest_client = \
+        manager.get_new_rest_client = \
             lambda: rest_client_mock.MockRestclient()
 
-        rest_client_mock.put_node_instance('some_node', {'k': 'v'})
+        rest_client_mock.put_node_instance('some_node',
+                                           runtime_properties={'k': 'v'})
 
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)
@@ -74,11 +75,13 @@ class OperationTest(unittest.TestCase):
         }
 
         # using a mock rest client
-        manager.get_manager_rest_client = \
+        manager.get_new_rest_client = \
             lambda: rest_client_mock.MockRestclient()
 
-        rest_client_mock.put_node_instance('node1', {'k': 'v1'})
-        rest_client_mock.put_node_instance('node2', {'k': 'v2'})
+        rest_client_mock.put_node_instance('node1',
+                                           runtime_properties={'k': 'v1'})
+        rest_client_mock.put_node_instance('node2',
+                                           runtime_properties={'k': 'v2'})
 
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)

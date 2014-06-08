@@ -20,6 +20,8 @@ import os
 
 from cosmo_manager_rest_client.cosmo_manager_rest_client \
     import CosmoManagerRestClient
+from cloudify_rest_client import CloudifyClient
+
 
 from cloudify.exceptions import HttpException
 import utils
@@ -32,12 +34,12 @@ class NodeInstance(object):
     Its API allows to set and get the node instance's state and properties.
     """
     def __init__(self, node_id, runtime_properties=None,
-                 state=None, state_version=None):
+                 state=None, version=None):
         self.id = node_id
         self._runtime_properties = \
             DirtyTrackingDict((runtime_properties or {}).copy())
         self._state = state
-        self._state_version = state_version
+        self._version = version
 
     def get(self, key):
         return self._runtime_properties.get(key)
@@ -57,8 +59,8 @@ class NodeInstance(object):
         return self._runtime_properties
 
     @property
-    def state_version(self):
-        return self._state_version
+    def version(self):
+        return self._version
 
     @property
     def state(self):
@@ -76,6 +78,11 @@ class NodeInstance(object):
 def get_manager_rest_client():
     return CosmoManagerRestClient(utils.get_manager_ip(),
                                   utils.get_manager_rest_service_port())
+
+
+def get_new_rest_client():
+    return CloudifyClient(utils.get_manager_ip(),
+                          utils.get_manager_rest_service_port())
 
 
 def _save_resource(logger, resource, resource_path, target_path):
@@ -119,27 +126,22 @@ def get_blueprint_resource(blueprint_id, resource_path):
     return get_resource(resource_path, base_url=base_url)
 
 
-def get_node_instance(node_id):
-    client = get_manager_rest_client()
-    node_instance = client.get_node_instance(node_id)
-
-    if 'runtimeInfo' not in node_instance:
-        raise KeyError('runtimeInfo not found in get_node_instance response')
-    if 'state' not in node_instance:
-        raise KeyError('state not found in get_node_instance response')
-    if 'stateVersion' not in node_instance:
-        raise KeyError('stateVersion not found in get_node_instance response')
-    return NodeInstance(
-        node_id, node_instance['runtimeInfo'], node_instance[
-            'state'], node_instance['stateVersion'])
+def get_node_instance(node_instance_id):
+    client = get_new_rest_client()
+    instance = client.node_instances.get(node_instance_id)
+    return NodeInstance(node_instance_id,
+                        runtime_properties=instance.runtime_properties,
+                        state=instance.state,
+                        version=instance.version)
 
 
 def update_node_instance(node_instance):
-    client = get_manager_rest_client()
-    client.update_node_instance(node_instance.id,
-                                node_instance.state_version,
-                                node_instance.runtime_properties,
-                                node_instance.state)
+    client = get_new_rest_client()
+    client.node_instances.update(
+        node_instance.id,
+        state=node_instance.state,
+        runtime_properties=node_instance.runtime_properties,
+        version=node_instance.version)
 
 
 def update_execution_status(execution_id, status, error=None):
