@@ -49,5 +49,3 @@ class MockNodeInstancesClient(object):
             raise RuntimeError(
                 'No info for node with id {0}'.format(node_instance_id))
         return node_instances[node_instance_id]
-
-
