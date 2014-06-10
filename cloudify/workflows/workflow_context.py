@@ -18,7 +18,6 @@ __author__ = 'dank'
 
 import copy
 import uuid
-import time
 
 import celery
 
