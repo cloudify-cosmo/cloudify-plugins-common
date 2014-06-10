@@ -28,7 +28,7 @@ def put_node_instance(node_instance_id,
         'id': node_instance_id,
         'state': state,
         'version': 0,
-        'runtimeProperties': runtime_properties
+        'runtime_properties': runtime_properties
     })
 
 
