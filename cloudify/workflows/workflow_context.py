@@ -23,7 +23,7 @@ import celery
 
 
 from cloudify.manager import get_node_instance, update_node_instance, \
-    update_execution_status
+    update_execution_status, get_new_rest_client
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask)
@@ -41,7 +41,8 @@ class CloudifyWorkflowRelationshipInstance(object):
         """
         :param ctx: a CloudifyWorkflowContext instance
         :param node_instance: a CloudifyWorkflowNodeInstance instance
-        :param relationship_instance: A relationship instance dict
+        :param relationship_instance: A relationship dict from a NodeInstance
+               instance (of the rest client model)
         """
         self.ctx = ctx
         self.node_instance = node_instance
@@ -99,7 +100,8 @@ class CloudifyWorkflowRelationship(object):
         """
         :param ctx: a CloudifyWorkflowContext instance
         :param node: a CloudifyWorkflowNode instance
-        :param relationship: a plans node relationship dict
+        :param relationship: a relationship dict from a Node instance (of the
+               rest client mode)
         """
         self.ctx = ctx
         self.node = node
@@ -133,7 +135,7 @@ class CloudifyWorkflowNodeInstance(object):
         """
         :param ctx: a CloudifyWorkflowContext instance
         :param node: a CloudifyWorkflowContextNode instance
-        :param node_instance: a plan's node instance dict
+        :param node_instance: a NodeInstance (rest client response model)
         """
         self.ctx = ctx
         self._node = node
@@ -143,7 +145,7 @@ class CloudifyWorkflowNodeInstance(object):
             CloudifyWorkflowRelationshipInstance(self.ctx,
                                                  self,
                                                  relationship_instance)
-            for relationship_instance in node_instance.get('relationships', [])
+            for relationship_instance in node_instance.relationships
         }
         # adding the node instance to the node instances map
         node._node_instances[self.id] = self
@@ -204,12 +206,12 @@ class CloudifyWorkflowNodeInstance(object):
     @property
     def id(self):
         """The node instance id"""
-        return self._node_instance.get('id')
+        return self._node_instance.id
 
     @property
-    def name(self):
-        """The node instance name"""
-        return self.node.name
+    def node_id(self):
+        """The node id (this instance is an instance of that node)"""
+        return self._node_instance.node_id
 
     @property
     def relationships(self):
@@ -240,40 +242,35 @@ class CloudifyWorkflowNode(object):
     def __init__(self, ctx, node):
         """
         :param ctx: a CloudifyWorkflowContext instance
-        :param node: a plan's node dict
+        :param node: a Node instance (rest client response model)
         """
         self.ctx = ctx
         self._node = node
         self._relationships = {
             relationship['target_id']: CloudifyWorkflowRelationship(
                 self.ctx, self, relationship)
-            for relationship in node.get('relationships', [])}
+            for relationship in node.relationships}
         self._node_instances = {}
 
     @property
     def id(self):
         """The node id"""
-        return self._node.get('id')
-
-    @property
-    def name(self):
-        """The node name"""
-        return self._node.get('name')
+        return self._node.id
 
     @property
     def type(self):
         """The node type"""
-        return self._node.get('type')
+        return self._node.type
 
     @property
     def type_hierarchy(self):
         """The node type hierarchy"""
-        return self._node.get('type_hierarchy')
+        return self._node.type_hierarchy
 
     @property
     def properties(self):
         """The node properties"""
-        return self._node.get('properties', {})
+        return self._node.properties
 
     @property
     def plugins_to_install(self):
@@ -290,7 +287,7 @@ class CloudifyWorkflowNode(object):
     @property
     def operations(self):
         """The node operations"""
-        return self._node.get('operations', {})
+        return self._node.operations
 
     @property
     def instances(self):
@@ -311,14 +308,18 @@ class CloudifyWorkflowContext(object):
         """
         self._context = ctx
 
-        raw_nodes = ctx['plan']['nodes']
-        raw_node_instances = ctx['plan']['node_instances']
-        nodes = {node['id']: CloudifyWorkflowNode(self, node) for
-                 node in raw_nodes}
+        client = get_new_rest_client()
+        #client = CloudifyClient('localhost', port=8100)
+
+        rest_nodes = client.nodes.list(self.deployment_id)
+        rest_node_instances = client.node_instances.list(self.deployment_id)
+
+        nodes = {node.id: CloudifyWorkflowNode(self, node) for
+                 node in rest_nodes}
         node_instances = {
-            instance['id']: CloudifyWorkflowNodeInstance(
-                self, nodes[instance['name']], instance)
-            for instance in raw_node_instances}
+            instance.id: CloudifyWorkflowNodeInstance(
+                self, nodes[instance.node_id], instance)
+            for instance in rest_node_instances}
 
         self._nodes = nodes
         self._node_instances = node_instances
@@ -412,8 +413,8 @@ class CloudifyWorkflowContext(object):
                            kwargs=None):
         kwargs = kwargs or {}
         node = node_instance.node
-        raw_node = node._node
-        raw_node_instance = node_instance._node_instance
+        rest_node = node._node
+        rest_node_instance = node_instance._node_instance
         op_struct = operations.get(operation)
         if op_struct is None:
             return NOPLocalWorkflowTask()
@@ -421,15 +422,15 @@ class CloudifyWorkflowContext(object):
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties', node.properties)
         task_queue = 'cloudify.management'
-        if raw_node['plugins'][plugin_name]['agent_plugin'] == 'true':
-            task_queue = raw_node_instance['host_id']
-        elif raw_node['plugins'][plugin_name]['manager_plugin'] == 'true':
+        if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
+            task_queue = rest_node_instance.host_id
+        elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
             task_queue = self.deployment_id
         task_name = '{0}.{1}'.format(plugin_name, operation_mapping)
 
         node_context = {
             'node_id': node_instance.id,
-            'node_name': node.name,
+            'node_name': node_instance.node_id,
             'node_properties': copy.copy(operation_properties),
             'plugin': plugin_name,
             'operation': operation,
