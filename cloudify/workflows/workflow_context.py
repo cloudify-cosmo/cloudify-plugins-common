@@ -309,19 +309,9 @@ class CloudifyWorkflowContext(object):
         """
         self._context = ctx
 
-        client = get_new_rest_client()
-
-        # TODO: timeout, this is horrible. f!@# you elastic search with your
-        # eventual consistency crap. this is BS.
-        rest_nodes = client.nodes.list(self.deployment_id)
-        while len(rest_nodes) == 0:
-            time.sleep(1)
-            rest_nodes = client.nodes.list(self.deployment_id)
-        rest_node_instances = client.node_instances.list(self.deployment_id)
-        while len(rest_node_instances) == 0:
-            time.sleep(1)
-            rest_node_instances = client.node_instances.list(
-                self.deployment_id)
+        rest = get_new_rest_client()
+        rest_nodes = rest.nodes.list(self.deployment_id)
+        rest_node_instances = rest.node_instances.list(self.deployment_id)
 
         nodes = {node.id: CloudifyWorkflowNode(self, node) for
                  node in rest_nodes}
