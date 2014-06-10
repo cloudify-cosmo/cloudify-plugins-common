@@ -21,8 +21,9 @@ import uuid
 
 import celery
 
+
 from cloudify.manager import get_node_instance, update_node_instance, \
-    update_execution_status
+    update_execution_status, get_new_rest_client
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask)
@@ -33,14 +34,74 @@ from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            send_workflow_node_event)
 
 
+class CloudifyWorkflowRelationshipInstance(object):
+    """A node instance relationship instance"""
+
+    def __init__(self, ctx, node_instance, relationship_instance):
+        """
+        :param ctx: a CloudifyWorkflowContext instance
+        :param node_instance: a CloudifyWorkflowNodeInstance instance
+        :param relationship_instance: A relationship dict from a NodeInstance
+               instance (of the rest client model)
+        """
+        self.ctx = ctx
+        self.node_instance = node_instance
+        self._relationship_instance = relationship_instance
+        self._relationship = node_instance.node.get_relationship(
+            relationship_instance['target_name'])
+
+    @property
+    def target_id(self):
+        """The relationship target node id"""
+        return self._relationship_instance.get('target_id')
+
+    @property
+    def target_node_instance(self):
+        """The relationship target node WorkflowContextNodeInstance instance"""
+        return self.ctx.get_node_instance(self.target_id)
+
+    @property
+    def relationship(self):
+        return self._relationship
+
+    def execute_source_operation(self, operation, kwargs=None):
+        """
+        Execute a node relationship source operation
+
+        :param operation: The node relationship operation
+        :param kwargs: optional kwargs to be passed to the called operation
+        """
+        return self.ctx._execute_operation(
+            operation,
+            node_instance=self.node_instance,
+            related_node_instance=self.target_node_instance,
+            operations=self.relationship.source_operations,
+            kwargs=kwargs)
+
+    def execute_target_operation(self, operation, kwargs=None):
+        """
+        Execute a node relationship target operation
+
+        :param operation: The node relationship operation
+        :param kwargs: optional kwargs to be passed to the called operation
+        """
+        return self.ctx._execute_operation(
+            operation,
+            node_instance=self.target_node_instance,
+            related_node_instance=self.node_instance,
+            operations=self.relationship.target_operations,
+            kwargs=kwargs)
+
+
 class CloudifyWorkflowRelationship(object):
-    """A plan node relationship instance"""
+    """A node relationship"""
 
     def __init__(self, ctx, node, relationship):
         """
         :param ctx: a CloudifyWorkflowContext instance
         :param node: a CloudifyWorkflowNode instance
-        :param relationship: a plans node relationship dict
+        :param relationship: a relationship dict from a Node instance (of the
+               rest client mode)
         """
         self.ctx = ctx
         self.node = node
@@ -66,48 +127,29 @@ class CloudifyWorkflowRelationship(object):
         """The relationship target operations"""
         return self._relationship.get('target_operations', {})
 
-    def execute_source_operation(self, operation, kwargs=None):
-        """
-        Execute a node relationship source operation
 
-        :param operation: The node relationship operation
-        :param kwargs: optional kwargs to be passed to the called operation
-        """
-        return self.ctx._execute_operation(
-            operation,
-            node=self.node,
-            related_node=self.target_node,
-            operations=self.source_operations,
-            kwargs=kwargs)
-
-    def execute_target_operation(self, operation, kwargs=None):
-        """
-        Execute a node relationship target operation
-
-        :param operation: The node relationship operation
-        :param kwargs: optional kwargs to be passed to the called operation
-        """
-        return self.ctx._execute_operation(
-            operation,
-            node=self.target_node,
-            related_node=self.node,
-            operations=self.target_operations,
-            kwargs=kwargs)
-
-
-class CloudifyWorkflowNode(object):
+class CloudifyWorkflowNodeInstance(object):
     """A plan node instance"""
 
-    def __init__(self, ctx, node):
+    def __init__(self, ctx, node, node_instance):
         """
         :param ctx: a CloudifyWorkflowContext instance
-        :param node: a plan's node dict
+        :param node: a CloudifyWorkflowContextNode instance
+        :param node_instance: a NodeInstance (rest client response model)
         """
         self.ctx = ctx
         self._node = node
-        self._relationships = [
-            CloudifyWorkflowRelationship(self.ctx, self, relationship) for
-            relationship in node.get('relationships', [])]
+        self._node_instance = node_instance
+        self._relationship_instances = {
+            relationship_instance['target_id']:
+            CloudifyWorkflowRelationshipInstance(self.ctx,
+                                                 self,
+                                                 relationship_instance)
+            for relationship_instance in node_instance.relationships
+        }
+        # adding the node instance to the node instances map
+        node._node_instances[self.id] = self
+
         self._logger = None
 
     def set_state(self, state):
@@ -157,56 +199,28 @@ class CloudifyWorkflowNode(object):
         :param kwargs: optional kwargs to be passed to the called operation
         """
         return self.ctx._execute_operation(operation=operation,
-                                           node=self,
-                                           operations=self.operations,
+                                           node_instance=self,
+                                           operations=self.node.operations,
                                            kwargs=kwargs)
 
     @property
     def id(self):
-        """The node id"""
-        return self._node.get('id')
+        """The node instance id"""
+        return self._node_instance.id
 
     @property
-    def name(self):
-        """The node name"""
-        return self._node.get('name')
-
-    @property
-    def type(self):
-        """The node type"""
-        return self._node.get('type')
-
-    @property
-    def type_hierarchy(self):
-        """The node type hierarchy"""
-        return self._node.get('type_hierarchy')
-
-    @property
-    def dependents(self):
-        """The node dependents"""
-        return self._node.get('dependents', [])
-
-    @property
-    def properties(self):
-        """The node properties"""
-        return self._node.get('properties', {})
-
-    @property
-    def plugins_to_install(self):
-        """
-        The plugins to install in this node. (Only relevant for host nodes)
-        """
-        return self._node.get('plugins_to_install', [])
+    def node_id(self):
+        """The node id (this instance is an instance of that node)"""
+        return self._node_instance.node_id
 
     @property
     def relationships(self):
         """The node relationships"""
-        return self._relationships
+        return self._relationship_instances.itervalues()
 
     @property
-    def operations(self):
-        """The node operations"""
-        return self._node.get('operations', {})
+    def node(self):
+        return self._node
 
     @property
     def logger(self):
@@ -222,6 +236,69 @@ class CloudifyWorkflowNode(object):
         return init_cloudify_logger(handler, logger_name)
 
 
+class CloudifyWorkflowNode(object):
+    """A plan node instance"""
+
+    def __init__(self, ctx, node):
+        """
+        :param ctx: a CloudifyWorkflowContext instance
+        :param node: a Node instance (rest client response model)
+        """
+        self.ctx = ctx
+        self._node = node
+        self._relationships = {
+            relationship['target_id']: CloudifyWorkflowRelationship(
+                self.ctx, self, relationship)
+            for relationship in node.relationships}
+        self._node_instances = {}
+
+    @property
+    def id(self):
+        """The node id"""
+        return self._node.id
+
+    @property
+    def type(self):
+        """The node type"""
+        return self._node.type
+
+    @property
+    def type_hierarchy(self):
+        """The node type hierarchy"""
+        return self._node.type_hierarchy
+
+    @property
+    def properties(self):
+        """The node properties"""
+        return self._node.properties
+
+    @property
+    def plugins_to_install(self):
+        """
+        The plugins to install in this node. (Only relevant for host nodes)
+        """
+        return self._node.get('plugins_to_install', [])
+
+    @property
+    def relationships(self):
+        """The node relationships"""
+        return self._relationships.itervalues()
+
+    @property
+    def operations(self):
+        """The node operations"""
+        return self._node.operations
+
+    @property
+    def instances(self):
+        """The node instances"""
+        return self._node_instances.itervalues()
+
+    def get_relationship(self, target_id):
+        """Get a node relationship by its target id"""
+        return self._relationships.get(target_id)
+
+
 class CloudifyWorkflowContext(object):
     """A context used in workflow operations"""
 
@@ -230,8 +307,21 @@ class CloudifyWorkflowContext(object):
         :param ctx: a cloudify_context workflow dict
         """
         self._context = ctx
-        self._nodes = {node['id']: CloudifyWorkflowNode(self, node) for
-                       node in ctx['plan']['nodes']}
+
+        rest = get_new_rest_client()
+        rest_nodes = rest.nodes.list(self.deployment_id)
+        rest_node_instances = rest.node_instances.list(self.deployment_id)
+
+        nodes = {node.id: CloudifyWorkflowNode(self, node) for
+                 node in rest_nodes}
+        node_instances = {
+            instance.id: CloudifyWorkflowNodeInstance(
+                self, nodes[instance.node_id], instance)
+            for instance in rest_node_instances}
+
+        self._nodes = nodes
+        self._node_instances = node_instances
+
         self._logger = None
 
     @property
@@ -297,17 +387,32 @@ class CloudifyWorkflowContext(object):
         """
         Get a node by its id
 
-        :param node_id: The node is
+        :param node_id: The node id
         :return: a CloudifyWorkflowNode instance for the node or None if
                  not found
         """
         return self._nodes.get(node_id)
 
-    def _execute_operation(self, operation, node, operations,
-                           related_node=None,
+    def get_node_instance(self, node_instance_id):
+        """
+        Get a node by its id
+
+        :param node_instance_id: The node instance id
+        :return: a CloudifyWorkflowNode instance for the node or None if
+                 not found
+        """
+        return self._node_instances.get(node_instance_id)
+
+    def _execute_operation(self,
+                           operation,
+                           node_instance,
+                           operations,
+                           related_node_instance=None,
                            kwargs=None):
         kwargs = kwargs or {}
-        raw_node = node._node
+        node = node_instance.node
+        rest_node = node._node
+        rest_node_instance = node_instance._node_instance
         op_struct = operations.get(operation)
         if op_struct is None:
             return NOPLocalWorkflowTask()
@@ -315,24 +420,26 @@ class CloudifyWorkflowContext(object):
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties', node.properties)
         task_queue = 'cloudify.management'
-        if raw_node['plugins'][plugin_name]['agent_plugin'] == 'true':
-            task_queue = raw_node['host_id']
-        elif raw_node['plugins'][plugin_name]['manager_plugin'] == 'true':
+        if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
+            task_queue = rest_node_instance.host_id
+        elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
             task_queue = self.deployment_id
         task_name = '{0}.{1}'.format(plugin_name, operation_mapping)
 
         node_context = {
-            'node_id': node.id,
-            'node_name': node.name,
+            'node_id': node_instance.id,
+            'node_name': node_instance.node_id,
             'node_properties': copy.copy(operation_properties),
             'plugin': plugin_name,
             'operation': operation,
-            'relationships': [rel.target_id for rel in node.relationships]
+            'relationships': [rel.target_id
+                              for rel in node_instance.relationships]
         }
-        if related_node is not None:
+        if related_node_instance is not None:
             node_context['related'] = {
-                'node_id': related_node.id,
-                'node_properties': copy.copy(related_node.properties)
+                'node_id': related_node_instance.id,
+                'node_properties': copy.copy(
+                    related_node_instance.node.properties)
             }
 
         return self.execute_task(task_queue, task_name,
