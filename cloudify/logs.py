@@ -57,7 +57,7 @@ def message_context_from_workflow_node_instance_context(ctx):
     """Build a message context from a CloudifyWorkflowNode instance"""
     message_context = message_context_from_workflow_context(ctx.ctx)
     message_context.update({
-        'node_name': ctx.name,
+        'node_name': ctx.node_id,
         'node_id': ctx.id,
     })
     return message_context
