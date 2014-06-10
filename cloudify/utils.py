@@ -60,3 +60,24 @@ def get_cosmo_properties():
         "management_ip": get_manager_ip(),
         "ip": get_local_ip()
     }
+
+
+def find_type_in_kwargs(cls, all_args):
+    result = [v for v in all_args if isinstance(v, cls)]
+    if not result:
+        return None
+    if len(result) > 1:
+        raise RuntimeError(
+            "Expected to find exactly one instance of {0} in "
+            "kwargs but found {1}".format(cls, len(result)))
+    return result[0]
+
+
+def get_machine_ip(ctx):
+    if 'ip' in ctx.properties:
+        return ctx.properties['ip']  # priority for statically specifying ip.
+    if 'ip' in ctx.runtime_properties:
+        return ctx.runtime_properties['ip']
+    raise ValueError('ip property is not set for node: {0}. '
+                     'This is mandatory for installing an agent remotely'
+                     .format(ctx.node_id))
