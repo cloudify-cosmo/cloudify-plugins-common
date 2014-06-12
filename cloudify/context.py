@@ -33,17 +33,18 @@ class ContextCapabilities(object):
 
     Capabilities are actually dependency nodes runtime properties.
     For example:
-        In a case where a 'db' node is contained in a 'vm' node,
-         The 'vm' node can publish its ip address using ctx['ip'] = ip_addr
-         in its plugins invocations.
-         In order for the 'db' node to consume the 'vm' node's ip, capabilities
-         would be used on 'db' node plugins invocations:
-            ip_addr = ctx.capabilities['ip']
-        In a case where it is needed to iterate through all available
-         capabilities, the following method should be used:
-            all_caps = ctx.capabilities.get_all()
-            Where the returned value is a dict of node ids as keys and their
-            runtime properties as values.
+
+    In a case where a 'db' node is contained in a 'vm' node,
+    The 'vm' node can publish its ip address using ctx['ip'] = ip_addr
+    in its plugins invocations.
+    In order for the 'db' node to consume the 'vm' node's ip, capabilities
+    would be used on 'db' node plugins invocations:
+    ip_addr = ctx.capabilities['ip']
+    In a case where it is needed to iterate through all available
+    capabilities, the following method should be used:
+    all_caps = ctx.capabilities.get_all()
+    Where the returned value is a dict of node ids as keys and their
+    runtime properties as values.
     """
     def __init__(self, relationships=None):
         self._relationships = relationships or []
@@ -187,11 +188,13 @@ class CloudifyContext(CommonContextOperations):
     """
     A context object passed to plugins tasks invocations.
     Using the context object, plugin writers can:
-        - Get node in context information
-        - Update node runtime properties.
-        - Use a context aware logger.
-        - Get related node info (relationships).
-        and more...
+
+    - Get node in context information
+    - Update node runtime properties.
+    - Use a context aware logger.
+    - Get related node info (relationships).
+
+    and more...
     """
 
     def __init__(self, ctx=None):
@@ -269,7 +272,8 @@ class CloudifyContext(CommonContextOperations):
         """
         The workflow id the plugin invocation was requested from.
         For example:
-            'install', 'uninstall' etc...
+
+         'install', 'uninstall' etc...
         """
         return self._context.get('workflow_id')
 
@@ -309,15 +313,15 @@ class CloudifyContext(CommonContextOperations):
 
         For example:
 
-            - Getting a specific capability:
-                conn_str = ctx.capabilities['connection_string']
-                This actually attempts to locate the provided key in
-                 ctx.capabilities.get_all() (described below).
+        - Getting a specific capability:
+            conn_str = ctx.capabilities['connection_string']
+            This actually attempts to locate the provided key in
+            ctx.capabilities.get_all() (described below).
 
-            - Getting all capabilities:
-                all_caps = ctx.capabilities.get_all()
-                The result is a dict of node ids as keys and the values are
-                the dependency node's runtime properties.
+        - Getting all capabilities:
+            all_caps = ctx.capabilities.get_all()
+            The result is a dict of node ids as keys and the values are
+            the dependency node's runtime properties.
 
         """
         return self._capabilities
