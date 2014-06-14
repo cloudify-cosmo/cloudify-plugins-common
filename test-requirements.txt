@@ -1,2 +1,1 @@
-nose
-
+-e git+https://github.com/cloudify-cosmo/cloudify-rest-client@develop#egg=cloudify-rest-client==3.0
