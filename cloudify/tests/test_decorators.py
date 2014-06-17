@@ -52,7 +52,7 @@ class OperationTest(unittest.TestCase):
         }
 
         # using a mock rest client
-        manager.get_new_rest_client = \
+        manager.get_rest_client = \
             lambda: rest_client_mock.MockRestclient()
 
         rest_client_mock.put_node_instance('some_node',
@@ -75,7 +75,7 @@ class OperationTest(unittest.TestCase):
         }
 
         # using a mock rest client
-        manager.get_new_rest_client = \
+        manager.get_rest_client = \
             lambda: rest_client_mock.MockRestclient()
 
         rest_client_mock.put_node_instance('node1',

@@ -23,7 +23,7 @@ import celery
 
 
 from cloudify.manager import get_node_instance, update_node_instance, \
-    update_execution_status, get_new_rest_client
+    update_execution_status, get_rest_client
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask)
@@ -308,7 +308,7 @@ class CloudifyWorkflowContext(object):
         """
         self._context = ctx
 
-        rest = get_new_rest_client()
+        rest = get_rest_client()
         rest_nodes = rest.nodes.list(self.deployment_id)
         rest_node_instances = rest.node_instances.list(self.deployment_id)
 

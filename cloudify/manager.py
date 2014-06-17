@@ -71,7 +71,7 @@ class NodeInstance(object):
         return self._runtime_properties.dirty
 
 
-def get_new_rest_client():
+def get_rest_client():
     return CloudifyClient(utils.get_manager_ip(),
                           utils.get_manager_rest_service_port())
 
@@ -118,7 +118,7 @@ def get_blueprint_resource(blueprint_id, resource_path):
 
 
 def get_node_instance(node_instance_id):
-    client = get_new_rest_client()
+    client = get_rest_client()
     instance = client.node_instances.get(node_instance_id)
     return NodeInstance(node_instance_id,
                         runtime_properties=instance.runtime_properties,
@@ -127,7 +127,7 @@ def get_node_instance(node_instance_id):
 
 
 def update_node_instance(node_instance):
-    client = get_new_rest_client()
+    client = get_rest_client()
     client.node_instances.update(
         node_instance.id,
         state=node_instance.state,
@@ -136,18 +136,18 @@ def update_node_instance(node_instance):
 
 
 def update_execution_status(execution_id, status, error=None):
-    client = get_new_rest_client()
+    client = get_rest_client()
     return client.executions.update(execution_id, status, error)
 
 
 def get_bootstrap_context():
-    client = get_new_rest_client()
+    client = get_rest_client()
     context = client.manager.get_context()['context']
     return context.get('cloudify', {})
 
 
 def get_provider_context(name):
-    client = get_new_rest_client()
+    client = get_rest_client()
     context = client.manager.get_context()
     if context['name'] != name:
         return None
