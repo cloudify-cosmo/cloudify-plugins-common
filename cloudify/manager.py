@@ -15,16 +15,12 @@
 
 __author__ = 'idanmo'
 
-import urllib2
 import os
+import urllib2
 
-from cosmo_manager_rest_client.cosmo_manager_rest_client \
-    import CosmoManagerRestClient
-from cloudify_rest_client import CloudifyClient
-
-
-from cloudify.exceptions import HttpException
 import utils
+from cloudify_rest_client import CloudifyClient
+from cloudify.exceptions import HttpException
 
 
 class NodeInstance(object):
@@ -73,11 +69,6 @@ class NodeInstance(object):
     @property
     def dirty(self):
         return self._runtime_properties.dirty
-
-
-def get_manager_rest_client():
-    return CosmoManagerRestClient(utils.get_manager_ip(),
-                                  utils.get_manager_rest_service_port())
 
 
 def get_new_rest_client():
@@ -145,19 +136,19 @@ def update_node_instance(node_instance):
 
 
 def update_execution_status(execution_id, status, error=None):
-    client = get_manager_rest_client()
-    return client.update_execution_status(execution_id, status, error)
+    client = get_new_rest_client()
+    return client.executions.update(execution_id, status, error)
 
 
 def get_bootstrap_context():
-    client = get_manager_rest_client()
-    context = client.get_provider_context()['context']
+    client = get_new_rest_client()
+    context = client.manager.get_context()['context']
     return context.get('cloudify', {})
 
 
 def get_provider_context(name):
-    client = get_manager_rest_client()
-    context = client.get_provider_context()
+    client = get_new_rest_client()
+    context = client.manager.get_context()
     if context['name'] != name:
         return None
     return context['context']
