@@ -53,11 +53,11 @@ def message_context_from_workflow_context(ctx):
     }
 
 
-def message_context_from_workflow_node_context(ctx):
+def message_context_from_workflow_node_instance_context(ctx):
     """Build a message context from a CloudifyWorkflowNode instance"""
     message_context = message_context_from_workflow_context(ctx.ctx)
     message_context.update({
-        'node_name': ctx.name,
+        'node_name': ctx.node_id,
         'node_id': ctx.id,
     })
     return message_context
@@ -110,7 +110,7 @@ class CloudifyWorkflowNodeLoggingHandler(CloudifyBaseLoggingHandler):
     """A Handler class for writing workflow log messages to RabbitMQ"""
     def __init__(self, ctx):
         super(CloudifyWorkflowNodeLoggingHandler, self).__init__(
-            ctx, message_context_from_workflow_node_context)
+            ctx, message_context_from_workflow_node_instance_context)
 
 
 def init_cloudify_logger(handler, logger_name,
@@ -211,7 +211,8 @@ def _send_event(ctx, context_type, event_type,
     elif context_type == 'workflow':
         message_context = message_context_from_workflow_context(ctx)
     elif context_type == 'workflow_node':
-        message_context = message_context_from_workflow_node_context(ctx)
+        message_context = message_context_from_workflow_node_instance_context(
+            ctx)
     else:
         raise RuntimeError('Invalid context_type: {}'.format(context_type))
 
