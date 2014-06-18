@@ -13,6 +13,16 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'dank'
+__author__ = 'ran'
 
-from cloudify.workflows import workflow_api as api  # noqa
+EXECUTION_CANCELLED_RESULT = 'execution_cancelled'
+
+
+ctx = None
+pipe = None
+
+
+def is_cancelled():
+    if pipe.poll():
+        data = pipe.recv()
+        return data['action'] == 'cancel'

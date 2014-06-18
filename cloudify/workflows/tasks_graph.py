@@ -20,6 +20,7 @@ import time
 import networkx as nx
 
 from cloudify.workflows.events import start_event_monitor
+from cloudify.workflows import api
 from cloudify.workflows import tasks as tasks_api
 
 
@@ -89,13 +90,14 @@ class TaskDependencyGraph(object):
         1. all tasks terminated
         2. a task failed
         3. an unhandled exception is raised
+        4. the execution is cancelled
         """
 
         # start the celery event monitor for receiving task sent/started/
         # failed/succeeded events for remote workflow tasks
         start_event_monitor(self)
 
-        while True:
+        while not self._is_execution_cancelled():
 
             # execute all tasks that are executable at the moment
             for task in self._executable_tasks():
@@ -133,10 +135,15 @@ class TaskDependencyGraph(object):
 
             # no more tasks to process, time to move on
             if len(self.graph.node) == 0:
-                break
+                return
             # sleep some and do it all over again
             else:
                 time.sleep(0.1)
+
+        return api.EXECUTION_CANCELLED_RESULT
+
+    def _is_execution_cancelled(self):
+        return api.is_cancelled()
 
     def _executable_tasks(self, ):
         """
