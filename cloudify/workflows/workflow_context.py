@@ -450,7 +450,7 @@ class CloudifyWorkflowContext(object):
         """
         Updates the execution status to new_status.
         Do not use reserved statuses:
-            "Pending", "Launched", "Terminated", "Failed"
+            "pending", "started", "terminated", "failed", "cancelled"
         Note that the workflow status gets automatically updated before and
         after its run (whether the run succeeded or failed)
         """

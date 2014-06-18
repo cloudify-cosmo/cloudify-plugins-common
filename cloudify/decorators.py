@@ -134,7 +134,7 @@ def workflow(func=None, **arguments):
                                     event_type='workflow_started',
                                     message="Starting '{}' workflow execution"
                                             .format(ctx.workflow_id))
-                update_execution_status(ctx.execution_id, 'launched')
+                update_execution_status(ctx.execution_id, 'started')
                 result = func(*args, **kwargs)
                 send_workflow_event(
                     ctx, event_type='workflow_succeeded',
