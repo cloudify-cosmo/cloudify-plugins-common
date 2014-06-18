@@ -29,6 +29,7 @@ from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.logs import send_workflow_event
 from cloudify.workflows import api
+from cloudify_rest_client.executions import Execution
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -139,7 +140,7 @@ def workflow(func=None, **arguments):
                                     event_type='workflow_started',
                                     message="Starting '{}' workflow execution"
                                             .format(ctx.workflow_id))
-                update_execution_status(ctx.execution_id, 'launched')
+                update_execution_status(ctx.execution_id, Execution.STARTED)
 
                 # the actual execution of the workflow will run in another
                 # process - this wrapper is the entry point for that
@@ -180,13 +181,13 @@ def workflow(func=None, **arguments):
 
                     # check for 'cancel' requests
                     execution = rest.executions.get(ctx.execution_id)
-                    if execution.status == 'force-cancelling':
+                    if execution.status == Execution.FORCE_CANCELLING:
                         # terminate the child process immediately
                         p.terminate()
                         result = api.EXECUTION_CANCELLED_RESULT
                         break
                     elif not has_sent_cancelling_action and \
-                            execution.status == 'cancelling':
+                            execution.status == Execution.CANCELLING:
                         # send a 'cancel' message to the child process. It
                         # is up to the workflow implementation to check for
                         # this message and act accordingly (by stopping and
@@ -204,13 +205,15 @@ def workflow(func=None, **arguments):
                         ctx, event_type='workflow_cancelled',
                         message="'{}' workflow execution cancelled"
                                 .format(ctx.workflow_id))
-                    rest.executions.update(ctx.execution_id, 'cancelled')
+                    rest.executions.update(ctx.execution_id,
+                                           Execution.CANCELLED)
                 else:
                     send_workflow_event(
                         ctx, event_type='workflow_succeeded',
                         message="'{}' workflow execution succeeded"
                                 .format(ctx.workflow_id))
-                    update_execution_status(ctx.execution_id, 'terminated')
+                    update_execution_status(ctx.execution_id,
+                                            Execution.TERMINATED)
                 return result
             except BaseException, e:
                 error = StringIO()
@@ -221,7 +224,7 @@ def workflow(func=None, **arguments):
                     message="'{}' workflow execution failed: {}"
                             .format(ctx.workflow_id, str(e)),
                     args={'error': error.getvalue()})
-                update_execution_status(ctx.execution_id, 'failed',
+                update_execution_status(ctx.execution_id, Execution.FAILED,
                                         error.getvalue())
                 raise
             finally:
