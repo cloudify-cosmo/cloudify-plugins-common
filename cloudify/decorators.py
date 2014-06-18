@@ -26,6 +26,7 @@ from cloudify.context import CloudifyContext
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status
 from cloudify.logs import send_workflow_event
+from cloudify_rest_client.executions import Execution
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -134,13 +135,13 @@ def workflow(func=None, **arguments):
                                     event_type='workflow_started',
                                     message="Starting '{}' workflow execution"
                                             .format(ctx.workflow_id))
-                update_execution_status(ctx.execution_id, 'started')
+                update_execution_status(ctx.execution_id, Execution.STARTED)
                 result = func(*args, **kwargs)
                 send_workflow_event(
                     ctx, event_type='workflow_succeeded',
                     message="'{}' workflow execution succeeded"
                             .format(ctx.workflow_id))
-                update_execution_status(ctx.execution_id, 'terminated')
+                update_execution_status(ctx.execution_id, Execution.TERMINATED)
             except BaseException, e:
                 error = StringIO()
                 traceback.print_exc(file=error)
@@ -150,7 +151,7 @@ def workflow(func=None, **arguments):
                     message="'{}' workflow execution failed: {}"
                             .format(ctx.workflow_id, str(e)),
                     args={'error': error.getvalue()})
-                update_execution_status(ctx.execution_id, 'failed',
+                update_execution_status(ctx.execution_id, Execution.FAILED,
                                         error.getvalue())
                 raise
             return result
