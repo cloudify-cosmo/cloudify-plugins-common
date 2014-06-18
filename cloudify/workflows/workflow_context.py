@@ -449,8 +449,6 @@ class CloudifyWorkflowContext(object):
     def update_execution_status(self, new_status):
         """
         Updates the execution status to new_status.
-        Do not use reserved statuses:
-            "pending", "started", "terminated", "failed", "cancelled"
         Note that the workflow status gets automatically updated before and
         after its run (whether the run succeeded or failed)
         """
