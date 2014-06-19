@@ -115,6 +115,11 @@ def send_task_event(state, task, event=None):
     else:
         raise RuntimeError('unhandled event type: {}'.format(state))
 
+    if task.current_retries > 0 or state == tasks_api.TASK_FAILED:
+        message = '{} [attempt {}/{}]'.format(message,
+                                              task.current_retries + 1,
+                                              task.total_retries + 1)
+
     send_remote_task_event(remote_task=task,
                            event_type=event_type,
                            message=message)
