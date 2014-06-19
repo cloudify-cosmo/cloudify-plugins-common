@@ -23,10 +23,12 @@ import celery
 
 
 from cloudify.manager import get_node_instance, update_node_instance, \
-    update_execution_status, get_rest_client
+    update_execution_status, get_rest_client, get_bootstrap_context
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
-                                      NOPLocalWorkflowTask)
+                                      NOPLocalWorkflowTask,
+                                      DEFAULT_TOTAL_RETRIES,
+                                      DEFAULT_RETRY_INTERVAL)
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            init_cloudify_logger,
@@ -335,6 +337,8 @@ class CloudifyWorkflowContext(object):
 
         self._logger = None
 
+        self._bootstrap_context = None
+
     @property
     def nodes(self):
         """The plan node instances"""
@@ -524,10 +528,27 @@ class CloudifyWorkflowContext(object):
         context.update(node_context)
         return context
 
+    def _get_bootstrap_context(self):
+        if self._bootstrap_context is None:
+            self._bootstrap_context = get_bootstrap_context()
+        return self._bootstrap_context
+
+    def _get_task_configuration(self):
+        bootstrap_context = self._get_bootstrap_context()
+        workflows = bootstrap_context.get('workflows', {})
+        return {
+            'total_retries': workflows.get('task_retries',
+                                           DEFAULT_TOTAL_RETRIES),
+            'retry_interval': workflows.get('task_retry_interval',
+                                            DEFAULT_RETRY_INTERVAL)
+        }
+
     def local_workflow_task(self, local_task, workflow_context,
                             node=None,
                             info=None):
-        return LocalWorkflowTask(local_task, workflow_context, node, info)
+        return LocalWorkflowTask(local_task, workflow_context, node, info,
+                                 **self._get_task_configuration())
 
     def remote_workflow_task(self, task, cloudify_context, task_id):
-        return RemoteWorkflowTask(task, cloudify_context, task_id)
+        return RemoteWorkflowTask(task, cloudify_context, task_id,
+                                  **self._get_task_configuration())
