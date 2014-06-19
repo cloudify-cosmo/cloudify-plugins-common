@@ -116,7 +116,8 @@ class TaskDependencyGraph(object):
                     handler_result = task.handle_task_succeeded()
 
                 if handler_result == tasks_api.HANDLER_RETRY:
-                    if task.current_retries < task.total_retries:
+                    if task.total_retries == tasks_api.INFINITE_TOTAL_RETRIES \
+                       or task.current_retries < task.total_retries:
                         retry = True
                     else:
                         handler_result = tasks_api.HANDLER_FAIL
