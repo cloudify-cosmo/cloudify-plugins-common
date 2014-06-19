@@ -36,6 +36,7 @@ HANDLER_CONTINUE = 'handler_continue'
 
 
 def retry_failure_handler(task):
+    """Basic on_success/on_failure handler that always returns retry"""
     return HANDLER_RETRY
 
 
@@ -52,15 +53,17 @@ class WorkflowTask(object):
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
                            terminates successfully.
-                           Expected to return a bool, where True signifies
-                           the task should be retried, and False signifies
-                           no additional action for this task should be taken
+                           Expected to return one of
+                           [handler_retry, handler_continue] to indicate
+                           whether this task should be re-executed.
         :param on_failure: A handler called when the task's execution
                            fails.
-                           Expected to return a bool, where True signifies
-                           the error was handled and should be ignored by
-                           the workflow engine, and False signifies the
-                           workflow should end immediately with a failure.
+                           Expected to return one of
+                           [handler_retry, handler_fail, handler_ignore]
+                           to indicate whether this task should be re-executed,
+                           cause the engine to terminate workflow execution
+                           immediately or simply ignore this task failure and
+                           move on.
         """
         self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
