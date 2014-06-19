@@ -39,3 +39,4 @@ def has_cancel_request():
     if pipe.poll():
         data = pipe.recv()
         return data['action'] == 'cancel'
+    return False

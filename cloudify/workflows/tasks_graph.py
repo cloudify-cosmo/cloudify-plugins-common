@@ -91,6 +91,11 @@ class TaskDependencyGraph(object):
         2. a task failed
         3. an unhandled exception is raised
         4. the execution is cancelled
+
+        Note: This method will return None unless the execution has been
+        cancelled, in which case the return value will be
+        api.EXECUTION_CANCELLED_RESULT. Callers of this method should check
+        the return value and propagate the result in the latter case.
         """
 
         # start the celery event monitor for receiving task sent/started/
