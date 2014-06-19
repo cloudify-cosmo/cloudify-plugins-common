@@ -15,7 +15,7 @@
 
 __author__ = 'dank'
 
-
+import time
 import uuid
 
 from cloudify.celery import celery as celery_client
@@ -69,8 +69,12 @@ class WorkflowTask(object):
         self.on_failure = on_failure
         self.info = info
         self.error = None
-        self.total_retries = 5
+        self.total_retries = 1
         self.current_retries = 0
+        # timestamp for which the task should not be executed
+        # by the task graph before reached, overridden by the task
+        # graph during retries
+        self.execute_after = time.time()
 
     def is_remote(self):
         """

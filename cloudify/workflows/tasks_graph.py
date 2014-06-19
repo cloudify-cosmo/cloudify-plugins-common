@@ -134,6 +134,7 @@ class TaskDependencyGraph(object):
                 if retry:
                     new_task = task.duplicate()
                     new_task.current_retries += 1
+                    new_task.execute_after = time.time() + 10
                     self.add_task(new_task)
                     added_edges = [(dependent, new_task.id)
                                    for dependent in dependents]
@@ -154,9 +155,10 @@ class TaskDependencyGraph(object):
 
         :return: An iterator for executable tasks
         """
-
+        now = time.time()
         return (task for task in self._tasks_iter()
                 if task.get_state() == tasks_api.TASK_PENDING
+                and task.execute_after <= now
                 and not self._task_has_dependencies(task.id))
 
     def _terminated_tasks(self):
