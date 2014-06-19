@@ -164,7 +164,11 @@ class CloudifyWorkflowNodeInstance(object):
             node_state.state = state
             update_node_instance(node_state)
             return node_state
-        return LocalWorkflowTask(set_state_task, self.ctx, self, info=state)
+        return self.ctx.local_workflow_task(
+            local_task=set_state_task,
+            workflow_context=self.ctx,
+            node=self,
+            info=state)
 
     def get_state(self):
         """
@@ -174,7 +178,10 @@ class CloudifyWorkflowNodeInstance(object):
         """
         def get_state_task():
             return get_node_instance(self.id).state
-        return LocalWorkflowTask(get_state_task, self.ctx, self)
+        return self.ctx.local_workflow_task(
+            local_task=get_state_task,
+            workflow_context=self.ctx,
+            node=self)
 
     def send_event(self, event, additional_context=None):
         """
@@ -189,7 +196,11 @@ class CloudifyWorkflowNodeInstance(object):
                                      event_type='workflow_node_event',
                                      message=event,
                                      additional_context=additional_context)
-        return LocalWorkflowTask(send_event_task, self.ctx, self, info=event)
+        return self.ctx.local_workflow_task(
+            local_task=send_event_task,
+            workflow_context=self.ctx,
+            node=self,
+            info=event)
 
     def execute_operation(self, operation, kwargs=None):
         """
@@ -381,7 +392,10 @@ class CloudifyWorkflowContext(object):
                                 message=event,
                                 args=args,
                                 additional_context=additional_context)
-        return LocalWorkflowTask(send_event_task, self, info=event)
+        return self.local_workflow_task(
+            local_task=send_event_task,
+            workflow_context=self,
+            info=event)
 
     def get_node(self, node_id):
         """
@@ -454,8 +468,10 @@ class CloudifyWorkflowContext(object):
         """
         def update_execution_status_task():
             update_execution_status(self.execution_id, new_status)
-        return LocalWorkflowTask(update_execution_status_task,
-                                 self, info=new_status)
+        return self.local_workflow_task(
+            local_task=update_execution_status_task,
+            workflow_context=self,
+            info=new_status)
 
     def execute_task(self,
                      task_queue,
@@ -484,7 +500,10 @@ class CloudifyWorkflowContext(object):
                               queue=task_queue,
                               immutable=True)
 
-        return RemoteWorkflowTask(task, cloudify_context, task_id)
+        return self.remote_workflow_task(
+            task=task,
+            cloudify_context=cloudify_context,
+            task_id=task_id)
 
     def _build_cloudify_context(self,
                                 task_id,
@@ -504,3 +523,11 @@ class CloudifyWorkflowContext(object):
         }
         context.update(node_context)
         return context
+
+    def local_workflow_task(self, local_task, workflow_context,
+                            node=None,
+                            info=None):
+        return LocalWorkflowTask(local_task, workflow_context, node, info)
+
+    def remote_workflow_task(self, task, cloudify_context, task_id):
+        return RemoteWorkflowTask(task, cloudify_context, task_id)
