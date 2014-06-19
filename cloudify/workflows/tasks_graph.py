@@ -143,7 +143,7 @@ class TaskDependencyGraph(object):
         return api.EXECUTION_CANCELLED_RESULT
 
     def _is_execution_cancelled(self):
-        return api.is_cancelled()
+        return api.has_cancel_request()
 
     def _executable_tasks(self, ):
         """

@@ -22,7 +22,20 @@ ctx = None
 pipe = None
 
 
-def is_cancelled():
+def has_cancel_request():
+    """
+    Checks for requests to cancel the workflow execution.
+    This should be used to allow graceful termination of workflow executions.
+
+    If this method is not used and acted upon, a simple 'cancel'
+    request for the execution will have no effect - 'force-cancel' will have
+    to be used to abruptly terminate the execution instead.
+
+    Note: When using this method, the workflow must return
+    EXECUTION_CANCELLED_RESULT if indeed the execution gets cancelled.
+
+    :return: whether there was a request to cancel the workflow execution
+    """
     if pipe.poll():
         data = pipe.recv()
         return data['action'] == 'cancel'
