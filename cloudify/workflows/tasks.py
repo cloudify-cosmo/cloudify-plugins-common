@@ -29,6 +29,16 @@ TASK_SUCCEEDED = 'succeeded'
 TASK_FAILED = 'failed'
 
 
+HANDLER_RETRY = 'handler_retry'
+HANDLER_FAIL = 'handler_fail'
+HANDLER_IGNORE = 'handler_ignore'
+HANDLER_CONTINUE = 'handler_continue'
+
+
+def retry_failure_handler(task):
+    return HANDLER_RETRY
+
+
 class WorkflowTask(object):
     """A base class for workflow tasks"""
 
@@ -59,6 +69,8 @@ class WorkflowTask(object):
         self.on_failure = on_failure
         self.info = info
         self.error = None
+        self.total_retries = 5
+        self.current_retries = 0
 
     def is_remote(self):
         """
@@ -94,13 +106,13 @@ class WorkflowTask(object):
         """Call handler for task success"""
         if self.on_success:
             return self.on_success(self)
-        return False
+        return HANDLER_CONTINUE
 
     def handle_task_failed(self):
         """Call handler for task failure"""
         if self.on_failure:
             return self.on_failure(self)
-        return False
+        return HANDLER_FAIL
 
     def __str__(self):
         suffix = self.info if self.info is not None else ''
@@ -126,7 +138,7 @@ class RemoteWorkflowTask(WorkflowTask):
                  task_id=None,
                  info=None,
                  on_success=None,
-                 on_failure=None):
+                 on_failure=retry_failure_handler):
         """
         :param task: The celery task
         :param cloudify_context: the cloudify context dict
@@ -182,6 +194,8 @@ class RemoteWorkflowTask(WorkflowTask):
                                  on_success=self.on_success,
                                  on_failure=self.on_failure)
         dup.cloudify_context['task_id'] = dup.id
+        dup.total_retries = self.total_retries
+        dup.current_retries = self.current_retries
         return dup
 
     @property
@@ -221,7 +235,7 @@ class LocalWorkflowTask(WorkflowTask):
                  node=None,
                  info=None,
                  on_success=None,
-                 on_failure=None):
+                 on_failure=retry_failure_handler):
         """
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
@@ -267,12 +281,15 @@ class LocalWorkflowTask(WorkflowTask):
         return True
 
     def duplicate(self):
-        return LocalWorkflowTask(self.local_task,
-                                 self.workflow_context,
-                                 self.node,
-                                 info=self.info,
-                                 on_success=self.on_success,
-                                 on_failure=self.on_failure)
+        dup = LocalWorkflowTask(self.local_task,
+                                self.workflow_context,
+                                self.node,
+                                info=self.info,
+                                on_success=self.on_success,
+                                on_failure=self.on_failure)
+        dup.total_retries = self.total_retries
+        dup.current_retries = self.current_retries
+        return dup
 
     @property
     def name(self):

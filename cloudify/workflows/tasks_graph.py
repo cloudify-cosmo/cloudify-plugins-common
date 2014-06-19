@@ -111,13 +111,20 @@ class TaskDependencyGraph(object):
             for task in self._terminated_tasks():
                 retry = False
                 if task.get_state() == tasks_api.TASK_FAILED:
-                    ignore_fail = task.handle_task_failed()
-                    if not ignore_fail:
-                        raise RuntimeError(
-                            "Workflow failed: Task failed '{}' -> {}"
-                            .format(task.name, task.error))
+                    handler_result = task.handle_task_failed()
                 else:
-                    retry = task.handle_task_succeeded()
+                    handler_result = task.handle_task_succeeded()
+
+                if handler_result == tasks_api.HANDLER_RETRY:
+                    if task.current_retries < task.total_retries:
+                        retry = True
+                    else:
+                        handler_result = tasks_api.HANDLER_FAIL
+
+                if handler_result == tasks_api.HANDLER_FAIL:
+                    raise RuntimeError(
+                        "Workflow failed: Task failed '{}' -> {}"
+                        .format(task.name, task.error))
 
                 dependents = self.graph.predecessors(task.id)
                 removed_edges = [(dependent, task.id)
@@ -126,6 +133,7 @@ class TaskDependencyGraph(object):
                 self.graph.remove_node(task.id)
                 if retry:
                     new_task = task.duplicate()
+                    new_task.current_retries += 1
                     self.add_task(new_task)
                     added_edges = [(dependent, new_task.id)
                                    for dependent in dependents]
