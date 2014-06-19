@@ -21,6 +21,10 @@ import uuid
 from cloudify.celery import celery as celery_client
 
 
+DEFAULT_TOTAL_RETRIES = 2
+DEFAULT_RETRY_INTERVAL = 5
+
+
 TASK_PENDING = 'pending'
 TASK_SENDING = 'sending'
 TASK_SENT = 'sent'
@@ -47,7 +51,9 @@ class WorkflowTask(object):
                  task_id=None,
                  info=None,
                  on_success=None,
-                 on_failure=None):
+                 on_failure=None,
+                 total_retries=DEFAULT_TOTAL_RETRIES,
+                 retry_interval=DEFAULT_RETRY_INTERVAL):
         """
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
@@ -64,6 +70,9 @@ class WorkflowTask(object):
                            cause the engine to terminate workflow execution
                            immediately or simply ignore this task failure and
                            move on.
+        :param total_retries: Maximum retry attempt for this task, in case
+                              the handlers return a retry attempt.
+        :param retry_interval: Number of seconds to wait between retries
         """
         self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
@@ -72,7 +81,9 @@ class WorkflowTask(object):
         self.on_failure = on_failure
         self.info = info
         self.error = None
-        self.total_retries = 1
+        self.total_retries = total_retries
+        self.retry_interval = retry_interval
+
         self.current_retries = 0
         # timestamp for which the task should not be executed
         # by the task graph before reached, overridden by the task
@@ -145,7 +156,9 @@ class RemoteWorkflowTask(WorkflowTask):
                  task_id=None,
                  info=None,
                  on_success=None,
-                 on_failure=retry_failure_handler):
+                 on_failure=retry_failure_handler,
+                 total_retries=DEFAULT_TOTAL_RETRIES,
+                 retry_interval=DEFAULT_RETRY_INTERVAL):
         """
         :param task: The celery task
         :param cloudify_context: the cloudify context dict
@@ -153,20 +166,27 @@ class RemoteWorkflowTask(WorkflowTask):
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
                            terminates successfully.
-                           Expected to return a bool, where True signifies
-                           the task should be retried, and False signifies
-                           no additional action for this task should be taken
+                           Expected to return one of
+                           [handler_retry, handler_continue] to indicate
+                           whether this task should be re-executed.
         :param on_failure: A handler called when the task's execution
                            fails.
-                           Expected to return a bool, where True signifies
-                           the error was handled and should be ignored by
-                           the workflow engine, and False signifies the
-                           workflow should end immediately with a failure.
+                           Expected to return one of
+                           [handler_retry, handler_fail, handler_ignore]
+                           to indicate whether this task should be re-executed,
+                           cause the engine to terminate workflow execution
+                           immediately or simply ignore this task failure and
+                           move on.
+        :param total_retries: Maximum retry attempt for this task, in case
+                              the handlers return a retry attempt.
+        :param retry_interval: Number of seconds to wait between retries
         """
         super(RemoteWorkflowTask, self).__init__(task_id,
                                                  info=info,
                                                  on_success=on_success,
-                                                 on_failure=on_failure)
+                                                 on_failure=on_failure,
+                                                 total_retries=total_retries,
+                                                 retry_interval=retry_interval)
         self.task = task
         self.cloudify_context = cloudify_context
 
@@ -199,9 +219,10 @@ class RemoteWorkflowTask(WorkflowTask):
                                  self.cloudify_context,
                                  info=self.info,
                                  on_success=self.on_success,
-                                 on_failure=self.on_failure)
+                                 on_failure=self.on_failure,
+                                 total_retries=self.total_retries,
+                                 retry_interval=self.retry_interval)
         dup.cloudify_context['task_id'] = dup.id
-        dup.total_retries = self.total_retries
         dup.current_retries = self.current_retries
         return dup
 
@@ -242,7 +263,9 @@ class LocalWorkflowTask(WorkflowTask):
                  node=None,
                  info=None,
                  on_success=None,
-                 on_failure=retry_failure_handler):
+                 on_failure=retry_failure_handler,
+                 total_retries=DEFAULT_TOTAL_RETRIES,
+                 retry_interval=DEFAULT_RETRY_INTERVAL):
         """
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
@@ -250,19 +273,27 @@ class LocalWorkflowTask(WorkflowTask):
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
                            terminates successfully.
-                           Expected to return a bool, where True signifies
-                           the task should be retried, and False signifies
-                           no additional action for this task should be taken
+                           Expected to return one of
+                           [handler_retry, handler_continue] to indicate
+                           whether this task should be re-executed.
         :param on_failure: A handler called when the task's execution
                            fails.
-                           Expected to return a bool, where True signifies
-                           the error was handled and should be ignored by
-                           the workflow engine, and False signifies the
-                           workflow should end immediately with a failure.
+                           Expected to return one of
+                           [handler_retry, handler_fail, handler_ignore]
+                           to indicate whether this task should be re-executed,
+                           cause the engine to terminate workflow execution
+                           immediately or simply ignore this task failure and
+                           move on.
+        :param total_retries: Maximum retry attempt for this task, in case
+                              the handlers return a retry attempt.
+        :param retry_interval: Number of seconds to wait between retries
         """
-        super(LocalWorkflowTask, self).__init__(info=info,
-                                                on_success=on_success,
-                                                on_failure=on_failure)
+        super(LocalWorkflowTask, self).__init__(
+            info=info,
+            on_success=on_success,
+            on_failure=on_failure,
+            total_retries=total_retries,
+            retry_interval=retry_interval)
         self.local_task = local_task
         self.workflow_context = workflow_context
         self.node = node
@@ -293,8 +324,9 @@ class LocalWorkflowTask(WorkflowTask):
                                 self.node,
                                 info=self.info,
                                 on_success=self.on_success,
-                                on_failure=self.on_failure)
-        dup.total_retries = self.total_retries
+                                on_failure=self.on_failure,
+                                total_retries=self.total_retries,
+                                retry_interval=self.retry_interval)
         dup.current_retries = self.current_retries
         return dup
 

@@ -134,7 +134,7 @@ class TaskDependencyGraph(object):
                 if retry:
                     new_task = task.duplicate()
                     new_task.current_retries += 1
-                    new_task.execute_after = time.time() + 10
+                    new_task.execute_after = time.time() + task.retry_interval
                     self.add_task(new_task)
                     added_edges = [(dependent, new_task.id)
                                    for dependent in dependents]
