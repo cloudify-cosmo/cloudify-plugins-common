@@ -96,6 +96,10 @@ class TaskDependencyGraph(object):
         cancelled, in which case the return value will be
         api.EXECUTION_CANCELLED_RESULT. Callers of this method should check
         the return value and propagate the result in the latter case.
+
+        Also note that for the time being, if such a cancelling event
+        occurs, the method might return even while there's some operations
+        still being executed.
         """
 
         # start the celery event monitor for receiving task sent/started/
