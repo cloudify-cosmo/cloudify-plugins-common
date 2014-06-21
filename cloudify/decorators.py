@@ -123,6 +123,14 @@ def operation(func=None, **arguments):
 
 def workflow(func=None, **arguments):
     if func is not None:
+        def update_execution_cancelled(ctx):
+            update_execution_status(ctx.execution_id,
+                                    Execution.CANCELLED)
+            send_workflow_event(
+                ctx, event_type='workflow_cancelled',
+                message="'{}' workflow execution cancelled"
+                        .format(ctx.workflow_id))
+
         @celery.task
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -134,13 +142,21 @@ def workflow(func=None, **arguments):
                 ctx = CloudifyWorkflowContext(ctx)
                 kwargs = _inject_argument('ctx', ctx, kwargs)
 
+            rest = get_rest_client()
             parent_conn, child_conn = Pipe()
             try:
+                if rest.executions.get(ctx.execution_id).status in \
+                        (Execution.CANCELLING, Execution.FORCE_CANCELLING):
+                    # execution has been requested to be cancelled before it
+                    # was even started
+                    update_execution_cancelled(ctx)
+                    return api.EXECUTION_CANCELLED_RESULT
+
+                update_execution_status(ctx.execution_id, Execution.STARTED)
                 send_workflow_event(ctx,
                                     event_type='workflow_started',
                                     message="Starting '{}' workflow execution"
                                             .format(ctx.workflow_id))
-                update_execution_status(ctx.execution_id, Execution.STARTED)
 
                 # the actual execution of the workflow will run in another
                 # process - this wrapper is the entry point for that
@@ -165,7 +181,6 @@ def workflow(func=None, **arguments):
                 # while the child process is executing the workflow,
                 # the parent process is polling for 'cancel' requests while
                 # also waiting for messages from the child process
-                rest = get_rest_client()
                 has_sent_cancelling_action = False
                 while True:
                     # check if child process sent a message
@@ -201,31 +216,26 @@ def workflow(func=None, **arguments):
                 # updating execution status and sending events according to
                 # how the execution ended
                 if result == api.EXECUTION_CANCELLED_RESULT:
-                    send_workflow_event(
-                        ctx, event_type='workflow_cancelled',
-                        message="'{}' workflow execution cancelled"
-                                .format(ctx.workflow_id))
-                    rest.executions.update(ctx.execution_id,
-                                           Execution.CANCELLED)
+                    update_execution_cancelled(ctx)
                 else:
+                    update_execution_status(ctx.execution_id,
+                                            Execution.TERMINATED)
                     send_workflow_event(
                         ctx, event_type='workflow_succeeded',
                         message="'{}' workflow execution succeeded"
                                 .format(ctx.workflow_id))
-                    update_execution_status(ctx.execution_id,
-                                            Execution.TERMINATED)
                 return result
             except BaseException, e:
                 error = StringIO()
                 traceback.print_exc(file=error)
+                update_execution_status(ctx.execution_id, Execution.FAILED,
+                                        error.getvalue())
                 send_workflow_event(
                     ctx,
                     event_type='workflow_failed',
                     message="'{}' workflow execution failed: {}"
                             .format(ctx.workflow_id, str(e)),
                     args={'error': error.getvalue()})
-                update_execution_status(ctx.execution_id, Execution.FAILED,
-                                        error.getvalue())
                 raise
             finally:
                 parent_conn.close()
