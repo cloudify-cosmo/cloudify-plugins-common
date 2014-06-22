@@ -121,14 +121,21 @@ class TaskDependencyGraph(object):
             #    with its original dependents
             for task in self._terminated_tasks():
                 retry = False
-                if task.get_state() == tasks_api.TASK_FAILED:
-                    ignore_fail = task.handle_task_failed()
-                    if not ignore_fail:
-                        raise RuntimeError(
-                            "Workflow failed: Task failed '{}' -> {}"
-                            .format(task.name, task.error))
-                else:
-                    retry = task.handle_task_succeeded()
+                handler_result = task.handle_task_terminated()
+                handler_action = handler_result.action
+                handler_ignore_total = handler_result.ignore_total_retries
+                if handler_action == tasks_api.HandlerResult.HANDLER_RETRY:
+                    if task.total_retries == tasks_api.INFINITE_TOTAL_RETRIES \
+                       or task.current_retries < task.total_retries\
+                       or handler_ignore_total:
+                        retry = True
+                    else:
+                        handler_action = tasks_api.HandlerResult.HANDLER_FAIL
+
+                if handler_action == tasks_api.HandlerResult.HANDLER_FAIL:
+                    raise RuntimeError(
+                        "Workflow failed: Task failed '{}' -> {}"
+                        .format(task.name, task.error))
 
                 dependents = self.graph.predecessors(task.id)
                 removed_edges = [(dependent, task.id)
@@ -137,6 +144,8 @@ class TaskDependencyGraph(object):
                 self.graph.remove_node(task.id)
                 if retry:
                     new_task = task.duplicate()
+                    new_task.current_retries += 1
+                    new_task.execute_after = time.time() + task.retry_interval
                     self.add_task(new_task)
                     added_edges = [(dependent, new_task.id)
                                    for dependent in dependents]
@@ -162,9 +171,10 @@ class TaskDependencyGraph(object):
 
         :return: An iterator for executable tasks
         """
-
+        now = time.time()
         return (task for task in self._tasks_iter()
                 if task.get_state() == tasks_api.TASK_PENDING
+                and task.execute_after <= now
                 and not self._task_has_dependencies(task.id))
 
     def _terminated_tasks(self):
