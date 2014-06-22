@@ -34,15 +34,9 @@ TASK_SUCCEEDED = 'succeeded'
 TASK_FAILED = 'failed'
 
 
-HANDLER_RETRY = 'handler_retry'
-HANDLER_FAIL = 'handler_fail'
-HANDLER_IGNORE = 'handler_ignore'
-HANDLER_CONTINUE = 'handler_continue'
-
-
 def retry_failure_handler(task):
     """Basic on_success/on_failure handler that always returns retry"""
-    return HANDLER_RETRY
+    return HandlerResult.retry()
 
 
 class WorkflowTask(object):
@@ -121,17 +115,23 @@ class WorkflowTask(object):
 
         self._state = state
 
+    def handle_task_terminated(self):
+        if self.get_state() == TASK_FAILED:
+            return self.handle_task_failed()
+        else:
+            return self.handle_task_succeeded()
+
     def handle_task_succeeded(self):
         """Call handler for task success"""
         if self.on_success:
             return self.on_success(self)
-        return HANDLER_CONTINUE
+        return HandlerResult.cont()
 
     def handle_task_failed(self):
         """Call handler for task failure"""
         if self.on_failure:
             return self.on_failure(self)
-        return HANDLER_FAIL
+        return HandlerResult.retry()
 
     def __str__(self):
         suffix = self.info if self.info is not None else ''
@@ -376,3 +376,31 @@ class LocalWorkflowTaskResult(object):
         :return: The local task result
         """
         return self.result
+
+
+class HandlerResult(object):
+
+    HANDLER_RETRY = 'handler_retry'
+    HANDLER_FAIL = 'handler_fail'
+    HANDLER_IGNORE = 'handler_ignore'
+    HANDLER_CONTINUE = 'handler_continue'
+
+    def __init__(self, action, ignore_total_retries=False):
+        self.action = action
+        self.ignore_total_retries = ignore_total_retries
+
+    @classmethod
+    def retry(cls, ignore_total_retries=False):
+        return HandlerResult(cls.HANDLER_RETRY, ignore_total_retries)
+
+    @classmethod
+    def fail(cls):
+        return HandlerResult(cls.HANDLER_FAIL)
+
+    @classmethod
+    def cont(cls):
+        return HandlerResult(cls.HANDLER_CONTINUE)
+
+    @classmethod
+    def ignore(cls):
+        return HandlerResult(cls.HANDLER_IGNORE)

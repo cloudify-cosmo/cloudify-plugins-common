@@ -121,19 +121,18 @@ class TaskDependencyGraph(object):
             #    with its original dependents
             for task in self._terminated_tasks():
                 retry = False
-                if task.get_state() == tasks_api.TASK_FAILED:
-                    handler_result = task.handle_task_failed()
-                else:
-                    handler_result = task.handle_task_succeeded()
-
-                if handler_result == tasks_api.HANDLER_RETRY:
+                handler_result = task.handle_task_terminated()
+                handler_action = handler_result.action
+                handler_ignore_total = handler_result.ignore_total_retries
+                if handler_action == tasks_api.HandlerResult.HANDLER_RETRY:
                     if task.total_retries == tasks_api.INFINITE_TOTAL_RETRIES \
-                       or task.current_retries < task.total_retries:
+                       or task.current_retries < task.total_retries\
+                       or handler_ignore_total:
                         retry = True
                     else:
-                        handler_result = tasks_api.HANDLER_FAIL
+                        handler_action = tasks_api.HandlerResult.HANDLER_FAIL
 
-                if handler_result == tasks_api.HANDLER_FAIL:
+                if handler_action == tasks_api.HandlerResult.HANDLER_FAIL:
                     raise RuntimeError(
                         "Workflow failed: Task failed '{}' -> {}"
                         .format(task.name, task.error))
