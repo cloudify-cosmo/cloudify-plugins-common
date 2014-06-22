@@ -20,6 +20,7 @@ import time
 import networkx as nx
 
 from cloudify.workflows.events import start_event_monitor
+from cloudify.workflows import api
 from cloudify.workflows import tasks as tasks_api
 
 
@@ -89,13 +90,23 @@ class TaskDependencyGraph(object):
         1. all tasks terminated
         2. a task failed
         3. an unhandled exception is raised
+        4. the execution is cancelled
+
+        Note: This method will return None unless the execution has been
+        cancelled, in which case the return value will be
+        api.EXECUTION_CANCELLED_RESULT. Callers of this method should check
+        the return value and propagate the result in the latter case.
+
+        Also note that for the time being, if such a cancelling event
+        occurs, the method might return even while there's some operations
+        still being executed.
         """
 
         # start the celery event monitor for receiving task sent/started/
         # failed/succeeded events for remote workflow tasks
         start_event_monitor(self)
 
-        while True:
+        while not self._is_execution_cancelled():
 
             # execute all tasks that are executable at the moment
             for task in self._executable_tasks():
@@ -143,10 +154,15 @@ class TaskDependencyGraph(object):
 
             # no more tasks to process, time to move on
             if len(self.graph.node) == 0:
-                break
+                return
             # sleep some and do it all over again
             else:
                 time.sleep(0.1)
+
+        return api.EXECUTION_CANCELLED_RESULT
+
+    def _is_execution_cancelled(self):
+        return api.has_cancel_request()
 
     def _executable_tasks(self, ):
         """
