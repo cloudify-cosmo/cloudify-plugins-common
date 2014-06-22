@@ -166,12 +166,8 @@ def workflow(func=None, **arguments):
                     try:
                         result = func(*args, **kwargs)
                         child_conn.send({'result': result})
-                    except BaseException, ex:
-                        error = StringIO()
-                        traceback.print_exc(file=error)
-                        child_conn.send({
-                            'error': ex,
-                            'trace': error.getvalue()})
+                    except BaseException, e:
+                        child_conn.send({'error': e})
                     finally:
                         child_conn.close()
 
@@ -196,10 +192,7 @@ def workflow(func=None, **arguments):
                             break
                         else:
                             # error occurred in child process
-                            trace = data['trace']
-                            error = str(data['error'])
-                            message = '{} {}'.format(error, trace)
-                            raise RuntimeError(message)
+                            raise data['error']
 
                     # check for 'cancel' requests
                     execution = rest.executions.get(ctx.execution_id)
@@ -233,14 +226,16 @@ def workflow(func=None, **arguments):
                                 .format(ctx.workflow_id))
                 return result
             except BaseException, e:
+                error = StringIO()
+                traceback.print_exc(file=error)
                 update_execution_status(ctx.execution_id, Execution.FAILED,
-                                        str(e))
+                                        error.getvalue())
                 send_workflow_event(
                     ctx,
                     event_type='workflow_failed',
                     message="'{}' workflow execution failed: {}"
                             .format(ctx.workflow_id, str(e)),
-                    args={'error': str(e)})
+                    args={'error': error.getvalue()})
                 raise
             finally:
                 parent_conn.close()
