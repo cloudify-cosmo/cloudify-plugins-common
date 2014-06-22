@@ -14,3 +14,5 @@
 #    * limitations under the License.
 
 __author__ = 'dank'
+
+from cloudify.workflows import workflow_api as api  # noqa
