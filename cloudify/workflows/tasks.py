@@ -55,12 +55,13 @@ class WorkflowTask(object):
         :param on_success: A handler called when the task's execution
                            terminates successfully.
                            Expected to return one of
-                           [handler_retry, handler_continue] to indicate
-                           whether this task should be re-executed.
+                           [HandlerResult.retry(), HandlerResult.cont()]
+                           to indicate whether this task should be re-executed.
         :param on_failure: A handler called when the task's execution
                            fails.
                            Expected to return one of
-                           [handler_retry, handler_fail, handler_ignore]
+                           [HandlerResult.retry(), HandlerResult.ignore(),
+                            HandlerResult.fail()]
                            to indicate whether this task should be re-executed,
                            cause the engine to terminate workflow execution
                            immediately or simply ignore this task failure and
@@ -168,12 +169,13 @@ class RemoteWorkflowTask(WorkflowTask):
         :param on_success: A handler called when the task's execution
                            terminates successfully.
                            Expected to return one of
-                           [handler_retry, handler_continue] to indicate
-                           whether this task should be re-executed.
+                           [HandlerResult.retry(), HandlerResult.cont()]
+                           to indicate whether this task should be re-executed.
         :param on_failure: A handler called when the task's execution
                            fails.
                            Expected to return one of
-                           [handler_retry, handler_fail, handler_ignore]
+                           [HandlerResult.retry(), HandlerResult.ignore(),
+                            HandlerResult.fail()]
                            to indicate whether this task should be re-executed,
                            cause the engine to terminate workflow execution
                            immediately or simply ignore this task failure and
@@ -275,12 +277,13 @@ class LocalWorkflowTask(WorkflowTask):
         :param on_success: A handler called when the task's execution
                            terminates successfully.
                            Expected to return one of
-                           [handler_retry, handler_continue] to indicate
-                           whether this task should be re-executed.
+                           [HandlerResult.retry(), HandlerResult.cont()]
+                           to indicate whether this task should be re-executed.
         :param on_failure: A handler called when the task's execution
                            fails.
                            Expected to return one of
-                           [handler_retry, handler_fail, handler_ignore]
+                           [HandlerResult.retry(), HandlerResult.ignore(),
+                            HandlerResult.fail()]
                            to indicate whether this task should be re-executed,
                            cause the engine to terminate workflow execution
                            immediately or simply ignore this task failure and
