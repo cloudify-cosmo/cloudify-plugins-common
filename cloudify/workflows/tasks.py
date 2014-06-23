@@ -19,7 +19,7 @@ import time
 import uuid
 
 from cloudify.celery import celery as celery_client
-from cloudify.exceptions import NonRecoverableError
+from cloudify.exceptions import NonRecoverableError, RecoverableError
 
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
@@ -141,6 +141,8 @@ class WorkflowTask(object):
                 exception = None
             if isinstance(exception, NonRecoverableError):
                 handler_result = HandlerResult.fail()
+            elif isinstance(exception, RecoverableError):
+                handler_result.retry_after = exception.retry_after
         return handler_result
 
     def __str__(self):
@@ -397,13 +399,19 @@ class HandlerResult(object):
     HANDLER_IGNORE = 'handler_ignore'
     HANDLER_CONTINUE = 'handler_continue'
 
-    def __init__(self, action, ignore_total_retries=False):
+    def __init__(self,
+                 action,
+                 ignore_total_retries=False,
+                 retry_after=None):
         self.action = action
         self.ignore_total_retries = ignore_total_retries
+        self.retry_after = retry_after
 
     @classmethod
-    def retry(cls, ignore_total_retries=False):
-        return HandlerResult(cls.HANDLER_RETRY, ignore_total_retries)
+    def retry(cls, ignore_total_retries=False, retry_after=None):
+        return HandlerResult(cls.HANDLER_RETRY,
+                             ignore_total_retries=ignore_total_retries,
+                             retry_after=retry_after)
 
     @classmethod
     def fail(cls):

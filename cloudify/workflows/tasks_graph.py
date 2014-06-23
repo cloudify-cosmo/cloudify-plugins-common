@@ -121,14 +121,20 @@ class TaskDependencyGraph(object):
             #    with its original dependents
             for task in self._terminated_tasks():
                 retry = False
+                retry_interval = task.retry_interval
+
                 handler_result = task.handle_task_terminated()
                 handler_action = handler_result.action
                 handler_ignore_total = handler_result.ignore_total_retries
+                handler_retry_after = handler_result.retry_after
+
                 if handler_action == tasks_api.HandlerResult.HANDLER_RETRY:
                     if task.total_retries == tasks_api.INFINITE_TOTAL_RETRIES \
                        or task.current_retries < task.total_retries\
                        or handler_ignore_total:
                         retry = True
+                        if handler_retry_after is not None:
+                            retry_interval = handler_retry_after
                     else:
                         handler_action = tasks_api.HandlerResult.HANDLER_FAIL
 
@@ -145,7 +151,7 @@ class TaskDependencyGraph(object):
                 if retry:
                     new_task = task.duplicate()
                     new_task.current_retries += 1
-                    new_task.execute_after = time.time() + task.retry_interval
+                    new_task.execute_after = time.time() + retry_interval
                     self.add_task(new_task)
                     added_edges = [(dependent, new_task.id)
                                    for dependent in dependents]
