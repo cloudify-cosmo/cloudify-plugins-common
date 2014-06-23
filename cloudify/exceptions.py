@@ -17,7 +17,6 @@ __author__ = 'elip'
 
 
 class HttpException(Exception):
-
     """
     Wraps any Http based exceptions that may arise in our code.
 
@@ -35,3 +34,10 @@ class HttpException(Exception):
 
     def __str__(self):
         return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
+
+
+class NonRecoverableError(Exception):
+    """
+    An error raised by plugins to denote that no retry should be attempted.
+    """
+    pass

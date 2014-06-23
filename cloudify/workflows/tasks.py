@@ -19,7 +19,7 @@ import time
 import uuid
 
 from cloudify.celery import celery as celery_client
-
+from cloudify.exceptions import NonRecoverableError
 
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
@@ -130,9 +130,18 @@ class WorkflowTask(object):
 
     def handle_task_failed(self):
         """Call handler for task failure"""
+        handler_result = HandlerResult.retry()
         if self.on_failure:
-            return self.on_failure(self)
-        return HandlerResult.retry()
+            handler_result = self.on_failure(self)
+        if handler_result.action == HandlerResult.HANDLER_RETRY and \
+                self.is_remote():
+            try:
+                exception = self.async_result.async_result.result
+            except:
+                exception = None
+            if isinstance(exception, NonRecoverableError):
+                handler_result = HandlerResult.fail()
+        return handler_result
 
     def __str__(self):
         suffix = self.info if self.info is not None else ''
