@@ -17,7 +17,6 @@ __author__ = 'elip'
 
 
 class HttpException(Exception):
-
     """
     Wraps any Http based exceptions that may arise in our code.
 
@@ -35,3 +34,30 @@ class HttpException(Exception):
 
     def __str__(self):
         return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
+
+
+class NonRecoverableError(Exception):
+    """
+    An error raised by plugins to denote that no retry should be attempted.
+    """
+    pass
+
+
+class RecoverableError(Exception):
+    """
+    An error raised by plugins to explicitly denote that this is a recoverable
+    error (note that this is the default behavior). It is possible specifying
+    how many seconds should pass before a retry is attempted thus overriding
+    the bootstrap context configuration parameter:
+    cloudify.workflows.retry_interval
+    """
+
+    def __init__(self, retry_after=None, *args, **kwargs):
+        """
+        :param retry_after: How many seconds should the workflow engine wait
+                            before re-executing the task the raised this
+                            exception. (only applies when the workflow engine
+                            decides that this task should be retried)
+        """
+        super(RecoverableError, self).__init__(*args, **kwargs)
+        self.retry_after = retry_after
