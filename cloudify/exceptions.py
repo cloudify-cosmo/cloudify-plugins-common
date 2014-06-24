@@ -16,26 +16,6 @@
 __author__ = 'elip'
 
 
-class HttpException(Exception):
-    """
-    Wraps any Http based exceptions that may arise in our code.
-
-    'url' - The url the request was made to.
-    'code' - The response status code.
-    'message' - The underlying reason for the error.
-
-    """
-
-    def __init__(self, url, code, message):
-        self.url = url
-        self.code = code
-        self.message = message
-        Exception.__init__(self, self.__str__())
-
-    def __str__(self):
-        return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
-
-
 class NonRecoverableError(Exception):
     """
     An error raised by plugins to denote that no retry should be attempted.
@@ -64,3 +44,23 @@ class RecoverableError(Exception):
             message = '{} [retry_after={}]'.format(message, retry_after)
         super(RecoverableError, self).__init__(message)
         self.retry_after = retry_after
+
+
+class HttpException(NonRecoverableError):
+    """
+    Wraps any Http based exceptions that may arise in our code.
+
+    'url' - The url the request was made to.
+    'code' - The response status code.
+    'message' - The underlying reason for the error.
+
+    """
+
+    def __init__(self, url, code, message):
+        self.url = url
+        self.code = code
+        self.message = message
+        super(HttpException, self).__init__(str(self))
+
+    def __str__(self):
+        return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
