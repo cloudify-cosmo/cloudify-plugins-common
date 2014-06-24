@@ -279,7 +279,8 @@ class LocalWorkflowTask(WorkflowTask):
                  on_success=None,
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL):
+                 retry_interval=DEFAULT_RETRY_INTERVAL,
+                 kwargs=None):
         """
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
@@ -302,6 +303,7 @@ class LocalWorkflowTask(WorkflowTask):
         :param total_retries: Maximum retry attempt for this task, in case
                               the handlers return a retry attempt.
         :param retry_interval: Number of seconds to wait between retries
+        :param kwargs: Local task keyword arguments
         """
         super(LocalWorkflowTask, self).__init__(
             info=info,
@@ -312,6 +314,7 @@ class LocalWorkflowTask(WorkflowTask):
         self.local_task = local_task
         self.workflow_context = workflow_context
         self.node = node
+        self.kwargs = kwargs
 
     def apply_async(self):
         """
@@ -321,7 +324,10 @@ class LocalWorkflowTask(WorkflowTask):
 
         self.set_state(TASK_SENT)
         try:
-            result = self.local_task()
+            if self.kwargs:
+                result = self.local_task(**self.kwargs)
+            else:
+                result = self.local_task()
             self.set_state(TASK_SUCCEEDED)
             self.async_result = LocalWorkflowTaskResult(result)
             return self.async_result

@@ -18,6 +18,7 @@ __author__ = 'dank'
 
 import copy
 import uuid
+import importlib
 
 import celery
 
@@ -460,7 +461,8 @@ class CloudifyWorkflowContext(object):
                     related_node_instance.node.properties)
             }
 
-        return self.execute_task(task_queue, task_name,
+        return self.execute_task(task_name,
+                                 task_queue=task_queue,
                                  kwargs=kwargs,
                                  node_context=node_context)
 
@@ -476,38 +478,6 @@ class CloudifyWorkflowContext(object):
             local_task=update_execution_status_task,
             workflow_context=self,
             info=new_status)
-
-    def execute_task(self,
-                     task_queue,
-                     task_name,
-                     kwargs=None,
-                     node_context=None):
-        """
-        Execute a task
-
-        :param task_queue: the task queue
-        :param task_name: the task named
-        :param kwargs: optional kwargs to be passed to the task
-        :param node_context: Used internally by node.execute_operation
-        """
-        kwargs = kwargs or {}
-        task_id = str(uuid.uuid4())
-        cloudify_context = self._build_cloudify_context(
-            task_id,
-            task_queue,
-            task_name,
-            node_context)
-        kwargs['__cloudify_context'] = cloudify_context
-
-        task = celery.subtask(task_name,
-                              kwargs=kwargs,
-                              queue=task_queue,
-                              immutable=True)
-
-        return self.remote_workflow_task(
-            task=task,
-            cloudify_context=cloudify_context,
-            task_id=task_id)
 
     def _build_cloudify_context(self,
                                 task_id,
@@ -528,10 +498,47 @@ class CloudifyWorkflowContext(object):
         context.update(node_context)
         return context
 
-    def _get_bootstrap_context(self):
-        if self._bootstrap_context is None:
-            self._bootstrap_context = get_bootstrap_context()
-        return self._bootstrap_context
+    def execute_task(self,
+                     task_name,
+                     task_queue=None,
+                     kwargs=None,
+                     node_context=None):
+        """
+        Execute a task
+
+        :param task_name: the task named
+        :param task_queue: the task queue, if None runs the task locally
+        :param kwargs: optional kwargs to be passed to the task
+        :param node_context: Used internally by node.execute_operation
+        """
+        kwargs = kwargs or {}
+        task_id = str(uuid.uuid4())
+        cloudify_context = self._build_cloudify_context(
+            task_id,
+            task_queue,
+            task_name,
+            node_context)
+        kwargs['__cloudify_context'] = cloudify_context
+
+        # Local task
+        if task_queue is None:
+            values = task_name.split('.')
+            module_name = '.'.join(values[:-1])
+            method_name = values[-1]
+            module = importlib.import_module(module_name)
+            task = getattr(module, method_name)
+            return self.local_workflow_task(local_task=task,
+                                            workflow_context=self,
+                                            info=task_name,
+                                            kwargs=kwargs)
+        # Remote task
+        task = celery.subtask(task_name,
+                              kwargs=kwargs,
+                              queue=task_queue,
+                              immutable=True)
+        return self.remote_workflow_task(task=task,
+                                         cloudify_context=cloudify_context,
+                                         task_id=task_id)
 
     def _get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
@@ -543,10 +550,17 @@ class CloudifyWorkflowContext(object):
                                             DEFAULT_RETRY_INTERVAL)
         }
 
+    def _get_bootstrap_context(self):
+        if self._bootstrap_context is None:
+            self._bootstrap_context = get_bootstrap_context()
+        return self._bootstrap_context
+
     def local_workflow_task(self, local_task, workflow_context,
                             node=None,
-                            info=None):
+                            info=None,
+                            kwargs=None):
         return LocalWorkflowTask(local_task, workflow_context, node, info,
+                                 kwargs=kwargs,
                                  **self._get_task_configuration())
 
     def remote_workflow_task(self, task, cloudify_context, task_id):
