@@ -25,6 +25,7 @@ from manager import get_bootstrap_context
 from logs import CloudifyPluginLoggingHandler
 from logs import init_cloudify_logger
 from logs import send_plugin_event
+from exceptions import NonRecoverableError
 
 
 class ContextCapabilities(object):
@@ -59,7 +60,7 @@ class ContextCapabilities(object):
         if len(ls) == 0:
             return False, None
         if len(ls) > 1:
-            raise RuntimeError(
+            raise NonRecoverableError(
                 "'{0}' capability ambiguity [capabilities={1}]".format(
                     key, self._capabilities))
         return True, ls[0][key]
@@ -67,7 +68,7 @@ class ContextCapabilities(object):
     def __getitem__(self, key):
         found, value = self._find_item(key)
         if not found:
-            raise KeyError(
+            raise NonRecoverableError(
                 "capability '{0}' not found [capabilities={1}]".format(
                     key, self._capabilities))
         return value
@@ -97,8 +98,9 @@ class CommonContextOperations(object):
 
     def _get_node_instance_if_needed(self):
         if self.node_id is None:
-            raise RuntimeError('Cannot get node state - invocation is not '
-                               'in a context of node')
+            raise NonRecoverableError(
+                'Cannot get node state - invocation is not '
+                'in a context of node')
         if self._node_instance is None:
             self._node_instance = get_node_instance(self.node_id)
 
@@ -384,7 +386,7 @@ class CloudifyContext(CommonContextOperations):
 
     def _verify_node_in_context(self):
         if self.node_id is None:
-            raise RuntimeError('Invocation requires a node in context')
+            raise NonRecoverableError('Invocation requires a node in context')
 
     def __getitem__(self, key):
         """
@@ -490,4 +492,4 @@ class ImmutableProperties(dict):
     """
 
     def __setitem__(self, key, value):
-        raise RuntimeError('Cannot override read only properties')
+        raise NonRecoverableError('Cannot override read only properties')
