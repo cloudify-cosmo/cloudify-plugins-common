@@ -18,6 +18,7 @@ __author__ = 'dank'
 
 import copy
 import uuid
+import importlib
 
 import celery
 
@@ -497,11 +498,6 @@ class CloudifyWorkflowContext(object):
         context.update(node_context)
         return context
 
-    def _get_bootstrap_context(self):
-        if self._bootstrap_context is None:
-            self._bootstrap_context = get_bootstrap_context()
-        return self._bootstrap_context
-
     def execute_task(self,
                      task_name,
                      task_queue=None,
@@ -529,11 +525,7 @@ class CloudifyWorkflowContext(object):
             values = task_name.split('.')
             module_name = '.'.join(values[:-1])
             method_name = values[-1]
-            import importlib
             module = importlib.import_module(module_name)
-            self.logger.info('Loading module: {}'.format(module_name))
-            self.logger.info('Module methods: {}'.format(dir(module)))
-            self.logger.info('Getting method: {}'.format(method_name))
             task = getattr(module, method_name)
             return self.local_workflow_task(local_task=task,
                                             workflow_context=self,
@@ -557,6 +549,11 @@ class CloudifyWorkflowContext(object):
             'retry_interval': workflows.get('task_retry_interval',
                                             DEFAULT_RETRY_INTERVAL)
         }
+
+    def _get_bootstrap_context(self):
+        if self._bootstrap_context is None:
+            self._bootstrap_context = get_bootstrap_context()
+        return self._bootstrap_context
 
     def local_workflow_task(self, local_task, workflow_context,
                             node=None,
