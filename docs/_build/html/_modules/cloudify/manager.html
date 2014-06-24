@@ -1,0 +1,326 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>cloudify.manager &mdash; cloudify-plugins-common 3.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+    <link rel="top" title="cloudify-plugins-common 3.0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="../../index.html" class="fa fa-home"> cloudify-plugins-common</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="simple">
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">cloudify-plugins-common</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      
+    <li>cloudify.manager</li>
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <h1>Source code for cloudify.manager</h1><div class="highlight"><pre>
+<span class="c">########</span>
+<span class="c"># Copyright (c) 2014 GigaSpaces Technologies Ltd. All rights reserved</span>
+<span class="c">#</span>
+<span class="c"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c"># you may not use this file except in compliance with the License.</span>
+<span class="c"># You may obtain a copy of the License at</span>
+<span class="c">#</span>
+<span class="c">#        http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c">#</span>
+<span class="c"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c">#    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c">#    * See the License for the specific language governing permissions and</span>
+<span class="c">#    * limitations under the License.</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s">&#39;idanmo&#39;</span>
+
+<span class="kn">import</span> <span class="nn">urllib2</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">from</span> <span class="nn">cosmo_manager_rest_client.cosmo_manager_rest_client</span> \
+    <span class="kn">import</span> <span class="n">CosmoManagerRestClient</span>
+<span class="kn">from</span> <span class="nn">cloudify_rest_client</span> <span class="kn">import</span> <span class="n">CloudifyClient</span>
+
+
+<span class="kn">from</span> <span class="nn">cloudify.exceptions</span> <span class="kn">import</span> <span class="n">HttpException</span>
+<span class="kn">import</span> <span class="nn">utils</span>
+
+
+<div class="viewcode-block" id="NodeInstance"><a class="viewcode-back" href="../../index.html#cloudify.manager.NodeInstance">[docs]</a><span class="k">class</span> <span class="nc">NodeInstance</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents a deployment node instance.</span>
+<span class="sd">    An instance of this class contains runtime information retrieved</span>
+<span class="sd">    from Cloudify&#39;s runtime storage as well as the node&#39;s state.</span>
+<span class="sd">    Its API allows to set and get the node instance&#39;s state and properties.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">,</span> <span class="n">runtime_properties</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                 <span class="n">state</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">node_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_runtime_properties</span> <span class="o">=</span> \
+            <span class="n">DirtyTrackingDict</span><span class="p">((</span><span class="n">runtime_properties</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_version</span> <span class="o">=</span> <span class="n">version</span>
+
+<div class="viewcode-block" id="NodeInstance.get"><a class="viewcode-back" href="../../index.html#cloudify.manager.NodeInstance.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runtime_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="NodeInstance.put"><a class="viewcode-back" href="../../index.html#cloudify.manager.NodeInstance.put">[docs]</a>    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_runtime_properties</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+</div>
+    <span class="n">__setitem__</span> <span class="o">=</span> <span class="n">put</span>
+
+    <span class="n">__getitem__</span> <span class="o">=</span> <span class="n">get</span>
+
+    <span class="k">def</span> <span class="nf">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runtime_properties</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NodeInstance.runtime_properties"><a class="viewcode-back" href="../../index.html#cloudify.manager.NodeInstance.runtime_properties">[docs]</a>    <span class="k">def</span> <span class="nf">runtime_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runtime_properties</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NodeInstance.version"><a class="viewcode-back" href="../../index.html#cloudify.manager.NodeInstance.version">[docs]</a>    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_version</span>
+</div>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span>
+
+    <span class="nd">@state.setter</span>
+<div class="viewcode-block" id="NodeInstance.state"><a class="viewcode-back" href="../../index.html#cloudify.manager.NodeInstance.state">[docs]</a>    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="n">value</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NodeInstance.dirty"><a class="viewcode-back" href="../../index.html#cloudify.manager.NodeInstance.dirty">[docs]</a>    <span class="k">def</span> <span class="nf">dirty</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runtime_properties</span><span class="o">.</span><span class="n">dirty</span>
+
+</div></div>
+<div class="viewcode-block" id="get_manager_rest_client"><a class="viewcode-back" href="../../index.html#cloudify.manager.get_manager_rest_client">[docs]</a><span class="k">def</span> <span class="nf">get_manager_rest_client</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">CosmoManagerRestClient</span><span class="p">(</span><span class="n">utils</span><span class="o">.</span><span class="n">get_manager_ip</span><span class="p">(),</span>
+                                  <span class="n">utils</span><span class="o">.</span><span class="n">get_manager_rest_service_port</span><span class="p">())</span>
+
+</div>
+<div class="viewcode-block" id="get_new_rest_client"><a class="viewcode-back" href="../../index.html#cloudify.manager.get_new_rest_client">[docs]</a><span class="k">def</span> <span class="nf">get_new_rest_client</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">CloudifyClient</span><span class="p">(</span><span class="n">utils</span><span class="o">.</span><span class="n">get_manager_ip</span><span class="p">(),</span>
+                          <span class="n">utils</span><span class="o">.</span><span class="n">get_manager_rest_service_port</span><span class="p">())</span>
+
+</div>
+<span class="k">def</span> <span class="nf">_save_resource</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">,</span> <span class="n">target_path</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">target_path</span><span class="p">:</span>
+        <span class="n">target_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">utils</span><span class="o">.</span><span class="n">create_temp_folder</span><span class="p">(),</span>
+                                   <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">resource_path</span><span class="p">))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">target_path</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Downloaded </span><span class="si">%s</span><span class="s"> to </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="n">target_path</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">target_path</span>
+
+
+<div class="viewcode-block" id="download_resource"><a class="viewcode-back" href="../../index.html#cloudify.manager.download_resource">[docs]</a><span class="k">def</span> <span class="nf">download_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">target_path</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">resource</span> <span class="o">=</span> <span class="n">get_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_save_resource</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">,</span> <span class="n">target_path</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="download_blueprint_resource"><a class="viewcode-back" href="../../index.html#cloudify.manager.download_blueprint_resource">[docs]</a><span class="k">def</span> <span class="nf">download_blueprint_resource</span><span class="p">(</span><span class="n">blueprint_id</span><span class="p">,</span>
+                                <span class="n">resource_path</span><span class="p">,</span>
+                                <span class="n">logger</span><span class="p">,</span>
+                                <span class="n">target_path</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">resource</span> <span class="o">=</span> <span class="n">get_blueprint_resource</span><span class="p">(</span><span class="n">blueprint_id</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_save_resource</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">,</span> <span class="n">target_path</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="get_resource"><a class="viewcode-back" href="../../index.html#cloudify.manager.get_resource">[docs]</a><span class="k">def</span> <span class="nf">get_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">base_url</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">base_url</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_manager_file_server_url</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="s">&#39;{0}/{1}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">urllib2</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">urllib2</span><span class="o">.</span><span class="n">HTTPError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">HttpException</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">msg</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="get_blueprint_resource"><a class="viewcode-back" href="../../index.html#cloudify.manager.get_blueprint_resource">[docs]</a><span class="k">def</span> <span class="nf">get_blueprint_resource</span><span class="p">(</span><span class="n">blueprint_id</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">):</span>
+    <span class="n">base_url</span> <span class="o">=</span> <span class="s">&quot;{0}/{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">utils</span>
+                                <span class="o">.</span><span class="n">get_manager_file_server_blueprints_root_url</span><span class="p">(),</span>
+                                <span class="n">blueprint_id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">get_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="n">base_url</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="get_node_instance"><a class="viewcode-back" href="../../index.html#cloudify.manager.get_node_instance">[docs]</a><span class="k">def</span> <span class="nf">get_node_instance</span><span class="p">(</span><span class="n">node_instance_id</span><span class="p">):</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">get_new_rest_client</span><span class="p">()</span>
+    <span class="n">instance</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">node_instances</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">node_instance_id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">NodeInstance</span><span class="p">(</span><span class="n">node_instance_id</span><span class="p">,</span>
+                        <span class="n">runtime_properties</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">runtime_properties</span><span class="p">,</span>
+                        <span class="n">state</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">state</span><span class="p">,</span>
+                        <span class="n">version</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">version</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="update_node_instance"><a class="viewcode-back" href="../../index.html#cloudify.manager.update_node_instance">[docs]</a><span class="k">def</span> <span class="nf">update_node_instance</span><span class="p">(</span><span class="n">node_instance</span><span class="p">):</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">get_new_rest_client</span><span class="p">()</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">node_instances</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="n">node_instance</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+        <span class="n">state</span><span class="o">=</span><span class="n">node_instance</span><span class="o">.</span><span class="n">state</span><span class="p">,</span>
+        <span class="n">runtime_properties</span><span class="o">=</span><span class="n">node_instance</span><span class="o">.</span><span class="n">runtime_properties</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="n">node_instance</span><span class="o">.</span><span class="n">version</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="update_execution_status"><a class="viewcode-back" href="../../index.html#cloudify.manager.update_execution_status">[docs]</a><span class="k">def</span> <span class="nf">update_execution_status</span><span class="p">(</span><span class="n">execution_id</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">get_manager_rest_client</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">update_execution_status</span><span class="p">(</span><span class="n">execution_id</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="get_bootstrap_context"><a class="viewcode-back" href="../../index.html#cloudify.manager.get_bootstrap_context">[docs]</a><span class="k">def</span> <span class="nf">get_bootstrap_context</span><span class="p">():</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">get_manager_rest_client</span><span class="p">()</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_provider_context</span><span class="p">()[</span><span class="s">&#39;context&#39;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;cloudify&#39;</span><span class="p">,</span> <span class="p">{})</span>
+
+</div>
+<div class="viewcode-block" id="get_provider_context"><a class="viewcode-back" href="../../index.html#cloudify.manager.get_provider_context">[docs]</a><span class="k">def</span> <span class="nf">get_provider_context</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">get_manager_rest_client</span><span class="p">()</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_provider_context</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">context</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">None</span>
+    <span class="k">return</span> <span class="n">context</span><span class="p">[</span><span class="s">&#39;context&#39;</span><span class="p">]</span>
+
+</div>
+<div class="viewcode-block" id="DirtyTrackingDict"><a class="viewcode-back" href="../../index.html#cloudify.manager.DirtyTrackingDict">[docs]</a><span class="k">class</span> <span class="nc">DirtyTrackingDict</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DirtyTrackingDict</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dirty</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="k">def</span> <span class="nf">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DirtyTrackingDict</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__setitem__</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dirty</span> <span class="o">=</span> <span class="bp">True</span></div>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Gigaspaces.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'3.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
