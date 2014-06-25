@@ -280,7 +280,8 @@ class LocalWorkflowTask(WorkflowTask):
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
                  retry_interval=DEFAULT_RETRY_INTERVAL,
-                 kwargs=None):
+                 kwargs=None,
+                 task_id=None):
         """
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
@@ -310,7 +311,8 @@ class LocalWorkflowTask(WorkflowTask):
             on_success=on_success,
             on_failure=on_failure,
             total_retries=total_retries,
-            retry_interval=retry_interval)
+            retry_interval=retry_interval,
+            task_id=task_id)
         self.local_task = local_task
         self.workflow_context = workflow_context
         self.node = node
