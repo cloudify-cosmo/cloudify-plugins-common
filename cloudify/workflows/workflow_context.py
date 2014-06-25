@@ -578,4 +578,5 @@ class CloudifyWorkflowContext(object):
     def _process_task(self, task):
         if self._graph_mode:
             return task
-        return task.apply_async()
+        else:
+            return task.apply_async()
