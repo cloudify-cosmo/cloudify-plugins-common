@@ -539,12 +539,11 @@ class CloudifyWorkflowContext(object):
     def _get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
         workflows = bootstrap_context.get('workflows', {})
-        return {
-            'total_retries': workflows.get('task_retries',
-                                           DEFAULT_TOTAL_RETRIES),
-            'retry_interval': workflows.get('task_retry_interval',
-                                            DEFAULT_RETRY_INTERVAL)
-        }
+        total_retries = workflows.get('task_retries', DEFAULT_TOTAL_RETRIES)
+        retry_interval = workflows.get('task_retry_interval',
+                                       DEFAULT_RETRY_INTERVAL)
+        return dict(total_retries=total_retries,
+                    retry_interval=retry_interval)
 
     def _get_bootstrap_context(self):
         if self._bootstrap_context is None:
@@ -558,14 +557,22 @@ class CloudifyWorkflowContext(object):
                    kwargs=None,
                    task_id=None):
         return self._process_task(
-            LocalWorkflowTask(local_task, self, node, info,
+            LocalWorkflowTask(local_task=local_task,
+                              workflow_context=self,
+                              node=node,
+                              info=info,
                               kwargs=kwargs,
                               task_id=task_id,
                               **self._get_task_configuration()))
 
-    def remote_task(self, task, cloudify_context, task_id):
+    def remote_task(self,
+                    task,
+                    cloudify_context,
+                    task_id):
         return self._process_task(
-            RemoteWorkflowTask(task, cloudify_context, task_id,
+            RemoteWorkflowTask(task=task,
+                               cloudify_context=cloudify_context,
+                               task_id=task_id,
                                **self._get_task_configuration()))
 
     def _process_task(self, task):

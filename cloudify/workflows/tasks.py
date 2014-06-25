@@ -273,7 +273,9 @@ class RemoteWorkflowTask(WorkflowTask):
 class LocalWorkflowTask(WorkflowTask):
     """A WorkflowTask wrapping a local callable"""
 
-    def __init__(self, local_task, workflow_context,
+    def __init__(self,
+                 local_task,
+                 workflow_context,
                  node=None,
                  info=None,
                  on_success=None,
