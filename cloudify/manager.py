@@ -146,11 +146,10 @@ def get_bootstrap_context():
     return context.get('cloudify', {})
 
 
-def get_provider_context(name):
+def get_provider_context():
+    """Gets provider context from manager."""
     client = get_rest_client()
     context = client.manager.get_context()
-    if context['name'] != name:
-        return None
     return context['context']
 
 
