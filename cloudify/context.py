@@ -211,7 +211,7 @@ class CloudifyContext(CommonContextOperations):
             self._related = CloudifyRelatedNode(self._context)
         else:
             self._related = None
-        self._provider_contexts = {}
+        self._provider_context = None
         self._bootstrap_context = None
 
     @property
@@ -375,14 +375,12 @@ class CloudifyContext(CommonContextOperations):
         """
         send_plugin_event(ctx=self, message=event)
 
-    def get_provider_context(self, name):
-        """
-        Provider context provided during the bootstrap process
-        """
-        if self._provider_contexts.get(name) is None:
-            provider_context = get_provider_context(name)
-            self._provider_contexts[name] = provider_context
-        return self._provider_contexts.get(name)
+    @property
+    def provider_context(self):
+        """Gets provider context which contains provider specific metadata."""
+        if self._provider_context is None:
+            self._provider_context = get_provider_context()
+        return self._provider_context
 
     def _verify_node_in_context(self):
         if self.node_id is None:
