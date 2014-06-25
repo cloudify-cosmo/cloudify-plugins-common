@@ -221,7 +221,7 @@ class RemoteWorkflowTask(WorkflowTask):
 
         async_result = self.task.apply_async(task_id=self.id)
         self.set_state(TASK_SENT)
-        self.async_result = RemoteWorkflowTaskResult(async_result)
+        self.async_result = RemoteWorkflowTaskResult(self, async_result)
         return self.async_result
 
     @staticmethod
@@ -229,8 +229,8 @@ class RemoteWorkflowTask(WorkflowTask):
         return False
 
     def duplicate(self):
-        dup = RemoteWorkflowTask(self.task,
-                                 self.cloudify_context,
+        dup = RemoteWorkflowTask(task=self.task,
+                                 cloudify_context=self.cloudify_context,
                                  info=self.info,
                                  on_success=self.on_success,
                                  on_failure=self.on_failure,
@@ -333,7 +333,7 @@ class LocalWorkflowTask(WorkflowTask):
             else:
                 result = self.local_task()
             self.set_state(TASK_SUCCEEDED)
-            self.async_result = LocalWorkflowTaskResult(result)
+            self.async_result = LocalWorkflowTaskResult(self, result)
             return self.async_result
         except:
             self.set_state(TASK_FAILED)
@@ -344,9 +344,9 @@ class LocalWorkflowTask(WorkflowTask):
         return True
 
     def duplicate(self):
-        dup = LocalWorkflowTask(self.local_task,
-                                self.workflow_context,
-                                self.node,
+        dup = LocalWorkflowTask(local_task=self.local_task,
+                                workflow_context=self.workflow_context,
+                                node=self.node,
                                 info=self.info,
                                 on_success=self.on_success,
                                 on_failure=self.on_failure,
@@ -365,7 +365,7 @@ class LocalWorkflowTask(WorkflowTask):
 class NOPLocalWorkflowTask(LocalWorkflowTask):
 
     def __init__(self):
-        super(NOPLocalWorkflowTask, self).__init__(lambda: None, None, None)
+        super(NOPLocalWorkflowTask, self).__init__(lambda: None, None)
 
     @property
     def name(self):
@@ -376,7 +376,8 @@ class NOPLocalWorkflowTask(LocalWorkflowTask):
 class RemoteWorkflowTaskResult(object):
     """A wrapper for celery's AsyncResult"""
 
-    def __init__(self, async_result):
+    def __init__(self, task, async_result):
+        self.task = task
         self.async_result = async_result
 
     def get(self):
@@ -392,7 +393,8 @@ class RemoteWorkflowTaskResult(object):
 class LocalWorkflowTaskResult(object):
     """A wrapper for local workflow task results"""
 
-    def __init__(self, result):
+    def __init__(self, task, result):
+        self.task = task
         self.result = result
 
     def get(self):
