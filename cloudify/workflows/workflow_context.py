@@ -156,7 +156,7 @@ class CloudifyWorkflowNodeInstance(object):
 
         self._logger = None
 
-    def set_state(self, state):
+    def set_state(self, state, runtime_properties=None):
         """
         Set the node state
 
@@ -166,6 +166,8 @@ class CloudifyWorkflowNodeInstance(object):
         def set_state_task():
             node_state = get_node_instance(self.id)
             node_state.state = state
+            if runtime_properties is not None:
+                node_state.runtime_properties.update(runtime_properties)
             update_node_instance(node_state)
             return node_state
         return self.ctx.local_task(
