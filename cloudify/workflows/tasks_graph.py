@@ -20,13 +20,13 @@ import time
 import networkx as nx
 
 from cloudify.workflows import api
-from cloudify.workflows import tasks as tasks_api
+from cloudify.workflows import tasks
 
 
 class TaskDependencyGraph(object):
     """A task graph builder"""
 
-    done_states = [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED]
+    done_states = [tasks.TASK_FAILED, tasks.TASK_SUCCEEDED]
 
     def __init__(self, workflow_context):
         """
@@ -134,7 +134,7 @@ class TaskDependencyGraph(object):
         """
         now = time.time()
         return (task for task in self._tasks_iter()
-                if task.get_state() == tasks_api.TASK_PENDING
+                if task.get_state() == tasks.TASK_PENDING
                 and task.execute_after <= now
                 and not self._task_has_dependencies(task.id))
 
@@ -163,48 +163,21 @@ class TaskDependencyGraph(object):
         task.apply_async()
 
     def _handle_terminated_task(self, task):
-        """Handle terminated task
+        """Handle terminated task"""
 
-        1. if it failed, call its handler. if the handler returns
-           false, fail the workflow. otherwise continue normally.
-        2. if it succeeded remove it and its dependencies
-           from the graph. if its handler returned true,
-           duplicate the task and reinsert it to the graph
-           with its original dependents
-        """
-
-        retry = False
-        retry_interval = task.retry_interval
-
-        handler_result = task.handle_task_terminated()
-        handler_action = handler_result.action
-        handler_ignore_total = handler_result.ignore_total_retries
-        handler_retry_after = handler_result.retry_after
-
-        if handler_action == tasks_api.HandlerResult.HANDLER_RETRY:
-            if task.total_retries == tasks_api.INFINITE_TOTAL_RETRIES \
-                    or task.current_retries < task.total_retries \
-                    or handler_ignore_total:
-                retry = True
-                if handler_retry_after is not None:
-                    retry_interval = handler_retry_after
-            else:
-                handler_action = tasks_api.HandlerResult.HANDLER_FAIL
-
-        if handler_action == tasks_api.HandlerResult.HANDLER_FAIL:
+        handler_result = tasks.handle_terminated_task(task)
+        if handler_result.action == tasks.HandlerResult.HANDLER_FAIL:
             raise RuntimeError(
-                "Workflow failed: Task failed '{}' -> {}"
-                .format(task.name, task.error))
+                "Workflow failed: Task failed '{}' -> {}".format(task.name,
+                                                                 task.error))
 
         dependents = self.graph.predecessors(task.id)
         removed_edges = [(dependent, task.id)
                          for dependent in dependents]
         self.graph.remove_edges_from(removed_edges)
         self.graph.remove_node(task.id)
-        if retry:
-            new_task = task.duplicate()
-            new_task.current_retries += 1
-            new_task.execute_after = time.time() + retry_interval
+        if handler_result.action == tasks.HandlerResult.HANDLER_RETRY:
+            new_task = handler_result.retried_task
             self.add_task(new_task)
             added_edges = [(dependent, new_task.id)
                            for dependent in dependents]

@@ -15,6 +15,7 @@
 
 __author__ = 'dank'
 
+import sys
 import time
 import uuid
 
@@ -334,10 +335,13 @@ class LocalWorkflowTask(WorkflowTask):
                 result = self.local_task()
             self.set_state(TASK_SUCCEEDED)
             self.async_result = LocalWorkflowTaskResult(self, result)
-            return self.async_result
         except:
+            exc_type, exception, tb = sys.exc_info()
             self.set_state(TASK_FAILED)
-            raise
+            self.async_result = LocalWorkflowTaskResult(self, result=None,
+                                                        error=(exception, tb))
+
+        return self.async_result
 
     @staticmethod
     def is_local():
@@ -373,7 +377,12 @@ class NOPLocalWorkflowTask(LocalWorkflowTask):
         return 'NOP'
 
 
-class RemoteWorkflowTaskResult(object):
+class WorkflowTaskResult(object):
+    """A base wrapper for workflow task results"""
+    pass
+
+
+class RemoteWorkflowTaskResult(WorkflowTaskResult):
     """A wrapper for celery's AsyncResult"""
 
     def __init__(self, task, async_result):
@@ -390,17 +399,27 @@ class RemoteWorkflowTaskResult(object):
         return self.async_result.get()
 
 
-class LocalWorkflowTaskResult(object):
+class LocalWorkflowTaskResult(WorkflowTaskResult):
     """A wrapper for local workflow task results"""
 
-    def __init__(self, task, result):
+    def __init__(self, task, result, error=None):
+        """
+        :param task: The LocalWorkflowTask instance
+        :param result: The result if the task finished successfully
+        :param error: a tuple (exception, traceback) if the task failed
+        """
         self.task = task
         self.result = result
+        self.error = error
 
     def get(self):
         """
-        :return: The local task result
+        :return: The local task result if error is None. Otherwise,
+        the original exception will be re-raised.
         """
+        if self.error is not None:
+            exception, traceback = self.error
+            raise exception, None, traceback
         return self.result
 
 
@@ -419,6 +438,10 @@ class HandlerResult(object):
         self.ignore_total_retries = ignore_total_retries
         self.retry_after = retry_after
 
+        # this field is filled by handle_terminated_task() below after
+        # duplicating the task and updating the relevant task fields
+        self.retried_task = None
+
     @classmethod
     def retry(cls, ignore_total_retries=False, retry_after=None):
         return HandlerResult(cls.HANDLER_RETRY,
@@ -436,3 +459,20 @@ class HandlerResult(object):
     @classmethod
     def ignore(cls):
         return HandlerResult(cls.HANDLER_IGNORE)
+
+
+def handle_terminated_task(task):
+    handler_result = task.handle_task_terminated()
+    if handler_result.action == HandlerResult.HANDLER_RETRY:
+        if any([task.total_retries == INFINITE_TOTAL_RETRIES,
+                task.current_retries < task.total_retries,
+                handler_result.ignore_total_retries]):
+            if handler_result.retry_after is None:
+                handler_result.retry_after = task.retry_interval
+            new_task = task.duplicate()
+            new_task.current_retries += 1
+            new_task.execute_after = time.time() + handler_result.retry_after
+            handler_result.retried_task = new_task
+        else:
+            handler_result.action = HandlerResult.HANDLER_FAIL
+    return handler_result
