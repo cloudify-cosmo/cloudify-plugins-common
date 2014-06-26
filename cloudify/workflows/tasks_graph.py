@@ -257,8 +257,6 @@ class TaskSequence(object):
             for task in fork_join_tasks:
                 self.graph.add_task(task)
                 if self.last_fork_join_tasks is not None:
-                    # TODO: consider batch insertion of edges (see
-                    # TODO: digraph.add_edges_from method)
                     for last_fork_join_task in self.last_fork_join_tasks:
                         self.graph.add_dependency(task, last_fork_join_task)
             if fork_join_tasks:
