@@ -18,6 +18,7 @@ __author__ = 'dank'
 import sys
 import time
 import uuid
+from Queue import Queue
 
 from cloudify.celery import celery as celery_client
 from cloudify.exceptions import NonRecoverableError, RecoverableError
@@ -49,7 +50,8 @@ class WorkflowTask(object):
                  on_success=None,
                  on_failure=None,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL):
+                 retry_interval=DEFAULT_RETRY_INTERVAL,
+                 workflow_context=None):
         """
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
@@ -80,6 +82,8 @@ class WorkflowTask(object):
         self.error = None
         self.total_retries = total_retries
         self.retry_interval = retry_interval
+        self.terminated = Queue(maxsize=1)
+        self.workflow_context = workflow_context
 
         self.current_retries = 0
         # timestamp for which the task should not be executed
@@ -116,6 +120,11 @@ class WorkflowTask(object):
                                '[task={}]'.format(state, str(self)))
 
         self._state = state
+        if state in [TASK_SUCCEEDED, TASK_FAILED]:
+            self.terminated.put_nowait(True)
+
+    def wait_for_terminated(self, timeout=None):
+        self.terminated.get(timeout=timeout)
 
     def handle_task_terminated(self):
         if self.get_state() == TASK_FAILED:
@@ -172,7 +181,8 @@ class RemoteWorkflowTask(WorkflowTask):
                  on_success=None,
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL):
+                 retry_interval=DEFAULT_RETRY_INTERVAL,
+                 workflow_context=None):
         """
         :param task: The celery task
         :param cloudify_context: the cloudify context dict
@@ -195,13 +205,16 @@ class RemoteWorkflowTask(WorkflowTask):
         :param total_retries: Maximum retry attempt for this task, in case
                               the handlers return a retry attempt.
         :param retry_interval: Number of seconds to wait between retries
+        :param workflow_context: the CloudifyWorkflowContext instance
         """
-        super(RemoteWorkflowTask, self).__init__(task_id,
-                                                 info=info,
-                                                 on_success=on_success,
-                                                 on_failure=on_failure,
-                                                 total_retries=total_retries,
-                                                 retry_interval=retry_interval)
+        super(RemoteWorkflowTask, self).__init__(
+            task_id,
+            info=info,
+            on_success=on_success,
+            on_failure=on_failure,
+            total_retries=total_retries,
+            retry_interval=retry_interval,
+            workflow_context=workflow_context)
         self.task = task
         self.cloudify_context = cloudify_context
 
@@ -236,7 +249,8 @@ class RemoteWorkflowTask(WorkflowTask):
                                  on_success=self.on_success,
                                  on_failure=self.on_failure,
                                  total_retries=self.total_retries,
-                                 retry_interval=self.retry_interval)
+                                 retry_interval=self.retry_interval,
+                                 workflow_context=self.workflow_context)
         dup.cloudify_context['task_id'] = dup.id
         dup.current_retries = self.current_retries
         return dup
@@ -315,9 +329,9 @@ class LocalWorkflowTask(WorkflowTask):
             on_failure=on_failure,
             total_retries=total_retries,
             retry_interval=retry_interval,
-            task_id=task_id)
+            task_id=task_id,
+            workflow_context=workflow_context)
         self.local_task = local_task
-        self.workflow_context = workflow_context
         self.node = node
         self.kwargs = kwargs
 
@@ -379,14 +393,39 @@ class NOPLocalWorkflowTask(LocalWorkflowTask):
 
 class WorkflowTaskResult(object):
     """A base wrapper for workflow task results"""
-    pass
+
+    def __init__(self, task):
+        self.task = task
+
+    def _process(self):
+        if self.task.workflow_context._graph_mode:
+            return self._get_impl()
+
+        while True:
+            self.task.wait_for_terminated()
+            handler_result = self.task.handle_task_terminated()
+            self.task.workflow_context._tasks_graph.remove_task(self.task)
+            retry = handler_result.action == HandlerResult.HANDLER_RETRY
+            try:
+                result = self._get_impl()
+                if not retry:
+                    return result
+            except:
+                if handler_result.action == HandlerResult.HANDLER_FAIL:
+                    raise
+            self.task = handler_result.retried_task
+            self.task.workflow_context._tasks_graph.add_task(self.task)
+            time.sleep(handler_result.retry_after)
+
+    def _get_impl(self):
+        raise NotImplementedError('Implemented by subclasses')
 
 
 class RemoteWorkflowTaskResult(WorkflowTaskResult):
     """A wrapper for celery's AsyncResult"""
 
     def __init__(self, task, async_result):
-        self.task = task
+        super(RemoteWorkflowTaskResult, self).__init__(task)
         self.async_result = async_result
 
     def get(self):
@@ -396,6 +435,9 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
 
         :return: The task result
         """
+        return self._process()
+
+    def _get_impl(self):
         return self.async_result.get()
 
 
@@ -408,7 +450,7 @@ class LocalWorkflowTaskResult(WorkflowTaskResult):
         :param result: The result if the task finished successfully
         :param error: a tuple (exception, traceback) if the task failed
         """
-        self.task = task
+        super(LocalWorkflowTaskResult, self).__init__(task)
         self.result = result
         self.error = error
 
@@ -417,6 +459,9 @@ class LocalWorkflowTaskResult(WorkflowTaskResult):
         :return: The local task result if error is None. Otherwise,
         the original exception will be re-raised.
         """
+        return self._process()
+
+    def _get_impl(self):
         if self.error is not None:
             exception, traceback = self.error
             raise exception, None, traceback

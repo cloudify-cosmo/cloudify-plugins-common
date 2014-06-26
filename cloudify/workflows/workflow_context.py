@@ -584,6 +584,7 @@ class CloudifyWorkflowContext(object):
             RemoteWorkflowTask(task=task,
                                cloudify_context=cloudify_context,
                                task_id=task_id,
+                               workflow_context=self,
                                **self._get_task_configuration()))
 
     def _process_task(self, task):

@@ -53,6 +53,12 @@ class TaskDependencyGraph(object):
         data = self.graph.node.get(task_id)
         return data['task'] if data is not None else None
 
+    def remove_task(self, task):
+        """Remove the provided task from the graph
+        :param task: The task
+        """
+        self.graph.remove_node(task.id)
+
     # src depends on dst
     def add_dependency(self, src_task, dst_task):
         """
