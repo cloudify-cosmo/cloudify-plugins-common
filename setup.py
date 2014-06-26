@@ -16,11 +16,6 @@
 __author__ = 'elip'
 
 from setuptools import setup
-from pip.req import parse_requirements
-
-install_requires = [
-    str(ir.req) for ir in parse_requirements('requirements.txt')]
-
 
 setup(
     name='cloudify-plugins-common',
@@ -32,5 +27,10 @@ setup(
     description='Contains necessary decorators and utility methods for '
                 'writing Cloudify plugins',
     zip_safe=False,
-    install_requires=install_requires
+    install_requires=[
+        'protobuf',
+        'celery==3.0.24',
+        'pika==0.9.13',
+        'networkx==1.8.1',
+    ]
 )

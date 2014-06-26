@@ -20,6 +20,7 @@ import time
 import networkx as nx
 
 from cloudify.workflows.events import start_event_monitor
+from cloudify.workflows import api
 from cloudify.workflows import tasks as tasks_api
 
 
@@ -89,13 +90,23 @@ class TaskDependencyGraph(object):
         1. all tasks terminated
         2. a task failed
         3. an unhandled exception is raised
+        4. the execution is cancelled
+
+        Note: This method will return None unless the execution has been
+        cancelled, in which case the return value will be
+        api.EXECUTION_CANCELLED_RESULT. Callers of this method should check
+        the return value and propagate the result in the latter case.
+
+        Also note that for the time being, if such a cancelling event
+        occurs, the method might return even while there's some operations
+        still being executed.
         """
 
         # start the celery event monitor for receiving task sent/started/
         # failed/succeeded events for remote workflow tasks
         start_event_monitor(self)
 
-        while True:
+        while not self._is_execution_cancelled():
 
             # execute all tasks that are executable at the moment
             for task in self._executable_tasks():
@@ -110,14 +121,27 @@ class TaskDependencyGraph(object):
             #    with its original dependents
             for task in self._terminated_tasks():
                 retry = False
-                if task.get_state() == tasks_api.TASK_FAILED:
-                    ignore_fail = task.handle_task_failed()
-                    if not ignore_fail:
-                        raise RuntimeError(
-                            "Workflow failed: Task failed '{}' -> {}"
-                            .format(task.name, task.error))
-                else:
-                    retry = task.handle_task_succeeded()
+                retry_interval = task.retry_interval
+
+                handler_result = task.handle_task_terminated()
+                handler_action = handler_result.action
+                handler_ignore_total = handler_result.ignore_total_retries
+                handler_retry_after = handler_result.retry_after
+
+                if handler_action == tasks_api.HandlerResult.HANDLER_RETRY:
+                    if task.total_retries == tasks_api.INFINITE_TOTAL_RETRIES \
+                       or task.current_retries < task.total_retries\
+                       or handler_ignore_total:
+                        retry = True
+                        if handler_retry_after is not None:
+                            retry_interval = handler_retry_after
+                    else:
+                        handler_action = tasks_api.HandlerResult.HANDLER_FAIL
+
+                if handler_action == tasks_api.HandlerResult.HANDLER_FAIL:
+                    raise RuntimeError(
+                        "Workflow failed: Task failed '{}' -> {}"
+                        .format(task.name, task.error))
 
                 dependents = self.graph.predecessors(task.id)
                 removed_edges = [(dependent, task.id)
@@ -126,6 +150,8 @@ class TaskDependencyGraph(object):
                 self.graph.remove_node(task.id)
                 if retry:
                     new_task = task.duplicate()
+                    new_task.current_retries += 1
+                    new_task.execute_after = time.time() + retry_interval
                     self.add_task(new_task)
                     added_edges = [(dependent, new_task.id)
                                    for dependent in dependents]
@@ -133,10 +159,15 @@ class TaskDependencyGraph(object):
 
             # no more tasks to process, time to move on
             if len(self.graph.node) == 0:
-                break
+                return
             # sleep some and do it all over again
             else:
                 time.sleep(0.1)
+
+        return api.EXECUTION_CANCELLED_RESULT
+
+    def _is_execution_cancelled(self):
+        return api.has_cancel_request()
 
     def _executable_tasks(self, ):
         """
@@ -146,9 +177,10 @@ class TaskDependencyGraph(object):
 
         :return: An iterator for executable tasks
         """
-
+        now = time.time()
         return (task for task in self._tasks_iter()
                 if task.get_state() == tasks_api.TASK_PENDING
+                and task.execute_after <= now
                 and not self._task_has_dependencies(task.id))
 
     def _terminated_tasks(self):

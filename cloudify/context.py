@@ -25,6 +25,7 @@ from manager import get_bootstrap_context
 from logs import CloudifyPluginLoggingHandler
 from logs import init_cloudify_logger
 from logs import send_plugin_event
+from exceptions import NonRecoverableError
 
 
 class ContextCapabilities(object):
@@ -33,17 +34,18 @@ class ContextCapabilities(object):
 
     Capabilities are actually dependency nodes runtime properties.
     For example:
-        In a case where a 'db' node is contained in a 'vm' node,
-         The 'vm' node can publish its ip address using ctx['ip'] = ip_addr
-         in its plugins invocations.
-         In order for the 'db' node to consume the 'vm' node's ip, capabilities
-         would be used on 'db' node plugins invocations:
-            ip_addr = ctx.capabilities['ip']
-        In a case where it is needed to iterate through all available
-         capabilities, the following method should be used:
-            all_caps = ctx.capabilities.get_all()
-            Where the returned value is a dict of node ids as keys and their
-            runtime properties as values.
+
+    In a case where a 'db' node is contained in a 'vm' node,
+    The 'vm' node can publish its ip address using ctx['ip'] = ip_addr
+    in its plugins invocations.
+    In order for the 'db' node to consume the 'vm' node's ip, capabilities
+    would be used on 'db' node plugins invocations:
+    ip_addr = ctx.capabilities['ip']
+    In a case where it is needed to iterate through all available
+    capabilities, the following method should be used:
+    all_caps = ctx.capabilities.get_all()
+    Where the returned value is a dict of node ids as keys and their
+    runtime properties as values.
     """
     def __init__(self, relationships=None):
         self._relationships = relationships or []
@@ -58,7 +60,7 @@ class ContextCapabilities(object):
         if len(ls) == 0:
             return False, None
         if len(ls) > 1:
-            raise RuntimeError(
+            raise NonRecoverableError(
                 "'{0}' capability ambiguity [capabilities={1}]".format(
                     key, self._capabilities))
         return True, ls[0][key]
@@ -66,7 +68,7 @@ class ContextCapabilities(object):
     def __getitem__(self, key):
         found, value = self._find_item(key)
         if not found:
-            raise KeyError(
+            raise NonRecoverableError(
                 "capability '{0}' not found [capabilities={1}]".format(
                     key, self._capabilities))
         return value
@@ -96,8 +98,9 @@ class CommonContextOperations(object):
 
     def _get_node_instance_if_needed(self):
         if self.node_id is None:
-            raise RuntimeError('Cannot get node state - invocation is not '
-                               'in a context of node')
+            raise NonRecoverableError(
+                'Cannot get node state - invocation is not '
+                'in a context of node')
         if self._node_instance is None:
             self._node_instance = get_node_instance(self.node_id)
 
@@ -187,11 +190,13 @@ class CloudifyContext(CommonContextOperations):
     """
     A context object passed to plugins tasks invocations.
     Using the context object, plugin writers can:
-        - Get node in context information
-        - Update node runtime properties.
-        - Use a context aware logger.
-        - Get related node info (relationships).
-        and more...
+
+    - Get node in context information
+    - Update node runtime properties.
+    - Use a context aware logger.
+    - Get related node info (relationships).
+
+    and more...
     """
 
     def __init__(self, ctx=None):
@@ -206,7 +211,7 @@ class CloudifyContext(CommonContextOperations):
             self._related = CloudifyRelatedNode(self._context)
         else:
             self._related = None
-        self._provider_contexts = {}
+        self._provider_context = None
         self._bootstrap_context = None
 
     @property
@@ -269,7 +274,8 @@ class CloudifyContext(CommonContextOperations):
         """
         The workflow id the plugin invocation was requested from.
         For example:
-            'install', 'uninstall' etc...
+
+         'install', 'uninstall' etc...
         """
         return self._context.get('workflow_id')
 
@@ -309,15 +315,15 @@ class CloudifyContext(CommonContextOperations):
 
         For example:
 
-            - Getting a specific capability:
-                conn_str = ctx.capabilities['connection_string']
-                This actually attempts to locate the provided key in
-                 ctx.capabilities.get_all() (described below).
+        - Getting a specific capability:
+            conn_str = ctx.capabilities['connection_string']
+            This actually attempts to locate the provided key in
+            ctx.capabilities.get_all() (described below).
 
-            - Getting all capabilities:
-                all_caps = ctx.capabilities.get_all()
-                The result is a dict of node ids as keys and the values are
-                the dependency node's runtime properties.
+        - Getting all capabilities:
+            all_caps = ctx.capabilities.get_all()
+            The result is a dict of node ids as keys and the values are
+            the dependency node's runtime properties.
 
         """
         return self._capabilities
@@ -369,18 +375,16 @@ class CloudifyContext(CommonContextOperations):
         """
         send_plugin_event(ctx=self, message=event)
 
-    def get_provider_context(self, name):
-        """
-        Provider context provided during the bootstrap process
-        """
-        if self._provider_contexts.get(name) is None:
-            provider_context = get_provider_context(name)
-            self._provider_contexts[name] = provider_context
-        return self._provider_contexts.get(name)
+    @property
+    def provider_context(self):
+        """Gets provider context which contains provider specific metadata."""
+        if self._provider_context is None:
+            self._provider_context = get_provider_context()
+        return self._provider_context
 
     def _verify_node_in_context(self):
         if self.node_id is None:
-            raise RuntimeError('Invocation requires a node in context')
+            raise NonRecoverableError('Invocation requires a node in context')
 
     def __getitem__(self, key):
         """
@@ -486,4 +490,4 @@ class ImmutableProperties(dict):
     """
 
     def __setitem__(self, key, value):
-        raise RuntimeError('Cannot override read only properties')
+        raise NonRecoverableError('Cannot override read only properties')
