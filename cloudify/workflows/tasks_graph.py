@@ -19,7 +19,6 @@ import time
 
 import networkx as nx
 
-from cloudify.workflows.events import start_event_monitor
 from cloudify.workflows import api
 from cloudify.workflows import tasks as tasks_api
 
@@ -101,10 +100,6 @@ class TaskDependencyGraph(object):
         occurs, the method might return even while there's some operations
         still being executed.
         """
-
-        # start the celery event monitor for receiving task sent/started/
-        # failed/succeeded events for remote workflow tasks
-        start_event_monitor(self)
 
         while not self._is_execution_cancelled():
 

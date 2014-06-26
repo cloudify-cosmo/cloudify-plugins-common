@@ -30,6 +30,7 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       NOPLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
                                       DEFAULT_RETRY_INTERVAL)
+from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            init_cloudify_logger,
@@ -333,9 +334,17 @@ class CloudifyWorkflowContext(object):
         self._logger = None
         self._bootstrap_context = None
         self._graph_mode = False
+        # the graph is always created internally for events to work properly
+        # when graph mode is turned on this instance is returned to the user.
+        self._tasks_graph = TaskDependencyGraph(self)
 
     def graph_mode(self):
+        """
+        Switch the workflow context into graph mode
+        :return: A task dependency graph instance
+        """
         self._graph_mode = True
+        return self._tasks_graph
 
     @property
     def nodes(self):
@@ -579,4 +588,5 @@ class CloudifyWorkflowContext(object):
         if self._graph_mode:
             return task
         else:
+            self._tasks_graph.add_task(task)
             return task.apply_async()

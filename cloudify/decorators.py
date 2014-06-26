@@ -28,6 +28,7 @@ from cloudify.context import CloudifyContext
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.logs import send_workflow_event
+from cloudify.workflows.events import start_event_monitor
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
 
@@ -164,6 +165,7 @@ def workflow(func=None, **arguments):
                 # back to the parent process
                 def child_wrapper():
                     try:
+                        start_event_monitor(ctx)
                         result = func(*args, **kwargs)
                         child_conn.send({'result': result})
                     except BaseException, e:
