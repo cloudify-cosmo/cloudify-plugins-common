@@ -433,8 +433,12 @@ class WorkflowTaskResult(object):
             self.task = handler_result.retried_task
             self.task.workflow_context._tasks_graph.add_task(self.task)
             self.task.apply_async()
+            self._refresh_state()
 
     def _get_impl(self):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def _refresh_state(self):
         raise NotImplementedError('Implemented by subclasses')
 
 
@@ -456,6 +460,9 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
 
     def _get_impl(self):
         return self.async_result.get()
+
+    def _refresh_state(self):
+        self.async_result = self.task.async_result.async_result
 
 
 class LocalWorkflowTaskResult(WorkflowTaskResult):
@@ -483,6 +490,10 @@ class LocalWorkflowTaskResult(WorkflowTaskResult):
             exception, traceback = self.error
             raise exception, None, traceback
         return self.result
+
+    def _refresh_state(self):
+        self.result = self.task.async_result.result
+        self.error = self.task.async_result.error
 
 
 class HandlerResult(object):
