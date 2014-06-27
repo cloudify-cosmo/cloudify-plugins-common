@@ -151,13 +151,15 @@ class WorkflowTask(object):
         """Call handler for task success"""
         if self.on_success:
             return self.on_success(self)
-        return HandlerResult.cont()
+        else:
+            return HandlerResult.cont()
 
     def _handle_task_failed(self):
         """Call handler for task failure"""
-        handler_result = HandlerResult.retry()
         if self.on_failure:
             handler_result = self.on_failure(self)
+        else:
+            handler_result = HandlerResult.retry()
         if handler_result.action == HandlerResult.HANDLER_RETRY and \
                 self.is_remote():
             try:
@@ -420,10 +422,9 @@ class WorkflowTaskResult(object):
             self.task.wait_for_terminated()
             handler_result = self.task.handle_task_terminated()
             self.task.workflow_context._tasks_graph.remove_task(self.task)
-            retry = handler_result.action == HandlerResult.HANDLER_RETRY
             try:
                 result = self._get_impl()
-                if not retry:
+                if handler_result.action != HandlerResult.HANDLER_RETRY:
                     return result
             except:
                 if handler_result.action == HandlerResult.HANDLER_FAIL:
