@@ -128,17 +128,32 @@ class WorkflowTask(object):
 
     def handle_task_terminated(self):
         if self.get_state() == TASK_FAILED:
-            return self.handle_task_failed()
+            handler_result = self._handle_task_failed()
         else:
-            return self.handle_task_succeeded()
+            handler_result = self._handle_task_succeeded()
 
-    def handle_task_succeeded(self):
+        if handler_result.action == HandlerResult.HANDLER_RETRY:
+            if any([self.total_retries == INFINITE_TOTAL_RETRIES,
+                    self.current_retries < self.total_retries,
+                    handler_result.ignore_total_retries]):
+                if handler_result.retry_after is None:
+                    handler_result.retry_after = self.retry_interval
+                new_task = self.duplicate()
+                new_task.current_retries += 1
+                new_task.execute_after = time.time() +\
+                    handler_result.retry_after
+                handler_result.retried_task = new_task
+            else:
+                handler_result.action = HandlerResult.HANDLER_FAIL
+        return handler_result
+
+    def _handle_task_succeeded(self):
         """Call handler for task success"""
         if self.on_success:
             return self.on_success(self)
         return HandlerResult.cont()
 
-    def handle_task_failed(self):
+    def _handle_task_failed(self):
         """Call handler for task failure"""
         handler_result = HandlerResult.retry()
         if self.on_failure:
@@ -413,9 +428,10 @@ class WorkflowTaskResult(object):
             except:
                 if handler_result.action == HandlerResult.HANDLER_FAIL:
                     raise
+            time.sleep(handler_result.retry_after)
             self.task = handler_result.retried_task
             self.task.workflow_context._tasks_graph.add_task(self.task)
-            time.sleep(handler_result.retry_after)
+            self.task.apply_async()
 
     def _get_impl(self):
         raise NotImplementedError('Implemented by subclasses')
@@ -504,20 +520,3 @@ class HandlerResult(object):
     @classmethod
     def ignore(cls):
         return HandlerResult(cls.HANDLER_IGNORE)
-
-
-def handle_terminated_task(task):
-    handler_result = task.handle_task_terminated()
-    if handler_result.action == HandlerResult.HANDLER_RETRY:
-        if any([task.total_retries == INFINITE_TOTAL_RETRIES,
-                task.current_retries < task.total_retries,
-                handler_result.ignore_total_retries]):
-            if handler_result.retry_after is None:
-                handler_result.retry_after = task.retry_interval
-            new_task = task.duplicate()
-            new_task.current_retries += 1
-            new_task.execute_after = time.time() + handler_result.retry_after
-            handler_result.retried_task = new_task
-        else:
-            handler_result.action = HandlerResult.HANDLER_FAIL
-    return handler_result

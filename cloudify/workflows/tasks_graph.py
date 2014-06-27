@@ -171,7 +171,7 @@ class TaskDependencyGraph(object):
     def _handle_terminated_task(self, task):
         """Handle terminated task"""
 
-        handler_result = tasks.handle_terminated_task(task)
+        handler_result = task.handle_task_terminated()
         if handler_result.action == tasks.HandlerResult.HANDLER_FAIL:
             raise RuntimeError(
                 "Workflow failed: Task failed '{}' -> {}".format(task.name,
