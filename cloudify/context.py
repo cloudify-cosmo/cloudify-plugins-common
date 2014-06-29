@@ -190,7 +190,6 @@ class BootstrapContext(object):
         return self._bootstrap_context.get('resources_prefix', '')
 
 
-
 class CloudifyContext(CommonContextOperations):
     """
     A context object passed to plugins tasks invocations.
