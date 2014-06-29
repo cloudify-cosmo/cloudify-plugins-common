@@ -37,6 +37,7 @@ class MockCloudifyContext(CloudifyContext):
                  related=None,
                  operation=None,
                  resources=None,
+                 provider_context=None,
                  bootstrap_context=None):
         super(MockCloudifyContext, self).__init__({'operation': operation})
         self._node_id = node_id
@@ -54,6 +55,7 @@ class MockCloudifyContext(CloudifyContext):
                     capabilities))
         self._capabilities = capabilities or ContextCapabilities()
         self._related = related
+        self._provider_context = provider_context or {}
         self._bootstrap_context = bootstrap_context or BootstrapContext({})
 
         root = logging.getLogger()
@@ -107,6 +109,10 @@ class MockCloudifyContext(CloudifyContext):
     @property
     def logger(self):
         return self._mock_context_logger
+
+    @property
+    def provider_context(self):
+        return self._provider_context
 
     @property
     def bootstrap_context(self):
