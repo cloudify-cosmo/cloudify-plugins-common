@@ -40,3 +40,7 @@ def has_cancel_request():
         data = pipe.recv()
         return data['action'] == 'cancel'
     return False
+
+
+class ExecutionCancelled(Exception):
+    pass

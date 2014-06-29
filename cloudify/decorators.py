@@ -172,6 +172,9 @@ def workflow(func=None, **arguments):
                             for task in tasks:
                                 task.async_result.get()
                         child_conn.send({'result': result})
+                    except api.ExecutionCancelled:
+                        child_conn.send({
+                            'result': api.EXECUTION_CANCELLED_RESULT})
                     except BaseException, e:
                         child_conn.send({'error': e})
                     finally:

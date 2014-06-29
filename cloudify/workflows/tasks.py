@@ -18,10 +18,12 @@ __author__ = 'dank'
 import sys
 import time
 import uuid
-from Queue import Queue
+import Queue
 
 from cloudify.celery import celery as celery_client
 from cloudify.exceptions import NonRecoverableError, RecoverableError
+
+from cloudify.workflows import api
 
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
@@ -82,7 +84,7 @@ class WorkflowTask(object):
         self.error = None
         self.total_retries = total_retries
         self.retry_interval = retry_interval
-        self.terminated = Queue(maxsize=1)
+        self.terminated = Queue.Queue(maxsize=1)
         self.workflow_context = workflow_context
 
         self.current_retries = 0
@@ -417,12 +419,11 @@ class WorkflowTaskResult(object):
     def _process(self, retry_on_failure):
         if self.task.workflow_context.internal.graph_mode:
             return self._get()
-
+        task_graph = self.task.workflow_context.internal.task_graph
         while True:
-            self.task.wait_for_terminated()
+            self._wait_for_task_terminated()
             handler_result = self.task.handle_task_terminated()
-            self.task.workflow_context.internal.task_graph.remove_task(
-                self.task)
+            task_graph.remove_task(self.task)
             try:
                 result = self._get()
                 if handler_result.action != HandlerResult.HANDLER_RETRY:
@@ -431,11 +432,32 @@ class WorkflowTaskResult(object):
                 if (not retry_on_failure or
                         handler_result.action == HandlerResult.HANDLER_FAIL):
                     raise
-            time.sleep(handler_result.retry_after)
+            self._sleep(handler_result.retry_after)
             self.task = handler_result.retried_task
-            self.task.workflow_context.internal.task_graph.add_task(self.task)
+            task_graph.add_task(self.task)
+            self._check_execution_cancelled()
             self.task.apply_async()
             self._refresh_state()
+
+    @staticmethod
+    def _check_execution_cancelled():
+        if api.has_cancel_request():
+            raise api.ExecutionCancelled()
+
+    def _wait_for_task_terminated(self):
+        while True:
+            self._check_execution_cancelled()
+            try:
+                self.task.wait_for_terminated(timeout=1)
+            except Queue.Empty:
+                continue
+
+    def _sleep(self, seconds):
+        end_wait = time.time() + seconds
+        while time.time() < end_wait:
+            self._check_execution_cancelled()
+            sleep_time = 1 if seconds > 1 else seconds
+            time.sleep(sleep_time)
 
     def get(self, retry_on_failure=True):
         """
