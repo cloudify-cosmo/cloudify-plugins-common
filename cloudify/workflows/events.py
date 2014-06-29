@@ -134,7 +134,7 @@ def start_event_monitor(workflow_context):
 
     :param workflow_context: The workflow context
     """
-    monitor = Monitor(workflow_context._tasks_graph)
+    monitor = Monitor(workflow_context.internal.task_graph)
     thread = threading.Thread(target=monitor.capture)
     thread.daemon = True
     thread.start()

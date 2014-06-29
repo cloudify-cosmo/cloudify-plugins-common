@@ -334,19 +334,20 @@ class CloudifyWorkflowContext(object):
             for instance in rest_node_instances}
 
         self._logger = None
-        self._bootstrap_context = None
-        self._graph_mode = False
-        # the graph is always created internally for events to work properly
-        # when graph mode is turned on this instance is returned to the user.
-        self._tasks_graph = TaskDependencyGraph(self)
+
+        self._internal = CloudifyWorkflowContextInternal()
 
     def graph_mode(self):
         """
         Switch the workflow context into graph mode
         :return: A task dependency graph instance
         """
-        self._graph_mode = True
-        return self._tasks_graph
+        self.internal.graph_mode = True
+        return self.internal.task_graph
+
+    @property
+    def internal(self):
+        return self._internal
 
     @property
     def nodes(self):
@@ -547,20 +548,6 @@ class CloudifyWorkflowContext(object):
                                     cloudify_context=cloudify_context,
                                     task_id=task_id)
 
-    def _get_task_configuration(self):
-        bootstrap_context = self._get_bootstrap_context()
-        workflows = bootstrap_context.get('workflows', {})
-        total_retries = workflows.get('task_retries', DEFAULT_TOTAL_RETRIES)
-        retry_interval = workflows.get('task_retry_interval',
-                                       DEFAULT_RETRY_INTERVAL)
-        return dict(total_retries=total_retries,
-                    retry_interval=retry_interval)
-
-    def _get_bootstrap_context(self):
-        if self._bootstrap_context is None:
-            self._bootstrap_context = get_bootstrap_context()
-        return self._bootstrap_context
-
     def local_task(self,
                    local_task,
                    node=None,
@@ -574,7 +561,7 @@ class CloudifyWorkflowContext(object):
                               info=info,
                               kwargs=kwargs,
                               task_id=task_id,
-                              **self._get_task_configuration()))
+                              **self.internal.get_task_configuration()))
 
     def remote_task(self,
                     task,
@@ -585,11 +572,47 @@ class CloudifyWorkflowContext(object):
                                cloudify_context=cloudify_context,
                                task_id=task_id,
                                workflow_context=self,
-                               **self._get_task_configuration()))
+                               **self.internal.get_task_configuration()))
 
     def _process_task(self, task):
         if self._graph_mode:
             return task
         else:
-            self._tasks_graph.add_task(task)
+            self.internal.task_graph.add_task(task)
             return task.apply_async()
+
+
+class CloudifyWorkflowContextInternal(object):
+
+    def __init__(self):
+        self._bootstrap_context = None
+        self._graph_mode = False
+        # the graph is always created internally for events to work properly
+        # when graph mode is turned on this instance is returned to the user.
+        self._tasks_graph = TaskDependencyGraph(self)
+
+    def get_task_configuration(self):
+        bootstrap_context = self._get_bootstrap_context()
+        workflows = bootstrap_context.get('workflows', {})
+        total_retries = workflows.get('task_retries', DEFAULT_TOTAL_RETRIES)
+        retry_interval = workflows.get('task_retry_interval',
+                                       DEFAULT_RETRY_INTERVAL)
+        return dict(total_retries=total_retries,
+                    retry_interval=retry_interval)
+
+    def _get_bootstrap_context(self):
+        if self._bootstrap_context is None:
+            self._bootstrap_context = get_bootstrap_context()
+        return self._bootstrap_context
+
+    @property
+    def task_graph(self):
+        return self._tasks_graph
+
+    @property
+    def graph_mode(self):
+        return self._graph_mode
+
+    @graph_mode.setter
+    def graph_mode(self, graph_mode):
+        self._graph_mode = graph_mode

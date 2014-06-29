@@ -414,28 +414,39 @@ class WorkflowTaskResult(object):
     def __init__(self, task):
         self.task = task
 
-    def _process(self):
-        if self.task.workflow_context._graph_mode:
-            return self._get_impl()
+    def _process(self, retry_on_failure):
+        if self.task.workflow_context.internal.graph_mode:
+            return self._get()
 
         while True:
             self.task.wait_for_terminated()
             handler_result = self.task.handle_task_terminated()
-            self.task.workflow_context._tasks_graph.remove_task(self.task)
+            self.task.workflow_context.internal.task_graph.remove_task(
+                self.task)
             try:
-                result = self._get_impl()
+                result = self._get()
                 if handler_result.action != HandlerResult.HANDLER_RETRY:
                     return result
             except:
-                if handler_result.action == HandlerResult.HANDLER_FAIL:
+                if (not retry_on_failure or
+                        handler_result.action == HandlerResult.HANDLER_FAIL):
                     raise
             time.sleep(handler_result.retry_after)
             self.task = handler_result.retried_task
-            self.task.workflow_context._tasks_graph.add_task(self.task)
+            self.task.workflow_context.internal.task_graph.add_task(self.task)
             self.task.apply_async()
             self._refresh_state()
 
-    def _get_impl(self):
+    def get(self, retry_on_failure=True):
+        """
+        Get the task result.
+        Will block until the task execution ends.
+
+        :return: The task result
+        """
+        return self._process(retry_on_failure)
+
+    def _get(self):
         raise NotImplementedError('Implemented by subclasses')
 
     def _refresh_state(self):
@@ -449,16 +460,7 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
         super(RemoteWorkflowTaskResult, self).__init__(task)
         self.async_result = async_result
 
-    def get(self):
-        """
-        Get the task result.
-        Will block until the task execution ends.
-
-        :return: The task result
-        """
-        return self._process()
-
-    def _get_impl(self):
+    def _get(self):
         return self.async_result.get()
 
     def _refresh_state(self):
@@ -478,14 +480,7 @@ class LocalWorkflowTaskResult(WorkflowTaskResult):
         self.result = result
         self.error = error
 
-    def get(self):
-        """
-        :return: The local task result if error is None. Otherwise,
-        the original exception will be re-raised.
-        """
-        return self._process()
-
-    def _get_impl(self):
+    def _get(self):
         if self.error is not None:
             exception, traceback = self.error
             raise exception, None, traceback
