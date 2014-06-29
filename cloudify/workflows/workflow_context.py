@@ -335,7 +335,7 @@ class CloudifyWorkflowContext(object):
 
         self._logger = None
 
-        self._internal = CloudifyWorkflowContextInternal()
+        self._internal = CloudifyWorkflowContextInternal(self)
 
     def graph_mode(self):
         """
@@ -575,7 +575,7 @@ class CloudifyWorkflowContext(object):
                                **self.internal.get_task_configuration()))
 
     def _process_task(self, task):
-        if self._graph_mode:
+        if self.internal.graph_mode:
             return task
         else:
             self.internal.task_graph.add_task(task)
@@ -584,12 +584,12 @@ class CloudifyWorkflowContext(object):
 
 class CloudifyWorkflowContextInternal(object):
 
-    def __init__(self):
+    def __init__(self, workflow_context):
         self._bootstrap_context = None
         self._graph_mode = False
         # the graph is always created internally for events to work properly
         # when graph mode is turned on this instance is returned to the user.
-        self._tasks_graph = TaskDependencyGraph(self)
+        self._task_graph = TaskDependencyGraph(workflow_context)
 
     def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
@@ -607,7 +607,7 @@ class CloudifyWorkflowContextInternal(object):
 
     @property
     def task_graph(self):
-        return self._tasks_graph
+        return self._task_graph
 
     @property
     def graph_mode(self):
