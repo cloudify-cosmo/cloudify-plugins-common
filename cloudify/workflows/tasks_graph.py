@@ -139,7 +139,7 @@ class TaskDependencyGraph(object):
         :return: An iterator for executable tasks
         """
         now = time.time()
-        return (task for task in self._tasks_iter()
+        return (task for task in self.tasks_iter()
                 if task.get_state() == tasks.TASK_PENDING
                 and task.execute_after <= now
                 and not self._task_has_dependencies(task.id))
@@ -150,7 +150,7 @@ class TaskDependencyGraph(object):
 
         :return: An iterator for terminated tasks
         """
-        return (task for task in self._tasks_iter()
+        return (task for task in self.tasks_iter()
                 if task.get_state() in self.done_states)
 
     def _task_has_dependencies(self, task_id):
@@ -161,7 +161,7 @@ class TaskDependencyGraph(object):
         successors = self.graph.succ.get(task_id)
         return successors is not None and len(successors) > 0
 
-    def _tasks_iter(self):
+    def tasks_iter(self):
         return (data['task'] for _, data in self.graph.nodes_iter(data=True))
 
     def _handle_executable_task(self, task):

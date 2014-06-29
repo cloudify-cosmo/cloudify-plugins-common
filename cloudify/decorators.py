@@ -167,6 +167,10 @@ def workflow(func=None, **arguments):
                     try:
                         start_event_monitor(ctx)
                         result = func(*args, **kwargs)
+                        if not ctx.internal.graph_mode:
+                            tasks = list(ctx.internal.task_graph.tasks_iter())
+                            for task in tasks:
+                                task.async_result.get()
                         child_conn.send({'result': result})
                     except BaseException, e:
                         child_conn.send({'error': e})
