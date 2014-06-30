@@ -74,6 +74,7 @@ class WorkflowTask(object):
         :param total_retries: Maximum retry attempt for this task, in case
                               the handlers return a retry attempt.
         :param retry_interval: Number of seconds to wait between retries
+        :param workflow_context: the CloudifyWorkflowContext instance
         """
         self.id = task_id or str(uuid.uuid4())
         self._state = TASK_PENDING
