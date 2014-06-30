@@ -342,6 +342,10 @@ class CloudifyWorkflowContext(object):
         Switch the workflow context into graph mode
         :return: A task dependency graph instance
         """
+        if next(self.internal.task_graph.tasks_iter(), None) is not None:
+            raise RuntimeError('Cannot switch to graph mode when tasks have'
+                               'already been executed')
+
         self.internal.graph_mode = True
         return self.internal.task_graph
 
