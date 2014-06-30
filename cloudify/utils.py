@@ -29,12 +29,14 @@ from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, \
     MANAGER_REST_PORT_KEY, MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY, \
     MANAGER_FILE_SERVER_URL_KEY
 
+
 def setup_default_logger(logger_name):
     root = logging.getLogger()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.DEBUG)
     formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
-                                      '[%(name)s] %(message)s', datefmt='%H:%M:%S')
+                                      '[%(name)s] %(message)s',
+                                  datefmt='%H:%M:%S')
     ch.setFormatter(formatter)
     # clear all other handlers
     for handler in root.handlers:
@@ -114,7 +116,8 @@ class LocalCommandRunner(object):
 
         '''
 
-        :param logger: This logger will be used for printing the output and the command.
+        :param logger: This logger will be
+        used for printing the output and the command.
         '''
         self.logger = logger
 
@@ -122,7 +125,7 @@ class LocalCommandRunner(object):
         self.logger.debug('[{0}] run: {1}'.format(get_local_ip(), command))
         shlex_split = shlex.split(command)
         p = subprocess.Popen(shlex_split, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+                             stderr=subprocess.PIPE)
         out, err = p.communicate()
         if p.returncode == 0:
             self.logger.debug('[{0}] out: {1}'.format(get_local_ip(), out))
@@ -137,9 +140,9 @@ class LocalCommandRunner(object):
                 raise error
 
         return CommandExecutionResponse(command=command,
-                                      std_out=out,
-                                      std_err=err,
-                                      return_code=p.returncode)
+                                        std_out=out,
+                                        std_err=err,
+                                        return_code=p.returncode)
 
 
 class CommandExecutionResponse(object):
