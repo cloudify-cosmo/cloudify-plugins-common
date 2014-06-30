@@ -449,15 +449,17 @@ class WorkflowTaskResult(object):
             self._check_execution_cancelled()
             try:
                 self.task.wait_for_terminated(timeout=1)
+                break
             except Queue.Empty:
                 continue
 
     def _sleep(self, seconds):
-        end_wait = time.time() + seconds
-        while time.time() < end_wait:
+        while seconds > 0:
             self._check_execution_cancelled()
             sleep_time = 1 if seconds > 1 else seconds
             time.sleep(sleep_time)
+            seconds -= sleep_time
+
 
     def get(self, retry_on_failure=True):
         """
