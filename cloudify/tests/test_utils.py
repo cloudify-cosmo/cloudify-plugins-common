@@ -40,7 +40,7 @@ class LocalCommandRunnerTest(unittest.TestCase):
 
     def test_run_command_error(self):
         try:
-            self.runner.run('Bad command')
+            self.runner.run('/bin/sh -c bad')
             self.fail('Expected CommandExecutionException due to Bad command')
         except CommandExecutionException as e:
             self.assertTrue(1, e.code)
