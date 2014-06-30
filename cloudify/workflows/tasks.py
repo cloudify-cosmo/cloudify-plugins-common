@@ -461,7 +461,6 @@ class WorkflowTaskResult(object):
             time.sleep(sleep_time)
             seconds -= sleep_time
 
-
     def get(self, retry_on_failure=True):
         """
         Get the task result.
