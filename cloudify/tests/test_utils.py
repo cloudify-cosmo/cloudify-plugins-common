@@ -33,14 +33,14 @@ class LocalCommandRunnerTest(unittest.TestCase):
         os.environ[LOCAL_IP_KEY] = 'localhost'
 
     def test_run_command_success(self):
-        command_execution_result = self.runner.run('cmd.exe /c echo Hello')
+        command_execution_result = self.runner.run('echo Hello')
         self.assertEqual('Hello', command_execution_result.std_out.strip())
         self.assertEqual(0, command_execution_result.return_code)
         self.assertEqual('', command_execution_result.std_err)
 
     def test_run_command_error(self):
         try:
-            self.runner.run('cmd.exe /c Bad command')
+            self.runner.run('Bad command')
             self.fail('Expected CommandExecutionException due to Bad command')
         except CommandExecutionException as e:
             self.assertTrue(1, e.code)
