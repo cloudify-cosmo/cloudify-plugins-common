@@ -30,6 +30,7 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       NOPLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
                                       DEFAULT_RETRY_INTERVAL)
+from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            init_cloudify_logger,
@@ -155,7 +156,7 @@ class CloudifyWorkflowNodeInstance(object):
 
         self._logger = None
 
-    def set_state(self, state):
+    def set_state(self, state, runtime_properties=None):
         """
         Set the node state
 
@@ -165,11 +166,12 @@ class CloudifyWorkflowNodeInstance(object):
         def set_state_task():
             node_state = get_node_instance(self.id)
             node_state.state = state
+            if runtime_properties is not None:
+                node_state.runtime_properties.update(runtime_properties)
             update_node_instance(node_state)
             return node_state
-        return self.ctx.local_workflow_task(
+        return self.ctx.local_task(
             local_task=set_state_task,
-            workflow_context=self.ctx,
             node=self,
             info=state)
 
@@ -181,9 +183,8 @@ class CloudifyWorkflowNodeInstance(object):
         """
         def get_state_task():
             return get_node_instance(self.id).state
-        return self.ctx.local_workflow_task(
+        return self.ctx.local_task(
             local_task=get_state_task,
-            workflow_context=self.ctx,
             node=self)
 
     def send_event(self, event, additional_context=None):
@@ -199,9 +200,8 @@ class CloudifyWorkflowNodeInstance(object):
                                      event_type='workflow_node_event',
                                      message=event,
                                      additional_context=additional_context)
-        return self.ctx.local_workflow_task(
+        return self.ctx.local_task(
             local_task=send_event_task,
-            workflow_context=self.ctx,
             node=self,
             info=event)
 
@@ -326,19 +326,32 @@ class CloudifyWorkflowContext(object):
         rest_nodes = rest.nodes.list(self.deployment_id)
         rest_node_instances = rest.node_instances.list(self.deployment_id)
 
-        nodes = {node.id: CloudifyWorkflowNode(self, node) for
-                 node in rest_nodes}
-        node_instances = {
+        self._nodes = {node.id: CloudifyWorkflowNode(self, node) for
+                       node in rest_nodes}
+        self._node_instances = {
             instance.id: CloudifyWorkflowNodeInstance(
-                self, nodes[instance.node_id], instance)
+                self, self._nodes[instance.node_id], instance)
             for instance in rest_node_instances}
-
-        self._nodes = nodes
-        self._node_instances = node_instances
 
         self._logger = None
 
-        self._bootstrap_context = None
+        self._internal = CloudifyWorkflowContextInternal(self)
+
+    def graph_mode(self):
+        """
+        Switch the workflow context into graph mode
+        :return: A task dependency graph instance
+        """
+        if next(self.internal.task_graph.tasks_iter(), None) is not None:
+            raise RuntimeError('Cannot switch to graph mode when tasks have'
+                               'already been executed')
+
+        self.internal.graph_mode = True
+        return self.internal.task_graph
+
+    @property
+    def internal(self):
+        return self._internal
 
     @property
     def nodes(self):
@@ -397,9 +410,8 @@ class CloudifyWorkflowContext(object):
                                 message=event,
                                 args=args,
                                 additional_context=additional_context)
-        return self.local_workflow_task(
+        return self.local_task(
             local_task=send_event_task,
-            workflow_context=self,
             info=event)
 
     def get_node(self, node_id):
@@ -474,9 +486,8 @@ class CloudifyWorkflowContext(object):
         """
         def update_execution_status_task():
             update_execution_status(self.execution_id, new_status)
-        return self.local_workflow_task(
+        return self.local_task(
             local_task=update_execution_status_task,
-            workflow_context=self,
             info=new_status)
 
     def _build_cloudify_context(self,
@@ -520,49 +531,92 @@ class CloudifyWorkflowContext(object):
             node_context)
         kwargs['__cloudify_context'] = cloudify_context
 
-        # Local task
         if task_queue is None:
+            # Local task
             values = task_name.split('.')
             module_name = '.'.join(values[:-1])
             method_name = values[-1]
             module = importlib.import_module(module_name)
             task = getattr(module, method_name)
-            return self.local_workflow_task(local_task=task,
-                                            workflow_context=self,
-                                            info=task_name,
-                                            kwargs=kwargs)
-        # Remote task
-        task = celery.subtask(task_name,
-                              kwargs=kwargs,
-                              queue=task_queue,
-                              immutable=True)
-        return self.remote_workflow_task(task=task,
-                                         cloudify_context=cloudify_context,
-                                         task_id=task_id)
+            return self.local_task(local_task=task,
+                                   info=task_name,
+                                   kwargs=kwargs,
+                                   task_id=task_id)
+        else:
+            # Remote task
+            task = celery.subtask(task_name,
+                                  kwargs=kwargs,
+                                  queue=task_queue,
+                                  immutable=True)
+            return self.remote_task(task=task,
+                                    cloudify_context=cloudify_context,
+                                    task_id=task_id)
 
-    def _get_task_configuration(self):
+    def local_task(self,
+                   local_task,
+                   node=None,
+                   info=None,
+                   kwargs=None,
+                   task_id=None):
+        return self._process_task(
+            LocalWorkflowTask(local_task=local_task,
+                              workflow_context=self,
+                              node=node,
+                              info=info,
+                              kwargs=kwargs,
+                              task_id=task_id,
+                              **self.internal.get_task_configuration()))
+
+    def remote_task(self,
+                    task,
+                    cloudify_context,
+                    task_id):
+        return self._process_task(
+            RemoteWorkflowTask(task=task,
+                               cloudify_context=cloudify_context,
+                               task_id=task_id,
+                               workflow_context=self,
+                               **self.internal.get_task_configuration()))
+
+    def _process_task(self, task):
+        if self.internal.graph_mode:
+            return task
+        else:
+            self.internal.task_graph.add_task(task)
+            return task.apply_async()
+
+
+class CloudifyWorkflowContextInternal(object):
+
+    def __init__(self, workflow_context):
+        self._bootstrap_context = None
+        self._graph_mode = False
+        # the graph is always created internally for events to work properly
+        # when graph mode is turned on this instance is returned to the user.
+        self._task_graph = TaskDependencyGraph(workflow_context)
+
+    def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
         workflows = bootstrap_context.get('workflows', {})
-        return {
-            'total_retries': workflows.get('task_retries',
-                                           DEFAULT_TOTAL_RETRIES),
-            'retry_interval': workflows.get('task_retry_interval',
-                                            DEFAULT_RETRY_INTERVAL)
-        }
+        total_retries = workflows.get('task_retries', DEFAULT_TOTAL_RETRIES)
+        retry_interval = workflows.get('task_retry_interval',
+                                       DEFAULT_RETRY_INTERVAL)
+        return dict(total_retries=total_retries,
+                    retry_interval=retry_interval)
 
     def _get_bootstrap_context(self):
         if self._bootstrap_context is None:
             self._bootstrap_context = get_bootstrap_context()
         return self._bootstrap_context
 
-    def local_workflow_task(self, local_task, workflow_context,
-                            node=None,
-                            info=None,
-                            kwargs=None):
-        return LocalWorkflowTask(local_task, workflow_context, node, info,
-                                 kwargs=kwargs,
-                                 **self._get_task_configuration())
+    @property
+    def task_graph(self):
+        return self._task_graph
 
-    def remote_workflow_task(self, task, cloudify_context, task_id):
-        return RemoteWorkflowTask(task, cloudify_context, task_id,
-                                  **self._get_task_configuration())
+    @property
+    def graph_mode(self):
+        return self._graph_mode
+
+    @graph_mode.setter
+    def graph_mode(self, graph_mode):
+        self._graph_mode = graph_mode

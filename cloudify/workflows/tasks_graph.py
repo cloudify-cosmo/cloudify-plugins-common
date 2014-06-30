@@ -19,15 +19,14 @@ import time
 
 import networkx as nx
 
-from cloudify.workflows.events import start_event_monitor
 from cloudify.workflows import api
-from cloudify.workflows import tasks as tasks_api
+from cloudify.workflows import tasks
 
 
 class TaskDependencyGraph(object):
     """A task graph builder"""
 
-    done_states = [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED]
+    done_states = [tasks.TASK_FAILED, tasks.TASK_SUCCEEDED]
 
     def __init__(self, workflow_context):
         """
@@ -53,6 +52,12 @@ class TaskDependencyGraph(object):
         """
         data = self.graph.node.get(task_id)
         return data['task'] if data is not None else None
+
+    def remove_task(self, task):
+        """Remove the provided task from the graph
+        :param task: The task
+        """
+        self.graph.remove_node(task.id)
 
     # src depends on dst
     def add_dependency(self, src_task, dst_task):
@@ -102,60 +107,15 @@ class TaskDependencyGraph(object):
         still being executed.
         """
 
-        # start the celery event monitor for receiving task sent/started/
-        # failed/succeeded events for remote workflow tasks
-        start_event_monitor(self)
-
         while not self._is_execution_cancelled():
 
-            # execute all tasks that are executable at the moment
+            # handle all executable tasks
             for task in self._executable_tasks():
-                task.apply_async()
+                self._handle_executable_task(task)
 
-            # for each terminated task
-            # 1. if it failed, call its handler. if the handler returns
-            #    false, fail the workflow. otherwise continue normally.
-            # 2. if it succeeded remove it and its dependencies
-            #    from the graph. if its handler returned true,
-            #    duplicate the task and reinsert it to the graph
-            #    with its original dependents
+            # handle all terminated tasks
             for task in self._terminated_tasks():
-                retry = False
-                retry_interval = task.retry_interval
-
-                handler_result = task.handle_task_terminated()
-                handler_action = handler_result.action
-                handler_ignore_total = handler_result.ignore_total_retries
-                handler_retry_after = handler_result.retry_after
-
-                if handler_action == tasks_api.HandlerResult.HANDLER_RETRY:
-                    if task.total_retries == tasks_api.INFINITE_TOTAL_RETRIES \
-                       or task.current_retries < task.total_retries\
-                       or handler_ignore_total:
-                        retry = True
-                        if handler_retry_after is not None:
-                            retry_interval = handler_retry_after
-                    else:
-                        handler_action = tasks_api.HandlerResult.HANDLER_FAIL
-
-                if handler_action == tasks_api.HandlerResult.HANDLER_FAIL:
-                    raise RuntimeError(
-                        "Workflow failed: Task failed '{}' -> {}"
-                        .format(task.name, task.error))
-
-                dependents = self.graph.predecessors(task.id)
-                removed_edges = [(dependent, task.id)
-                                 for dependent in dependents]
-                self.graph.remove_edges_from(removed_edges)
-                self.graph.remove_node(task.id)
-                if retry:
-                    new_task = task.duplicate()
-                    new_task.current_retries += 1
-                    new_task.execute_after = time.time() + retry_interval
-                    self.add_task(new_task)
-                    added_edges = [(dependent, new_task.id)
-                                   for dependent in dependents]
-                    self.graph.add_edges_from(added_edges)
+                self._handle_terminated_task(task)
 
             # no more tasks to process, time to move on
             if len(self.graph.node) == 0:
@@ -169,17 +129,18 @@ class TaskDependencyGraph(object):
     def _is_execution_cancelled(self):
         return api.has_cancel_request()
 
-    def _executable_tasks(self, ):
+    def _executable_tasks(self):
         """
         A task is executable if it is in pending state
-        and it has no dependencies at the moment (i.e. all of its dependencies
-        already terminated)
+        , it has no dependencies at the moment (i.e. all of its dependencies
+        already terminated) and its execution timestamp is smaller then the
+        current timestamp
 
         :return: An iterator for executable tasks
         """
         now = time.time()
-        return (task for task in self._tasks_iter()
-                if task.get_state() == tasks_api.TASK_PENDING
+        return (task for task in self.tasks_iter()
+                if task.get_state() == tasks.TASK_PENDING
                 and task.execute_after <= now
                 and not self._task_has_dependencies(task.id))
 
@@ -189,8 +150,7 @@ class TaskDependencyGraph(object):
 
         :return: An iterator for terminated tasks
         """
-
-        return (task for task in self._tasks_iter()
+        return (task for task in self.tasks_iter()
                 if task.get_state() in self.done_states)
 
     def _task_has_dependencies(self, task_id):
@@ -201,8 +161,33 @@ class TaskDependencyGraph(object):
         successors = self.graph.succ.get(task_id)
         return successors is not None and len(successors) > 0
 
-    def _tasks_iter(self):
+    def tasks_iter(self):
         return (data['task'] for _, data in self.graph.nodes_iter(data=True))
+
+    def _handle_executable_task(self, task):
+        """Handle executable task"""
+        task.apply_async()
+
+    def _handle_terminated_task(self, task):
+        """Handle terminated task"""
+
+        handler_result = task.handle_task_terminated()
+        if handler_result.action == tasks.HandlerResult.HANDLER_FAIL:
+            raise RuntimeError(
+                "Workflow failed: Task failed '{}' -> {}".format(task.name,
+                                                                 task.error))
+
+        dependents = self.graph.predecessors(task.id)
+        removed_edges = [(dependent, task.id)
+                         for dependent in dependents]
+        self.graph.remove_edges_from(removed_edges)
+        self.graph.remove_node(task.id)
+        if handler_result.action == tasks.HandlerResult.HANDLER_RETRY:
+            new_task = handler_result.retried_task
+            self.add_task(new_task)
+            added_edges = [(dependent, new_task.id)
+                           for dependent in dependents]
+            self.graph.add_edges_from(added_edges)
 
 
 class forkjoin(object):
@@ -251,8 +236,6 @@ class TaskSequence(object):
             for task in fork_join_tasks:
                 self.graph.add_task(task)
                 if self.last_fork_join_tasks is not None:
-                    # TODO: consider batch insertion of edges (see
-                    # TODO: digraph.add_edges_from method)
                     for last_fork_join_task in self.last_fork_join_tasks:
                         self.graph.add_dependency(task, last_fork_join_task)
             if fork_join_tasks:
