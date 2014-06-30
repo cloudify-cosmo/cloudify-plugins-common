@@ -64,3 +64,26 @@ class HttpException(NonRecoverableError):
 
     def __str__(self):
         return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
+
+
+class CommandExecutionException(Exception):
+
+    """
+    Indicates a failure to execute a command.
+
+    'command' - The command that was executed
+    'code' - The error code from the execution.
+    'message' - The error from the execution
+
+    """
+
+    def __init__(self, command, error, output, code):
+        self.command = command
+        self.error = error
+        self.code = code
+        self.output = output
+        Exception.__init__(self, self.__str__())
+
+    def __str__(self):
+        return "Failed executing command: {0}\ncode: {1}\nerror: {2}\nmessage: {3}"\
+        .format(self.command, self.code, self.error, self.output)
