@@ -86,7 +86,7 @@ class CommandExecutionException(Exception):
 
     def __str__(self):
         return "Failed executing command: {0}\ncode: {1}\nerror: {2}\nmessage: {3}"\
-        .format(self.command, self.code, self.error, self.output)
+                .format(self.command, self.code, self.error, self.output)
 
 
 class TimeoutException(Exception):
@@ -97,4 +97,3 @@ class TimeoutException(Exception):
     """
     def __init__(self, *args):
         Exception.__init__(self, args)
-

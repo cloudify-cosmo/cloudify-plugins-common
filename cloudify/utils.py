@@ -25,12 +25,9 @@ import sys
 import os
 
 from cloudify.exceptions import CommandExecutionException
-
 from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, \
     MANAGER_REST_PORT_KEY, MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY, \
     MANAGER_FILE_SERVER_URL_KEY
-
-
 
 def setup_default_logger(logger_name):
     root = logging.getLogger()
@@ -104,7 +101,6 @@ def get_machine_ip(ctx):
     raise ValueError('ip property is not set for node: {0}. '
                      'This is mandatory for installing an agent remotely'
                      .format(ctx.node_id))
-
 
 
 class LocalCommandRunner(object):

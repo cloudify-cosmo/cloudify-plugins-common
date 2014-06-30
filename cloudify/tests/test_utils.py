@@ -22,6 +22,7 @@ from cloudify.exceptions import CommandExecutionException
 
 __author__ = 'elip'
 
+
 class LocalCommandRunnerTest(unittest.TestCase):
 
     from cloudify.utils import LocalCommandRunner
