@@ -140,13 +140,13 @@ class LocalCommandRunner(object):
             if exit_on_failure:
                 raise error
 
-        return CommandExecutionResult(command=command,
+        return CommandExecutionResponse(command=command,
                                       std_out=out,
                                       std_err=err,
                                       return_code=p.returncode)
 
 
-class CommandExecutionResult(object):
+class CommandExecutionResponse(object):
 
     """
     Wrapper object for info returned when running commands.
