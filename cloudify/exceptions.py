@@ -103,3 +103,16 @@ class TimeoutException(Exception):
     """
     def __init__(self, *args):
         Exception.__init__(self, args)
+
+
+class ProcessExecutionError(RuntimeError):
+
+    def __init__(self, message, error_type=None, traceback=None):
+        super(Exception, self).__init__(message)
+        self.error_type = error_type
+        self.traceback = traceback
+
+    def __str__(self):
+        if self.error_type:
+            return '{}: {}'.format(self.error_type, self.message)
+        return self.message
