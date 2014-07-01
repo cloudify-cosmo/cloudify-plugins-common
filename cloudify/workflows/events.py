@@ -35,7 +35,6 @@ class Monitor(object):
                             events task id.
         """
         self.tasks_graph = tasks_graph
-        self.ctx = tasks_graph.ctx
 
     def task_sent(self, event):
         pass
@@ -128,14 +127,14 @@ def send_task_event(state, task, event=None):
                            message=message)
 
 
-def start_event_monitor(tasks_graph):
+def start_event_monitor(workflow_context):
     """
     Start an event monitor in its own thread for handling tasks
     defined in the task dependency graph
 
-    :param tasks_graph: a TaskDependencyGraph instance
+    :param workflow_context: The workflow context
     """
-    monitor = Monitor(tasks_graph)
+    monitor = Monitor(workflow_context.internal.task_graph)
     thread = threading.Thread(target=monitor.capture)
     thread.daemon = True
     thread.start()
