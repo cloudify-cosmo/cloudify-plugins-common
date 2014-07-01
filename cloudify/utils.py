@@ -102,7 +102,6 @@ def find_type_in_kwargs(cls, all_args):
     return result[0]
 
 
-
 class LocalCommandRunner(object):
 
     '''
@@ -114,7 +113,8 @@ class LocalCommandRunner(object):
 
         '''
 
-        :param logger: This logger will be used for printing the output and the command.
+        :param logger: This logger will be used for
+                       printing the output and the command.
         '''
         self.logger = logger
 
