@@ -31,6 +31,13 @@ from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, \
 
 
 def setup_default_logger(logger_name):
+
+    '''
+
+    :param logger_name: Name of the logger.
+    :return: A logger instance.
+    :rtype: logger
+    '''
     root = logging.getLogger()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.DEBUG)
@@ -95,20 +102,11 @@ def find_type_in_kwargs(cls, all_args):
     return result[0]
 
 
-def get_machine_ip(ctx):
-    if 'ip' in ctx.properties:
-        return ctx.properties['ip']  # priority for statically specifying ip.
-    if 'ip' in ctx.runtime_properties:
-        return ctx.runtime_properties['ip']
-    raise ValueError('ip property is not set for node: {0}. '
-                     'This is mandatory for installing an agent remotely'
-                     .format(ctx.node_id))
-
 
 class LocalCommandRunner(object):
 
     '''
-    Runs local command.
+    Runs local commands.
 
     '''
 
@@ -116,12 +114,19 @@ class LocalCommandRunner(object):
 
         '''
 
-        :param logger: This logger will be
-        used for printing the output and the command.
+        :param logger: This logger will be used for printing the output and the command.
         '''
         self.logger = logger
 
     def run(self, command, exit_on_failure=True):
+
+        '''
+
+        :param command: The command to execute.
+        :param exit_on_failure: False to ignore failures.
+        :return: A wrapper object for all valuable info from the execution.
+        :rtype: CommandExecutionResponse
+        '''
         self.logger.debug('[{0}] run: {1}'.format(get_local_ip(), command))
         shlex_split = shlex.split(command)
         p = subprocess.Popen(shlex_split, stdout=subprocess.PIPE,
@@ -150,14 +155,19 @@ class CommandExecutionResponse(object):
     """
     Wrapper object for info returned when running commands.
 
-    'command' - The command that was executed.
-    'std_err' - The error message from the execution.
-    'std_out' - The output from the execution.
-    'return_code' - The return code from the execution.
-
     """
 
     def __init__(self, command, std_out, std_err, return_code):
+
+        '''
+
+        :param command: The command that was executed.
+        :param std_out: The output from the execution.
+        :param std_err: The error message from the execution.
+        :param return_code: The return code from the execution.
+        :return:
+        '''
+
         self.command = command
         self.std_out = std_out
         self.std_err = std_err

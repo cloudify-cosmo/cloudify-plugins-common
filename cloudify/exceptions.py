@@ -71,13 +71,18 @@ class CommandExecutionException(Exception):
     """
     Indicates a failure to execute a command.
 
-    'command' - The command that was executed
-    'code' - The error code from the execution.
-    'message' - The error from the execution
-
     """
 
     def __init__(self, command, error, output, code):
+
+        '''
+
+        :param command: The command that was executed.
+        :param error: The error from the execution.
+        :param output: The output from the execution.
+        :param code: The error code from the execution.
+        :return:
+        '''
         self.command = command
         self.error = error
         self.code = code
