@@ -17,16 +17,42 @@ __author__ = 'idanmo'
 
 
 import unittest
+
 from cloudify import manager
-from cloudify.decorators import operation
+from cloudify import decorators
+from cloudify.decorators import operation, workflow
 from cloudify.context import CloudifyContext
-from cloudify.exceptions import NonRecoverableError
+from cloudify.exceptions import NonRecoverableError, ProcessExecutionError
+from cloudify.workflows import workflow_context
+
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
+
+
+class MockNotPicklableException(Exception):
+    """Non-picklable exception"""
+    def __init__(self, custom_error):
+        self.message = custom_error
+
+    def __str__(self):
+        return self.message
+
+
+class MockPicklableException(Exception):
+    """Non-picklable exception"""
+    def __init__(self, custom_error):
+        super(Exception, self).__init__(custom_error)
 
 
 @operation
 def acquire_context(a, b, ctx, **kwargs):
     return ctx
+
+
+@workflow
+def error_workflow(ctx, picklable=False, **_):
+    if picklable:
+        raise MockPicklableException('hello world!')
+    raise MockNotPicklableException('hello world!')
 
 
 class OperationTest(unittest.TestCase):
@@ -96,3 +122,26 @@ class OperationTest(unittest.TestCase):
         ctx = acquire_context(0, 0, **kwargs)
         self.assertRaises(NonRecoverableError, ctx.properties.__setitem__,
                           'k', 'v')
+
+    def test_workflow_error_delegation(self):
+        workflow_context.get_rest_client = \
+            lambda: rest_client_mock.MockRestclient()
+        decorators.get_rest_client = \
+            lambda: rest_client_mock.MockRestclient()
+        manager.get_rest_client = \
+            lambda: rest_client_mock.MockRestclient()
+        kwargs = {'__cloudify_context': {}}
+        try:
+            error_workflow(picklable=False, **kwargs)
+            self.fail('Expected exception')
+        except ProcessExecutionError, e:
+            self.assertTrue('hello world!' in e.message)
+            self.assertTrue('test_decorators.py' in e.traceback)
+            self.assertTrue(MockNotPicklableException.__name__ in e.error_type)
+        try:
+            error_workflow(picklable=True, **kwargs)
+            self.fail('Expected exception')
+        except ProcessExecutionError, e:
+            self.assertTrue('hello world!' in e.message)
+            self.assertTrue('test_decorators.py' in e.traceback)
+            self.assertTrue(MockPicklableException.__name__ in e.error_type)

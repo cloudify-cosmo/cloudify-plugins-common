@@ -64,3 +64,16 @@ class HttpException(NonRecoverableError):
 
     def __str__(self):
         return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
+
+
+class ProcessExecutionError(RuntimeError):
+
+    def __init__(self, message, error_type=None, traceback=None):
+        super(Exception, self).__init__(message)
+        self.error_type = error_type
+        self.traceback = traceback
+
+    def __str__(self):
+        if self.error_type:
+            return '{}: {}'.format(self.error_type, self.message)
+        return self.message
