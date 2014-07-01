@@ -185,6 +185,10 @@ class BootstrapContext(object):
     def cloudify_agent(self):
         return self._cloudify_agent
 
+    @property
+    def resources_prefix(self):
+        return self._bootstrap_context.get('resources_prefix', '')
+
 
 class CloudifyContext(CommonContextOperations):
     """
