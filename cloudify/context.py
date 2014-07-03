@@ -161,7 +161,7 @@ class BootstrapContext(object):
 
         @property
         def max_workers(self):
-            return self._cloudify_agent.get('min_workers')
+            return self._cloudify_agent.get('max_workers')
 
         @property
         def user(self):
