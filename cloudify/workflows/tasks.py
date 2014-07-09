@@ -100,6 +100,18 @@ class WorkflowTask(object):
         """
         return not self.is_local()
 
+    def is_local(self):
+        """
+        :return: Is this a local task
+        """
+        raise NotImplementedError('Implemented by subclasses')
+
+    def is_nop(self):
+        """
+        :return: Is this a NOP task
+        """
+        return False
+
     def get_state(self):
         """
         Get the task state
@@ -258,8 +270,7 @@ class RemoteWorkflowTask(WorkflowTask):
         self.async_result = RemoteWorkflowTaskResult(self, async_result)
         return self.async_result
 
-    @staticmethod
-    def is_local():
+    def is_local(self):
         return False
 
     def duplicate(self):
@@ -377,8 +388,7 @@ class LocalWorkflowTask(WorkflowTask):
 
         return self.async_result
 
-    @staticmethod
-    def is_local():
+    def is_local(self):
         return True
 
     def duplicate(self):
@@ -409,6 +419,9 @@ class NOPLocalWorkflowTask(LocalWorkflowTask):
     def name(self):
         """The task name"""
         return 'NOP'
+
+    def is_nop(self):
+        return True
 
 
 class WorkflowTaskResult(object):
