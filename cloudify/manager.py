@@ -20,7 +20,7 @@ import urllib2
 
 import utils
 from cloudify_rest_client import CloudifyClient
-from cloudify.exceptions import HttpException
+from cloudify.exceptions import HttpException, NonRecoverableError
 
 
 class NodeInstance(object):
@@ -133,6 +133,24 @@ def update_node_instance(node_instance):
         state=node_instance.state,
         runtime_properties=node_instance.runtime_properties,
         version=node_instance.version)
+
+
+def get_node_instance_ip(node_instance_id):
+    client = get_rest_client()
+    instance = client.node_instances.get(node_instance_id)
+    if instance.host_id is None:
+        raise NonRecoverableError('node instance: {} is missing host_id'
+                                  'property'.format(instance.id))
+    if instance.host_id != instance.id:
+        instance = client.node_instances(instance.host_id)
+    if instance.runtime_properties.get('ip'):
+        return instance.runtime_properties['ip']
+    node = client.nodes.get(instance.deployment_id, instance.node_id)
+    if node.properties.get('ip'):
+        return node.properties['ip']
+    raise NonRecoverableError('could not find ip for node instance: {} with '
+                              'host id: {}'.format(node_instance_id,
+                                                   instance.id))
 
 
 def update_execution_status(execution_id, status, error=None):
