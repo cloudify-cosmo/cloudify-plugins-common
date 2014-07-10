@@ -75,6 +75,7 @@ class NodeInstance(object):
     def host_id(self):
         return self._host_id
 
+
 def get_rest_client():
     return CloudifyClient(utils.get_manager_ip(),
                           utils.get_manager_rest_service_port())
