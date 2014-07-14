@@ -127,13 +127,13 @@ class LocalCommandRunner(object):
         :return: A wrapper object for all valuable info from the execution.
         :rtype: CommandExecutionResponse
         '''
-        self.logger.debug('[{0}] run: {1}'.format(get_local_ip(), command))
+        self.logger.info('[{0}] run: {1}'.format(get_local_ip(), command))
         shlex_split = shlex.split(command)
         p = subprocess.Popen(shlex_split, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         out, err = p.communicate()
         if p.returncode == 0:
-            self.logger.debug('[{0}] out: {1}'.format(get_local_ip(), out))
+            self.logger.info('[{0}] out: {1}'.format(get_local_ip(), out))
         else:
             error = CommandExecutionException(
                 command=command,
