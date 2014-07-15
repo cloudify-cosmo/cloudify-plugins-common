@@ -22,6 +22,7 @@ from manager import get_blueprint_resource
 from manager import download_blueprint_resource
 from manager import get_provider_context
 from manager import get_bootstrap_context
+from manager import get_host_node_instance_ip
 from logs import CloudifyPluginLoggingHandler
 from logs import init_cloudify_logger
 from logs import send_plugin_event
@@ -104,6 +105,23 @@ class CommonContextOperations(object):
         if self._node_instance is None:
             self._node_instance = get_node_instance(self.node_id)
 
+    def _get_node_instance_ip_if_needed(self):
+        self._get_node_instance_if_needed()
+        if self._host_ip is None:
+            if self.node_id == self._node_instance.host_id:
+                self._host_ip = get_host_node_instance_ip(
+                    host_id=self.node_id,
+                    properties=self.properties,
+                    runtime_properties=self.runtime_properties)
+            else:
+                self._host_ip = get_host_node_instance_ip(
+                    host_id=self._node_instance.host_id)
+
+    @property
+    def host_ip(self):
+        self._get_node_instance_ip_if_needed()
+        return self._host_ip
+
 
 class CloudifyRelatedNode(CommonContextOperations):
     """
@@ -112,6 +130,7 @@ class CloudifyRelatedNode(CommonContextOperations):
     def __init__(self, ctx):
         self._related = ctx['related']
         self._node_instance = None
+        self._host_ip = None
 
     @property
     def node_id(self):
@@ -217,6 +236,7 @@ class CloudifyContext(CommonContextOperations):
             self._related = None
         self._provider_context = None
         self._bootstrap_context = None
+        self._host_ip = None
 
     @property
     def node_id(self):
