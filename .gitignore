@@ -57,4 +57,4 @@ docs/_build/
 *COMMIT_MSG
 
 # QuickBuild
-.qbcache
+.qbcache/
