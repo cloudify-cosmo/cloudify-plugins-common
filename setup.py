@@ -17,35 +17,20 @@ __author__ = 'elip'
 
 from setuptools import setup
 
-REST_CLIENT_VERSION = '3.0'
-REST_CLIENT_BRANCH = '3.0'
-REST_CLIENT =\
-    "https://github.com/cloudify-cosmo/cloudify-rest-client/tarball/{0}"\
-    .format(REST_CLIENT_BRANCH)
-
-
 setup(
     name='cloudify-plugins-common',
     version='3.0',
     author='elip',
     author_email='elip@gigaspaces.com',
-    packages=['cloudify'],
+    packages=['cloudify', 'cloudify.workflows'],
     license='LICENSE',
-    description='Package that holds common cosmo '
-                'modules needed by many plugins',
+    description='Contains necessary decorators and utility methods for '
+                'writing Cloudify plugins',
     zip_safe=False,
     install_requires=[
-        # we include this dependency here because protobuf may fail
-        # to install transitively.
-        # see https://pypi.python.org/pypi/bernhard/0.1.0
-        "protobuf",
-        "celery==3.0.24",
-        "pika==0.9.13",
-        "cloudify-rest-client"
-    ],
-    test_requires=[
-        "nose"
-    ],
-    dependency_links=["{0}#egg=cloudify-rest-client-{1}"
-                      .format(REST_CLIENT, REST_CLIENT_VERSION)]
+        'protobuf',
+        'celery==3.0.24',
+        'pika==0.9.13',
+        'networkx==1.8.1',
+    ]
 )

@@ -15,29 +15,28 @@
 
 __author__ = 'idanmo'
 
-import urllib2
 import os
+import urllib2
 
-from cosmo_manager_rest_client.cosmo_manager_rest_client \
-    import CosmoManagerRestClient
-
-from cloudify.exceptions import HttpException
 import utils
+from cloudify_rest_client import CloudifyClient
+from cloudify.exceptions import HttpException, NonRecoverableError
 
 
-class NodeState(object):
-    """Represents a deployment node state.
+class NodeInstance(object):
+    """Represents a deployment node instance.
     An instance of this class contains runtime information retrieved
-    from Cloudify's runtime storage.
-    Its API allows to set and get properties of the node's state,
-     generate an updates dict to be used when requesting to save changes
-     back to the storage (in an optimistic locking manner).
+    from Cloudify's runtime storage as well as the node's state.
+    Its API allows to set and get the node instance's state and properties.
     """
-    def __init__(self, node_id, runtime_properties=None, state_version=None):
+    def __init__(self, node_id, runtime_properties=None,
+                 state=None, version=None, host_id=None):
         self.id = node_id
         self._runtime_properties = \
             DirtyTrackingDict((runtime_properties or {}).copy())
-        self._state_version = state_version
+        self._state = state
+        self._version = version
+        self._host_id = host_id
 
     def get(self, key):
         return self._runtime_properties.get(key)
@@ -57,17 +56,29 @@ class NodeState(object):
         return self._runtime_properties
 
     @property
-    def state_version(self):
-        return self._state_version
+    def version(self):
+        return self._version
+
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        self._state = value
 
     @property
     def dirty(self):
         return self._runtime_properties.dirty
 
+    @property
+    def host_id(self):
+        return self._host_id
 
-def get_manager_rest_client():
-    return CosmoManagerRestClient(utils.get_manager_ip(),
-                                  utils.get_manager_rest_service_port())
+
+def get_rest_client():
+    return CloudifyClient(utils.get_manager_ip(),
+                          utils.get_manager_rest_service_port())
 
 
 def _save_resource(logger, resource, resource_path, target_path):
@@ -111,21 +122,80 @@ def get_blueprint_resource(blueprint_id, resource_path):
     return get_resource(resource_path, base_url=base_url)
 
 
-def get_node_state(node_id):
-    client = get_manager_rest_client()
-    node_state = client.get_node_state(node_id)
-    if 'runtimeInfo' not in node_state:
-        raise KeyError('runtimeInfo not found in get_node_state response')
-    if 'stateVersion' not in node_state:
-        raise KeyError('stateVersion not found in get_node_state response')
-    return NodeState(
-        node_id, node_state['runtimeInfo'], node_state['stateVersion'])
+def get_node_instance(node_instance_id):
+    client = get_rest_client()
+    instance = client.node_instances.get(node_instance_id)
+    return NodeInstance(node_instance_id,
+                        runtime_properties=instance.runtime_properties,
+                        state=instance.state,
+                        version=instance.version,
+                        host_id=instance.host_id)
 
 
-def update_node_state(node_state):
-    client = get_manager_rest_client()
-    client.update_node_state(node_state.id, node_state.runtime_properties,
-                             node_state.state_version)
+def update_node_instance(node_instance):
+    client = get_rest_client()
+    client.node_instances.update(
+        node_instance.id,
+        state=node_instance.state,
+        runtime_properties=node_instance.runtime_properties,
+        version=node_instance.version)
+
+
+def get_node_instance_ip(node_instance_id):
+    client = get_rest_client()
+    instance = client.node_instances.get(node_instance_id)
+    if instance.host_id is None:
+        raise NonRecoverableError('node instance: {} is missing host_id'
+                                  'property'.format(instance.id))
+    if node_instance_id != instance.host_id:
+        instance = client.node_instances.get(instance.host_id)
+    if instance.runtime_properties.get('ip'):
+        return instance.runtime_properties['ip']
+    node = client.nodes.get(instance.deployment_id, instance.node_id)
+    if node.properties.get('ip'):
+        return node.properties['ip']
+    raise NonRecoverableError('could not find ip for node instance: {} with '
+                              'host id: {}'.format(node_instance_id,
+                                                   instance.id))
+
+
+# TODO: some nasty code duplication between these two methods
+def get_host_node_instance_ip(host_id,
+                              properties=None,
+                              runtime_properties=None):
+    # properties and runtime_properties are either both None or both not None
+    client = get_rest_client()
+    if runtime_properties is None:
+        instance = client.node_instances.get(host_id)
+        runtime_properties = instance.runtime_properties
+    if runtime_properties.get('ip'):
+        return runtime_properties['ip']
+    if properties is None:
+        # instance is not None (see comment above)
+        node = client.nodes.get(instance.deployment_id, instance.node_id)
+        properties = node.properties
+    if properties.get('ip'):
+        return properties['ip']
+    raise NonRecoverableError('could not find ip for host node instance: {}'
+                              .format(host_id))
+
+
+def update_execution_status(execution_id, status, error=None):
+    client = get_rest_client()
+    return client.executions.update(execution_id, status, error)
+
+
+def get_bootstrap_context():
+    client = get_rest_client()
+    context = client.manager.get_context()['context']
+    return context.get('cloudify', {})
+
+
+def get_provider_context():
+    """Gets provider context from manager."""
+    client = get_rest_client()
+    context = client.manager.get_context()
+    return context['context']
 
 
 class DirtyTrackingDict(dict):
