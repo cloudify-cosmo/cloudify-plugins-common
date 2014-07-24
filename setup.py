@@ -17,12 +17,16 @@ __author__ = 'elip'
 
 from setuptools import setup
 
+from cloudify import get_version
+
+
 setup(
     name='cloudify-plugins-common',
-    version='3.0',
+    version=get_version(),
     author='elip',
     author_email='elip@gigaspaces.com',
     packages=['cloudify', 'cloudify.workflows'],
+    package_data={'cloudify': ['VERSION']},
     license='LICENSE',
     description='Contains necessary decorators and utility methods for '
                 'writing Cloudify plugins',
