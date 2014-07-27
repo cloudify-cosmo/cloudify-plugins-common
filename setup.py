@@ -17,9 +17,10 @@ __author__ = 'elip'
 
 from setuptools import setup
 
+
 setup(
     name='cloudify-plugins-common',
-    version='3.0',
+    version='3.1',
     author='elip',
     author_email='elip@gigaspaces.com',
     packages=['cloudify', 'cloudify.workflows'],
@@ -28,6 +29,7 @@ setup(
                 'writing Cloudify plugins',
     zip_safe=False,
     install_requires=[
+        'cloudify-rest-client==3.1',
         'protobuf',
         'celery==3.0.24',
         'pika==0.9.13',
