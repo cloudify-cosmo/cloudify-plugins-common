@@ -20,9 +20,7 @@ import time
 import uuid
 import Queue
 
-from cloudify.celery import celery as celery_client
 from cloudify.exceptions import NonRecoverableError, RecoverableError
-
 from cloudify.workflows import api
 
 INFINITE_TOTAL_RETRIES = -1
@@ -309,8 +307,12 @@ class RemoteWorkflowTask(WorkflowTask):
                                .format(self.name, self.target, registered))
 
     def _get_registered(self):
+        # import here because this only applies in remote execution
+        # environments
+        from cloudify.celery import celery
+
         worker_name = 'celery.{}'.format(self.target)
-        inspect = celery_client.control.inspect(destination=[worker_name])
+        inspect = celery.control.inspect(destination=[worker_name])
         registered = inspect.registered() or {}
         result = registered.get(worker_name, set())
         return set(result)

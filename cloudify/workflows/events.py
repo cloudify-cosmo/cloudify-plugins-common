@@ -19,7 +19,6 @@ __author__ = 'dank'
 import threading
 
 from cloudify.logs import send_remote_task_event
-from cloudify.celery import celery as app
 from cloudify.workflows import tasks as tasks_api
 
 
@@ -65,8 +64,10 @@ class Monitor(object):
             task.set_state(state)
 
     def capture(self):
-        with app.connection() as connection:
-            receive = app.events.Receiver(connection, handlers={
+        # Only called when celery is used so we import it here
+        from cloudify.celery import celery
+        with celery.connection() as connection:
+            receive = celery.events.Receiver(connection, handlers={
                 'task-sent': self.task_sent,
                 'task-received': self.task_received,
                 'task-started': self.task_started,
