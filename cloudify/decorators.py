@@ -93,7 +93,7 @@ def operation(func=None, **arguments):
                 ctx = {}
             if not _is_cloudify_context(ctx):
                 ctx = CloudifyContext(ctx)
-                kwargs['ctx'] = kwargs
+                kwargs['ctx'] = ctx
             try:
                 result = func(*args, **kwargs)
             except BaseException:
