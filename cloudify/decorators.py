@@ -34,8 +34,10 @@ from cloudify.exceptions import ProcessExecutionError
 
 
 try:
-    from cloudify.celery.celery import task as _task
+    from cloudify.celery import celery as _celery
+    _task = _celery.task
 except ImportError:
+    _celery = None
     _task = lambda fn: fn
 
 
