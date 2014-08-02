@@ -175,12 +175,14 @@ class WorkflowTask(object):
             handler_result = self.on_failure(self)
         else:
             handler_result = HandlerResult.retry()
-        if handler_result.action == HandlerResult.HANDLER_RETRY and \
-                self.is_remote():
-            try:
-                exception = self.async_result.async_result.result
-            except:
-                exception = None
+        if handler_result.action == HandlerResult.HANDLER_RETRY:
+            if self.is_remote():
+                try:
+                    exception = self.async_result.async_result.result
+                except:
+                    exception = None
+            else:
+                exception = self.async_result.error[0]
             if isinstance(exception, NonRecoverableError):
                 handler_result = HandlerResult.fail()
             elif isinstance(exception, RecoverableError):
