@@ -20,9 +20,6 @@ import copy
 import uuid
 import importlib
 
-import celery
-
-
 from cloudify.manager import get_node_instance, update_node_instance, \
     update_execution_status, get_rest_client, get_bootstrap_context
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
@@ -544,6 +541,10 @@ class CloudifyWorkflowContext(object):
                                    task_id=task_id)
         else:
             # Remote task
+            # Import here because this only applies to remote tasks execution
+            # environment
+            import celery
+
             task = celery.subtask(task_name,
                                   kwargs=kwargs,
                                   queue=task_queue,

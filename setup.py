@@ -31,7 +31,6 @@ setup(
     install_requires=[
         'cloudify-rest-client==3.1a1',
         'protobuf',
-        'celery==3.0.24',
         'pika==0.9.13',
         'networkx==1.8.1',
     ]

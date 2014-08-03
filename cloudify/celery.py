@@ -47,6 +47,6 @@ def new_excepthook(exception_type, value, the_traceback):
         f.write('Type: {0}\n'.format(exception_type))
         f.write('Value: {0}\n'.format(value))
         traceback.print_tb(the_traceback, file=f)
-    current_excepthook(type, value, the_traceback)
+    current_excepthook(exception_type, value, the_traceback)
 
 sys.excepthook = new_excepthook

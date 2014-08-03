@@ -23,7 +23,6 @@ from multiprocessing import Pipe
 from StringIO import StringIO
 from functools import wraps
 
-from cloudify.celery import celery
 from cloudify.context import CloudifyContext
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status, get_rest_client
@@ -34,29 +33,18 @@ from cloudify_rest_client.executions import Execution
 from cloudify.exceptions import ProcessExecutionError
 
 
+try:
+    from cloudify.celery import celery as _celery
+    _task = _celery.task
+except ImportError:
+    _celery = None
+    _task = lambda fn: fn
+
+
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
 CLOUDIFY_NODE_STATE_PROPERTY = 'node_state'
 CLOUDIFY_CONTEXT_PROPERTY_KEY = '__cloudify_context'
 CLOUDIFY_CONTEXT_IDENTIFIER = '__cloudify_context'
-
-
-def _inject_argument(arg_name, arg_value, kwargs=None):
-    """Inject argument to kwargs.
-    This is currently done by simply putting the key and value in kwargs
-    since Celery's task decorator maps **kwargs to relevant arguments
-    and when tasks are executed from workflow all arguments are passed
-    in **kwargs.
-    Args:
-        arg_name: The argument name to inject.
-        arg_value: The argument value to inject.
-        args: Invocation arguments.
-        kwargs: Invocation kwargs (optional).
-
-    Returns:
-        An (*args, **kwargs) tuple to be used for invoking method.
-    """
-    kwargs[arg_name] = arg_value
-    return kwargs
 
 
 def _is_cloudify_context(obj):
@@ -97,16 +85,15 @@ def _find_context_arg(args, kwargs, is_context):
 
 def operation(func=None, **arguments):
     if func is not None:
-        @celery.task
+        @_task
         @wraps(func)
         def wrapper(*args, **kwargs):
-            ctx = _find_context_arg(args, kwargs,
-                                    _is_cloudify_context)
+            ctx = _find_context_arg(args, kwargs, _is_cloudify_context)
             if ctx is None:
                 ctx = {}
             if not _is_cloudify_context(ctx):
                 ctx = CloudifyContext(ctx)
-                kwargs = _inject_argument('ctx', ctx, kwargs)
+                kwargs['ctx'] = ctx
             try:
                 result = func(*args, **kwargs)
             except BaseException:
@@ -133,7 +120,7 @@ def workflow(func=None, **arguments):
                 message="'{}' workflow execution cancelled"
                         .format(ctx.workflow_id))
 
-        @celery.task
+        @_task
         @wraps(func)
         def wrapper(*args, **kwargs):
             ctx = _find_context_arg(args, kwargs,
@@ -142,7 +129,7 @@ def workflow(func=None, **arguments):
                 ctx = {}
             if not _is_cloudify_workflow_context(ctx):
                 ctx = CloudifyWorkflowContext(ctx)
-                kwargs = _inject_argument('ctx', ctx, kwargs)
+                kwargs['ctx'] = ctx
 
             rest = get_rest_client()
             parent_conn, child_conn = Pipe()
