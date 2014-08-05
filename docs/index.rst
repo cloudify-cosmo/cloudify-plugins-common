@@ -15,50 +15,14 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-.. automodule:: cloudify.decorators
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cloudify.exceptions
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cloudify.manager
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cloudify.mocks
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cloudify.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cloudify.logs
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cloudify.workflows.tasks_graph
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cloudify.workflows.workflow_api
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cloudify.workflows.workflow_context
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   context
+   decorators
+   exceptions
+   manager
+   mocks
+   utils
+   logs
+   workflows
 
 Indices and tables
 ==================
