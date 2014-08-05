@@ -18,7 +18,8 @@ __author__ = 'elip'
 
 class NonRecoverableError(Exception):
     """
-    An error raised by plugins to denote that no retry should be attempted.
+    An error raised by plugins to denote that no retry should be attempted by
+    by the executing workflow engine.
     """
     pass
 
@@ -29,16 +30,15 @@ class RecoverableError(Exception):
     error (note that this is the default behavior). It is possible specifying
     how many seconds should pass before a retry is attempted thus overriding
     the bootstrap context configuration parameter:
-    cloudify.workflows.retry_interval
+    ``cloudify.workflows.retry_interval``
+
+    :param retry_after: How many seconds should the workflow engine wait
+                        before re-executing the task the raised this
+                        exception. (only applies when the workflow engine
+                        decides that this task should be retried)
     """
 
     def __init__(self, message=None, retry_after=None):
-        """
-        :param retry_after: How many seconds should the workflow engine wait
-                            before re-executing the task the raised this
-                            exception. (only applies when the workflow engine
-                            decides that this task should be retried)
-        """
         message = message or ''
         if retry_after is not None:
             message = '{} [retry_after={}]'.format(message, retry_after)
@@ -48,11 +48,11 @@ class RecoverableError(Exception):
 
 class HttpException(NonRecoverableError):
     """
-    Wraps any Http based exceptions that may arise in our code.
+    Wraps HTTP based exceptions that may be raised.
 
-    'url' - The url the request was made to.
-    'code' - The response status code.
-    'message' - The underlying reason for the error.
+    :param url: The url the request was made to.
+    :param code: The response status code.
+    :param message: The underlying reason for the error.
 
     """
 
@@ -67,22 +67,16 @@ class HttpException(NonRecoverableError):
 
 
 class CommandExecutionException(Exception):
-
     """
     Indicates a failure to execute a command.
 
+    :param command: The command executed
+    :param error: process stderr output
+    :param output: process stdout output
+    :param code: process exit code
     """
 
     def __init__(self, command, error, output, code):
-
-        '''
-
-        :param command: The command that was executed.
-        :param error: The error from the execution.
-        :param output: The output from the execution.
-        :param code: The error code from the execution.
-        :return:
-        '''
         self.command = command
         self.error = error
         self.code = code
@@ -96,16 +90,13 @@ class CommandExecutionException(Exception):
 
 
 class TimeoutException(Exception):
-
-    """
-    Indicates some kind of timeout happened.
-
-    """
+    """Indicates some kind of timeout happened."""
     def __init__(self, *args):
         Exception.__init__(self, args)
 
 
 class ProcessExecutionError(RuntimeError):
+    """Raised by the workflow engine when workflow execution fails."""
 
     def __init__(self, message, error_type=None, traceback=None):
         super(Exception, self).__init__(message)

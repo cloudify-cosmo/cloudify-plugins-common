@@ -9,3 +9,4 @@ Workflow Tasks Graph
    :members:
    :undoc-members:
    :show-inheritance:
+   :exclude-members: done_states

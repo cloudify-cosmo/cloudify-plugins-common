@@ -84,6 +84,21 @@ def _find_context_arg(args, kwargs, is_context):
 
 
 def operation(func=None, **arguments):
+    """
+    Decorate plugin operation function with this decorator.
+    Internally, if celery is installed, will also wrap the function
+    with a ``@celery.task`` decorator
+
+    The ``ctx`` injected to the function arguments is of type
+    ``cloudify.context.CloudifyContext``
+
+    Example::
+
+        @operations
+        def start(ctx, **kwargs):
+            pass
+    """
+
     if func is not None:
         @_task
         @wraps(func)
@@ -111,6 +126,23 @@ def operation(func=None, **arguments):
 
 
 def workflow(func=None, **arguments):
+    """
+    Decorate workflow functions with this decorator.
+    Internally, if celery is installed, will also wrap the function
+    with a ``@celery.task`` decorator
+
+    The ``ctx`` injected to the function arguments is of type
+    ``cloudify.workflows.workflow_context.CloudifyWorkflowContext``
+
+
+    Example::
+
+        @workflow
+        def reinstall(ctx, **kwargs):
+            pass
+    """
+
+
     if func is not None:
         def update_execution_cancelled(ctx):
             update_execution_status(ctx.execution_id,

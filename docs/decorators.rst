@@ -9,3 +9,4 @@ Decorators
    :members:
    :undoc-members:
    :show-inheritance:
+   :exclude-members: task

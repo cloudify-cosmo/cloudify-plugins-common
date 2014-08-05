@@ -31,13 +31,11 @@ from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, \
 
 
 def setup_default_logger(logger_name):
-
-    '''
-
+    """
     :param logger_name: Name of the logger.
     :return: A logger instance.
     :rtype: logger
-    '''
+    """
     root = logging.getLogger()
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.DEBUG)
@@ -55,30 +53,52 @@ def setup_default_logger(logger_name):
 
 
 def get_local_ip():
+    """
+    Return the IP address used to connect to this machine by the management.
+    machine
+    """
     return os.environ[LOCAL_IP_KEY]
 
 
 def get_manager_ip():
+    """
+    Returns the IP address of manager inside the management network.
+    """
     return os.environ[MANAGER_IP_KEY]
 
 
 def get_manager_file_server_blueprints_root_url():
+    """
+    Returns the blueprints root url in the file server.
+    """
     return os.environ[MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY]
 
 
 def get_manager_file_server_url():
+    """
+    Returns the manager file server base url.
+    """
     return os.environ[MANAGER_FILE_SERVER_URL_KEY]
 
 
 def get_manager_rest_service_port():
+    """
+    Returns the port the manager REST service is running on.
+    """
     return int(os.environ[MANAGER_REST_PORT_KEY])
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
+    """
+    Generate and return a random string using upper case letters and digits.
+    """
     return ''.join(random.choice(chars) for x in range(size))
 
 
 def create_temp_folder():
+    """
+    Create a temporary folder.
+    """
     path_join = os.path.join(tempfile.gettempdir(), id_generator(5))
     os.makedirs(path_join)
     return path_join
@@ -103,30 +123,23 @@ def find_type_in_kwargs(cls, all_args):
 
 
 class LocalCommandRunner(object):
-
-    '''
+    """
     Runs local commands.
 
-    '''
-
+    :param logger: This logger will be used for
+                   printing the output and the command.
+    """
     def __init__(self, logger=setup_default_logger('LocalCommandRunner')):
 
-        '''
-
-        :param logger: This logger will be used for
-                       printing the output and the command.
-        '''
         self.logger = logger
 
     def run(self, command, exit_on_failure=True):
-
-        '''
-
+        """
         :param command: The command to execute.
         :param exit_on_failure: False to ignore failures.
         :return: A wrapper object for all valuable info from the execution.
         :rtype: CommandExecutionResponse
-        '''
+        """
         self.logger.info('[{0}] run: {1}'.format(get_local_ip(), command))
         shlex_split = shlex.split(command)
         p = subprocess.Popen(shlex_split, stdout=subprocess.PIPE,
@@ -151,23 +164,16 @@ class LocalCommandRunner(object):
 
 
 class CommandExecutionResponse(object):
-
     """
     Wrapper object for info returned when running commands.
 
+    :param command: The command that was executed.
+    :param std_out: The output from the execution.
+    :param std_err: The error message from the execution.
+    :param return_code: The return code from the execution.
     """
 
     def __init__(self, command, std_out, std_err, return_code):
-
-        '''
-
-        :param command: The command that was executed.
-        :param std_out: The output from the execution.
-        :param std_err: The error message from the execution.
-        :param return_code: The return code from the execution.
-        :return:
-        '''
-
         self.command = command
         self.std_out = std_out
         self.std_err = std_err

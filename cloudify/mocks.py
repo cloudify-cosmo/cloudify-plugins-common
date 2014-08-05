@@ -22,7 +22,7 @@ from context import CloudifyContext, ContextCapabilities, BootstrapContext
 
 class MockCloudifyContext(CloudifyContext):
     """
-    Cloudify context mock to be used when testing Cloudify plugins.
+    Cloudify context mock that can be used when testing Cloudify plugins.
     """
 
     def __init__(self,

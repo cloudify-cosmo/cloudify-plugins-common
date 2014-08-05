@@ -6,9 +6,9 @@
 Welcome to cloudify-plugin-common's documentation!
 ==================================================
 
-This is the API reference to the cloudify-plugins-common module which is required when writing any cloudify plugin.
+This is the API reference to the cloudify-plugins-common module which is required when writing any cloudify plugin (and workflow).
 
-..note:: This is a work in progress! It will be updated very frequently in the following weeks.
+.. note:: This is a work in progress! It will be updated very frequently in the following weeks.
 
 Contents:
 

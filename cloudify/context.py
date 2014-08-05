@@ -36,15 +36,22 @@ class ContextCapabilities(object):
     Capabilities are actually dependency nodes runtime properties.
     For example:
 
-    In a case where a 'db' node is contained in a 'vm' node,
-    The 'vm' node can publish its ip address using ctx['ip'] = ip_addr
+    In a case where a ``db`` node is contained in a ``vm`` node,
+    The ``vm`` node can publish its ip address using::
+
+        ctx.runtime_properties['ip'] = ip_addr
+
     in its plugins invocations.
-    In order for the 'db' node to consume the 'vm' node's ip, capabilities
-    would be used on 'db' node plugins invocations:
-    ip_addr = ctx.capabilities['ip']
+    In order for the ``db`` node to consume the ``vm`` node's ip, capabilities
+    would be used on ``db`` node plugins invocations::
+
+        ip_addr = ctx.capabilities['ip']
+
     In a case where it is needed to iterate through all available
-    capabilities, the following method should be used:
-    all_caps = ctx.capabilities.get_all()
+    capabilities, the following method should be used::
+
+        all_caps = ctx.capabilities.get_all()
+
     Where the returned value is a dict of node ids as keys and their
     runtime properties as values.
     """
@@ -119,6 +126,14 @@ class CommonContextOperations(object):
 
     @property
     def host_ip(self):
+        """
+        Returns the node instance host ip address.
+
+        This values is derived by reading the ``host_id`` from the relevant
+        node instance and then reading its ``ip`` runtime property or its node_state
+        ``ip`` property.
+        """
+
         self._get_node_instance_ip_if_needed()
         return self._host_ip
 
@@ -144,7 +159,7 @@ class CloudifyRelatedNode(CommonContextOperations):
 
     @property
     def runtime_properties(self):
-        """The related node's in context runtime properties as a dict
+        """The related node's context runtime properties as a dict
         (read-only).
 
         Runtime properties are properties set during the node's lifecycle.
@@ -168,30 +183,49 @@ class CloudifyRelatedNode(CommonContextOperations):
 
 
 class BootstrapContext(object):
+    """
+    Holds bootstrap context that was posted to the rest service. (usually
+    during the bootstrap process).
+    """
 
     class CloudifyAgent(object):
+        """Cloudify agent related bootstrap context properties."""
 
         def __init__(self, cloudify_agent):
             self._cloudify_agent = cloudify_agent
 
         @property
         def min_workers(self):
+            """Returns the minimum number of workers for agent hosts."""
             return self._cloudify_agent.get('min_workers')
 
         @property
         def max_workers(self):
+            """Returns the maximum number of workers for agent hosts."""
             return self._cloudify_agent.get('max_workers')
 
         @property
         def user(self):
+            """
+            Returns the username used when SSH-ing during agent
+            installation.
+            """
             return self._cloudify_agent.get('user')
 
         @property
         def remote_execution_port(self):
+            """
+            Returns the port used when SSH-ing during agent
+            installation.
+            """
             return self._cloudify_agent.get('remote_execution_port')
 
         @property
         def agent_key_path(self):
+            """
+            Returns the path to the key file on the management machine
+            used when SSH-ing during agent installation.
+            """
             return self._cloudify_agent.get('agent_key_path')
 
     def __init__(self, bootstrap_context):
@@ -202,24 +236,35 @@ class BootstrapContext(object):
 
     @property
     def cloudify_agent(self):
+        """
+        Returns Cloudify agent related bootstrap context data
+
+        :rtype: CloudifyAgent
+        """
         return self._cloudify_agent
 
     @property
     def resources_prefix(self):
+        """
+        Returns the resources prefix that was configured during bootstrap.
+        An empty string is returned if the resources prefix was not configured.
+        """
         return self._bootstrap_context.get('resources_prefix', '')
 
 
 class CloudifyContext(CommonContextOperations):
     """
     A context object passed to plugins tasks invocations.
-    Using the context object, plugin writers can:
+    The context object is used in plugins when interacting with
+    the Cloudify environment::
 
-    - Get node in context information
-    - Update node runtime properties.
-    - Use a context aware logger.
-    - Get related node info (relationships).
+        @operation
+        def my_start(ctx, **kwargs):
+            # port is a property that was configured on the current instance's
+            # node
+            port = ctx.properties['port']
+            start_server(port=port)
 
-    and more...
     """
 
     def __init__(self, ctx=None):
@@ -240,31 +285,29 @@ class CloudifyContext(CommonContextOperations):
 
     @property
     def node_id(self):
-        """The node's in context id."""
+        """The node instance id."""
         return self._context.get('node_id')
 
     @property
     def node_name(self):
-        """The node's in context name."""
+        """The node instance name."""
         return self._context.get('node_name')
 
     @property
     def properties(self):
         """
-        The node's in context properties as dict (read-only).
+        The node properties as dict (read-only).
         These properties are the properties specified in the blueprint.
         """
         return self._node_properties
 
     @property
     def runtime_properties(self):
-        """The node's in context runtime properties as a dict (read-only).
+        """The node instance runtime properties as a dict (read-only).
 
-        Runtime properties are properties set during the node's lifecycle.
+        Runtime properties are properties set during the node instance's
+        lifecycle.
         Retrieving runtime properties involves a call to Cloudify's storage.
-
-        In order to set runtime properties for the node in context use the
-        __setitem__(key, value) method (square brackets notation).
         """
         self._get_node_instance_if_needed()
         return self._node_instance.runtime_properties
@@ -299,7 +342,7 @@ class CloudifyContext(CommonContextOperations):
         The workflow id the plugin invocation was requested from.
         For example:
 
-         'install', 'uninstall' etc...
+         ``install``, ``uninstall`` etc...
         """
         return self._context.get('workflow_id')
 
@@ -327,7 +370,7 @@ class CloudifyContext(CommonContextOperations):
     def operation(self):
         """
         The node operation name which is mapped to this task invocation.
-        For example: cloudify.interfaces.lifecycle.start
+        For example: ``cloudify.interfaces.lifecycle.start``
         """
         return self._context.get('operation')
 
@@ -339,16 +382,19 @@ class CloudifyContext(CommonContextOperations):
 
         For example:
 
-        - Getting a specific capability:
+        Getting a specific capability::
+
             conn_str = ctx.capabilities['connection_string']
-            This actually attempts to locate the provided key in
-            ctx.capabilities.get_all() (described below).
 
-        - Getting all capabilities:
+        This actually attempts to locate the provided key in
+        ``ctx.capabilities.get_all()`` (described below).
+
+        Getting all capabilities::
+
             all_caps = ctx.capabilities.get_all()
-            The result is a dict of node ids as keys and the values are
-            the dependency node's runtime properties.
 
+        The result is a dict of node ids as keys and the values are
+        the dependency node's runtime properties.
         """
         return self._capabilities
 
@@ -357,15 +403,13 @@ class CloudifyContext(CommonContextOperations):
         """
         The related node in a relationship.
 
-        When using relationship interfaces, if relationship hook is executed
-        at source node, the node in context is the source node and the related
-        node is the target node.
-        If relationship hook is executed at target
-        node, the node in context is the target node and the related node is
-        the source node.
+        When using relationship interfaces, if the relationship hook is
+        executed at source node, the node in context is the source node
+        and the related node is the target node.
+        If relationship hook is executed at target node, the node in
+        context is the target node and the related node is the source node.
 
-        Returns:
-            CloudifyRelatedNode instance.
+        :rtype: CloudifyRelatedNode
         """
         return self._related
 
@@ -385,6 +429,8 @@ class CloudifyContext(CommonContextOperations):
     def bootstrap_context(self):
         """
         System context provided during the bootstrap process
+
+        :rtype: BootstrapContext
         """
         if self._bootstrap_context is None:
             context = get_bootstrap_context()
@@ -442,15 +488,11 @@ class CloudifyContext(CommonContextOperations):
 
     def get_resource(self, resource_path):
         """
-        Retrieves a resource bundled with the blueprint.
+        Retrieves a resource bundled with the blueprint as a string.
 
-        Parameters:
-            resource_path - the path to the resource. Note that this path is
-            relative to the blueprint file which was uploaded.
-
-        Returns:
-            The resource's content.
-
+        :param resource_path: the path to the resource. Note that this path is
+                              relative to the blueprint file which was
+                              uploaded.
         """
         return get_blueprint_resource(self.blueprint_id, resource_path)
 
@@ -459,23 +501,25 @@ class CloudifyContext(CommonContextOperations):
         Retrieves a resource bundled with the blueprint and saves it under a
         local file.
 
-        Parameters:
-            resource_path - the path to the resource. Note that this path is
-            relative to the blueprint file which was uploaded.
+        :param resource_path: the path to the resource. Note that this path is
+                              relative to the blueprint file which was
+                              uploaded.
 
-            target_path - optional local path (including filename) to store
-            the resource at on the local file system. If missing, the location
-            will be a tempfile with a generated name.
+        :param target_path: optional local path (including filename) to store
+                            the resource at on the local file system.
+                            If missing, the location will be a tempfile with a
+                            generated name.
 
-        Returns:
-            The path to the resource on the local file system (identical to
-            target_path parameter if used).
+        :returns: The path to the resource on the local file system (identical
+                  to target_path parameter if used).
 
-            raises an cloudify.exceptions.HttpException
-            on any kind of Http Error.
+                  raises an ``cloudify.exceptions.HttpException``
 
-            raises an IOError if the resource
-            failed to be written to the local file system.
+        :raises: ``cloudify.exceptions.HttpException`` on any kind
+                 of HTTP Error.
+
+        :raises: ``IOError`` if the resource
+                 failed to be written to the local file system.
 
         """
         return download_blueprint_resource(self.blueprint_id, resource_path,
