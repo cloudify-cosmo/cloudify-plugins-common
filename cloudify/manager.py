@@ -128,7 +128,8 @@ def download_blueprint_resource(blueprint_id,
     Download resource from the manager file server with path relative to
     the blueprint denoted by ``blueprint_id``.
 
-    :param blueprint_id: the blueprint id of the blueprint to download the resource from
+    :param blueprint_id: the blueprint id of the blueprint to download the
+                         resource from
     :param resource_path: path to resource relative to blueprint folder
     :param logger: logger to use for info output
     :param target_path: optional target path for the resource
@@ -160,7 +161,8 @@ def get_blueprint_resource(blueprint_id, resource_path):
     Get resource from the manager file server with patch relative to
     the blueprint denoted by ``blueprint_id``.
 
-    :param blueprint_id: the blueprint id of the blueprint to download the resource from
+    :param blueprint_id: the blueprint id of the blueprint to download
+                         the resource from
     :param resource_path: path to resource relative to blueprint folder
     :returns: resource content
     """

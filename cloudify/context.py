@@ -130,8 +130,8 @@ class CommonContextOperations(object):
         Returns the node instance host ip address.
 
         This values is derived by reading the ``host_id`` from the relevant
-        node instance and then reading its ``ip`` runtime property or its node_state
-        ``ip`` property.
+        node instance and then reading its ``ip`` runtime property or its
+        node_state ``ip`` property.
         """
 
         self._get_node_instance_ip_if_needed()

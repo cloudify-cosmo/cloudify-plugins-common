@@ -224,14 +224,14 @@ class TaskSequence(object):
 
         :param tasks: Each task migh be:
 
-                      * A WorkflowTask instance, in which case, it will be added to the
-                        graph with a dependency between it and the task previously
-                        inserted into the sequence
+                      * A WorkflowTask instance, in which case, it will be
+                        added to the graph with a dependency between it and
+                        the task previously inserted into the sequence
                       * A forkjoin of tasks, in which case it will be treated
-                        as a "fork-join" task in the sequence, i.e. all the fork-join
-                        tasks will depend on the last task in the sequence (could be
-                        fork join) and the next added task will depend on all tasks
-                        in this fork-join task
+                        as a "fork-join" task in the sequence, i.e. all the
+                        fork-join tasks will depend on the last task in the
+                        sequence (could be fork join) and the next added task
+                        will depend on all tasks in this fork-join task
         """
         for fork_join_tasks in tasks:
             if isinstance(fork_join_tasks, forkjoin):

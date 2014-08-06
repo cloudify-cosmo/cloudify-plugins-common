@@ -142,7 +142,6 @@ def workflow(func=None, **arguments):
             pass
     """
 
-
     if func is not None:
         def update_execution_cancelled(ctx):
             update_execution_status(ctx.execution_id,
