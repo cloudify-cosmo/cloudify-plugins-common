@@ -9,4 +9,4 @@ Manager
    :members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members: DirtyTrackingDict
+   :exclude-members: DirtyTrackingDict, get_host_node_instance_ip, dirty, host_id, version, get, put
