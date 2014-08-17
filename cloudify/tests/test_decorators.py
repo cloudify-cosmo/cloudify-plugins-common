@@ -18,6 +18,7 @@ __author__ = 'idanmo'
 
 import unittest
 
+from cloudify import ctx as ctx_proxy
 from cloudify import manager
 from cloudify import decorators
 from cloudify.decorators import operation, workflow
@@ -67,6 +68,21 @@ class OperationTest(unittest.TestCase):
         ctx = acquire_context(0, 0, **kwargs)
         self.assertIsInstance(ctx, CloudifyContext)
         self.assertEquals('1234', getattr(ctx, 'node_id'))
+
+    def test_proxied_ctx(self):
+
+        self.assertRaises(RuntimeError,
+                          lambda: ctx_proxy.node_id)
+
+        @operation
+        def test_op(ctx, **kwargs):
+            self.assertEqual(ctx, ctx_proxy)
+            ctx_proxy.node_id
+
+        test_op()
+
+        self.assertRaises(RuntimeError,
+                          lambda: ctx_proxy.node_id)
 
     def test_provided_capabilities(self):
         ctx = {

@@ -14,4 +14,31 @@
 #    * limitations under the License.
 
 
-from cloudify.state import ctx  # noqa
+import threading
+
+from proxy_tools import proxy
+
+
+class CurrentContext(threading.local):
+
+    def set(self, ctx):
+        self.ctx = ctx
+
+    def get(self):
+        if not hasattr(self, 'ctx'):
+            raise RuntimeError('No context set in current execution thread')
+        result = self.ctx
+        if result is None:
+            raise RuntimeError('No context set in current execution thread')
+        return result
+
+    def clear(self):
+        if hasattr(self, 'ctx'):
+            delattr(self, 'ctx')
+
+current_ctx = CurrentContext()
+
+
+@proxy
+def ctx():
+    return current_ctx.get()
