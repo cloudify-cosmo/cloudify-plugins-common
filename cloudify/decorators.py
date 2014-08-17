@@ -31,7 +31,7 @@ from cloudify.workflows.events import start_event_monitor
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
 from cloudify.exceptions import ProcessExecutionError
-
+from cloudify.state import current_ctx
 
 try:
     from cloudify.celery import celery as _celery
@@ -110,12 +110,15 @@ def operation(func=None, **arguments):
                 ctx = CloudifyContext(ctx)
                 kwargs['ctx'] = ctx
             try:
+                current_ctx.set(ctx)
                 result = func(*args, **kwargs)
             except BaseException:
                 ctx.logger.error(
                     'Exception raised on operation [%s] invocation',
                     ctx.task_name, exc_info=True)
                 raise
+            finally:
+                current_ctx.clear()
             ctx.update()
             return result
         return wrapper

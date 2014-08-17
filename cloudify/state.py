@@ -13,26 +13,32 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'elip'
 
-from setuptools import setup
+import threading
+
+from proxy_tools import proxy
 
 
-setup(
-    name='cloudify-plugins-common',
-    version='3.1a2',
-    author='elip',
-    author_email='elip@gigaspaces.com',
-    packages=['cloudify', 'cloudify.workflows'],
-    license='LICENSE',
-    description='Contains necessary decorators and utility methods for '
-                'writing Cloudify plugins',
-    zip_safe=False,
-    install_requires=[
-        'cloudify-rest-client==3.1a2',
-        'protobuf',
-        'pika==0.9.13',
-        'networkx==1.8.1',
-        'proxy_tools==0.1.0'
-    ]
-)
+class CurrentContext(threading.local):
+
+    def set(self, ctx):
+        self.ctx = ctx
+
+    def get(self):
+        if not hasattr(self, 'ctx'):
+            raise RuntimeError('No context set in current execution thread')
+        result = self.ctx
+        if result is None:
+            raise RuntimeError('No context set in current execution thread')
+        return result
+
+    def clear(self):
+        if hasattr(self, 'ctx'):
+            delattr(self, 'ctx')
+
+current_ctx = CurrentContext()
+
+
+@proxy
+def ctx():
+    return current_ctx.get()
