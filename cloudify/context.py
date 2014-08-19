@@ -480,6 +480,17 @@ class CloudifyContext(CommonContextOperations):
         self._get_node_instance_if_needed()
         self._node_instance[key] = value
 
+    def __delitem__(self, key):
+        """
+        deletes a runtime property for the node in context.
+
+        Deleted properties will be removed from Cloudify's storage as soon
+        as the task execution is over or if ctx.update() was
+        explicitly invoked.
+        """
+        self._get_node_instance_if_needed()
+        del(self._node_instance[key])
+
     def __contains__(self, key):
         if self.properties is not None and key in self.properties:
             return True
@@ -558,4 +569,7 @@ class ImmutableProperties(dict):
     """
 
     def __setitem__(self, key, value):
+        raise NonRecoverableError('Cannot override read only properties')
+
+    def __delitem__(self, key):
         raise NonRecoverableError('Cannot override read only properties')
