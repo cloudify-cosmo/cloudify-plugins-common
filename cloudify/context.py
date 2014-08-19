@@ -188,6 +188,20 @@ class BootstrapContext(object):
     during the bootstrap process).
     """
 
+    class PolicyEngine(object):
+        """Cloudify policy engine related configuration"""
+
+        def __init__(self, policy_engine):
+            self._policy_engine = policy_engine
+
+        @property
+        def start_timeout(self):
+            """
+            Returns the number of seconds to wait for the policy engine
+            to start
+            """
+            return self._policy_engine.get('start_timeout')
+
     class CloudifyAgent(object):
         """Cloudify agent related bootstrap context properties."""
 
@@ -232,7 +246,9 @@ class BootstrapContext(object):
         self._bootstrap_context = bootstrap_context
 
         cloudify_agent = bootstrap_context.get('cloudify_agent', {})
+        policy_engine = bootstrap_context.get('policy_engine', {})
         self._cloudify_agent = self.CloudifyAgent(cloudify_agent)
+        self._policy_engine = self.PolicyEngine(policy_engine)
 
     @property
     def cloudify_agent(self):
@@ -242,6 +258,15 @@ class BootstrapContext(object):
         :rtype: CloudifyAgent
         """
         return self._cloudify_agent
+
+    @property
+    def policy_engine(self):
+        """
+        Returns Cloudify policy engine related bootstrap context data
+
+        :rtype: PolicyEngine
+        """
+        return self._policy_engine
 
     @property
     def resources_prefix(self):
