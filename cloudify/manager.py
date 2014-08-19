@@ -44,9 +44,14 @@ class NodeInstance(object):
     def put(self, key, value):
         self._runtime_properties[key] = value
 
+    def delete(self, key):
+        del(self._runtime_properties[key])
+
     __setitem__ = put
 
     __getitem__ = get
+
+    __delitem__ = delete
 
     def __contains__(self, key):
         return key in self._runtime_properties
@@ -281,4 +286,8 @@ class DirtyTrackingDict(dict):
 
     def __setitem__(self, key, value):
         super(DirtyTrackingDict, self).__setitem__(key, value)
+        self.dirty = True
+
+    def __delitem__(self, key):
+        super(DirtyTrackingDict, self).__delitem__(key)
         self.dirty = True

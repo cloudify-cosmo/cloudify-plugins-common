@@ -68,3 +68,28 @@ class NodeStateTest(unittest.TestCase):
         props = node.runtime_properties
         self.assertEqual(1, len(props))
         self.assertEqual('v', props['key'])
+
+    def test_delete_property(self):
+        node = NodeInstance('id')
+        node.put('key', 'value')
+        self.assertEquals('value', node.get('key'))
+        node.delete('key')
+        self.assertNotIn('key', node)
+
+    def test_delete_property_sugared_syntax(self):
+        node = NodeInstance('id')
+        node.put('key', 'value')
+        self.assertEquals('value', node.get('key'))
+        del(node['key'])
+        self.assertNotIn('key', node)
+
+    def test_delete_nonexistent_property(self):
+        node = NodeInstance('id')
+        self.assertRaises(KeyError, node.delete, 'key')
+
+    def test_delete_makes_properties_dirty(self):
+        node = NodeInstance('id',
+                            runtime_properties={'preexisting-key': 'val'})
+        self.assertFalse(node.dirty)
+        del(node['preexisting-key'])
+        self.assertTrue(node.dirty)
