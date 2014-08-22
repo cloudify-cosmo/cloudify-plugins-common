@@ -16,3 +16,5 @@
 __author__ = 'dank'
 
 from cloudify.workflows import workflow_api as api  # noqa
+from cloudify.state import workflow_ctx as ctx  # noqa
+from cloudify.state import workflow_parameters as parameters  # noqa
