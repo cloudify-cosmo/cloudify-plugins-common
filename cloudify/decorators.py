@@ -120,7 +120,7 @@ def operation(func=None, **arguments):
                 raise
             finally:
                 current_ctx.clear()
-            ctx.update()
+                ctx.update()
             return result
         return wrapper
     else:
