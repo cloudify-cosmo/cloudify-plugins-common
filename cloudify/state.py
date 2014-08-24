@@ -19,15 +19,35 @@ import threading
 from proxy_tools import proxy
 
 
+class CtxParameters(dict):
+
+    def __init__(self, parameters):
+        parameters = parameters or {}
+        super(CtxParameters, self).__init__(parameters)
+
+    def __getattr__(self, attr):
+        if attr in self:
+            return self.get(attr)
+        else:
+            return AttributeError(attr)
+
+
 class CurrentContext(threading.local):
 
-    def set(self, ctx):
+    def set(self, ctx, parameters=None):
         self.ctx = ctx
+        self.parameters = CtxParameters(parameters)
 
-    def get(self):
-        if not hasattr(self, 'ctx'):
+    def get_ctx(self):
+        return self._get('ctx')
+
+    def get_parameters(self):
+        return self._get('parameters')
+
+    def _get(self, attribute):
+        if not hasattr(self, attribute):
             raise RuntimeError('No context set in current execution thread')
-        result = self.ctx
+        result = getattr(self, attribute)
         if result is None:
             raise RuntimeError('No context set in current execution thread')
         return result
@@ -35,10 +55,29 @@ class CurrentContext(threading.local):
     def clear(self):
         if hasattr(self, 'ctx'):
             delattr(self, 'ctx')
+        if hasattr(self, 'parameters'):
+            delattr(self, 'parameters')
+
 
 current_ctx = CurrentContext()
+current_workflow_ctx = CurrentContext()
 
 
 @proxy
 def ctx():
-    return current_ctx.get()
+    return current_ctx.get_ctx()
+
+
+@proxy
+def ctx_parameters():
+    return current_ctx.get_parameters()
+
+
+@proxy
+def workflow_ctx():
+    return current_workflow_ctx.get_ctx()
+
+
+@proxy
+def workflow_parameters():
+    return current_workflow_ctx.get_parameters()

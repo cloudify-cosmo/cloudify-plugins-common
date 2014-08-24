@@ -31,7 +31,8 @@ from cloudify.workflows.events import start_event_monitor
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
 from cloudify.exceptions import ProcessExecutionError
-from cloudify.state import current_ctx
+from cloudify.state import current_ctx, current_workflow_ctx
+
 
 try:
     from cloudify.celery import celery as _celery
@@ -110,7 +111,7 @@ def operation(func=None, **arguments):
                 ctx = CloudifyContext(ctx)
                 kwargs['ctx'] = ctx
             try:
-                current_ctx.set(ctx)
+                current_ctx.set(ctx, kwargs)
                 result = func(*args, **kwargs)
             except BaseException:
                 ctx.logger.error(
@@ -188,6 +189,7 @@ def workflow(func=None, **arguments):
                 def child_wrapper():
                     try:
                         start_event_monitor(ctx)
+                        current_workflow_ctx.set(ctx, kwargs)
                         result = func(*args, **kwargs)
                         if not ctx.internal.graph_mode:
                             tasks = list(ctx.internal.task_graph.tasks_iter())
@@ -207,6 +209,7 @@ def workflow(func=None, **arguments):
                         }
                         child_conn.send({'error': err})
                     finally:
+                        current_workflow_ctx.clear()
                         child_conn.close()
 
                 api.ctx = ctx
