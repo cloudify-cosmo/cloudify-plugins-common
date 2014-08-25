@@ -24,10 +24,10 @@ from cloudify.exceptions import HttpException, NonRecoverableError
 
 
 class NodeInstance(object):
-    """Represents a deployment node instance.
+    """
+    Represents a deployment node instance.
     An instance of this class contains runtime information retrieved
     from Cloudify's runtime storage as well as the node's state.
-    Its API allows to set and get the node instance's state and properties.
     """
     def __init__(self, node_id, runtime_properties=None,
                  state=None, version=None, host_id=None):
@@ -44,15 +44,26 @@ class NodeInstance(object):
     def put(self, key, value):
         self._runtime_properties[key] = value
 
+    def delete(self, key):
+        del(self._runtime_properties[key])
+
     __setitem__ = put
 
     __getitem__ = get
+
+    __delitem__ = delete
 
     def __contains__(self, key):
         return key in self._runtime_properties
 
     @property
     def runtime_properties(self):
+        """
+        The node instance runtime properties.
+
+        To update the properties, make changes on the returned dict and call
+        ``update_node_instance`` with the modified instance.
+        """
         return self._runtime_properties
 
     @property
@@ -61,6 +72,12 @@ class NodeInstance(object):
 
     @property
     def state(self):
+        """
+        The node instance state.
+
+        To update the node instance state, change this property value and
+        call ``update_node_instance`` with the modified instance.
+        """
         return self._state
 
     @state.setter
@@ -77,6 +94,10 @@ class NodeInstance(object):
 
 
 def get_rest_client():
+    """
+    :returns: A REST client configured to connect to the manager in context
+    :rtype: cloudify_rest_client.CloudifyClient
+    """
     return CloudifyClient(utils.get_manager_ip(),
                           utils.get_manager_rest_service_port())
 
@@ -92,6 +113,14 @@ def _save_resource(logger, resource, resource_path, target_path):
 
 
 def download_resource(resource_path, logger, target_path=None):
+    """
+    Download resource from the manager file server.
+
+    :param resource_path: path to resource on the file server
+    :param logger: logger to use for info output
+    :param target_path: optional target path for the resource
+    :returns: path to the downloaded resource
+    """
     resource = get_resource(resource_path)
     return _save_resource(logger, resource, resource_path, target_path)
 
@@ -100,11 +129,28 @@ def download_blueprint_resource(blueprint_id,
                                 resource_path,
                                 logger,
                                 target_path=None):
+    """
+    Download resource from the manager file server with path relative to
+    the blueprint denoted by ``blueprint_id``.
+
+    :param blueprint_id: the blueprint id of the blueprint to download the
+                         resource from
+    :param resource_path: path to resource relative to blueprint folder
+    :param logger: logger to use for info output
+    :param target_path: optional target path for the resource
+    :returns: path to the downloaded resource
+    """
     resource = get_blueprint_resource(blueprint_id, resource_path)
     return _save_resource(logger, resource, resource_path, target_path)
 
 
 def get_resource(resource_path, base_url=None):
+    """
+    Get resource from the manager file server.
+
+    :param resource_path: path to resource on the file server
+    :returns: resource content
+    """
     if base_url is None:
         base_url = utils.get_manager_file_server_url()
     try:
@@ -116,6 +162,15 @@ def get_resource(resource_path, base_url=None):
 
 
 def get_blueprint_resource(blueprint_id, resource_path):
+    """
+    Get resource from the manager file server with patch relative to
+    the blueprint denoted by ``blueprint_id``.
+
+    :param blueprint_id: the blueprint id of the blueprint to download
+                         the resource from
+    :param resource_path: path to resource relative to blueprint folder
+    :returns: resource content
+    """
     base_url = "{0}/{1}".format(utils
                                 .get_manager_file_server_blueprints_root_url(),
                                 blueprint_id)
@@ -123,6 +178,12 @@ def get_blueprint_resource(blueprint_id, resource_path):
 
 
 def get_node_instance(node_instance_id):
+    """
+    Read node instance data from the storage.
+
+    :param node_instance_id: the node instance id
+    :rtype: NodeInstance
+    """
     client = get_rest_client()
     instance = client.node_instances.get(node_instance_id)
     return NodeInstance(node_instance_id,
@@ -133,6 +194,11 @@ def get_node_instance(node_instance_id):
 
 
 def update_node_instance(node_instance):
+    """
+    Update node instance data changes in the storage.
+
+    :param node_instance: the node instance with the updated data
+    """
     client = get_rest_client()
     client.node_instances.update(
         node_instance.id,
@@ -142,6 +208,10 @@ def update_node_instance(node_instance):
 
 
 def get_node_instance_ip(node_instance_id):
+    """
+    Get the IP address of the host the node instance denoted by
+    ``node_instance_id`` is contained in.
+    """
     client = get_rest_client()
     instance = client.node_instances.get(node_instance_id)
     if instance.host_id is None:
@@ -163,6 +233,10 @@ def get_node_instance_ip(node_instance_id):
 def get_host_node_instance_ip(host_id,
                               properties=None,
                               runtime_properties=None):
+    """
+    See ``get_node_instance_ip`` (this method duplicates its logic for the
+    sake of some minor optimizations).
+    """
     # properties and runtime_properties are either both None or both not None
     client = get_rest_client()
     if runtime_properties is None:
@@ -181,18 +255,24 @@ def get_host_node_instance_ip(host_id,
 
 
 def update_execution_status(execution_id, status, error=None):
+    """
+    Update the execution status of the execution denoted by ``execution_id``.
+
+    :returns: The updated status
+    """
     client = get_rest_client()
     return client.executions.update(execution_id, status, error)
 
 
 def get_bootstrap_context():
+    """Read the manager bootstrap context."""
     client = get_rest_client()
     context = client.manager.get_context()['context']
     return context.get('cloudify', {})
 
 
 def get_provider_context():
-    """Gets provider context from manager."""
+    """Read the manager provider context."""
     client = get_rest_client()
     context = client.manager.get_context()
     return context['context']
@@ -206,4 +286,8 @@ class DirtyTrackingDict(dict):
 
     def __setitem__(self, key, value):
         super(DirtyTrackingDict, self).__setitem__(key, value)
+        self.dirty = True
+
+    def __delitem__(self, key):
+        super(DirtyTrackingDict, self).__delitem__(key)
         self.dirty = True

@@ -36,15 +36,16 @@ from cloudify.logs import (CloudifyWorkflowLoggingHandler,
 
 
 class CloudifyWorkflowRelationshipInstance(object):
-    """A node instance relationship instance"""
+    """
+    A node instance relationship instance
+
+    :param ctx: a CloudifyWorkflowContext instance
+    :param node_instance: a CloudifyWorkflowNodeInstance instance
+    :param relationship_instance: A relationship dict from a NodeInstance
+           instance (of the rest client model)
+    """
 
     def __init__(self, ctx, node_instance, relationship_instance):
-        """
-        :param ctx: a CloudifyWorkflowContext instance
-        :param node_instance: a CloudifyWorkflowNodeInstance instance
-        :param relationship_instance: A relationship dict from a NodeInstance
-               instance (of the rest client model)
-        """
         self.ctx = ctx
         self.node_instance = node_instance
         self._relationship_instance = relationship_instance
@@ -63,6 +64,7 @@ class CloudifyWorkflowRelationshipInstance(object):
 
     @property
     def relationship(self):
+        """The relationship object for this relationship instance"""
         return self._relationship
 
     def execute_source_operation(self, operation, kwargs=None):
@@ -95,15 +97,16 @@ class CloudifyWorkflowRelationshipInstance(object):
 
 
 class CloudifyWorkflowRelationship(object):
-    """A node relationship"""
+    """
+    A node relationship
+
+    :param ctx: a CloudifyWorkflowContext instance
+    :param node: a CloudifyWorkflowNode instance
+    :param relationship: a relationship dict from a Node instance (of the
+           rest client mode)
+    """
 
     def __init__(self, ctx, node, relationship):
-        """
-        :param ctx: a CloudifyWorkflowContext instance
-        :param node: a CloudifyWorkflowNode instance
-        :param relationship: a relationship dict from a Node instance (of the
-               rest client mode)
-        """
         self.ctx = ctx
         self.node = node
         self._relationship = relationship
@@ -130,14 +133,15 @@ class CloudifyWorkflowRelationship(object):
 
 
 class CloudifyWorkflowNodeInstance(object):
-    """A plan node instance"""
+    """
+    A plan node instance
+
+    :param ctx: a CloudifyWorkflowContext instance
+    :param node: a CloudifyWorkflowContextNode instance
+    :param node_instance: a NodeInstance (rest client response model)
+    """
 
     def __init__(self, ctx, node, node_instance):
-        """
-        :param ctx: a CloudifyWorkflowContext instance
-        :param node: a CloudifyWorkflowContextNode instance
-        :param node_instance: a NodeInstance (rest client response model)
-        """
         self.ctx = ctx
         self._node = node
         self._node_instance = node_instance
@@ -231,6 +235,7 @@ class CloudifyWorkflowNodeInstance(object):
 
     @property
     def node(self):
+        """The node object for this node instance"""
         return self._node
 
     @property
@@ -248,13 +253,14 @@ class CloudifyWorkflowNodeInstance(object):
 
 
 class CloudifyWorkflowNode(object):
-    """A plan node instance"""
+    """
+    A plan node instance
+
+    :param ctx: a CloudifyWorkflowContext instance
+    :param node: a Node instance (rest client response model)
+    """
 
     def __init__(self, ctx, node):
-        """
-        :param ctx: a CloudifyWorkflowContext instance
-        :param node: a Node instance (rest client response model)
-        """
         self.ctx = ctx
         self._node = node
         self._relationships = {
@@ -311,12 +317,13 @@ class CloudifyWorkflowNode(object):
 
 
 class CloudifyWorkflowContext(object):
-    """A context used in workflow operations"""
+    """
+    A context used in workflow operations
+
+    :param ctx: a cloudify_context workflow dict
+    """
 
     def __init__(self, ctx):
-        """
-        :param ctx: a cloudify_context workflow dict
-        """
         self._context = ctx
 
         rest = get_rest_client()
@@ -337,6 +344,7 @@ class CloudifyWorkflowContext(object):
     def graph_mode(self):
         """
         Switch the workflow context into graph mode
+
         :return: A task dependency graph instance
         """
         if next(self.internal.task_graph.tasks_iter(), None) is not None:
@@ -452,7 +460,7 @@ class CloudifyWorkflowContext(object):
             task_queue = rest_node_instance.host_id
         elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
             task_queue = self.deployment_id
-        task_name = '{0}.{1}'.format(plugin_name, operation_mapping)
+        task_name = operation_mapping
 
         node_context = {
             'node_id': node_instance.id,
@@ -559,6 +567,16 @@ class CloudifyWorkflowContext(object):
                    info=None,
                    kwargs=None,
                    task_id=None):
+        """
+        Create a local workflow task
+
+        :param local_task: A callable implementation for the task
+        :param node: A node if this task is called in a node context
+        :param info: Additional info that will be accessed and included
+                     in log messages
+        :param kwargs: kwargs to pass to the local_task when invoked
+        :param task_id: The task id
+        """
         return self._process_task(
             LocalWorkflowTask(local_task=local_task,
                               workflow_context=self,
@@ -572,6 +590,14 @@ class CloudifyWorkflowContext(object):
                     task,
                     cloudify_context,
                     task_id):
+        """
+        Create a remote workflow task
+
+        :param task: The underlying celery task
+        :param cloudify_context: A dict for creating the CloudifyContext
+                                 used by the called task
+        :param task_id: The task id
+        """
         return self._process_task(
             RemoteWorkflowTask(task=task,
                                cloudify_context=cloudify_context,

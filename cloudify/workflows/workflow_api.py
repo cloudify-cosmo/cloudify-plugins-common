@@ -32,7 +32,7 @@ def has_cancel_request():
     to be used to abruptly terminate the execution instead.
 
     Note: When using this method, the workflow must return
-    EXECUTION_CANCELLED_RESULT if indeed the execution gets cancelled.
+    ``EXECUTION_CANCELLED_RESULT`` if indeed the execution gets cancelled.
 
     :return: whether there was a request to cancel the workflow execution
     """
@@ -43,4 +43,8 @@ def has_cancel_request():
 
 
 class ExecutionCancelled(Exception):
+    """
+    Raised by the workflow engine when the workflow was cancelled during
+    a blocking call to some workflow task's ``task.get()``
+    """
     pass

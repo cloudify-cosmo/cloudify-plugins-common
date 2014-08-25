@@ -24,19 +24,20 @@ from cloudify.workflows import tasks
 
 
 class TaskDependencyGraph(object):
-    """A task graph builder"""
+    """
+    A task graph builder
+
+    :param workflow_context: A WorkflowContext instance (used for logging)
+    """
 
     done_states = [tasks.TASK_FAILED, tasks.TASK_SUCCEEDED]
 
     def __init__(self, workflow_context):
-        """
-        :param workflow_context: A WorkflowContext instance (used for logging)
-        """
         self.ctx = workflow_context
         self.graph = nx.DiGraph()
 
     def add_task(self, task):
-        """A a WorkflowTask to this graph
+        """Add a WorkflowTask to this graph
 
         :param task: The task
         """
@@ -55,6 +56,7 @@ class TaskDependencyGraph(object):
 
     def remove_task(self, task):
         """Remove the provided task from the graph
+
         :param task: The task
         """
         self.graph.remove_node(task.id)
@@ -92,15 +94,15 @@ class TaskDependencyGraph(object):
         Start executing the graph based on tasks and dependencies between
         them.
         Calling this method will block until one of the following occurs:
-        1. all tasks terminated
-        2. a task failed
-        3. an unhandled exception is raised
-        4. the execution is cancelled
+            1. all tasks terminated
+            2. a task failed
+            3. an unhandled exception is raised
+            4. the execution is cancelled
 
         Note: This method will return None unless the execution has been
         cancelled, in which case the return value will be
-        api.EXECUTION_CANCELLED_RESULT. Callers of this method should check
-        the return value and propagate the result in the latter case.
+        ``api.EXECUTION_CANCELLED_RESULT``. Callers of this method should
+        check the return value and propagate the result in the latter case.
 
         Also note that for the time being, if such a cancelling event
         occurs, the method might return even while there's some operations
@@ -162,6 +164,9 @@ class TaskDependencyGraph(object):
         return successors is not None and len(successors) > 0
 
     def tasks_iter(self):
+        """
+        An iterator on tasks added to the graph
+        """
         return (data['task'] for _, data in self.graph.nodes_iter(data=True))
 
     def _handle_executable_task(self, task):
@@ -194,7 +199,7 @@ class forkjoin(object):
     """
     A simple wrapper for tasks. Used in conjunction with TaskSequence.
     Defined to make the code easier to read (instead of passing a list)
-    see TaskSequence.add for more details
+    see ``TaskSequence.add`` for more details
     """
 
     def __init__(self, *tasks):
@@ -205,12 +210,11 @@ class TaskSequence(object):
     """
     Helper class to add tasks in a sequential manner to a task dependency
     graph
+
+    :param graph: The TaskDependencyGraph instance
     """
 
     def __init__(self, graph):
-        """
-        :param graph: The TaskDependencyGraph instance
-        """
         self.graph = graph
         self.last_fork_join_tasks = None
 
@@ -218,15 +222,16 @@ class TaskSequence(object):
         """
         Add tasks to the sequence.
 
-        :param tasks: Each task might be:
-            1) A WorkflowTask instance, in which case, it will be added to the
-               graph with a dependency between it and the task previously
-               inserted into the sequence
-            2) A forkjoin of tasks, in which case it will be treated
-               as a "fork-join" task in the sequence, i.e. all the fork-join
-               tasks will depend on the last task in the sequence (could be
-               fork join) and the next added task will depend on all tasks
-               in this fork-join task
+        :param tasks: Each task migh be:
+
+                      * A WorkflowTask instance, in which case, it will be
+                        added to the graph with a dependency between it and
+                        the task previously inserted into the sequence
+                      * A forkjoin of tasks, in which case it will be treated
+                        as a "fork-join" task in the sequence, i.e. all the
+                        fork-join tasks will depend on the last task in the
+                        sequence (could be fork join) and the next added task
+                        will depend on all tasks in this fork-join task
         """
         for fork_join_tasks in tasks:
             if isinstance(fork_join_tasks, forkjoin):

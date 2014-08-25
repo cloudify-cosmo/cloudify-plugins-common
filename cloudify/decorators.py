@@ -31,6 +31,7 @@ from cloudify.workflows.events import start_event_monitor
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
 from cloudify.exceptions import ProcessExecutionError
+from cloudify.state import current_ctx, current_workflow_ctx
 
 
 try:
@@ -84,6 +85,21 @@ def _find_context_arg(args, kwargs, is_context):
 
 
 def operation(func=None, **arguments):
+    """
+    Decorate plugin operation function with this decorator.
+    Internally, if celery is installed, will also wrap the function
+    with a ``@celery.task`` decorator
+
+    The ``ctx`` injected to the function arguments is of type
+    ``cloudify.context.CloudifyContext``
+
+    Example::
+
+        @operations
+        def start(ctx, **kwargs):
+            pass
+    """
+
     if func is not None:
         @_task
         @wraps(func)
@@ -95,13 +111,16 @@ def operation(func=None, **arguments):
                 ctx = CloudifyContext(ctx)
                 kwargs['ctx'] = ctx
             try:
+                current_ctx.set(ctx, kwargs)
                 result = func(*args, **kwargs)
             except BaseException:
                 ctx.logger.error(
                     'Exception raised on operation [%s] invocation',
                     ctx.task_name, exc_info=True)
                 raise
-            ctx.update()
+            finally:
+                current_ctx.clear()
+                ctx.update()
             return result
         return wrapper
     else:
@@ -111,6 +130,22 @@ def operation(func=None, **arguments):
 
 
 def workflow(func=None, **arguments):
+    """
+    Decorate workflow functions with this decorator.
+    Internally, if celery is installed, will also wrap the function
+    with a ``@celery.task`` decorator
+
+    The ``ctx`` injected to the function arguments is of type
+    ``cloudify.workflows.workflow_context.CloudifyWorkflowContext``
+
+
+    Example::
+
+        @workflow
+        def reinstall(ctx, **kwargs):
+            pass
+    """
+
     if func is not None:
         def update_execution_cancelled(ctx):
             update_execution_status(ctx.execution_id,
@@ -154,6 +189,7 @@ def workflow(func=None, **arguments):
                 def child_wrapper():
                     try:
                         start_event_monitor(ctx)
+                        current_workflow_ctx.set(ctx, kwargs)
                         result = func(*args, **kwargs)
                         if not ctx.internal.graph_mode:
                             tasks = list(ctx.internal.task_graph.tasks_iter())
@@ -173,6 +209,7 @@ def workflow(func=None, **arguments):
                         }
                         child_conn.send({'error': err})
                     finally:
+                        current_workflow_ctx.clear()
                         child_conn.close()
 
                 api.ctx = ctx
