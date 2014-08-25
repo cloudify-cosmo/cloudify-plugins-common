@@ -67,7 +67,10 @@ class CloudifyWorkflowRelationshipInstance(object):
         """The relationship object for this relationship instance"""
         return self._relationship
 
-    def execute_source_operation(self, operation, kwargs=None):
+    def execute_source_operation(self,
+                                 operation,
+                                 kwargs=None,
+                                 allow_kwargs_override=False):
         """
         Execute a node relationship source operation
 
@@ -79,9 +82,13 @@ class CloudifyWorkflowRelationshipInstance(object):
             node_instance=self.node_instance,
             related_node_instance=self.target_node_instance,
             operations=self.relationship.source_operations,
-            kwargs=kwargs)
+            kwargs=kwargs,
+            allow_kwargs_override=allow_kwargs_override)
 
-    def execute_target_operation(self, operation, kwargs=None):
+    def execute_target_operation(self,
+                                 operation,
+                                 kwargs=None,
+                                 allow_kwargs_override=False):
         """
         Execute a node relationship target operation
 
@@ -93,7 +100,8 @@ class CloudifyWorkflowRelationshipInstance(object):
             node_instance=self.target_node_instance,
             related_node_instance=self.node_instance,
             operations=self.relationship.target_operations,
-            kwargs=kwargs)
+            kwargs=kwargs,
+            allow_kwargs_override=allow_kwargs_override)
 
 
 class CloudifyWorkflowRelationship(object):
@@ -206,17 +214,22 @@ class CloudifyWorkflowNodeInstance(object):
             node=self,
             info=event)
 
-    def execute_operation(self, operation, kwargs=None):
+    def execute_operation(self,
+                          operation,
+                          kwargs=None,
+                          allow_kwargs_override=False):
         """
         Execute a node operation
 
         :param operation: The node operation
         :param kwargs: optional kwargs to be passed to the called operation
         """
-        return self.ctx._execute_operation(operation=operation,
-                                           node_instance=self,
-                                           operations=self.node.operations,
-                                           kwargs=kwargs)
+        return self.ctx._execute_operation(
+            operation=operation,
+            node_instance=self,
+            operations=self.node.operations,
+            kwargs=kwargs,
+            allow_kwargs_override=allow_kwargs_override)
 
     @property
     def id(self):
@@ -444,7 +457,8 @@ class CloudifyWorkflowContext(object):
                            node_instance,
                            operations,
                            related_node_instance=None,
-                           kwargs=None):
+                           kwargs=None,
+                           allow_kwargs_override=False):
         kwargs = kwargs or {}
         node = node_instance.node
         rest_node = node._node
@@ -454,7 +468,7 @@ class CloudifyWorkflowContext(object):
             return NOPLocalWorkflowTask()
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
-        operation_properties = op_struct.get('properties', node.properties)
+        operation_properties = op_struct.get('properties', {})
         task_queue = 'cloudify.management'
         if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
             task_queue = rest_node_instance.host_id
@@ -465,7 +479,7 @@ class CloudifyWorkflowContext(object):
         node_context = {
             'node_id': node_instance.id,
             'node_name': node_instance.node_id,
-            'node_properties': copy.copy(operation_properties),
+            'node_properties': copy.copy(node.properties),
             'plugin': plugin_name,
             'operation': operation,
             'relationships': [rel.target_id
@@ -478,10 +492,27 @@ class CloudifyWorkflowContext(object):
                     related_node_instance.node.properties)
             }
 
+        final_kwargs = self._merge_dicts(merged_from=kwargs,
+                                         merged_into=operation_properties,
+                                         allow_override=allow_kwargs_override)
+
         return self.execute_task(task_name,
                                  task_queue=task_queue,
-                                 kwargs=kwargs,
+                                 kwargs=final_kwargs,
                                  node_context=node_context)
+
+    @staticmethod
+    def _merge_dicts(merged_from, merged_into, allow_override=False):
+        result = copy.copy(merged_into)
+        for key, value in merged_from.iteritems():
+            if not allow_override and key in merged_into:
+                raise RuntimeError('Duplicate definition of {} in operation'
+                                   ' properties and in kwargs. To allow '
+                                   'redefinition, pass '
+                                   '"allow_kwargs_override" to '
+                                   '"execute_operation"'.format(key))
+            result[key] = value
+        return result
 
     def update_execution_status(self, new_status):
         """
