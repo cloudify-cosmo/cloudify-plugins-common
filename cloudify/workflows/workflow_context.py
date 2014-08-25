@@ -460,7 +460,7 @@ class CloudifyWorkflowContext(object):
             task_queue = rest_node_instance.host_id
         elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
             task_queue = self.deployment_id
-        task_name = '{0}.{1}'.format(plugin_name, operation_mapping)
+        task_name = operation_mapping
 
         node_context = {
             'node_id': node_instance.id,
