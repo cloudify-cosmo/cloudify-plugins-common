@@ -38,7 +38,7 @@ class TestCurrentContextAndCtxLocalProxy(unittest.TestCase):
                     current_ctx.clear()
                     self.assertRaises(RuntimeError, current_ctx.get_ctx)
                     self.assertRaises(RuntimeError, lambda: ctx.node_id)
-                except Exception, e:
+                except Exception as e:
                     queue.put(e)
                 else:
                     queue.put('ok')

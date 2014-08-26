@@ -199,7 +199,7 @@ def workflow(func=None, **arguments):
                     except api.ExecutionCancelled:
                         child_conn.send({
                             'result': api.EXECUTION_CANCELLED_RESULT})
-                    except BaseException, e:
+                    except BaseException as e:
                         tb = StringIO()
                         traceback.print_exc(file=tb)
                         err = {
