@@ -267,10 +267,14 @@ class CloudifyWorkflowNode(object):
     def __init__(self, ctx, node):
         self.ctx = ctx
         self._node = node
-        self._relationships = {
-            relationship['target_id']: CloudifyWorkflowRelationship(
-                self.ctx, self, relationship)
-            for relationship in node.relationships}
+        self._relationships = dict(
+            (relationship['target_id'], CloudifyWorkflowRelationship(
+                self.ctx, self, relationship))
+            for relationship in node.relationships)
+        # self._relationships = {
+        #     relationship['target_id']: CloudifyWorkflowRelationship(
+        #         self.ctx, self, relationship)
+        #     for relationship in node.relationships}
         self._node_instances = {}
 
     @property
