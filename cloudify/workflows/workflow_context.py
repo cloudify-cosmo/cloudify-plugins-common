@@ -15,7 +15,6 @@
 
 __author__ = 'dank'
 
-
 import copy
 import uuid
 import importlib
@@ -145,13 +144,18 @@ class CloudifyWorkflowNodeInstance(object):
         self.ctx = ctx
         self._node = node
         self._node_instance = node_instance
-        self._relationship_instances = {
-            relationship_instance['target_id']:
-            CloudifyWorkflowRelationshipInstance(self.ctx,
-                                                 self,
-                                                 relationship_instance)
-            for relationship_instance in node_instance.relationships
-        }
+        self._relationship_instances = dict(
+            (relationship_instance['target_id'],
+                CloudifyWorkflowRelationshipInstance(
+                    self.ctx, self, relationship_instance))
+            for relationship_instance in node_instance.relationships)
+        # self._relationship_instances = {
+        #     relationship_instance['target_id']:
+        #     CloudifyWorkflowRelationshipInstance(self.ctx,
+        #                                          self,
+        #                                          relationship_instance)
+        #     for relationship_instance in node_instance.relationships
+        # }
         # adding the node instance to the node instances map
         node._node_instances[self.id] = self
 
