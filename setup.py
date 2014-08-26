@@ -30,7 +30,6 @@ setup(
     zip_safe=False,
     install_requires=[
         'cloudify-rest-client==3.1a2',
-        'protobuf',
         'pika==0.9.13',
         'networkx==1.8.1',
         'proxy_tools==0.1.0'
