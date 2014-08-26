@@ -337,13 +337,19 @@ class CloudifyWorkflowContext(object):
         rest = get_rest_client()
         rest_nodes = rest.nodes.list(self.deployment_id)
         rest_node_instances = rest.node_instances.list(self.deployment_id)
-
-        self._nodes = {node.id: CloudifyWorkflowNode(self, node) for
-                       node in rest_nodes}
-        self._node_instances = {
-            instance.id: CloudifyWorkflowNodeInstance(
-                self, self._nodes[instance.node_id], instance)
-            for instance in rest_node_instances}
+        self._nodes = dict(
+            (node.id, CloudifyWorkflowNode(self, node))
+            for node in rest_nodes)
+        # self._nodes = {node.id: CloudifyWorkflowNode(self, node) for
+        #                node in rest_nodes}
+        self._node_instances = dict(
+            (instance.id, CloudifyWorkflowNodeInstance(
+                self, self._nodes[instance.node_id], instance))
+            for instance in rest_node_instances)
+        # self._node_instances = {
+        #     instance.id: CloudifyWorkflowNodeInstance(
+        #         self, self._nodes[instance.node_id], instance)
+        #    for instance in rest_node_instances}
 
         self._logger = None
 
