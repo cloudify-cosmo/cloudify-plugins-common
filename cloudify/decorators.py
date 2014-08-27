@@ -269,7 +269,7 @@ def workflow(func=None, **arguments):
                         message="'{}' workflow execution succeeded"
                                 .format(ctx.workflow_id))
                 return result
-            except BaseException, e:
+            except BaseException as e:
                 if isinstance(e, ProcessExecutionError):
                     error_traceback = e.traceback
                 else:
