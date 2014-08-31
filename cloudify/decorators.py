@@ -80,8 +80,7 @@ def _find_context_arg(args, kwargs, is_context):
     for arg in kwargs.values():
         if is_context(arg):
             return arg
-    return kwargs[CLOUDIFY_CONTEXT_PROPERTY_KEY]\
-        if CLOUDIFY_CONTEXT_PROPERTY_KEY in kwargs else None
+    return kwargs.get(CLOUDIFY_CONTEXT_PROPERTY_KEY)
 
 
 def operation(func=None, **arguments):
@@ -145,154 +144,174 @@ def workflow(func=None, **arguments):
         def reinstall(ctx, **kwargs):
             pass
     """
-
     if func is not None:
-        def update_execution_cancelled(ctx):
-            update_execution_status(ctx.execution_id,
-                                    Execution.CANCELLED)
-            send_workflow_event(
-                ctx, event_type='workflow_cancelled',
-                message="'{}' workflow execution cancelled"
-                        .format(ctx.workflow_id))
-
         @_task
         @wraps(func)
         def wrapper(*args, **kwargs):
+
             ctx = _find_context_arg(args, kwargs,
                                     _is_cloudify_workflow_context)
-            if ctx is None:
-                ctx = {}
-            if not _is_cloudify_workflow_context(ctx):
-                ctx = CloudifyWorkflowContext(ctx)
-                kwargs['ctx'] = ctx
+            ctx = CloudifyWorkflowContext(ctx)
+            kwargs['ctx'] = ctx
 
-            rest = get_rest_client()
-            parent_conn, child_conn = Pipe()
-            try:
-                if rest.executions.get(ctx.execution_id).status in \
-                        (Execution.CANCELLING, Execution.FORCE_CANCELLING):
-                    # execution has been requested to be cancelled before it
-                    # was even started
-                    update_execution_cancelled(ctx)
-                    return api.EXECUTION_CANCELLED_RESULT
+            if ctx.remote:
+                workflow_wrapper = remote_workflow
+            else:
+                workflow_wrapper = local_workflow
 
-                update_execution_status(ctx.execution_id, Execution.STARTED)
-                send_workflow_event(ctx,
-                                    event_type='workflow_started',
-                                    message="Starting '{}' workflow execution"
-                                            .format(ctx.workflow_id))
+            return workflow_wrapper(ctx, func, args, kwargs)
 
-                # the actual execution of the workflow will run in another
-                # process - this wrapper is the entry point for that
-                # process, and takes care of forwarding the result or error
-                # back to the parent process
-                def child_wrapper():
-                    try:
-                        start_event_monitor(ctx)
-                        current_workflow_ctx.set(ctx, kwargs)
-                        result = func(*args, **kwargs)
-                        if not ctx.internal.graph_mode:
-                            tasks = list(ctx.internal.task_graph.tasks_iter())
-                            for task in tasks:
-                                task.async_result.get()
-                        child_conn.send({'result': result})
-                    except api.ExecutionCancelled:
-                        child_conn.send({
-                            'result': api.EXECUTION_CANCELLED_RESULT})
-                    except BaseException, e:
-                        tb = StringIO()
-                        traceback.print_exc(file=tb)
-                        err = {
-                            'type': type(e).__name__,
-                            'message': str(e),
-                            'traceback': tb.getvalue()
-                        }
-                        child_conn.send({'error': err})
-                    finally:
-                        current_workflow_ctx.clear()
-                        child_conn.close()
-
-                api.ctx = ctx
-                api.pipe = child_conn
-
-                # starting workflow execution on child process
-                p = Process(target=child_wrapper)
-                p.start()
-
-                # while the child process is executing the workflow,
-                # the parent process is polling for 'cancel' requests while
-                # also waiting for messages from the child process
-                has_sent_cancelling_action = False
-                while True:
-                    # check if child process sent a message
-                    if parent_conn.poll(5):
-                        data = parent_conn.recv()
-                        if 'result' in data:
-                            # child process has terminated
-                            result = data['result']
-                            break
-                        else:
-                            # error occurred in child process
-                            error = data['error']
-                            raise ProcessExecutionError(error['message'],
-                                                        error['type'],
-                                                        error['traceback'])
-
-                    # check for 'cancel' requests
-                    execution = rest.executions.get(ctx.execution_id)
-                    if execution.status == Execution.FORCE_CANCELLING:
-                        # terminate the child process immediately
-                        p.terminate()
-                        result = api.EXECUTION_CANCELLED_RESULT
-                        break
-                    elif not has_sent_cancelling_action and \
-                            execution.status == Execution.CANCELLING:
-                        # send a 'cancel' message to the child process. It
-                        # is up to the workflow implementation to check for
-                        # this message and act accordingly (by stopping and
-                        # returning a api.EXECUTION_CANCELLED_RESULT result).
-                        # parent process then goes back to polling for
-                        # messages from child process or possibly
-                        # 'force-cancelling' requests
-                        parent_conn.send({'action': 'cancel'})
-                        has_sent_cancelling_action = True
-
-                # updating execution status and sending events according to
-                # how the execution ended
-                if result == api.EXECUTION_CANCELLED_RESULT:
-                    update_execution_cancelled(ctx)
-                else:
-                    update_execution_status(ctx.execution_id,
-                                            Execution.TERMINATED)
-                    send_workflow_event(
-                        ctx, event_type='workflow_succeeded',
-                        message="'{}' workflow execution succeeded"
-                                .format(ctx.workflow_id))
-                return result
-            except BaseException, e:
-                if isinstance(e, ProcessExecutionError):
-                    error_traceback = e.traceback
-                else:
-                    error = StringIO()
-                    traceback.print_exc(file=error)
-                    error_traceback = error.getvalue()
-
-                update_execution_status(ctx.execution_id, Execution.FAILED,
-                                        error_traceback)
-                send_workflow_event(
-                    ctx,
-                    event_type='workflow_failed',
-                    message="'{}' workflow execution failed: {}"
-                            .format(ctx.workflow_id, str(e)),
-                    args={'error': error_traceback})
-                raise
-            finally:
-                parent_conn.close()
-                child_conn.close()  # probably unneeded but cleanup anyway
         return wrapper
     else:
         def partial_wrapper(fn):
             return workflow(fn, **arguments)
+
         return partial_wrapper
+
+
+def remote_workflow(ctx, func, args, kwargs):
+    def update_execution_cancelled():
+        update_execution_status(ctx.execution_id, Execution.CANCELLED)
+        send_workflow_event(
+            ctx,
+            event_type='workflow_cancelled',
+            message="'{}' workflow execution cancelled"
+                    .format(ctx.workflow_id))
+
+    rest = get_rest_client()
+    parent_conn, child_conn = Pipe()
+    try:
+        if rest.executions.get(ctx.execution_id).status in \
+                (Execution.CANCELLING, Execution.FORCE_CANCELLING):
+            # execution has been requested to be cancelled before it
+            # was even started
+            update_execution_cancelled()
+            return api.EXECUTION_CANCELLED_RESULT
+
+        update_execution_status(ctx.execution_id, Execution.STARTED)
+        send_workflow_event(
+            ctx,
+            event_type='workflow_started',
+            message="Starting '{}' workflow execution".format(ctx.workflow_id))
+
+        # the actual execution of the workflow will run in another
+        # process - this wrapper is the entry point for that
+        # process, and takes care of forwarding the result or error
+        # back to the parent process
+        def child_wrapper():
+            try:
+                start_event_monitor(ctx)
+                current_workflow_ctx.set(ctx, kwargs)
+                workflow_result = func(*args, **kwargs)
+                if not ctx.internal.graph_mode:
+                    tasks = list(ctx.internal.task_graph.tasks_iter())
+                    for workflow_task in tasks:
+                        workflow_task.async_result.get()
+                child_conn.send({'result': workflow_result})
+            except api.ExecutionCancelled:
+                child_conn.send({
+                    'result': api.EXECUTION_CANCELLED_RESULT})
+            except BaseException, workflow_ex:
+                tb = StringIO()
+                traceback.print_exc(file=tb)
+                err = {
+                    'type': type(workflow_ex).__name__,
+                    'message': str(workflow_ex),
+                    'traceback': tb.getvalue()
+                }
+                child_conn.send({'error': err})
+            finally:
+                current_workflow_ctx.clear()
+                child_conn.close()
+
+        api.ctx = ctx
+        api.pipe = child_conn
+
+        # starting workflow execution on child process
+        p = Process(target=child_wrapper)
+        p.start()
+
+        # while the child process is executing the workflow,
+        # the parent process is polling for 'cancel' requests while
+        # also waiting for messages from the child process
+        has_sent_cancelling_action = False
+        result = None
+        while True:
+            # check if child process sent a message
+            if parent_conn.poll(5):
+                data = parent_conn.recv()
+                if 'result' in data:
+                    # child process has terminated
+                    result = data['result']
+                    break
+                else:
+                    # error occurred in child process
+                    error = data['error']
+                    raise ProcessExecutionError(error['message'],
+                                                error['type'],
+                                                error['traceback'])
+            # check for 'cancel' requests
+            execution = rest.executions.get(ctx.execution_id)
+            if execution.status == Execution.FORCE_CANCELLING:
+                # terminate the child process immediately
+                p.terminate()
+                result = api.EXECUTION_CANCELLED_RESULT
+                break
+            elif not has_sent_cancelling_action and \
+                    execution.status == Execution.CANCELLING:
+                # send a 'cancel' message to the child process. It
+                # is up to the workflow implementation to check for
+                # this message and act accordingly (by stopping and
+                # returning a api.EXECUTION_CANCELLED_RESULT result).
+                # parent process then goes back to polling for
+                # messages from child process or possibly
+                # 'force-cancelling' requests
+                parent_conn.send({'action': 'cancel'})
+                has_sent_cancelling_action = True
+
+        # updating execution status and sending events according to
+        # how the execution ended
+        if result == api.EXECUTION_CANCELLED_RESULT:
+            update_execution_cancelled()
+        else:
+            update_execution_status(ctx.execution_id, Execution.TERMINATED)
+            send_workflow_event(
+                ctx, event_type='workflow_succeeded',
+                message="'{}' workflow execution succeeded"
+                .format(ctx.workflow_id))
+        return result
+    except BaseException, e:
+        if isinstance(e, ProcessExecutionError):
+            error_traceback = e.traceback
+        else:
+            error = StringIO()
+            traceback.print_exc(file=error)
+            error_traceback = error.getvalue()
+        update_execution_status(ctx.execution_id, Execution.FAILED,
+                                error_traceback)
+        send_workflow_event(
+            ctx,
+            event_type='workflow_failed',
+            message="'{}' workflow execution failed: {}"
+                    .format(ctx.workflow_id, str(e)),
+            args={'error': error_traceback})
+        raise
+    finally:
+        parent_conn.close()
+        child_conn.close()  # probably unneeded but cleanup anyway
+
+
+def local_workflow(ctx, func, args, kwargs):
+    try:
+        current_workflow_ctx.set(ctx, kwargs)
+        result = func(*args, **kwargs)
+        if not ctx.internal.graph_mode:
+            tasks = list(ctx.internal.task_graph.tasks_iter())
+            for workflow_task in tasks:
+                workflow_task.async_result.get()
+        return result
+    finally:
+        current_workflow_ctx.clear()
+
 
 task = operation

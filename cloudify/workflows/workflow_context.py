@@ -13,15 +13,18 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'dank'
-
 
 import copy
 import uuid
 import importlib
+import logging
+import sys
 
-from cloudify.manager import get_node_instance, update_node_instance, \
-    update_execution_status, get_rest_client, get_bootstrap_context
+from cloudify.manager import (get_node_instance,
+                              update_node_instance,
+                              update_execution_status,
+                              get_bootstrap_context,
+                              get_rest_client)
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
@@ -155,9 +158,9 @@ class CloudifyWorkflowNodeInstance(object):
         self._node_instance = node_instance
         self._relationship_instances = {
             relationship_instance['target_id']:
-            CloudifyWorkflowRelationshipInstance(self.ctx,
-                                                 self,
-                                                 relationship_instance)
+                CloudifyWorkflowRelationshipInstance(self.ctx,
+                                                     self,
+                                                     relationship_instance)
             for relationship_instance in node_instance.relationships
         }
         # adding the node instance to the node instances map
@@ -261,7 +264,10 @@ class CloudifyWorkflowNodeInstance(object):
     def _init_cloudify_logger(self):
         logger_name = self.id if self.id is not None \
             else 'cloudify_workflow_node'
-        handler = CloudifyWorkflowNodeLoggingHandler(self)
+        if self.ctx.remote:
+            handler = CloudifyWorkflowNodeLoggingHandler(self)
+        else:
+            handler = logging.StreamHandler(sys.stdout)
         return init_cloudify_logger(handler, logger_name)
 
 
@@ -337,18 +343,23 @@ class CloudifyWorkflowContext(object):
     """
 
     def __init__(self, ctx):
+        # Before anything else so property access will work properly
         self._context = ctx
 
-        rest = get_rest_client()
-        rest_nodes = rest.nodes.list(self.deployment_id)
-        rest_node_instances = rest.node_instances.list(self.deployment_id)
+        if self.remote:
+            rest = get_rest_client()
+            nodes = rest.nodes.list(self.deployment_id)
+            node_instances = rest.node_instances.list(self.deployment_id)
+        else:
+            nodes = ctx.pop('nodes')
+            node_instances = ctx.pop('node_instances')
 
         self._nodes = {node.id: CloudifyWorkflowNode(self, node) for
-                       node in rest_nodes}
+                       node in nodes}
         self._node_instances = {
             instance.id: CloudifyWorkflowNodeInstance(
                 self, self._nodes[instance.node_id], instance)
-            for instance in rest_node_instances}
+            for instance in node_instances}
 
         self._logger = None
 
@@ -397,6 +408,11 @@ class CloudifyWorkflowContext(object):
         return self._context.get('workflow_id')
 
     @property
+    def remote(self):
+        """Is the workflow running in a remote context or locally"""
+        return self._context.get('remote', True)
+
+    @property
     def logger(self):
         """A logger for this workflow"""
         if self._logger is None:
@@ -406,7 +422,10 @@ class CloudifyWorkflowContext(object):
     def _init_cloudify_logger(self):
         logger_name = self.workflow_id if self.workflow_id is not None \
             else 'cloudify_workflow'
-        handler = CloudifyWorkflowLoggingHandler(self)
+        if self.remote:
+            handler = CloudifyWorkflowLoggingHandler(self)
+        else:
+            handler = logging.StreamHandler(sys.stdout)
         return init_cloudify_logger(handler, logger_name)
 
     def send_event(self, event, event_type='workflow_stage',
@@ -469,11 +488,13 @@ class CloudifyWorkflowContext(object):
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties', {})
-        task_queue = 'cloudify.management'
-        if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
-            task_queue = rest_node_instance.host_id
-        elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
-            task_queue = self.deployment_id
+        task_queue = None
+        if self.remote:
+            task_queue = 'cloudify.management'
+            if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
+                task_queue = rest_node_instance.host_id
+            elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
+                task_queue = self.deployment_id
         task_name = operation_mapping
 
         node_context = {
@@ -521,7 +542,11 @@ class CloudifyWorkflowContext(object):
         after its run (whether the run succeeded or failed)
         """
         def update_execution_status_task():
-            update_execution_status(self.execution_id, new_status)
+            if self.remote:
+                update_execution_status(self.execution_id, new_status)
+            else:
+                raise RuntimeError('Updating execution status is not '
+                                   'supported for local workflow execution')
         return self.local_task(
             local_task=update_execution_status_task,
             info=new_status)
@@ -647,6 +672,7 @@ class CloudifyWorkflowContext(object):
 class CloudifyWorkflowContextInternal(object):
 
     def __init__(self, workflow_context):
+        self.workflow_context = workflow_context
         self._bootstrap_context = None
         self._graph_mode = False
         # the graph is always created internally for events to work properly
@@ -664,7 +690,10 @@ class CloudifyWorkflowContextInternal(object):
 
     def _get_bootstrap_context(self):
         if self._bootstrap_context is None:
-            self._bootstrap_context = get_bootstrap_context()
+            if self.workflow_context.remote:
+                self._bootstrap_context = get_bootstrap_context()
+            else:
+                self._bootstrap_context = {}
         return self._bootstrap_context
 
     @property
