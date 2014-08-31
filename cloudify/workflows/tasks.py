@@ -174,13 +174,12 @@ class WorkflowTask(object):
         else:
             handler_result = HandlerResult.retry()
         if handler_result.action == HandlerResult.HANDLER_RETRY:
-            if self.is_remote():
-                try:
-                    exception = self.async_result.async_result.result
-                except:
-                    exception = None
-            else:
-                exception = self.async_result.error[0]
+            try:
+                exception = self.async_result.result
+            except:
+                exception = NonRecoverableError('Could not deserialize task '
+                                                '{} exception'
+                                                .format(self.name))
             if isinstance(exception, NonRecoverableError):
                 handler_result = HandlerResult.fail()
             elif isinstance(exception, RecoverableError):
@@ -194,6 +193,14 @@ class WorkflowTask(object):
     def duplicate(self):
         """
         :return: A new instance of this task with a new task id
+        """
+
+        raise NotImplementedError('Implemented by subclasses')
+
+    @property
+    def name(self):
+        """
+        :return: The task name
         """
 
         raise NotImplementedError('Implemented by subclasses')
@@ -507,6 +514,10 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
     def _refresh_state(self):
         self.async_result = self.task.async_result.async_result
 
+    @property
+    def result(self):
+        return self.async_result.result
+
 
 class LocalWorkflowTaskResult(WorkflowTaskResult):
     """A wrapper for local workflow task results"""
@@ -518,18 +529,25 @@ class LocalWorkflowTaskResult(WorkflowTaskResult):
         :param error: a tuple (exception, traceback) if the task failed
         """
         super(LocalWorkflowTaskResult, self).__init__(task)
-        self.result = result
-        self.error = error
+        self._result = result
+        self._error = error
 
     def _get(self):
-        if self.error is not None:
-            exception, traceback = self.error
+        if self._error is not None:
+            exception, traceback = self._error
             raise exception, None, traceback
-        return self.result
+        return self._result
 
     def _refresh_state(self):
-        self.result = self.task.async_result.result
-        self.error = self.task.async_result.error
+        self._result = self.task.async_result._result
+        self._error = self.task.async_result._error
+
+    @property
+    def result(self):
+        if self._error:
+            return self._error[0]
+        else:
+            return self._result
 
 
 class HandlerResult(object):

@@ -36,7 +36,7 @@ def has_cancel_request():
 
     :return: whether there was a request to cancel the workflow execution
     """
-    if pipe.poll():
+    if pipe and pipe.poll():
         data = pipe.recv()
         return data['action'] == 'cancel'
     return False
