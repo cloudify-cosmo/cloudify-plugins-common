@@ -201,12 +201,8 @@ def remote_workflow(ctx, func, args, kwargs):
         def child_wrapper():
             try:
                 start_event_monitor(ctx)
-                current_workflow_ctx.set(ctx, kwargs)
-                workflow_result = func(*args, **kwargs)
-                if not ctx.internal.graph_mode:
-                    tasks = list(ctx.internal.task_graph.tasks_iter())
-                    for workflow_task in tasks:
-                        workflow_task.async_result.get()
+                workflow_result = _execute_workflow_function(
+                    ctx, func, args, kwargs)
                 child_conn.send({'result': workflow_result})
             except api.ExecutionCancelled:
                 child_conn.send({
@@ -221,7 +217,6 @@ def remote_workflow(ctx, func, args, kwargs):
                 }
                 child_conn.send({'error': err})
             finally:
-                current_workflow_ctx.clear()
                 child_conn.close()
 
         api.ctx = ctx
@@ -302,6 +297,10 @@ def remote_workflow(ctx, func, args, kwargs):
 
 
 def local_workflow(ctx, func, args, kwargs):
+    return _execute_workflow_function(ctx, func, args, kwargs)
+
+
+def _execute_workflow_function(ctx, func, args, kwargs):
     try:
         current_workflow_ctx.set(ctx, kwargs)
         result = func(*args, **kwargs)
