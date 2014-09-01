@@ -129,8 +129,8 @@ class LocalCommandRunner(object):
     :param logger: This logger will be used for
                    printing the output and the command.
     """
-    def __init__(self, logger=setup_default_logger('LocalCommandRunner')):
-
+    def __init__(self, logger=None):
+        logger = logger or setup_default_logger('LocalCommandRunner')
         self.logger = logger
 
     def run(self, command, exit_on_failure=True):
