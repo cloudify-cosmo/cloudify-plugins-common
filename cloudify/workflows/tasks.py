@@ -395,19 +395,20 @@ class LocalWorkflowTask(WorkflowTask):
                 result = self.local_task(**self.kwargs)
                 self.workflow_context.internal.send_task_event(
                     TASK_SUCCEEDED, self, event={'result': str(result)})
-                self.async_result._result = result
+                self.async_result._holder.result = result
                 self.set_state(TASK_SUCCEEDED)
             except:
                 exc_type, exception, tb = sys.exc_info()
                 self.workflow_context.internal.send_task_event(
                     TASK_FAILED, self, event={'exception': str(exception)})
-                self.async_result._error = (exception, tb)
+                self.async_result._holder.error = (exception, tb)
                 self.set_state(TASK_FAILED)
+
+        self.async_result = LocalWorkflowTaskResult(self)
 
         self.workflow_context.internal.send_task_event(TASK_SENDING, self)
         self.workflow_context.internal.add_local_task(local_task_wrapper)
         self.set_state(TASK_SENT)
-        self.async_result = LocalWorkflowTaskResult(self)
 
         return self.async_result
 
@@ -538,30 +539,34 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
 class LocalWorkflowTaskResult(WorkflowTaskResult):
     """A wrapper for local workflow task results"""
 
+    class ResultHolder(object):
+
+        def __init__(self, result=None, error=None):
+            self.result = result
+            self.error = error
+
     def __init__(self, task):
         """
         :param task: The LocalWorkflowTask instance
         """
         super(LocalWorkflowTaskResult, self).__init__(task)
-        self._result = None
-        self._error = None
+        self._holder = self.ResultHolder()
 
     def _get(self):
-        if self._error is not None:
-            exception, traceback = self._error
+        if self._holder.error is not None:
+            exception, traceback = self._holder.error
             raise exception, None, traceback
-        return self._result
+        return self._holder.result
 
     def _refresh_state(self):
-        self._result = self.task.async_result._result
-        self._error = self.task.async_result._error
+        self._holder = self.task.async_result._holder
 
     @property
     def result(self):
-        if self._error:
-            return self._error[0]
+        if self._holder.error:
+            return self._holder.error[0]
         else:
-            return self._result
+            return self._holder.result
 
 
 class HandlerResult(object):
