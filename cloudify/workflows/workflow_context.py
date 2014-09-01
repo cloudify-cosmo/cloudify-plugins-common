@@ -688,7 +688,8 @@ class CloudifyWorkflowContextInternal(object):
             self.workflow_context.logger)
 
         # local task processing
-        self.local_tasks_processor = LocalTasksProcessing()
+        self.local_tasks_processor = LocalTasksProcessing(
+            thread_pool_size=1)
 
     def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
@@ -758,8 +759,7 @@ class CloudifyWorkflowContextInternal(object):
 
 class LocalTasksProcessing(object):
 
-    def __init__(self):
-        thread_pool_size = 1
+    def __init__(self, thread_pool_size=1):
         self._local_tasks_queue = Queue.Queue()
         self._local_task_processing_pool = [
             threading.Thread(target=self._process_local_task)
