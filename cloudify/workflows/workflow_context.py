@@ -211,10 +211,16 @@ class CloudifyWorkflowNodeInstance(object):
                context
         """
         def send_event_task():
-            send_workflow_node_event(ctx=self,
-                                     event_type='workflow_node_event',
-                                     message=event,
-                                     additional_context=additional_context)
+            if self.ctx.remote:
+                send_workflow_node_event(ctx=self,
+                                         event_type='workflow_node_event',
+                                         message=event,
+                                         additional_context=additional_context)
+            else:
+                self.logger.info('[{}] {} [additional_context={}]'
+                                 .format(self.id,
+                                         event,
+                                         additional_context or {}))
         return self.ctx.local_task(
             local_task=send_event_task,
             node=self,
@@ -445,11 +451,17 @@ class CloudifyWorkflowContext(object):
         """
 
         def send_event_task():
-            send_workflow_event(ctx=self,
-                                event_type=event_type,
-                                message=event,
-                                args=args,
-                                additional_context=additional_context)
+            if self.remote:
+                send_workflow_event(ctx=self,
+                                    event_type=event_type,
+                                    message=event,
+                                    args=args,
+                                    additional_context=additional_context)
+            else:
+                self.logger.info('[{}] {} [additional_context={}]'
+                                 .format(self.workflow_id,
+                                         event,
+                                         additional_context or {}))
         return self.local_task(
             local_task=send_event_task,
             info=event)
