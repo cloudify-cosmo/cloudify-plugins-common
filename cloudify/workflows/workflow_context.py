@@ -604,6 +604,7 @@ class CloudifyWorkflowContext(object):
             task = getattr(module, method_name)
             return self.local_task(local_task=task,
                                    info=task_name,
+                                   name=task_name,
                                    kwargs=kwargs,
                                    task_id=task_id)
         else:
@@ -625,7 +626,8 @@ class CloudifyWorkflowContext(object):
                    node=None,
                    info=None,
                    kwargs=None,
-                   task_id=None):
+                   task_id=None,
+                   name=None):
         """
         Create a local workflow task
 
@@ -643,6 +645,7 @@ class CloudifyWorkflowContext(object):
                               info=info,
                               kwargs=kwargs,
                               task_id=task_id,
+                              name=name,
                               **self.internal.get_task_configuration()))
 
     def remote_task(self,
