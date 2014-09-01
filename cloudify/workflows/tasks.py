@@ -84,6 +84,7 @@ class WorkflowTask(object):
         self.total_retries = total_retries
         self.retry_interval = retry_interval
         self.terminated = Queue.Queue(maxsize=1)
+        self.is_terminated = False
         self.workflow_context = workflow_context
 
         self.current_retries = 0
@@ -134,9 +135,12 @@ class WorkflowTask(object):
 
         self._state = state
         if state in [TASK_SUCCEEDED, TASK_FAILED]:
+            self.is_terminated = True
             self.terminated.put_nowait(True)
 
     def wait_for_terminated(self, timeout=None):
+        if self.is_terminated:
+            return
         self.terminated.get(timeout=timeout)
 
     def handle_task_terminated(self):
@@ -377,7 +381,7 @@ class LocalWorkflowTask(WorkflowTask):
 
     def apply_async(self):
         """
-        Execute the task in the current thread
+        Execute the task in the local task thread pool
         :return: A wrapper for the task result
         """
 
@@ -387,15 +391,17 @@ class LocalWorkflowTask(WorkflowTask):
                 result = self.local_task(**self.kwargs)
                 self.workflow_context.send_task_event(
                     TASK_SUCCEEDED, self, event={'result': str(result)})
+                self.async_result._result = result
                 self.set_state(TASK_SUCCEEDED)
             except:
                 exc_type, exception, tb = sys.exc_info()
                 self.workflow_context.send_task_event(
                     TASK_FAILED, self, event={'exception': str(exception)})
+                self.async_result._error = (exception, tb)
                 self.set_state(TASK_FAILED)
 
         self.workflow_context.send_task_event(TASK_SENDING, self)
-
+        self.workflow_context.internal.add_local_task(local_task_wrapper)
         self.set_state(TASK_SENT)
         self.async_result = LocalWorkflowTaskResult(self)
 
@@ -524,15 +530,13 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
 class LocalWorkflowTaskResult(WorkflowTaskResult):
     """A wrapper for local workflow task results"""
 
-    def __init__(self, task, result, error=None):
+    def __init__(self, task):
         """
         :param task: The LocalWorkflowTask instance
-        :param result: The result if the task finished successfully
-        :param error: a tuple (exception, traceback) if the task failed
         """
         super(LocalWorkflowTaskResult, self).__init__(task)
-        self._result = result
-        self._error = error
+        self._result = None
+        self._error = None
 
     def _get(self):
         if self._error is not None:

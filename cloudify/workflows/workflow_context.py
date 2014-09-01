@@ -20,6 +20,7 @@ import importlib
 import logging
 import sys
 import threading
+import Queue
 
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
@@ -680,9 +681,15 @@ class CloudifyWorkflowContextInternal(object):
         # the graph is always created internally for events to work properly
         # when graph mode is turned on this instance is returned to the user.
         self._task_graph = TaskDependencyGraph(workflow_context)
+
+        # events related
         self._event_monitor = None
         self._send_task_event_func = events.send_task_event_local_func(
             self.workflow_context.logger)
+
+        # local task processing
+        self.local_tasks_processor = LocalTasksProcessing()
+        self.local_tasks_processor.start()
 
     def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
@@ -739,3 +746,39 @@ class CloudifyWorkflowContextInternal(object):
         else:
             send_task_event_func = self._send_task_event_func
         events.send_task_event(state, task, send_task_event_func, event)
+
+    def add_local_task(self, task):
+        self.local_tasks_processor.add_task(task)
+
+    def stop_local_tasks_processing(self):
+        self.local_tasks_processor.stop()
+
+
+class LocalTasksProcessing(object):
+
+    def __init__(self):
+        thread_pool_size = 1
+        self._local_tasks_queue = Queue.Queue()
+        self._local_task_processing_pool = [
+            threading.Thread(target=self._process_local_task)
+            for _ in range(thread_pool_size)]
+        self.stopped = False
+
+    def start(self):
+        for thread in self._local_task_processing_pool:
+            thread.daemon = True
+            thread.start()
+
+    def stop(self):
+        self.stopped = True
+
+    def add_task(self, task):
+        self._local_tasks_queue.put(task)
+
+    def _process_local_task(self):
+        while not self.stopped:
+            try:
+                task = self._local_tasks_queue.get(timeout=1)
+                task()
+            except Queue.Empty:
+                pass
