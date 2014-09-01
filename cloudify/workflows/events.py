@@ -120,7 +120,7 @@ def send_task_event(state, task, send_event_func, event):
     if task.name in TASK_TO_FILTER:
         return
 
-    if state in [tasks_api.TASK_FAILED, tasks_api.TASK_STARTED] and \
+    if state in [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED] and \
             event is None:
         raise RuntimeError('Event for task {} is None'.format(task.name))
 

@@ -440,6 +440,10 @@ class NOPLocalWorkflowTask(LocalWorkflowTask):
         """The task name"""
         return 'NOP'
 
+    def apply_async(self):
+        self.set_state(TASK_SUCCEEDED)
+        return LocalWorkflowTaskResult(self)
+
     def is_nop(self):
         return True
 
