@@ -302,6 +302,7 @@ def local_workflow(ctx, func, args, kwargs):
 
 def _execute_workflow_function(ctx, func, args, kwargs):
     try:
+        ctx.internal.start_local_tasks_processing()
         current_workflow_ctx.set(ctx, kwargs)
         result = func(*args, **kwargs)
         if not ctx.internal.graph_mode:
@@ -310,6 +311,7 @@ def _execute_workflow_function(ctx, func, args, kwargs):
                 workflow_task.async_result.get()
         return result
     finally:
+        ctx.internal.stop_local_tasks_processing()
         current_workflow_ctx.clear()
 
 

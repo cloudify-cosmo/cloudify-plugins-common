@@ -689,7 +689,6 @@ class CloudifyWorkflowContextInternal(object):
 
         # local task processing
         self.local_tasks_processor = LocalTasksProcessing()
-        self.local_tasks_processor.start()
 
     def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
@@ -747,11 +746,14 @@ class CloudifyWorkflowContextInternal(object):
             send_task_event_func = self._send_task_event_func
         events.send_task_event(state, task, send_task_event_func, event)
 
-    def add_local_task(self, task):
-        self.local_tasks_processor.add_task(task)
+    def start_local_tasks_processing(self):
+        self.local_tasks_processor.start()
 
     def stop_local_tasks_processing(self):
         self.local_tasks_processor.stop()
+
+    def add_local_task(self, task):
+        self.local_tasks_processor.add_task(task)
 
 
 class LocalTasksProcessing(object):
