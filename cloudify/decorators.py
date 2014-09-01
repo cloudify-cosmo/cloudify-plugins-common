@@ -200,7 +200,7 @@ def remote_workflow(ctx, func, args, kwargs):
         # back to the parent process
         def child_wrapper():
             try:
-                start_event_monitor(ctx)
+                ctx.internal.start_event_monitor()
                 workflow_result = _execute_workflow_function(
                     ctx, func, args, kwargs)
                 child_conn.send({'result': workflow_result})

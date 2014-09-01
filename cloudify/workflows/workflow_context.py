@@ -19,6 +19,7 @@ import uuid
 import importlib
 import logging
 import sys
+import threading
 
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
@@ -30,6 +31,7 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       NOPLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
                                       DEFAULT_RETRY_INTERVAL)
+from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
@@ -657,8 +659,8 @@ class CloudifyWorkflowContext(object):
         return self._process_task(
             RemoteWorkflowTask(task=task,
                                cloudify_context=cloudify_context,
-                               task_id=task_id,
                                workflow_context=self,
+                               task_id=task_id,
                                **self.internal.get_task_configuration()))
 
     def _process_task(self, task):
@@ -678,6 +680,9 @@ class CloudifyWorkflowContextInternal(object):
         # the graph is always created internally for events to work properly
         # when graph mode is turned on this instance is returned to the user.
         self._task_graph = TaskDependencyGraph(workflow_context)
+        self._event_monitor = None
+        self._send_task_event_func = events.send_task_event_local_func(
+            self.workflow_context.logger)
 
     def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
@@ -707,3 +712,30 @@ class CloudifyWorkflowContextInternal(object):
     @graph_mode.setter
     def graph_mode(self, graph_mode):
         self._graph_mode = graph_mode
+
+    @property
+    def event_monitor(self):
+        return self._event_monitor
+
+    @event_monitor.setter
+    def event_monitor(self, value):
+        self._event_monitor = value
+
+    def start_event_monitor(self):
+        """
+        Start an event monitor in its own thread for handling task events
+        defined in the task dependency graph
+
+        """
+        monitor = events.Monitor(self.task_graph)
+        thread = threading.Thread(target=monitor.capture)
+        thread.daemon = True
+        thread.start()
+        self.event_monitor = thread
+
+    def send_task_event(self, state, task, event=None):
+        if self.workflow_context.remote:
+            send_task_event_func = events.send_remote_task_event
+        else:
+            send_task_event_func = self._send_task_event_func
+        events.send_task_event(state, task, send_task_event_func, event)

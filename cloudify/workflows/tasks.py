@@ -45,13 +45,13 @@ class WorkflowTask(object):
     """A base class for workflow tasks"""
 
     def __init__(self,
+                 workflow_context,
                  task_id=None,
                  info=None,
                  on_success=None,
                  on_failure=None,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL,
-                 workflow_context=None):
+                 retry_interval=DEFAULT_RETRY_INTERVAL):
         """
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
@@ -215,13 +215,13 @@ class RemoteWorkflowTask(WorkflowTask):
     def __init__(self,
                  task,
                  cloudify_context,
+                 workflow_context,
                  task_id=None,
                  info=None,
                  on_success=None,
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL,
-                 workflow_context=None):
+                 retry_interval=DEFAULT_RETRY_INTERVAL):
         """
         :param task: The celery task
         :param cloudify_context: the cloudify context dict
@@ -247,13 +247,13 @@ class RemoteWorkflowTask(WorkflowTask):
         :param workflow_context: the CloudifyWorkflowContext instance
         """
         super(RemoteWorkflowTask, self).__init__(
+            workflow_context,
             task_id,
             info=info,
             on_success=on_success,
             on_failure=on_failure,
             total_retries=total_retries,
-            retry_interval=retry_interval,
-            workflow_context=workflow_context)
+            retry_interval=retry_interval)
         self.task = task
         self.cloudify_context = cloudify_context
 
@@ -269,9 +269,7 @@ class RemoteWorkflowTask(WorkflowTask):
         self._verify_task_registered()
 
         # here to avoid cyclic dependencies
-        from events import send_task_event
-        send_task_event(TASK_SENDING, self)
-
+        self.workflow_context.send_task_event(TASK_SENDING, self)
         async_result = self.task.apply_async(task_id=self.id)
         self.set_state(TASK_SENT)
         self.async_result = RemoteWorkflowTaskResult(self, async_result)
@@ -283,12 +281,12 @@ class RemoteWorkflowTask(WorkflowTask):
     def duplicate(self):
         dup = RemoteWorkflowTask(task=self.task,
                                  cloudify_context=self.cloudify_context,
+                                 workflow_context=self.workflow_context,
                                  info=self.info,
                                  on_success=self.on_success,
                                  on_failure=self.on_failure,
                                  total_retries=self.total_retries,
-                                 retry_interval=self.retry_interval,
-                                 workflow_context=self.workflow_context)
+                                 retry_interval=self.retry_interval)
         dup.cloudify_context['task_id'] = dup.id
         dup.current_retries = self.current_retries
         return dup
@@ -375,7 +373,7 @@ class LocalWorkflowTask(WorkflowTask):
             workflow_context=workflow_context)
         self.local_task = local_task
         self.node = node
-        self.kwargs = kwargs
+        self.kwargs = kwargs or {}
 
     def apply_async(self):
         """
@@ -383,19 +381,23 @@ class LocalWorkflowTask(WorkflowTask):
         :return: A wrapper for the task result
         """
 
-        self.set_state(TASK_SENT)
-        try:
-            if self.kwargs:
+        def local_task_wrapper():
+            try:
+                self.workflow_context.send_task_event(TASK_STARTED, self)
                 result = self.local_task(**self.kwargs)
-            else:
-                result = self.local_task()
-            self.set_state(TASK_SUCCEEDED)
-            self.async_result = LocalWorkflowTaskResult(self, result)
-        except:
-            exc_type, exception, tb = sys.exc_info()
-            self.set_state(TASK_FAILED)
-            self.async_result = LocalWorkflowTaskResult(self, result=None,
-                                                        error=(exception, tb))
+                self.workflow_context.send_task_event(
+                    TASK_SUCCEEDED, self, event={'result': str(result)})
+                self.set_state(TASK_SUCCEEDED)
+            except:
+                exc_type, exception, tb = sys.exc_info()
+                self.workflow_context.send_task_event(
+                    TASK_FAILED, self, event={'exception': str(exception)})
+                self.set_state(TASK_FAILED)
+
+        self.workflow_context.send_task_event(TASK_SENDING, self)
+
+        self.set_state(TASK_SENT)
+        self.async_result = LocalWorkflowTaskResult(self)
 
         return self.async_result
 
