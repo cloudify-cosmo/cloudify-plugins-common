@@ -742,7 +742,10 @@ class CloudifyWorkflowContextInternal(object):
 
     def send_task_event(self, state, task, event=None):
         if self.workflow_context.remote:
-            send_task_event_func = events.send_remote_task_event
+            if task.is_remote():
+                send_task_event_func = events.send_task_event_remote_task_func
+            else:
+                send_task_event_func = events.send_task_event_local_task_func
         else:
             send_task_event_func = self._send_task_event_func
         events.send_task_event(state, task, send_task_event_func, event)

@@ -16,7 +16,7 @@
 __author__ = 'dank'
 
 
-from cloudify.logs import send_remote_task_event
+from cloudify.logs import send_task_event as send_task_event_amqp
 from cloudify.workflows import tasks as tasks_api
 
 
@@ -58,7 +58,8 @@ class Monitor(object):
         task_id = event['uuid']
         task = self.tasks_graph.get_task(task_id)
         if task is not None:
-            send_task_event(state, task, send_task_event_remote_func, event)
+            send_task_event(state, task, send_task_event_remote_task_func,
+                            event)
             task.set_state(state)
 
     def capture(self):
@@ -77,10 +78,20 @@ class Monitor(object):
             receive.capture(limit=None, timeout=None, wakeup=True)
 
 
-def send_task_event_remote_func(task, event_type, message):
-    send_remote_task_event(remote_task=task,
-                           event_type=event_type,
-                           message=message)
+def send_task_event_remote_task_func(task, event_type, message):
+    send_task_event_amqp(cloudify_context=task.cloudify_context,
+                         event_type=event_type,
+                         message=message)
+
+
+def send_task_event_local_task_func(task, event_type, message):
+    cloudify_context = task.kwargs.get('__cloudify_context')
+    if not cloudify_context:
+        # TODO these type of tasks should be dealt with somehow
+        return
+    send_task_event_amqp(cloudify_context=cloudify_context,
+                         event_type=event_type,
+                         message=message)
 
 
 def send_task_event_local_func(logger):

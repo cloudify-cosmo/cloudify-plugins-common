@@ -273,7 +273,7 @@ class RemoteWorkflowTask(WorkflowTask):
         self._verify_task_registered()
 
         # here to avoid cyclic dependencies
-        self.workflow_context.send_task_event(TASK_SENDING, self)
+        self.workflow_context.internal.send_task_event(TASK_SENDING, self)
         async_result = self.task.apply_async(task_id=self.id)
         self.set_state(TASK_SENT)
         self.async_result = RemoteWorkflowTaskResult(self, async_result)
@@ -387,20 +387,21 @@ class LocalWorkflowTask(WorkflowTask):
 
         def local_task_wrapper():
             try:
-                self.workflow_context.send_task_event(TASK_STARTED, self)
+                self.workflow_context.internal.send_task_event(TASK_STARTED,
+                                                               self)
                 result = self.local_task(**self.kwargs)
-                self.workflow_context.send_task_event(
+                self.workflow_context.internal.send_task_event(
                     TASK_SUCCEEDED, self, event={'result': str(result)})
                 self.async_result._result = result
                 self.set_state(TASK_SUCCEEDED)
             except:
                 exc_type, exception, tb = sys.exc_info()
-                self.workflow_context.send_task_event(
+                self.workflow_context.internal.send_task_event(
                     TASK_FAILED, self, event={'exception': str(exception)})
                 self.async_result._error = (exception, tb)
                 self.set_state(TASK_FAILED)
 
-        self.workflow_context.send_task_event(TASK_SENDING, self)
+        self.workflow_context.internal.send_task_event(TASK_SENDING, self)
         self.workflow_context.internal.add_local_task(local_task_wrapper)
         self.set_state(TASK_SENT)
         self.async_result = LocalWorkflowTaskResult(self)
