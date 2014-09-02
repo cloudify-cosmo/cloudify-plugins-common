@@ -14,100 +14,9 @@
 #    * limitations under the License.
 
 
-from cloudify import manager
-from cloudify import logs
-from cloudify.logs import (CloudifyPluginLoggingHandler,
-                           init_cloudify_logger)
+from cloudify.endpoint import ManagerEndpoint
+from cloudify.logs import init_cloudify_logger
 from cloudify.exceptions import NonRecoverableError
-
-
-class Endpoint(object):
-
-    def get_node_instance(self, node_instance_id):
-        raise NotImplementedError('Implemented by subclasses')
-
-    def update_node_instance(self, node_instance):
-        raise NotImplementedError('Implemented by subclasses')
-
-    def get_blueprint_resource(self, blueprint_id, resource_path):
-        raise NotImplementedError('Implemented by subclasses')
-
-    def download_blueprint_resource(self,
-                                    blueprint_id,
-                                    resource_path,
-                                    logger,
-                                    target_path=None):
-        raise NotImplementedError('Implemented by subclasses')
-
-    def get_provider_context(self):
-        raise NotImplementedError('Implemented by subclasses')
-
-    def get_bootstrap_context(self):
-        raise NotImplementedError('Implemented by subclasses')
-
-    def get_host_node_instance_ip(self,
-                                  host_id,
-                                  properties=None,
-                                  runtime_properties=None):
-        raise NotImplementedError('Implemented by subclasses')
-
-    @property
-    def logging_handler(self):
-        raise NotImplementedError('Implemented by subclasses')
-
-    def send_plugin_event(self,
-                          ctx,
-                          message=None,
-                          args=None,
-                          additional_context=None):
-        raise NotImplementedError('Implemented by subclasses')
-
-
-class ManagerEndpoint(Endpoint):
-
-    def get_node_instance(self, node_instance_id):
-        return manager.get_node_instance(node_instance_id)
-
-    def update_node_instance(self, node_instance):
-        return manager.update_node_instance(node_instance)
-
-    def get_blueprint_resource(self, blueprint_id, resource_path):
-        return manager.get_blueprint_resource(blueprint_id, resource_path)
-
-    def download_blueprint_resource(self,
-                                    blueprint_id,
-                                    resource_path,
-                                    logger,
-                                    target_path=None):
-        return manager.download_blueprint_resource(blueprint_id,
-                                                   resource_path,
-                                                   logger,
-                                                   target_path)
-
-    def get_provider_context(self):
-        return manager.get_provider_context()
-
-    def get_bootstrap_context(self):
-        return manager.get_bootstrap_context()
-
-    def get_host_node_instance_ip(self,
-                                  host_id,
-                                  properties=None,
-                                  runtime_properties=None):
-        return manager.get_host_node_instance_ip(host_id,
-                                                 properties,
-                                                 runtime_properties)
-
-    @property
-    def logging_handler(self):
-        return CloudifyPluginLoggingHandler
-
-    def send_plugin_event(self,
-                          ctx,
-                          message=None,
-                          args=None,
-                          additional_context=None):
-        logs.send_plugin_event(ctx, message, args, additional_context)
 
 
 class ContextCapabilities(object):
@@ -187,6 +96,15 @@ class ContextCapabilities(object):
 
 class CommonContextOperations(object):
 
+    def __init__(self):
+        # attributes that are expected to exist in subclasses
+        self.node_id = None
+        self._endpoint = None
+        self._node_instance = None
+        self.properties = None
+        self.runtime_properties = None
+        self._host_ip = None
+
     def _get_node_instance_if_needed(self):
         if self.node_id is None:
             raise NonRecoverableError(
@@ -227,6 +145,7 @@ class CloudifyRelatedNode(CommonContextOperations):
     Represents the related node of a relationship.
     """
     def __init__(self, endpoint, ctx):
+        super(CloudifyRelatedNode, self).__init__()
         self._endpoint = endpoint
         self._related = ctx['related']
         self._node_instance = None
@@ -376,8 +295,8 @@ class CloudifyContext(CommonContextOperations):
             start_server(port=port)
 
     """
-
     def __init__(self, ctx=None):
+        super(CloudifyContext, self).__init__()
         self._context = ctx or {}
         self._endpoint = ManagerEndpoint()
         context_capabilities = self._context.get('relationships')
