@@ -53,7 +53,8 @@ class MockCloudifyContext(CloudifyContext):
                 "MockCloudifyContext(capabilities=?) must be "
                 "instance of ContextCapabilities, not {0}".format(
                     capabilities))
-        self._capabilities = capabilities or ContextCapabilities()
+        self._capabilities = capabilities or ContextCapabilities(
+            self._endpoint)
         self._related = related
         self._provider_context = provider_context or {}
         self._bootstrap_context = bootstrap_context or BootstrapContext({})
