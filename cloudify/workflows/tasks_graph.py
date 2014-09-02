@@ -16,6 +16,8 @@
 __author__ = 'dank'
 
 import time
+import threading
+import Queue
 
 import networkx as nx
 
@@ -35,6 +37,8 @@ class TaskDependencyGraph(object):
     def __init__(self, workflow_context):
         self.ctx = workflow_context
         self.graph = nx.DiGraph()
+        # self.condition = threading.Condition()
+        self.queue = Queue.Queue()
 
     def add_task(self, task):
         """Add a WorkflowTask to this graph
@@ -124,7 +128,7 @@ class TaskDependencyGraph(object):
                 return
             # sleep some and do it all over again
             else:
-                time.sleep(0.1)
+                self.wait_terminated(timeout=0.1)
 
         return api.EXECUTION_CANCELLED_RESULT
 
@@ -193,6 +197,35 @@ class TaskDependencyGraph(object):
             added_edges = [(dependent, new_task.id)
                            for dependent in dependents]
             self.graph.add_edges_from(added_edges)
+
+    def wait_terminated(self, timeout):
+        # print 'wait: before_acquire'
+        # self.condition.acquire()
+        # print 'wait: after_acquire'
+        # try:
+        #     self.condition.wait(timeout)
+        #     print 'wait: after_wait'
+        # finally:
+        #     self.condition.release()
+        #     print 'wait: after_release'
+        #     print
+        try:
+            self.queue.get(timeout=timeout)
+        except Queue.Empty:
+            pass
+
+    def notify_terminated(self):
+        # print 'notify: before_acquire'
+        # self.condition.acquire()
+        # print 'notify: after_acquire'
+        # try:
+        #     self.condition.notify()
+        #     print 'notify: after_notify'
+        # finally:
+        #     self.condition.release()
+        #     print 'notify: after_release'
+        #     print
+        self.queue.put(True)
 
 
 class forkjoin(object):

@@ -137,6 +137,7 @@ class WorkflowTask(object):
         if state in [TASK_SUCCEEDED, TASK_FAILED]:
             self.is_terminated = True
             self.terminated.put_nowait(True)
+            self.workflow_context.internal.task_graph.notify_terminated()
 
     def wait_for_terminated(self, timeout=None):
         if self.is_terminated:
