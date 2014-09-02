@@ -36,19 +36,22 @@ def setup_default_logger(logger_name):
     :return: A logger instance.
     :rtype: logger
     """
-    root = logging.getLogger()
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
+
+    # clear all other handlers
+
+    logger = logging.getLogger(logger_name)
+    for handler in logger.handlers:
+        logger.removeHandler(handler)
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
     formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
                                       '[%(name)s] %(message)s',
                                   datefmt='%H:%M:%S')
-    ch.setFormatter(formatter)
-    # clear all other handlers
-    for handler in root.handlers:
-        root.removeHandler(handler)
-    root.addHandler(ch)
-    logger = logging.getLogger(logger_name)
+    handler.setFormatter(formatter)
     logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+
     return logger
 
 
@@ -129,8 +132,8 @@ class LocalCommandRunner(object):
     :param logger: This logger will be used for
                    printing the output and the command.
     """
-    def __init__(self, logger=setup_default_logger('LocalCommandRunner')):
-
+    def __init__(self, logger=None):
+        logger = logger or setup_default_logger('LocalCommandRunner')
         self.logger = logger
 
     def run(self, command, exit_on_failure=True):

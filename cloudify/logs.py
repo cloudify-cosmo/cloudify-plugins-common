@@ -183,14 +183,15 @@ def send_plugin_event(ctx,
                 additional_context)
 
 
-def send_remote_task_event(remote_task,
-                           event_type,
-                           message=None,
-                           args=None,
-                           additional_context=None):
-    """Send a remote task event to RabbitMQ
+def send_task_event(cloudify_context,
+                    event_type,
+                    message=None,
+                    args=None,
+                    additional_context=None):
+    """Send a task event to RabbitMQ
 
-    :param remote_task: A RemoteWorkflowTask instance
+    :param cloudify_context: a __cloudify_context struct as passed to
+                             operations
     :param event_type: The event type
     :param message: The message
     :param args: additional arguments that may be added to the message
@@ -198,14 +199,14 @@ def send_remote_task_event(remote_task,
     """
     # import here to avoid cyclic dependencies
     from cloudify.context import CloudifyContext
-    _send_event(CloudifyContext(remote_task.cloudify_context),
-                'remote_task', event_type, message, args,
+    _send_event(CloudifyContext(cloudify_context),
+                'task', event_type, message, args,
                 additional_context)
 
 
 def _send_event(ctx, context_type, event_type,
                 message, args, additional_context):
-    if context_type in ['plugin', 'remote_task']:
+    if context_type in ['plugin', 'task']:
         message_context = message_context_from_cloudify_context(
             ctx)
     elif context_type == 'workflow':

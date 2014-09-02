@@ -16,13 +16,11 @@
 __author__ = 'dank'
 
 
-import threading
-
-from cloudify.logs import send_remote_task_event
+from cloudify.logs import send_task_event as send_task_event_amqp
 from cloudify.workflows import tasks as tasks_api
 
 
-TASK_TO_FILTER = ['worker_installer.tasks.restart']
+TASK_TO_FILTER = ['worker_installer.tasks.restart', 'send_event_task']
 
 
 class Monitor(object):
@@ -60,7 +58,8 @@ class Monitor(object):
         task_id = event['uuid']
         task = self.tasks_graph.get_task(task_id)
         if task is not None:
-            send_task_event(state, task, event)
+            send_task_event(state, task, send_task_event_remote_task_func,
+                            event)
             task.set_state(state)
 
     def capture(self):
@@ -79,22 +78,51 @@ class Monitor(object):
             receive.capture(limit=None, timeout=None, wakeup=True)
 
 
-def send_task_event(state, task, event=None):
+def send_task_event_remote_task_func(task, event_type, message):
+    send_task_event_amqp(cloudify_context=task.cloudify_context,
+                         event_type=event_type,
+                         message=message)
+
+
+def send_task_event_local_task_func(task, event_type, message):
+    cloudify_context = task.kwargs.get('__cloudify_context')
+    if not cloudify_context:
+        # TODO these type of tasks should be dealt with somehow
+        return
+    send_task_event_amqp(cloudify_context=cloudify_context,
+                         event_type=event_type,
+                         message=message)
+
+
+def send_task_event_local_func(logger):
+    def func(task, event_type, message):
+        logger.info('[task={}, event_type={}] {}'.format(task.name,
+                                                         event_type,
+                                                         message))
+    return func
+
+
+def send_task_event(state, task, send_event_func, event):
     """
-    Send a task event to RabbitMQ
+    Send a task event delegating to 'send_event_func'
+    which will send events to RabbitMQ or use the workflow context logger
+    in local context
 
     :param state: the task state (valid: ['sending', 'started', 'succeeded',
                   'failed'])
     :param task: a WorkflowTask instance to send the event for
-    :param event: the celery monitor event (for states ['started', 'succeed',
-                  'failed'])
+    :param send_event_func: function for actually sending the event somewhere
+    :param event: a dict with either a result field or an exception fields
+                  follows celery event structure but used by local tasks as
+                  well
     """
 
     if task.name in TASK_TO_FILTER:
         return
 
-    if state != tasks_api.TASK_SENDING and event is None:
-        raise RuntimeError('missing required event parameter')
+    if state in [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED] and \
+            event is None:
+        raise RuntimeError('Event for task {} is None'.format(task.name))
 
     if state == tasks_api.TASK_SENDING:
         message = "Sending task '{}'".format(task.name)
@@ -123,19 +151,6 @@ def send_task_event(state, task, event=None):
             else '')
         message = '{} {}'.format(message, attempt)
 
-    send_remote_task_event(remote_task=task,
-                           event_type=event_type,
-                           message=message)
-
-
-def start_event_monitor(workflow_context):
-    """
-    Start an event monitor in its own thread for handling tasks
-    defined in the task dependency graph
-
-    :param workflow_context: The workflow context
-    """
-    monitor = Monitor(workflow_context.internal.task_graph)
-    thread = threading.Thread(target=monitor.capture)
-    thread.daemon = True
-    thread.start()
+    send_event_func(task=task,
+                    event_type=event_type,
+                    message=message)
