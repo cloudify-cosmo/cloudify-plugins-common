@@ -21,6 +21,9 @@ import logging
 import sys
 import threading
 import Queue
+import os
+import tempfile
+import copy
 
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
@@ -39,6 +42,8 @@ from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            init_cloudify_logger,
                            send_workflow_event,
                            send_workflow_node_event)
+from cloudify_rest_client.node_instances import (NodeInstance as
+                                                    RestNodeInstance)
 
 
 class CloudifyWorkflowRelationshipInstance(object):
@@ -342,7 +347,10 @@ class CloudifyWorkflowContext(object):
         if self.local:
             nodes = ctx.pop('nodes')
             node_instances = ctx.pop('node_instances')
-            handler = LocalCloudifyWorkflowContextHandler(self)
+            resources_root = ctx.pop('resources_root')
+            handler = LocalCloudifyWorkflowContextHandler(self,
+                                                          node_instances,
+                                                          resources_root)
         else:
             rest = get_rest_client()
             nodes = rest.nodes.list(self.deployment_id)
@@ -807,66 +815,6 @@ class CloudifyWorkflowContextHandler(object):
         raise NotImplementedError('Implemented by subclasses')
 
 
-class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
-
-    def __init__(self, workflow_ctx):
-        super(LocalCloudifyWorkflowContextHandler, self).__init__(
-            workflow_ctx)
-
-    def get_context_logging_handler(self):
-        return logging.StreamHandler(sys.stdout)
-
-    def get_node_logging_handler(self, workflow_node_instance):
-        return logging.StreamHandler(sys.stdout)
-
-    @property
-    def bootstrap_context(self):
-        return {}
-
-    def get_send_task_event_func(self, task):
-        return self.workflow_ctx.internal._send_task_event_func
-
-    def get_update_execution_status_task(self, new_status):
-        raise RuntimeError('Update execution status is not supported for '
-                           'local workflow execution')
-
-    def get_send_node_event_task(self, workflow_node_instance,
-                                 event, additional_context=None):
-        def send_event_task():
-            workflow_node_instance.logger.info(
-                '[{}] {} [additional_context={}]'
-                .format(workflow_node_instance.id,
-                        event,
-                        additional_context or {}))
-        return send_event_task
-
-    def get_send_workflow_event_task(self, event, event_type, args,
-                                     additional_context=None):
-        def send_event_task():
-            self.workflow_ctx.logger.info(
-                '[{}] {} [additional_context={}]'
-                .format(self.workflow_ctx.workflow_id,
-                        event,
-                        additional_context or {}))
-        return send_event_task
-
-    def get_operation_task_queue(self, workflow_node_instance, plugin_name):
-        return None
-
-    @property
-    def operation_cloudify_context(self):
-        return {'local': True}
-
-    def get_set_state_task(self,
-                           workflow_node_instance,
-                           state,
-                           runtime_properties):
-        raise NotImplementedError('Implemented by subclasses')
-
-    def get_get_state_task(self, workflow_node_instance):
-        raise NotImplementedError('Implemented by subclasses')
-
-
 class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def __init__(self, workflow_ctx):
@@ -946,3 +894,119 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         def get_state_task():
             return get_node_instance(workflow_node_instance.id).state
         return get_state_task
+
+
+class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
+
+    def __init__(self, workflow_ctx, node_instances, resources_root):
+        super(LocalCloudifyWorkflowContextHandler, self).__init__(
+            workflow_ctx)
+        self.storage = LocalCloudifyWorkflowContextStorage(node_instances,
+                                                           resources_root)
+
+    def get_context_logging_handler(self):
+        return logging.StreamHandler(sys.stdout)
+
+    def get_node_logging_handler(self, workflow_node_instance):
+        return logging.StreamHandler(sys.stdout)
+
+    @property
+    def bootstrap_context(self):
+        return {}
+
+    def get_send_task_event_func(self, task):
+        return self.workflow_ctx.internal._send_task_event_func
+
+    def get_update_execution_status_task(self, new_status):
+        raise RuntimeError('Update execution status is not supported for '
+                           'local workflow execution')
+
+    def get_send_node_event_task(self, workflow_node_instance,
+                                 event, additional_context=None):
+        def send_event_task():
+            workflow_node_instance.logger.info(
+                '[{}] {} [additional_context={}]'
+                .format(workflow_node_instance.id,
+                        event,
+                        additional_context or {}))
+        return send_event_task
+
+    def get_send_workflow_event_task(self, event, event_type, args,
+                                     additional_context=None):
+        def send_event_task():
+            self.workflow_ctx.logger.info(
+                '[{}] {} [additional_context={}]'
+                .format(self.workflow_ctx.workflow_id,
+                        event,
+                        additional_context or {}))
+        return send_event_task
+
+    def get_operation_task_queue(self, workflow_node_instance, plugin_name):
+        return None
+
+    @property
+    def operation_cloudify_context(self):
+        return {'local': True,
+                'storage': self.storage}
+
+    def get_set_state_task(self,
+                           workflow_node_instance,
+                           state,
+                           runtime_properties):
+        def set_state_task():
+            self.storage.update_node_instance(
+                workflow_node_instance.id,
+                runtime_properties,
+                state)
+        return set_state_task
+
+    def get_get_state_task(self, workflow_node_instance):
+        def get_state_task():
+            instance = self.storage.get_node_instance(
+                workflow_node_instance.id)
+            return instance.state
+        return get_state_task
+
+
+class LocalCloudifyWorkflowContextStorage(object):
+
+    def __init__(self, node_instances, resources_root):
+        self.node_instances = node_instances
+        self.resources_root = resources_root
+
+    def get_resource(self, resource_path):
+        with open(os.path.join(self.resources_root, resource_path)) as f:
+            return f.read()
+
+    def download_resource(self, resource_path, target_path=None):
+        if not target_path:
+            target_path = tempfile.mktemp(suffix=os.path.basename(
+                resource_path))
+        resource = self.get_resource(resource_path)
+        with open(target_path, 'w') as f:
+            f.write(resource)
+        return target_path
+
+    def get_node_instance(self, node_instance_id):
+        instance = copy.deepcopy(self._get_node_instance(node_instance_id))
+        return RestNodeInstance(instance)
+
+    def update_node_instance(self,
+                             node_instance_id,
+                             runtime_properties=None,
+                             state=None,
+                             version=None):
+        instance = self._get_node_instance(node_instance_id)
+        if runtime_properties is not None:
+            instance['runtime_properties'] = runtime_properties
+        if state is not None:
+            instance['state'] = state
+        if version is not None:
+            instance['version'] = version
+
+    def _get_node_instance(self, node_instance_id):
+        instance = self.node_instances.get(node_instance_id)
+        if instance is None:
+            raise RuntimeError('Instance {} does not exist'
+                               .format(node_instance_id))
+        return instance

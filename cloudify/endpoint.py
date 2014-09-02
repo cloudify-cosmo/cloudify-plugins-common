@@ -118,27 +118,36 @@ class ManagerEndpoint(Endpoint):
 
 class LocalEndpoint(Endpoint):
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, storage):
         super(LocalEndpoint, self).__init__(ctx)
+        self.storage = storage
 
     def get_node_instance(self, node_instance_id):
-        return manager.get_node_instance(node_instance_id)
+        instance = self.storage.get_node_instance(node_instance_id)
+        return manager.NodeInstance(
+            node_instance_id,
+            runtime_properties=instance.runtime_properties,
+            state=instance.state,
+            version=instance.version,
+            host_id=instance.host_id)
 
     def update_node_instance(self, node_instance):
-        return manager.update_node_instance(node_instance)
+        return self.storage.update_node_instance(
+            node_instance.id,
+            runtime_properties=node_instance.runtime_properties,
+            state=node_instance.state,
+            version=node_instance.version)
 
     def get_blueprint_resource(self, blueprint_id, resource_path):
-        return manager.get_blueprint_resource(blueprint_id, resource_path)
+        return self.storage.get_resource(resource_path)
 
     def download_blueprint_resource(self,
                                     blueprint_id,
                                     resource_path,
                                     logger,
                                     target_path=None):
-        return manager.download_blueprint_resource(blueprint_id,
-                                                   resource_path,
-                                                   logger,
-                                                   target_path)
+        return self.storage.download_resource(resource_path,
+                                              target_path)
 
     def get_provider_context(self):
         # TODO

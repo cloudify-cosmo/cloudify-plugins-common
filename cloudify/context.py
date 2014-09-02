@@ -14,7 +14,7 @@
 #    * limitations under the License.
 
 
-from cloudify.endpoint import ManagerEndpoint
+from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
 from cloudify.logs import init_cloudify_logger
 from cloudify.exceptions import NonRecoverableError
 
@@ -287,7 +287,11 @@ class CloudifyContext(CommonContextOperations):
     """
     def __init__(self, ctx=None):
         self._context = ctx or {}
-        self._endpoint = ManagerEndpoint(self)
+        self._local = ctx.get('local', False)
+        if self._local:
+            self._endpoint = LocalEndpoint(self, ctx.pop('storage'))
+        else:
+            self._endpoint = ManagerEndpoint(self)
         context_capabilities = self._context.get('relationships')
         self._capabilities = ContextCapabilities(self._endpoint,
                                                  context_capabilities)

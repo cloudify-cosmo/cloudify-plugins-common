@@ -14,6 +14,7 @@
 #    * limitations under the License.
 
 
+import os
 import importlib
 import argparse
 
@@ -59,6 +60,7 @@ if __name__ == '__main__':
         'execution_id': 'local',
         'workflow_id': workflow_name,
         'nodes': nodes,
-        'node_instances': node_instances
+        'node_instances': node_instances,
+        'resources_root': os.path.dirname(args.blueprint_path)
     }
     workflow_method(__cloudify_context=ctx)
