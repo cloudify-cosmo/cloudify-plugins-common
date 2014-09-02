@@ -96,15 +96,6 @@ class ContextCapabilities(object):
 
 class CommonContextOperations(object):
 
-    def __init__(self):
-        # attributes that are expected to exist in subclasses
-        self.node_id = None
-        self._endpoint = None
-        self._node_instance = None
-        self.properties = None
-        self.runtime_properties = None
-        self._host_ip = None
-
     def _get_node_instance_if_needed(self):
         if self.node_id is None:
             raise NonRecoverableError(
@@ -145,7 +136,6 @@ class CloudifyRelatedNode(CommonContextOperations):
     Represents the related node of a relationship.
     """
     def __init__(self, endpoint, ctx):
-        super(CloudifyRelatedNode, self).__init__()
         self._endpoint = endpoint
         self._related = ctx['related']
         self._node_instance = None
@@ -296,7 +286,6 @@ class CloudifyContext(CommonContextOperations):
 
     """
     def __init__(self, ctx=None):
-        super(CloudifyContext, self).__init__()
         self._context = ctx or {}
         self._endpoint = ManagerEndpoint()
         context_capabilities = self._context.get('relationships')
