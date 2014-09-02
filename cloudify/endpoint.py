@@ -174,8 +174,8 @@ class LocalEndpoint(Endpoint):
                           message=None,
                           args=None,
                           additional_context=None):
-        self.ctx.logger('[{}] {} [args={}, additional_context={}]'
-                        .format(self.ctx.node_id,
-                                message,
-                                args or [],
-                                additional_context or {}))
+        self.ctx.logger.info('[{}] {} [args={}, additional_context={}]'
+                             .format(self.ctx.node_id,
+                                     message,
+                                     args or [],
+                                     additional_context or {}))

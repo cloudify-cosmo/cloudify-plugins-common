@@ -478,7 +478,7 @@ class CloudifyWorkflowContext(object):
         node = node_instance.node
         op_struct = operations.get(operation)
         if op_struct is None:
-            return NOPLocalWorkflowTask()
+            return NOPLocalWorkflowTask(self)
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties', {})
@@ -977,7 +977,8 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 class LocalCloudifyWorkflowContextStorage(object):
 
     def __init__(self, node_instances, resources_root):
-        self.node_instances = node_instances
+        self.node_instances = {instance.id: instance
+                               for instance in node_instances}
         self.resources_root = resources_root
 
     def get_resource(self, resource_path):
@@ -986,8 +987,8 @@ class LocalCloudifyWorkflowContextStorage(object):
 
     def download_resource(self, resource_path, target_path=None):
         if not target_path:
-            target_path = tempfile.mktemp(suffix=os.path.basename(
-                resource_path))
+            suffix = '-{}'.format(os.path.basename(resource_path))
+            target_path = tempfile.mktemp(suffix=suffix)
         resource = self.get_resource(resource_path)
         with open(target_path, 'w') as f:
             f.write(resource)
