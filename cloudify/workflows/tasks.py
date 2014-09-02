@@ -269,14 +269,11 @@ class RemoteWorkflowTask(WorkflowTask):
         :return: a RemoteWorkflowTaskResult instance wrapping the
                  celery async result
         """
-
         self._verify_task_registered()
-
-        # here to avoid cyclic dependencies
         self.workflow_context.internal.send_task_event(TASK_SENDING, self)
         async_result = self.task.apply_async(task_id=self.id)
-        self.set_state(TASK_SENT)
         self.async_result = RemoteWorkflowTaskResult(self, async_result)
+        self.set_state(TASK_SENT)
         return self.async_result
 
     def is_local(self):
