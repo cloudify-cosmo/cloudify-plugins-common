@@ -672,8 +672,6 @@ class CloudifyWorkflowContextInternal(object):
 
         # events related
         self._event_monitor = None
-        self._send_task_event_func = events.send_task_event_local_func(
-            self.workflow_context.logger)
 
         # local task processing
         self.local_tasks_processor = LocalTasksProcessing(
@@ -902,6 +900,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             workflow_ctx)
         self.storage = LocalCloudifyWorkflowContextStorage(node_instances,
                                                            resources_root)
+        self._send_task_event_func = None
 
     def get_context_logging_handler(self):
         return logging.StreamHandler(sys.stdout)
@@ -914,7 +913,15 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         return {}
 
     def get_send_task_event_func(self, task):
-        return self.workflow_ctx.internal._send_task_event_func
+        # TODO: this is sort a hack because of some cyclic references
+        # self.workflow_ctx.logger lazily creates the logger and to do
+        # so it references this handler through 'internal'. if this is called
+        # during 'CloudifyWorkflowContext' construction, _internal is not set
+        # yet
+        if self._send_task_event_func is None:
+            self._send_task_event_func = events.send_task_event_local_func(
+                self.workflow_ctx.logger)
+        return self._send_task_event_func
 
     def get_update_execution_status_task(self, new_status):
         raise RuntimeError('Update execution status is not supported for '
