@@ -151,10 +151,10 @@ def workflow(func=None, **arguments):
                 ctx = CloudifyWorkflowContext(ctx)
             kwargs['ctx'] = ctx
 
-            if ctx.remote:
-                workflow_wrapper = _remote_workflow
-            else:
+            if ctx.local:
                 workflow_wrapper = _local_workflow
+            else:
+                workflow_wrapper = _remote_workflow
 
             return workflow_wrapper(ctx, func, args, kwargs)
         return wrapper

@@ -53,7 +53,7 @@ if __name__ == '__main__':
             node_instance['relationships'] = []
 
     ctx = {
-        'remote': False,
+        'local': True,
         'deployment_id': 'local',
         'blueprint_id': 'local',
         'execution_id': 'local',
