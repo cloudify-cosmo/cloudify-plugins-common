@@ -111,13 +111,17 @@ class TaskDependencyGraph(object):
 
         while not self._is_execution_cancelled():
 
+            # handle all terminated tasks
+            # it is important this happens before handling
+            # executable tasks so we get to make tasks executable
+            # and then execute them in this iteration (otherwise, it would
+            # be the next one)
+            for task in self._terminated_tasks():
+                self._handle_terminated_task(task)
+
             # handle all executable tasks
             for task in self._executable_tasks():
                 self._handle_executable_task(task)
-
-            # handle all terminated tasks
-            for task in self._terminated_tasks():
-                self._handle_terminated_task(task)
 
             # no more tasks to process, time to move on
             if len(self.graph.node) == 0:
