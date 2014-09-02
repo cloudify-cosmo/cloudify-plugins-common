@@ -178,13 +178,9 @@ class CloudifyWorkflowNodeInstance(object):
         :param state: The node state
         :return: the state set
         """
-        def set_state_task():
-            node_state = get_node_instance(self.id)
-            node_state.state = state
-            if runtime_properties is not None:
-                node_state.runtime_properties.update(runtime_properties)
-            update_node_instance(node_state)
-            return node_state
+        set_state_task = self.ctx.internal.handler.get_set_state_task(
+            self, state, runtime_properties)
+
         return self.ctx.local_task(
             local_task=set_state_task,
             node=self,
@@ -196,8 +192,7 @@ class CloudifyWorkflowNodeInstance(object):
 
         :return: The node state
         """
-        def get_state_task():
-            return get_node_instance(self.id).state
+        get_state_task = self.ctx.internal.handler.get_get_state_task(self)
         return self.ctx.local_task(
             local_task=get_state_task,
             node=self)
@@ -552,6 +547,7 @@ class CloudifyWorkflowContext(object):
             'workflow_id': self.workflow_id,
         }
         context.update(node_context)
+        context.update(self.internal.handler.operation_cloudify_context)
         return context
 
     def execute_task(self,
@@ -797,6 +793,19 @@ class CloudifyWorkflowContextHandler(object):
     def get_operation_task_queue(self, workflow_node_instance, plugin_name):
         raise NotImplementedError('Implemented by subclasses')
 
+    @property
+    def operation_cloudify_context(self):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_set_state_task(self,
+                           workflow_node_instance,
+                           state,
+                           runtime_properties):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_get_state_task(self, workflow_node_instance):
+        raise NotImplementedError('Implemented by subclasses')
+
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
@@ -843,6 +852,19 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_operation_task_queue(self, workflow_node_instance, plugin_name):
         return None
+
+    @property
+    def operation_cloudify_context(self):
+        return {'local': True}
+
+    def get_set_state_task(self,
+                           workflow_node_instance,
+                           state,
+                           runtime_properties):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_get_state_task(self, workflow_node_instance):
+        raise NotImplementedError('Implemented by subclasses')
 
 
 class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
@@ -902,3 +924,25 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
             task_queue = self.workflow_ctx.deployment_id
         return task_queue
+
+    @property
+    def operation_cloudify_context(self):
+        return {'local': False}
+
+    def get_set_state_task(self,
+                           workflow_node_instance,
+                           state,
+                           runtime_properties):
+        def set_state_task():
+            node_state = get_node_instance(workflow_node_instance.id)
+            node_state.state = state
+            if runtime_properties is not None:
+                node_state.runtime_properties.update(runtime_properties)
+            update_node_instance(node_state)
+            return node_state
+        return set_state_task
+
+    def get_get_state_task(self, workflow_node_instance):
+        def get_state_task():
+            return get_node_instance(workflow_node_instance.id).state
+        return get_state_task
