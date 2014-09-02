@@ -13,11 +13,8 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'idanmo'
-
 
 import traceback
-
 from multiprocessing import Process
 from multiprocessing import Pipe
 from StringIO import StringIO
@@ -150,25 +147,24 @@ def workflow(func=None, **arguments):
 
             ctx = _find_context_arg(args, kwargs,
                                     _is_cloudify_workflow_context)
-            ctx = CloudifyWorkflowContext(ctx)
+            if not isinstance(ctx, CloudifyWorkflowContext):
+                ctx = CloudifyWorkflowContext(ctx)
             kwargs['ctx'] = ctx
 
             if ctx.remote:
-                workflow_wrapper = remote_workflow
+                workflow_wrapper = _remote_workflow
             else:
-                workflow_wrapper = local_workflow
+                workflow_wrapper = _local_workflow
 
             return workflow_wrapper(ctx, func, args, kwargs)
-
         return wrapper
     else:
         def partial_wrapper(fn):
             return workflow(fn, **arguments)
-
         return partial_wrapper
 
 
-def remote_workflow(ctx, func, args, kwargs):
+def _remote_workflow(ctx, func, args, kwargs):
     def update_execution_cancelled():
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
         send_workflow_event(
@@ -295,7 +291,7 @@ def remote_workflow(ctx, func, args, kwargs):
         child_conn.close()  # probably unneeded but cleanup anyway
 
 
-def local_workflow(ctx, func, args, kwargs):
+def _local_workflow(ctx, func, args, kwargs):
     return _execute_workflow_function(ctx, func, args, kwargs)
 
 
