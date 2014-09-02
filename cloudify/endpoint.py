@@ -14,12 +14,19 @@
 #    * limitations under the License.
 
 
+import sys
+import logging
+
+
 from cloudify import manager
 from cloudify import logs
 from cloudify.logs import CloudifyPluginLoggingHandler
 
 
 class Endpoint(object):
+
+    def __init__(self, ctx):
+        self.ctx = ctx
 
     def get_node_instance(self, node_instance_id):
         raise NotImplementedError('Implemented by subclasses')
@@ -54,7 +61,6 @@ class Endpoint(object):
         raise NotImplementedError('Implemented by subclasses')
 
     def send_plugin_event(self,
-                          ctx,
                           message=None,
                           args=None,
                           additional_context=None):
@@ -62,6 +68,9 @@ class Endpoint(object):
 
 
 class ManagerEndpoint(Endpoint):
+
+    def __init__(self, ctx):
+        super(ManagerEndpoint, self).__init__(ctx)
 
     def get_node_instance(self, node_instance_id):
         return manager.get_node_instance(node_instance_id)
@@ -101,8 +110,63 @@ class ManagerEndpoint(Endpoint):
         return CloudifyPluginLoggingHandler
 
     def send_plugin_event(self,
-                          ctx,
                           message=None,
                           args=None,
                           additional_context=None):
-        logs.send_plugin_event(ctx, message, args, additional_context)
+        logs.send_plugin_event(self.ctx, message, args, additional_context)
+
+
+class LocalEndpoint(Endpoint):
+
+    def __init__(self, ctx):
+        super(LocalEndpoint, self).__init__(ctx)
+
+    def get_node_instance(self, node_instance_id):
+        return manager.get_node_instance(node_instance_id)
+
+    def update_node_instance(self, node_instance):
+        return manager.update_node_instance(node_instance)
+
+    def get_blueprint_resource(self, blueprint_id, resource_path):
+        return manager.get_blueprint_resource(blueprint_id, resource_path)
+
+    def download_blueprint_resource(self,
+                                    blueprint_id,
+                                    resource_path,
+                                    logger,
+                                    target_path=None):
+        return manager.download_blueprint_resource(blueprint_id,
+                                                   resource_path,
+                                                   logger,
+                                                   target_path)
+
+    def get_provider_context(self):
+        # TODO
+        return {}
+
+    def get_bootstrap_context(self):
+        # TODO
+        return {}
+
+    def get_host_node_instance_ip(self,
+                                  host_id,
+                                  properties=None,
+                                  runtime_properties=None):
+        # TODO
+        return '127.0.0.1'
+
+    @property
+    def logging_handler(self):
+        def handler(ctx):
+            return logging.StreamHandler(sys.stdout)
+        return handler
+
+    def send_plugin_event(self,
+                          message=None,
+                          args=None,
+                          additional_context=None):
+        self.ctx.logger('[{}] {} [args={}, additional_context={}]'
+                        .format(self.ctx.node_id,
+                                message,
+                                args or [],
+                                additional_context or {}))

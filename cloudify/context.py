@@ -287,7 +287,7 @@ class CloudifyContext(CommonContextOperations):
     """
     def __init__(self, ctx=None):
         self._context = ctx or {}
-        self._endpoint = ManagerEndpoint()
+        self._endpoint = ManagerEndpoint(self)
         context_capabilities = self._context.get('relationships')
         self._capabilities = ContextCapabilities(self._endpoint,
                                                  context_capabilities)
@@ -464,7 +464,7 @@ class CloudifyContext(CommonContextOperations):
 
         :param event: the event message
         """
-        self._endpoint.send_plugin_event(ctx=self, message=event)
+        self._endpoint.send_plugin_event(message=event)
 
     @property
     def provider_context(self):
