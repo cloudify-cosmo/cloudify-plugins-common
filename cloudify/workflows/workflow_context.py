@@ -23,7 +23,6 @@ import threading
 import Queue
 import os
 import tempfile
-import copy
 
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
@@ -42,8 +41,8 @@ from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            init_cloudify_logger,
                            send_workflow_event,
                            send_workflow_node_event)
-from cloudify_rest_client.node_instances import (NodeInstance as
-                                                    RestNodeInstance)
+from cloudify_rest_client.node_instances import (
+    NodeInstance as RestNodeInstance)
 
 
 class CloudifyWorkflowRelationshipInstance(object):
