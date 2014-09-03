@@ -51,7 +51,7 @@ class AMQPClient(object):
         self._publish(event, self.events_queue_name, 'cloudify_event')
 
     def _publish(self, item, queue, message_type):
-        timestamp = str(datetime.datetime.now())
+        timestamp = str(datetime.datetime.now())[0:-3]
         item['timestamp'] = timestamp
         item['message_code'] = None
         item['type'] = message_type
