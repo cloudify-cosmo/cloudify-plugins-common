@@ -26,10 +26,10 @@ from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
 
 try:
-    from dsl_parser import parser, tasks
+    from dsl_parser import parser as dsl_parser, tasks as dsl_tasks
 except ImportError:
-    raise ImportError('cloudify-dsl-parser must be installed to execute local'
-                      ' workflows. (e.g. "pip install cloudify-dsl-parser")')
+    dsl_parser = None
+    dsl_tasks = None
 
 
 class Environment(object):
@@ -40,10 +40,16 @@ class Environment(object):
                  inputs=None,
                  storage_cls=None,
                  **storage_kwargs):
+
+        if dsl_parser is None:
+            raise ImportError('cloudify-dsl-parser must be installed to '
+                              'execute local workflows. '
+                              '(e.g. "pip install cloudify-dsl-parser")')
+
         self.name = name
 
-        self.plan = tasks.prepare_deployment_plan(
-            parser.parse_from_path(blueprint_path), inputs=inputs)
+        self.plan = dsl_tasks.prepare_deployment_plan(
+            dsl_parser.parse_from_path(blueprint_path), inputs=inputs)
 
         nodes = [Node(node) for node in self.plan['nodes']]
         node_instances = [NodeInstance(instance)
