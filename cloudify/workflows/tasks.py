@@ -45,13 +45,13 @@ class WorkflowTask(object):
     """A base class for workflow tasks"""
 
     def __init__(self,
+                 workflow_context,
                  task_id=None,
                  info=None,
                  on_success=None,
                  on_failure=None,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL,
-                 workflow_context=None):
+                 retry_interval=DEFAULT_RETRY_INTERVAL):
         """
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
@@ -84,6 +84,7 @@ class WorkflowTask(object):
         self.total_retries = total_retries
         self.retry_interval = retry_interval
         self.terminated = Queue.Queue(maxsize=1)
+        self.is_terminated = False
         self.workflow_context = workflow_context
 
         self.current_retries = 0
@@ -134,9 +135,12 @@ class WorkflowTask(object):
 
         self._state = state
         if state in [TASK_SUCCEEDED, TASK_FAILED]:
+            self.is_terminated = True
             self.terminated.put_nowait(True)
 
     def wait_for_terminated(self, timeout=None):
+        if self.is_terminated:
+            return
         self.terminated.get(timeout=timeout)
 
     def handle_task_terminated(self):
@@ -174,13 +178,12 @@ class WorkflowTask(object):
         else:
             handler_result = HandlerResult.retry()
         if handler_result.action == HandlerResult.HANDLER_RETRY:
-            if self.is_remote():
-                try:
-                    exception = self.async_result.async_result.result
-                except:
-                    exception = None
-            else:
-                exception = self.async_result.error[0]
+            try:
+                exception = self.async_result.result
+            except:
+                exception = NonRecoverableError('Could not deserialize task '
+                                                '{} exception'
+                                                .format(self.name))
             if isinstance(exception, NonRecoverableError):
                 handler_result = HandlerResult.fail()
             elif isinstance(exception, RecoverableError):
@@ -198,6 +201,14 @@ class WorkflowTask(object):
 
         raise NotImplementedError('Implemented by subclasses')
 
+    @property
+    def name(self):
+        """
+        :return: The task name
+        """
+
+        raise NotImplementedError('Implemented by subclasses')
+
 
 class RemoteWorkflowTask(WorkflowTask):
     """A WorkflowTask wrapping a celery based task"""
@@ -208,13 +219,13 @@ class RemoteWorkflowTask(WorkflowTask):
     def __init__(self,
                  task,
                  cloudify_context,
+                 workflow_context,
                  task_id=None,
                  info=None,
                  on_success=None,
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL,
-                 workflow_context=None):
+                 retry_interval=DEFAULT_RETRY_INTERVAL):
         """
         :param task: The celery task
         :param cloudify_context: the cloudify context dict
@@ -240,13 +251,13 @@ class RemoteWorkflowTask(WorkflowTask):
         :param workflow_context: the CloudifyWorkflowContext instance
         """
         super(RemoteWorkflowTask, self).__init__(
+            workflow_context,
             task_id,
             info=info,
             on_success=on_success,
             on_failure=on_failure,
             total_retries=total_retries,
-            retry_interval=retry_interval,
-            workflow_context=workflow_context)
+            retry_interval=retry_interval)
         self.task = task
         self.cloudify_context = cloudify_context
 
@@ -258,16 +269,11 @@ class RemoteWorkflowTask(WorkflowTask):
         :return: a RemoteWorkflowTaskResult instance wrapping the
                  celery async result
         """
-
         self._verify_task_registered()
-
-        # here to avoid cyclic dependencies
-        from events import send_task_event
-        send_task_event(TASK_SENDING, self)
-
+        self.workflow_context.internal.send_task_event(TASK_SENDING, self)
         async_result = self.task.apply_async(task_id=self.id)
-        self.set_state(TASK_SENT)
         self.async_result = RemoteWorkflowTaskResult(self, async_result)
+        self.set_state(TASK_SENT)
         return self.async_result
 
     def is_local(self):
@@ -276,12 +282,12 @@ class RemoteWorkflowTask(WorkflowTask):
     def duplicate(self):
         dup = RemoteWorkflowTask(task=self.task,
                                  cloudify_context=self.cloudify_context,
+                                 workflow_context=self.workflow_context,
                                  info=self.info,
                                  on_success=self.on_success,
                                  on_failure=self.on_failure,
                                  total_retries=self.total_retries,
-                                 retry_interval=self.retry_interval,
-                                 workflow_context=self.workflow_context)
+                                 retry_interval=self.retry_interval)
         dup.cloudify_context['task_id'] = dup.id
         dup.current_retries = self.current_retries
         return dup
@@ -333,7 +339,8 @@ class LocalWorkflowTask(WorkflowTask):
                  total_retries=DEFAULT_TOTAL_RETRIES,
                  retry_interval=DEFAULT_RETRY_INTERVAL,
                  kwargs=None,
-                 task_id=None):
+                 task_id=None,
+                 name=None):
         """
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
@@ -357,6 +364,7 @@ class LocalWorkflowTask(WorkflowTask):
                               the handlers return a retry attempt.
         :param retry_interval: Number of seconds to wait between retries
         :param kwargs: Local task keyword arguments
+        :param name: optional parameter (default: local_task.__name__)
         """
         super(LocalWorkflowTask, self).__init__(
             info=info,
@@ -368,27 +376,36 @@ class LocalWorkflowTask(WorkflowTask):
             workflow_context=workflow_context)
         self.local_task = local_task
         self.node = node
-        self.kwargs = kwargs
+        self.kwargs = kwargs or {}
+        self._name = name or local_task.__name__
 
     def apply_async(self):
         """
-        Execute the task in the current thread
+        Execute the task in the local task thread pool
         :return: A wrapper for the task result
         """
 
-        self.set_state(TASK_SENT)
-        try:
-            if self.kwargs:
+        def local_task_wrapper():
+            try:
+                self.workflow_context.internal.send_task_event(TASK_STARTED,
+                                                               self)
                 result = self.local_task(**self.kwargs)
-            else:
-                result = self.local_task()
-            self.set_state(TASK_SUCCEEDED)
-            self.async_result = LocalWorkflowTaskResult(self, result)
-        except:
-            exc_type, exception, tb = sys.exc_info()
-            self.set_state(TASK_FAILED)
-            self.async_result = LocalWorkflowTaskResult(self, result=None,
-                                                        error=(exception, tb))
+                self.workflow_context.internal.send_task_event(
+                    TASK_SUCCEEDED, self, event={'result': str(result)})
+                self.async_result._holder.result = result
+                self.set_state(TASK_SUCCEEDED)
+            except:
+                exc_type, exception, tb = sys.exc_info()
+                self.workflow_context.internal.send_task_event(
+                    TASK_FAILED, self, event={'exception': str(exception)})
+                self.async_result._holder.error = (exception, tb)
+                self.set_state(TASK_FAILED)
+
+        self.async_result = LocalWorkflowTaskResult(self)
+
+        self.workflow_context.internal.send_task_event(TASK_SENDING, self)
+        self.workflow_context.internal.add_local_task(local_task_wrapper)
+        self.set_state(TASK_SENT)
 
         return self.async_result
 
@@ -410,7 +427,7 @@ class LocalWorkflowTask(WorkflowTask):
     @property
     def name(self):
         """The task name"""
-        return self.local_task.__name__
+        return self._name
 
 
 # NOP tasks class
@@ -423,6 +440,10 @@ class NOPLocalWorkflowTask(LocalWorkflowTask):
     def name(self):
         """The task name"""
         return 'NOP'
+
+    def apply_async(self):
+        self.set_state(TASK_SUCCEEDED)
+        return LocalWorkflowTaskResult(self)
 
     def is_nop(self):
         return True
@@ -507,29 +528,42 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
     def _refresh_state(self):
         self.async_result = self.task.async_result.async_result
 
+    @property
+    def result(self):
+        return self.async_result.result
+
 
 class LocalWorkflowTaskResult(WorkflowTaskResult):
     """A wrapper for local workflow task results"""
 
-    def __init__(self, task, result, error=None):
+    class ResultHolder(object):
+
+        def __init__(self, result=None, error=None):
+            self.result = result
+            self.error = error
+
+    def __init__(self, task):
         """
         :param task: The LocalWorkflowTask instance
-        :param result: The result if the task finished successfully
-        :param error: a tuple (exception, traceback) if the task failed
         """
         super(LocalWorkflowTaskResult, self).__init__(task)
-        self.result = result
-        self.error = error
+        self._holder = self.ResultHolder()
 
     def _get(self):
-        if self.error is not None:
-            exception, traceback = self.error
+        if self._holder.error is not None:
+            exception, traceback = self._holder.error
             raise exception, None, traceback
-        return self.result
+        return self._holder.result
 
     def _refresh_state(self):
-        self.result = self.task.async_result.result
-        self.error = self.task.async_result.error
+        self._holder = self.task.async_result._holder
+
+    @property
+    def result(self):
+        if self._holder.error:
+            return self._holder.error[0]
+        else:
+            return self._holder.result
 
 
 class HandlerResult(object):

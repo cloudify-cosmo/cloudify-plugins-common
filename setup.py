@@ -20,7 +20,7 @@ from setuptools import setup
 
 setup(
     name='cloudify-plugins-common',
-    version='3.1a2',
+    version='3.1a3',
     author='elip',
     author_email='elip@gigaspaces.com',
     packages=['cloudify', 'cloudify.workflows'],
@@ -29,7 +29,7 @@ setup(
                 'writing Cloudify plugins',
     zip_safe=False,
     install_requires=[
-        'cloudify-rest-client==3.1a2',
+        'cloudify-rest-client==3.1a3',
         'pika==0.9.13',
         'networkx==1.8.1',
         'proxy_tools==0.1.0'
