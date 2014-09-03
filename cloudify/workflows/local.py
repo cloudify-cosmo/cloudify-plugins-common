@@ -30,7 +30,7 @@ class Environment(object):
                  blueprint_path,
                  inputs=None,
                  storage_cls=None,
-                 **kwargs):
+                 **storage_kwargs):
 
         self.plan = tasks.prepare_deployment_plan(
             parser.parse_from_path(blueprint_path),
@@ -48,8 +48,7 @@ class Environment(object):
             if 'relationships' not in node_instance:
                 node_instance['relationships'] = []
 
-        storage_args = kwargs
-        storage_args.update(dict(
+        storage_kwargs.update(dict(
             resources_root=os.path.dirname(blueprint_path),
             nodes=nodes,
             node_instances=node_instances
@@ -58,7 +57,7 @@ class Environment(object):
         if storage_cls is None:
             storage_cls = InMemoryStorage
 
-        self.storage = storage_cls(**storage_args)
+        self.storage = storage_cls(**storage_kwargs)
 
     def execute(self, workflow):
         workflow_name = workflow
