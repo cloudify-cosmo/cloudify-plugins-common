@@ -24,5 +24,5 @@ if __name__ == '__main__':
     arg_parser.add_argument('blueprint_path')
     args = arg_parser.parse_args()
 
-    env = Environment(args.blueprint_path)
+    env = Environment(args.blueprint_path, name='my_dep')
     env.execute(args.workflow)

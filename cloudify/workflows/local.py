@@ -18,6 +18,7 @@ import os
 import tempfile
 import copy
 import importlib
+import uuid
 
 from dsl_parser import parser, tasks
 from cloudify_rest_client.nodes import Node
@@ -28,9 +29,11 @@ class Environment(object):
 
     def __init__(self,
                  blueprint_path,
+                 name='local',
                  inputs=None,
                  storage_cls=None,
                  **storage_kwargs):
+        self.name = name
 
         self.plan = tasks.prepare_deployment_plan(
             parser.parse_from_path(blueprint_path),
@@ -68,11 +71,13 @@ class Environment(object):
         workflow_method_name = split[-1]
         module = importlib.import_module(workflow_module_name)
         workflow_method = getattr(module, workflow_method_name)
+
+        execution_id = str(uuid.uuid4())
         ctx = {
             'local': True,
-            'deployment_id': 'local',
-            'blueprint_id': 'local',
-            'execution_id': 'local',
+            'deployment_id': self.name,
+            'blueprint_id': self.name,
+            'execution_id': execution_id,
             'workflow_id': workflow_name,
             'storage': self.storage
         }
