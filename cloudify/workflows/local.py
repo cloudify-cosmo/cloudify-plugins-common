@@ -26,7 +26,11 @@ from cloudify_rest_client.node_instances import NodeInstance
 
 class Environment(object):
 
-    def __init__(self, blueprint_path, inputs=None):
+    def __init__(self,
+                 blueprint_path,
+                 inputs=None,
+                 storage_cls=None,
+                 **kwargs):
 
         self.plan = tasks.prepare_deployment_plan(
             parser.parse_from_path(blueprint_path),
@@ -44,10 +48,17 @@ class Environment(object):
             if 'relationships' not in node_instance:
                 node_instance['relationships'] = []
 
-        self.storage = InMemoryStorage(
+        storage_args = kwargs
+        storage_args.update(dict(
             resources_root=os.path.dirname(blueprint_path),
             nodes=nodes,
-            node_instances=node_instances)
+            node_instances=node_instances
+        ))
+
+        if storage_cls is None:
+            storage_cls = InMemoryStorage
+
+        self.storage = storage_cls(**storage_args)
 
     def execute(self, workflow):
         workflow_name = workflow
