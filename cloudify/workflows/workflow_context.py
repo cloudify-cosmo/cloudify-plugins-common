@@ -21,8 +21,6 @@ import logging
 import sys
 import threading
 import Queue
-import os
-import tempfile
 
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
@@ -36,13 +34,12 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       DEFAULT_RETRY_INTERVAL)
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
+from cloudify.workflows import storage
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            init_cloudify_logger,
                            send_workflow_event,
                            send_workflow_node_event)
-from cloudify_rest_client.node_instances import (
-    NodeInstance as RestNodeInstance)
 
 
 class CloudifyWorkflowRelationshipInstance(object):
@@ -348,8 +345,8 @@ class CloudifyWorkflowContext(object):
             node_instances = ctx.pop('node_instances')
             resources_root = ctx.pop('resources_root')
             handler = LocalCloudifyWorkflowContextHandler(self,
-                                                          node_instances,
-                                                          resources_root)
+                                                          resources_root,
+                                                          node_instances)
         else:
             rest = get_rest_client()
             nodes = rest.nodes.list(self.deployment_id)
@@ -895,11 +892,10 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
-    def __init__(self, workflow_ctx, node_instances, resources_root):
+    def __init__(self, workflow_ctx, resources_root, node_instances):
         super(LocalCloudifyWorkflowContextHandler, self).__init__(
             workflow_ctx)
-        self.storage = LocalCloudifyWorkflowContextStorage(node_instances,
-                                                           resources_root)
+        self.storage = storage.create(resources_root, node_instances)
         self._send_task_event_func = None
 
     def get_context_logging_handler(self):
@@ -972,48 +968,3 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                 workflow_node_instance.id)
             return instance.state
         return get_state_task
-
-
-class LocalCloudifyWorkflowContextStorage(object):
-
-    def __init__(self, node_instances, resources_root):
-        self.node_instances = {instance.id: instance
-                               for instance in node_instances}
-        self.resources_root = resources_root
-
-    def get_resource(self, resource_path):
-        with open(os.path.join(self.resources_root, resource_path)) as f:
-            return f.read()
-
-    def download_resource(self, resource_path, target_path=None):
-        if not target_path:
-            suffix = '-{}'.format(os.path.basename(resource_path))
-            target_path = tempfile.mktemp(suffix=suffix)
-        resource = self.get_resource(resource_path)
-        with open(target_path, 'w') as f:
-            f.write(resource)
-        return target_path
-
-    def get_node_instance(self, node_instance_id):
-        instance = copy.deepcopy(self._get_node_instance(node_instance_id))
-        return RestNodeInstance(instance)
-
-    def update_node_instance(self,
-                             node_instance_id,
-                             runtime_properties=None,
-                             state=None,
-                             version=None):
-        instance = self._get_node_instance(node_instance_id)
-        if runtime_properties is not None:
-            instance['runtime_properties'] = runtime_properties
-        if state is not None:
-            instance['state'] = state
-        if version is not None:
-            instance['version'] = version
-
-    def _get_node_instance(self, node_instance_id):
-        instance = self.node_instances.get(node_instance_id)
-        if instance is None:
-            raise RuntimeError('Instance {} does not exist'
-                               .format(node_instance_id))
-        return instance
