@@ -43,20 +43,13 @@ class Environment(object):
         self.name = name
 
         self.plan = tasks.prepare_deployment_plan(
-            parser.parse_from_path(blueprint_path),
-            inputs=inputs)
+            parser.parse_from_path(blueprint_path), inputs=inputs)
 
         nodes = [Node(node) for node in self.plan['nodes']]
         node_instances = [NodeInstance(instance)
                           for instance in self.plan['node_instances']]
 
-        for node in nodes:
-            if 'relationships' not in node:
-                node['relationships'] = []
-        for node_instance in node_instances:
-            node_instance['node_id'] = node_instance['name']
-            if 'relationships' not in node_instance:
-                node_instance['relationships'] = []
+        self._prepare_nodes_and_instances(nodes, node_instances)
 
         storage_kwargs.update(dict(
             name=self.name,
@@ -73,13 +66,7 @@ class Environment(object):
     def execute(self, workflow):
         workflow_name = workflow
         workflow = self.plan['workflows'][workflow_name]
-        workflow_method_path = workflow['operation']
-        split = workflow_method_path.split('.')
-        workflow_module_name = '.'.join(split[:-1])
-        workflow_method_name = split[-1]
-        module = importlib.import_module(workflow_module_name)
-        workflow_method = getattr(module, workflow_method_name)
-
+        workflow_method = self._get_module_method(workflow['operation'])
         execution_id = str(uuid.uuid4())
         ctx = {
             'local': True,
@@ -90,6 +77,45 @@ class Environment(object):
             'storage': self.storage
         }
         workflow_method(__cloudify_context=ctx)
+
+    def _prepare_nodes_and_instances(self, nodes, node_instances):
+        operations_to_verify = set()
+
+        def scan(parent, name):
+            for operation in parent.get(name, {}).values():
+                operations_to_verify.add(operation['operation'])
+
+        for node in nodes:
+            if 'relationships' not in node:
+                node['relationships'] = []
+            scan(node, 'operations')
+            for relationship in node['relationships']:
+                scan(relationship, 'source_operations')
+                scan(relationship, 'target_operations')
+
+        for operation in operations_to_verify:
+            self._get_module_method(operation)
+
+        for node_instance in node_instances:
+            node_instance['node_id'] = node_instance['name']
+            if 'relationships' not in node_instance:
+                node_instance['relationships'] = []
+
+    @staticmethod
+    def _get_module_method(module_method_path):
+        split = module_method_path.split('.')
+        module_name = '.'.join(split[:-1])
+        method_name = split[-1]
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            raise ImportError('mapping error: No module named {}'
+                              .format(module_name))
+        try:
+            return getattr(module, method_name)
+        except AttributeError:
+            raise AttributeError("mapping error: {} has no attribute '{}'"
+                                 .format(module.__name__, method_name))
 
 
 class Storage(object):
