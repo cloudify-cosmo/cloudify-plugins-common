@@ -56,8 +56,7 @@ class Endpoint(object):
                                   runtime_properties=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    @property
-    def logging_handler(self):
+    def get_logging_handler(self):
         raise NotImplementedError('Implemented by subclasses')
 
     def send_plugin_event(self,
@@ -105,15 +104,19 @@ class ManagerEndpoint(Endpoint):
                                                  properties,
                                                  runtime_properties)
 
-    @property
-    def logging_handler(self):
-        return CloudifyPluginLoggingHandler
+    def get_logging_handler(self):
+        return CloudifyPluginLoggingHandler(self.ctx,
+                                            out_func=logs.amqp_log_out)
 
     def send_plugin_event(self,
                           message=None,
                           args=None,
                           additional_context=None):
-        logs.send_plugin_event(self.ctx, message, args, additional_context)
+        logs.send_plugin_event(self.ctx,
+                               message,
+                               args,
+                               additional_context,
+                               out_func=logs.amqp_event_out)
 
 
 class LocalEndpoint(Endpoint):
@@ -164,18 +167,16 @@ class LocalEndpoint(Endpoint):
         # TODO
         return '127.0.0.1'
 
-    @property
-    def logging_handler(self):
-        def handler(ctx):
-            return logging.StreamHandler(sys.stdout)
-        return handler
+    def get_logging_handler(self):
+        return CloudifyPluginLoggingHandler(self.ctx,
+                                            out_func=logs.stdout_log_out)
 
     def send_plugin_event(self,
                           message=None,
                           args=None,
                           additional_context=None):
-        self.ctx.logger.info('[{}] {} [args={}, additional_context={}]'
-                             .format(self.ctx.node_id,
-                                     message,
-                                     args or [],
-                                     additional_context or {}))
+        logs.send_plugin_event(self.ctx,
+                               message,
+                               args,
+                               additional_context,
+                               out_func=logs.stdout_event_out)

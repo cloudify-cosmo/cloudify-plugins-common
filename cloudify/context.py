@@ -289,7 +289,10 @@ class CloudifyContext(CommonContextOperations):
         self._context = ctx or {}
         self._local = ctx.get('local', False)
         if self._local:
-            self._endpoint = LocalEndpoint(self, ctx.pop('storage'))
+            # there are times when this instance is instantiated merely for
+            # accessing the attributes so we can tolerate no storage (such is
+            # the case in logging)
+            self._endpoint = LocalEndpoint(self, ctx.get('storage'))
         else:
             self._endpoint = ManagerEndpoint(self)
         context_capabilities = self._context.get('relationships')
@@ -580,7 +583,7 @@ class CloudifyContext(CommonContextOperations):
     def _init_cloudify_logger(self):
         logger_name = self.task_name if self.task_name is not None \
             else 'cloudify_plugin'
-        handler = self._endpoint.logging_handler(self)
+        handler = self._endpoint.get_logging_handler()
         return init_cloudify_logger(handler, logger_name)
 
     def __str__(self):
