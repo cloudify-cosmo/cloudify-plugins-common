@@ -32,7 +32,8 @@ class LocalWorkflowTest(unittest.TestCase):
 
     def setUp(self):
         self.work_dir = tempfile.mkdtemp(prefix='cloudify-workflows-')
-        self.storage_dir = os.mkdir(os.path.join(self.work_dir, 'storage'))
+        self.storage_dir = os.path.join(self.work_dir, 'storage')
+        os.mkdir(self.storage_dir)
         self.addCleanup(self.cleanup)
 
     def cleanup(self):
