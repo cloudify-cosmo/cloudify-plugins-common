@@ -39,17 +39,27 @@ class LocalWorkflowTest(unittest.TestCase):
     def cleanup(self):
         shutil.rmtree(self.work_dir)
 
-    def test_workflow_logging(self):
-        def workflow_logging(ctx, **_):
-            ctx.logger.info('workflow_logging')
-        self._execute_workflow(workflow_logging)
-        self.fail()
-
-    def test_workflow_node_instance_logging(self):
-        def workflow_logging(ctx, **_):
+    def test_workflow_and_operation_logging_and_events(self):
+        def the_workflow(ctx, **_):
             instance = _instance(ctx, 'node')
+            ctx.logger.info('workflow_logging')
+            ctx.send_event('workflow_event')
             instance.logger.info('workflow_logging')
-        self._execute_workflow(workflow_logging)
+            instance.send_event('node_instance_event')
+
+            @operation
+            def local_task(ctx, **_):
+                pass
+            ctx.local_task(local_task, kwargs={
+                '__cloudify_context': {'stub': 'stub'}
+            }).get()
+
+        def the_operation(ctx, **_):
+            ctx.logger.info('logging')
+            ctx.send_event('event')
+
+        self._execute_workflow(the_workflow, operation_methods=[
+            the_operation])
         self.fail()
 
     def test_workflow_bootstrap_context(self):
@@ -59,36 +69,12 @@ class LocalWorkflowTest(unittest.TestCase):
         self._execute_workflow(bootstrap_context)
         self.fail()
 
-    def test_task_event(self):
-        def task_event(ctx, **_):
-            @operation
-            def local_task(ctx, **_):
-                pass
-            ctx.local_task(local_task, kwargs={
-                '__cloudify_context': {'stub': 'stub'}
-            })
-        self._execute_workflow(task_event)
-        self.fail()
-
     def test_update_execution_status(self):
         def update_execution_status(ctx, **_):
             ctx.update_execution_status('status')
         self.assertRaises(RuntimeError,
                           self._execute_workflow,
                           update_execution_status)
-        self.fail()
-
-    def test_workflow_event(self):
-        def workflow_event(ctx, **_):
-            ctx.send_event('workflow_event')
-        self._execute_workflow(workflow_event)
-        self.fail()
-
-    def test_workflow_node_instance_event(self):
-        def node_instance_event(ctx, **_):
-            instance = _instance(ctx, 'node')
-            instance.send_event('node_instance_event')
-        self._execute_workflow(node_instance_event)
         self.fail()
 
     def test_workflow_set_get_node_instance_state(self):
@@ -114,7 +100,19 @@ class LocalWorkflowTest(unittest.TestCase):
         self.fail()
 
     def test_operation_runtime_properties(self):
-        self.fail()
+        def runtime_properties(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.execute_operation('test.op0').get()
+            instance.execute_operation('test.op1').get()
+
+        def op1(ctx, **_):
+            ctx.runtime_properties['key'] = 'value'
+
+        def op2(ctx, **_):
+            self.assertEqual('value', ctx.runtime_properties['key'])
+
+        self._execute_workflow(runtime_properties, operation_methods=[
+            op1, op2])
 
     def test_operation_related_properties(self):
         self.fail()
@@ -125,7 +123,7 @@ class LocalWorkflowTest(unittest.TestCase):
     def test_operation_related_node_id(self):
         self.fail()
 
-    def test_operation_ctx_properties(self):
+    def test_operation_ctx_properties_and_methods(self):
         def ctx_properties(ctx, **_):
             self.assertEqual('node', ctx.node_name)
             self.assertIn('node_', ctx.node_id)
@@ -145,24 +143,23 @@ class LocalWorkflowTest(unittest.TestCase):
             self.assertEqual('test.op0', ctx.operation)
             self.assertDictContainsSubset({'property': 'value'},
                                           ctx.properties)
+            self.assertEqual('content', ctx.get_resource('resource'))
+            target_path = ctx.download_resource('resource')
+            with open(target_path) as f:
+                self.assertEqual('content', f.read())
+            expected_target_path = os.path.join(self.work_dir, 'resource')
+            target_path = ctx.download_resource(
+                'resource', target_path=expected_target_path)
+            self.assertEqual(target_path, expected_target_path)
+            with open(target_path) as f:
+                self.assertEqual('content', f.read())
         self._execute_workflow(operation_methods=[ctx_properties])
 
-    def test_operation_logging(self):
-        self.fail()
-
     def test_operation_bootstrap_context(self):
-        self.fail()
-
-    def test_operation_provider_context(self):
-        self.fail()
-
-    def test_operation_get_resource(self):
-        self.fail()
-
-    def test_operation_download_resource(self):
-        self.fail()
-
-    def test_operation_send_event(self):
+        def contexts(ctx, **_):
+            self.assertDictEqual({}, ctx.bootstrap_context._bootstrap_context)
+            self.assertDictEqual({}, ctx.provider_context)
+        self._execute_workflow(operation_methods=[contexts])
         self.fail()
 
     def test_install_uninstall(self):
@@ -234,6 +231,8 @@ class LocalWorkflowTest(unittest.TestCase):
 
             blueprint_dir = os.path.join(self.work_dir, 'blueprint')
             os.mkdir(blueprint_dir)
+            with open(os.path.join(blueprint_dir, 'resource'), 'w') as f:
+                f.write('content')
             blueprint_path = os.path.join(blueprint_dir, 'blueprint.yaml')
             with open(blueprint_path, 'w') as f:
                 f.write(yaml.safe_dump(blueprint))
