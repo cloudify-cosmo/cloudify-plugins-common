@@ -24,10 +24,12 @@ if __name__ == '__main__':
     arg_parser.add_argument('blueprint_path')
     arg_parser.add_argument('--name', default='local')
     arg_parser.add_argument('--storage_dir', default='/tmp/cloudify-workflows')
+    arg_parser.add_argument('--clear', action='store_true')
     args = arg_parser.parse_args()
 
     env = local.Environment(args.blueprint_path,
                             name=args.name,
                             storage_cls=local.FileStorage,
-                            storage_dir=args.storage_dir)
+                            storage_dir=args.storage_dir,
+                            clear=args.clear)
     env.execute(args.workflow)

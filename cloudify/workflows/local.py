@@ -21,6 +21,7 @@ import importlib
 import uuid
 import json
 import threading
+import shutil
 
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
@@ -207,9 +208,12 @@ class InMemoryStorage(Storage):
 class FileStorage(Storage):
 
     def __init__(self, name, resources_root, nodes, node_instances,
-                 storage_dir):
+                 storage_dir='/tmp/cloudify-workflows',
+                 clear=False):
         super(FileStorage, self).__init__(name, resources_root)
         self._storage_dir = os.path.join(storage_dir, name)
+        if os.path.isdir(self._storage_dir) and clear:
+            shutil.rmtree(self._storage_dir)
         if not os.path.isdir(self._storage_dir):
             os.makedirs(self._storage_dir)
         self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
