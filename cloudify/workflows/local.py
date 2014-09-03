@@ -17,13 +17,59 @@
 import os
 import tempfile
 import copy
+import importlib
+
+from dsl_parser import parser, tasks
+from cloudify_rest_client.nodes import Node
+from cloudify_rest_client.node_instances import NodeInstance
 
 
-def create(resources_root, node_instances):
-    return InMemoryLocalWorkflowStorage(resources_root, node_instances)
+class Environment(object):
+
+    def __init__(self, blueprint_path, inputs=None):
+
+        self.plan = tasks.prepare_deployment_plan(
+            parser.parse_from_path(blueprint_path),
+            inputs=inputs)
+
+        nodes = [Node(node) for node in self.plan['nodes']]
+        node_instances = [NodeInstance(instance)
+                          for instance in self.plan['node_instances']]
+
+        for node in nodes:
+            if 'relationships' not in node:
+                node['relationships'] = []
+        for node_instance in node_instances:
+            node_instance['node_id'] = node_instance['name']
+            if 'relationships' not in node_instance:
+                node_instance['relationships'] = []
+
+        self.storage = InMemoryStorage(
+            resources_root=os.path.dirname(blueprint_path),
+            nodes=nodes,
+            node_instances=node_instances)
+
+    def execute(self, workflow):
+        workflow_name = workflow
+        workflow = self.plan['workflows'][workflow_name]
+        workflow_method_path = workflow['operation']
+        split = workflow_method_path.split('.')
+        workflow_module_name = '.'.join(split[:-1])
+        workflow_method_name = split[-1]
+        module = importlib.import_module(workflow_module_name)
+        workflow_method = getattr(module, workflow_method_name)
+        ctx = {
+            'local': True,
+            'deployment_id': 'local',
+            'blueprint_id': 'local',
+            'execution_id': 'local',
+            'workflow_id': workflow_name,
+            'storage': self.storage
+        }
+        workflow_method(__cloudify_context=ctx)
 
 
-class LocalWorkflowStorage(object):
+class Storage(object):
 
     def __init__(self, resources_root):
         self.resources_root = resources_root
@@ -71,19 +117,32 @@ class LocalWorkflowStorage(object):
     def _store_instance(self, node_instance):
         raise NotImplementedError()
 
+    def get_nodes(self):
+        raise NotImplementedError()
 
-class InMemoryLocalWorkflowStorage(LocalWorkflowStorage):
+    def get_node_instances(self):
+        raise NotImplementedError()
 
-    def __init__(self, resources_root, node_instances):
-        super(InMemoryLocalWorkflowStorage, self).__init__(resources_root)
-        self.node_instances = {instance.id: instance
-                               for instance in node_instances}
+
+class InMemoryStorage(Storage):
+
+    def __init__(self, resources_root, nodes, node_instances):
+        super(InMemoryStorage, self).__init__(resources_root)
+        self._nodes = nodes
+        self._node_instances = {instance.id: instance
+                                for instance in node_instances}
 
     def get_node_instance(self, node_instance_id):
         return copy.deepcopy(self._get_node_instance(node_instance_id))
 
     def _load_instance(self, node_instance_id):
-        return self.node_instances.get(node_instance_id)
+        return self._node_instances.get(node_instance_id)
 
     def _store_instance(self, node_instance):
         pass
+
+    def get_nodes(self):
+        return self._nodes
+
+    def get_node_instances(self):
+        return self._node_instances.values()

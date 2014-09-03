@@ -34,7 +34,6 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       DEFAULT_RETRY_INTERVAL)
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
-from cloudify.workflows import storage
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            init_cloudify_logger,
@@ -345,12 +344,10 @@ class CloudifyWorkflowContext(object):
         self._context = ctx
 
         if self.local:
-            nodes = ctx.pop('nodes')
-            node_instances = ctx.pop('node_instances')
-            resources_root = ctx.pop('resources_root')
-            handler = LocalCloudifyWorkflowContextHandler(self,
-                                                          resources_root,
-                                                          node_instances)
+            storage = ctx.pop('storage')
+            nodes = storage.get_nodes()
+            node_instances = storage.get_node_instances()
+            handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
             rest = get_rest_client()
             nodes = rest.nodes.list(self.deployment_id)
@@ -896,10 +893,10 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
-    def __init__(self, workflow_ctx, resources_root, node_instances):
+    def __init__(self, workflow_ctx, storage):
         super(LocalCloudifyWorkflowContextHandler, self).__init__(
             workflow_ctx)
-        self.storage = storage.create(resources_root, node_instances)
+        self.storage = storage
         self._send_task_event_func = None
 
     def get_context_logging_handler(self):
