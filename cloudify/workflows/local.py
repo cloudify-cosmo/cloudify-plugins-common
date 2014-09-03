@@ -19,6 +19,7 @@ import tempfile
 import copy
 import importlib
 import uuid
+import json
 
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
@@ -57,6 +58,7 @@ class Environment(object):
                 node_instance['relationships'] = []
 
         storage_kwargs.update(dict(
+            name=self.name,
             resources_root=os.path.dirname(blueprint_path),
             nodes=nodes,
             node_instances=node_instances
@@ -91,7 +93,8 @@ class Environment(object):
 
 class Storage(object):
 
-    def __init__(self, resources_root):
+    def __init__(self, name, resources_root):
+        self.name = name
         self.resources_root = resources_root
 
     def get_resource(self, resource_path):
@@ -146,8 +149,8 @@ class Storage(object):
 
 class InMemoryStorage(Storage):
 
-    def __init__(self, resources_root, nodes, node_instances):
-        super(InMemoryStorage, self).__init__(resources_root)
+    def __init__(self, name, resources_root, nodes, node_instances):
+        super(InMemoryStorage, self).__init__(name, resources_root)
         self._nodes = nodes
         self._node_instances = {instance.id: instance
                                 for instance in node_instances}
@@ -166,3 +169,40 @@ class InMemoryStorage(Storage):
 
     def get_node_instances(self):
         return self._node_instances.values()
+
+
+class FileStorage(Storage):
+
+    def __init__(self, name, resources_root, nodes, node_instances,
+                 storage_dir):
+        super(FileStorage, self).__init__(name, resources_root)
+        self._storage_dir = os.path.join(storage_dir, name)
+        if not os.path.isdir(self._storage_dir):
+            os.mkdir(self._storage_dir)
+        self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
+        if not os.path.isdir(self._instances_dir):
+            os.mkdir(self._instances_dir)
+            for instance in node_instances:
+                self._store_instance(instance)
+        self._nodes = nodes
+
+    def get_node_instance(self, node_instance_id):
+        return self._get_node_instance(node_instance_id)
+
+    def _load_instance(self, node_instance_id):
+        with open(self._instance_path(node_instance_id)) as f:
+            return NodeInstance(json.loads(f.read()))
+
+    def _store_instance(self, node_instance):
+        with open(self._instance_path(node_instance.id), 'w') as f:
+            f.write(json.dumps(node_instance))
+
+    def _instance_path(self, node_instance_id):
+        return os.path.join(self._instances_dir, node_instance_id)
+
+    def get_nodes(self):
+        return self._nodes
+
+    def get_node_instances(self):
+        return [self._get_node_instance(instance_id)
+                for instance_id in os.listdir(self._instances_dir)]

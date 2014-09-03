@@ -16,13 +16,17 @@
 
 import argparse
 
-from cloudify.workflows.local import Environment
+from cloudify.workflows import local
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('workflow')
     arg_parser.add_argument('blueprint_path')
+    arg_parser.add_argument('--name', default='local')
     args = arg_parser.parse_args()
 
-    env = Environment(args.blueprint_path, name='my_dep')
+    env = local.Environment(args.blueprint_path,
+                            name=args.name,
+                            storage_cls=local.FileStorage,
+                            storage_dir='/home/dan/work/localworkflow/storage')
     env.execute(args.workflow)
