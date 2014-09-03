@@ -20,9 +20,14 @@ import copy
 import importlib
 import uuid
 
-from dsl_parser import parser, tasks
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
+
+try:
+    from dsl_parser import parser, tasks
+except ImportError:
+    raise ImportError('cloudify-dsl-parser must be installed to execute local'
+                      ' workflows. (e.g. "pip install cloudify-dsl-parser")')
 
 
 class Environment(object):

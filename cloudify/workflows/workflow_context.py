@@ -17,8 +17,6 @@
 import copy
 import uuid
 import importlib
-import logging
-import sys
 import threading
 import Queue
 

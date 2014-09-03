@@ -14,10 +14,6 @@
 #    * limitations under the License.
 
 
-import sys
-import logging
-
-
 from cloudify import manager
 from cloudify import logs
 from cloudify.logs import CloudifyPluginLoggingHandler

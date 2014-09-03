@@ -16,7 +16,6 @@
 
 __author__ = 'dan'
 
-import datetime
 import json
 
 import pika
