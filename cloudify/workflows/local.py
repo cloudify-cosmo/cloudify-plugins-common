@@ -20,6 +20,7 @@ import copy
 import importlib
 import uuid
 import json
+import threading
 
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
@@ -178,24 +179,34 @@ class FileStorage(Storage):
         super(FileStorage, self).__init__(name, resources_root)
         self._storage_dir = os.path.join(storage_dir, name)
         if not os.path.isdir(self._storage_dir):
-            os.mkdir(self._storage_dir)
+            os.makedirs(self._storage_dir)
         self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
         if not os.path.isdir(self._instances_dir):
             os.mkdir(self._instances_dir)
             for instance in node_instances:
-                self._store_instance(instance)
+                self._store_instance(instance, lock=False)
         self._nodes = nodes
+        self._locks = {instance_id: threading.Lock()
+                       for instance_id in self._instance_ids()}
 
     def get_node_instance(self, node_instance_id):
         return self._get_node_instance(node_instance_id)
 
     def _load_instance(self, node_instance_id):
-        with open(self._instance_path(node_instance_id)) as f:
-            return NodeInstance(json.loads(f.read()))
+        with self._lock(node_instance_id):
+            with open(self._instance_path(node_instance_id)) as f:
+                return NodeInstance(json.loads(f.read()))
 
-    def _store_instance(self, node_instance):
-        with open(self._instance_path(node_instance.id), 'w') as f:
-            f.write(json.dumps(node_instance))
+    def _store_instance(self, node_instance, lock=True):
+        if lock:
+            instance_lock = self._lock(node_instance.id)
+            instance_lock.acquire()
+        try:
+            with open(self._instance_path(node_instance.id), 'w') as f:
+                f.write(json.dumps(node_instance))
+        finally:
+            if lock:
+                instance_lock.release()
 
     def _instance_path(self, node_instance_id):
         return os.path.join(self._instances_dir, node_instance_id)
@@ -205,4 +216,10 @@ class FileStorage(Storage):
 
     def get_node_instances(self):
         return [self._get_node_instance(instance_id)
-                for instance_id in os.listdir(self._instances_dir)]
+                for instance_id in self._instance_ids()]
+
+    def _instance_ids(self):
+        return os.listdir(self._instances_dir)
+
+    def _lock(self, node_instance_id):
+        return self._locks[node_instance_id]
