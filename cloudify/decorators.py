@@ -29,13 +29,13 @@ from cloudify_rest_client.executions import Execution
 from cloudify.exceptions import ProcessExecutionError
 from cloudify.state import current_ctx, current_workflow_ctx
 
-
+_stub_task = lambda fn: fn
 try:
     from cloudify.celery import celery as _celery
     _task = _celery.task
 except ImportError:
     _celery = None
-    _task = lambda fn: fn
+    _task = _stub_task
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -94,9 +94,7 @@ def operation(func=None, **arguments):
         def start(ctx, **kwargs):
             pass
     """
-
     if func is not None:
-        @_task
         @wraps(func)
         def wrapper(*args, **kwargs):
             ctx = _find_context_arg(args, kwargs, _is_cloudify_context)
@@ -117,7 +115,7 @@ def operation(func=None, **arguments):
                 current_ctx.clear()
                 ctx.update()
             return result
-        return wrapper
+        return _process_wrapper(wrapper, arguments)
     else:
         def partial_wrapper(fn):
             return operation(fn, **arguments)
@@ -141,7 +139,6 @@ def workflow(func=None, **arguments):
             pass
     """
     if func is not None:
-        @_task
         @wraps(func)
         def wrapper(*args, **kwargs):
 
@@ -157,7 +154,7 @@ def workflow(func=None, **arguments):
                 workflow_wrapper = _remote_workflow
 
             return workflow_wrapper(ctx, func, args, kwargs)
-        return wrapper
+        return _process_wrapper(wrapper, arguments)
     else:
         def partial_wrapper(fn):
             return workflow(fn, **arguments)
@@ -309,5 +306,11 @@ def _execute_workflow_function(ctx, func, args, kwargs):
         ctx.internal.stop_local_tasks_processing()
         current_workflow_ctx.clear()
 
+
+def _process_wrapper(wrapper, arguments):
+    result_wrapper = _task
+    if arguments.get('force_not_celery') is True:
+        result_wrapper = _stub_task
+    return result_wrapper(wrapper)
 
 task = operation

@@ -910,8 +910,9 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         return events.send_task_event_func_local
 
     def get_update_execution_status_task(self, new_status):
-        raise RuntimeError('Update execution status is not supported for '
-                           'local workflow execution')
+        raise NotImplementedError(
+            'Update execution status is not supported for '
+            'local workflow execution')
 
     def get_send_node_event_task(self, workflow_node_instance,
                                  event, additional_context=None):
