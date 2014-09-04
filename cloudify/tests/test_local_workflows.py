@@ -128,7 +128,23 @@ class LocalWorkflowTest(unittest.TestCase):
         self.fail()
 
     def test_operation_capabilities(self):
-        self.fail()
+        def the_workflow(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance2 = _instance(ctx, 'node2')
+            instance2.execute_operation('test.op0').get()
+            instance.execute_operation('test.op1').get()
+
+        def op0(ctx, **_):
+            ctx.runtime_properties['key'] = 'value'
+
+        def op1(ctx, **_):
+            caps = ctx.capabilities.get_all()
+            self.assertEqual(1, len(caps))
+            key, value = next(caps.iteritems())
+            self.assertIn('node2_', key)
+            self.assertDictEqual(value, {'key': 'value'})
+
+        self._execute_workflow(the_workflow, operation_methods=[op0, op1])
 
     def test_operation_runtime_properties(self):
         def runtime_properties(ctx, **_):
