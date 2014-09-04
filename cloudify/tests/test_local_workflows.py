@@ -44,9 +44,11 @@ class LocalWorkflowTest(unittest.TestCase):
         for h in logging.getLogger().handlers:
             logging.getLogger().removeHandler(h)
         import cloudify.logs
-        cloudify.logs.stdout_event_out = lambda event: sys.stdout.write('{}\n'.format(event['message']))
+        cloudify.logs.stdout_event_out = lambda event: sys.stdout.write(
+            '{}\n'.format(event['message']))
         # cloudify.logs.stdout_event_out = lambda event: None
-        cloudify.logs.stdout_log_out = lambda log: sys.stdout.write('{}\n'.format(log['message']))
+        cloudify.logs.stdout_log_out = lambda log: sys.stdout.write(
+            '{}\n'.format(log['message']))
         # cloudify.logs.stdout_log_out = lambda log: None
 
         def the_workflow(ctx, **_):
