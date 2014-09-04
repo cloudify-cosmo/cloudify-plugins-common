@@ -337,6 +337,7 @@ class LocalWorkflowTest(unittest.TestCase):
     def _remove_temp_module(self):
         del sys.modules[self._testMethodName]
 
+
 @nose.tools.istest
 class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
 
