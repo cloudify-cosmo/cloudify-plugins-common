@@ -269,7 +269,66 @@ class LocalWorkflowTest(BaseWorkflowTest):
         self._execute_workflow(attributes)
 
     def test_workflow_blueprint_model(self):
-        self.fail()
+        def blueprint_model(ctx, **_):
+            nodes = list(ctx.nodes)
+            node1 = ctx.get_node('node')
+            node2 = ctx.get_node('node2')
+            node1_instances = list(node1.instances)
+            node2_instances = list(node2.instances)
+            instance1 = node1_instances[0]
+            instance2 = node2_instances[0]
+            node1_relationships = list(node1.relationships)
+            node2_relationships = list(node2.relationships)
+            instance1_relationships = list(instance1.relationships)
+            instance2_relationships = list(instance2.relationships)
+            relationship = node1_relationships[0]
+            relationship_instance = instance1_relationships[0]
+
+            self.assertEqual(2, len(nodes))
+            self.assertEqual(1, len(node1_instances))
+            self.assertEqual(1, len(node2_instances))
+            self.assertEqual(1, len(node1_relationships))
+            self.assertEqual(0, len(node2_relationships))
+            self.assertEqual(1, len(instance1_relationships))
+            self.assertEqual(0, len(instance2_relationships))
+
+            sorted_ops = ['op0', 'test.op0']
+
+            self.assertEqual('node', node1.id)
+            self.assertEqual('node2', node2.id)
+            self.assertEqual('type', node1.type)
+            self.assertEqual('type', node1.type)
+            self.assertEqual('type', node2.type)
+            self.assertListEqual(['type'], node1.type_hierarchy)
+            self.assertListEqual(['type'], node2.type_hierarchy)
+            self.assertDictContainsSubset({'property': 'value'},
+                                          node1.properties)
+            self.assertDictContainsSubset({'property': 'default'},
+                                          node2.properties)
+            self.assertListEqual(sorted_ops, sorted(node1.operations.keys()))
+            self.assertListEqual(sorted_ops, sorted(node2.operations.keys()))
+            self.assertIs(relationship, node1.get_relationship('node2'))
+
+            self.assertIn('node_', instance1.id)
+            self.assertIn('node2_', instance2.id)
+            self.assertEqual('node', instance1.node_id)
+            self.assertEqual('node2', instance2.node_id)
+            self.assertIs(node1, instance1.node)
+            self.assertIs(node2, instance2.node)
+
+            self.assertEqual(node2.id, relationship.target_id)
+            self.assertEqual(node2, relationship.target_node)
+            self.assertListEqual(sorted_ops,
+                                 sorted(relationship.source_operations.keys()))
+            self.assertListEqual(sorted_ops,
+                                 sorted(relationship.target_operations.keys()))
+
+            self.assertEqual(instance2.id, relationship_instance.target_id)
+            self.assertEqual(instance2,
+                             relationship_instance.target_node_instance)
+            self.assertIs(relationship, relationship_instance.relationship)
+
+        self._execute_workflow(blueprint_model)
 
     def test_operation_capabilities(self):
         def the_workflow(ctx, **_):
