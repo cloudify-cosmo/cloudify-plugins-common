@@ -236,8 +236,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('op_logging',
                              logs[2]['message']['text'])
         finally:
-            cloudify.logs.stdout_event_out = o_stdout_event
             cloudify.logs.stdout_event_out = o_stdout_log
+            cloudify.logs.stdout_event_out = o_stdout_event
 
     def test_workflow_bootstrap_context(self):
         def bootstrap_context(ctx, **_):
