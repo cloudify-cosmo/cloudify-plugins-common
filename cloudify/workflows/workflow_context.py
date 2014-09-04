@@ -32,15 +32,12 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       DEFAULT_RETRY_INTERVAL)
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
+from cloudify import logs
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            init_cloudify_logger,
                            send_workflow_event,
-                           send_workflow_node_event,
-                           amqp_event_out,
-                           amqp_log_out,
-                           stdout_event_out,
-                           stdout_log_out)
+                           send_workflow_node_event)
 
 
 class CloudifyWorkflowRelationshipInstance(object):
@@ -816,11 +813,11 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_context_logging_handler(self):
         return CloudifyWorkflowLoggingHandler(self.workflow_ctx,
-                                              out_func=amqp_log_out)
+                                              out_func=logs.amqp_log_out)
 
     def get_node_logging_handler(self, workflow_node_instance):
         return CloudifyWorkflowNodeLoggingHandler(workflow_node_instance,
-                                                  out_func=amqp_log_out)
+                                                  out_func=logs.amqp_log_out)
 
     @property
     def bootstrap_context(self):
@@ -841,7 +838,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                      event_type='workflow_node_event',
                                      message=event,
                                      additional_context=additional_context,
-                                     out_func=amqp_event_out)
+                                     out_func=logs.amqp_event_out)
         return send_event_task
 
     def get_send_workflow_event_task(self, event, event_type, args,
@@ -852,7 +849,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 message=event,
                                 args=args,
                                 additional_context=additional_context,
-                                out_func=amqp_event_out)
+                                out_func=logs.amqp_event_out)
         return send_event_task
 
     def get_operation_task_queue(self, workflow_node_instance, plugin_name):
@@ -899,11 +896,11 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_context_logging_handler(self):
         return CloudifyWorkflowLoggingHandler(self.workflow_ctx,
-                                              out_func=stdout_log_out)
+                                              out_func=logs.stdout_log_out)
 
     def get_node_logging_handler(self, workflow_node_instance):
         return CloudifyWorkflowNodeLoggingHandler(workflow_node_instance,
-                                                  out_func=stdout_log_out)
+                                                  out_func=logs.stdout_log_out)
 
     @property
     def bootstrap_context(self):
@@ -923,7 +920,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                      event_type='workflow_node_event',
                                      message=event,
                                      additional_context=additional_context,
-                                     out_func=stdout_event_out)
+                                     out_func=logs.stdout_event_out)
         return send_event_task
 
     def get_send_workflow_event_task(self, event, event_type, args,
@@ -934,7 +931,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 message=event,
                                 args=args,
                                 additional_context=additional_context,
-                                out_func=stdout_event_out)
+                                out_func=logs.stdout_event_out)
         return send_event_task
 
     def get_operation_task_queue(self, workflow_node_instance, plugin_name):

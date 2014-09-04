@@ -40,19 +40,22 @@ class LocalWorkflowTest(unittest.TestCase):
         shutil.rmtree(self.work_dir)
 
     def test_workflow_and_operation_logging_and_events(self):
+        import logging
+        for h in logging.getLogger().handlers:
+            logging.getLogger().removeHandler(h)
+        import cloudify.logs
+        cloudify.logs.stdout_event_out = lambda event: sys.stdout.write('{}\n'.format(event['message']))
+        # cloudify.logs.stdout_event_out = lambda event: None
+        cloudify.logs.stdout_log_out = lambda log: sys.stdout.write('{}\n'.format(log['message']))
+        # cloudify.logs.stdout_log_out = lambda log: None
+
         def the_workflow(ctx, **_):
             instance = _instance(ctx, 'node')
             ctx.logger.info('workflow_logging')
             ctx.send_event('workflow_event')
-            instance.logger.info('workflow_logging')
+            instance.logger.info('node_instance_logging')
             instance.send_event('node_instance_event')
-
-            @operation
-            def local_task(ctx, **_):
-                pass
-            ctx.local_task(local_task, kwargs={
-                '__cloudify_context': {'stub': 'stub'}
-            }).get()
+            instance.execute_operation('test.op0')
 
         def the_operation(ctx, **_):
             ctx.logger.info('logging')
