@@ -29,16 +29,160 @@ from cloudify.workflows import local
 
 
 @nose.tools.nottest
-class LocalWorkflowTest(unittest.TestCase):
+class BaseWorkflowTest(unittest.TestCase):
 
     def setUp(self):
         self.work_dir = tempfile.mkdtemp(prefix='cloudify-workflows-')
         self.storage_dir = os.path.join(self.work_dir, 'storage')
+        self.storage_kwargs = {}
+        self.env = None
         os.mkdir(self.storage_dir)
         self.addCleanup(self.cleanup)
 
     def cleanup(self):
         shutil.rmtree(self.work_dir)
+
+    def _load_env(self, blueprint_path, inputs=None, name=None):
+        if name is None:
+            name = self._testMethodName
+        return local.Environment(blueprint_path,
+                                 name=name,
+                                 inputs=inputs,
+                                 storage_cls=self.storage_cls,
+                                 **self.storage_kwargs)
+
+    def _execute_workflow(self,
+                          workflow_method=None,
+                          operation_methods=None,
+                          use_existing_env=True,
+                          name=None,
+                          inputs=None,
+                          create_blueprint_func=None):
+        if create_blueprint_func is None:
+            create_blueprint_func = self._blueprint_1
+
+        def stub_op(ctx, **_):
+            pass
+        if operation_methods is None:
+            operation_methods = [stub_op]
+
+        if workflow_method is None and len(operation_methods) == 1:
+            def workflow_method(ctx, **_):
+                instance = _instance(ctx, 'node')
+                instance.set_state('state').get()
+                instance.execute_operation('test.op0')
+
+        # same as @workflow above the method
+        workflow_method = workflow(workflow_method, force_not_celery=True)
+
+        # same as @operation above each op method
+        operation_methods = [operation(m, force_not_celery=True)
+                             for m in operation_methods]
+
+        temp_module = self._create_temp_module()
+
+        setattr(temp_module,
+                workflow_method.__name__,
+                workflow_method)
+        for operation_method in operation_methods:
+            setattr(temp_module,
+                    operation_method.__name__,
+                    operation_method)
+
+        blueprint = create_blueprint_func(workflow_method, operation_methods)
+        try:
+            blueprint_dir = os.path.join(self.work_dir, 'blueprint')
+            if not os.path.isdir(blueprint_dir):
+                os.mkdir(blueprint_dir)
+            with open(os.path.join(blueprint_dir, 'resource'), 'w') as f:
+                f.write('content')
+            blueprint_path = os.path.join(blueprint_dir, 'blueprint.yaml')
+            with open(blueprint_path, 'w') as f:
+                f.write(yaml.safe_dump(blueprint))
+            if not self.env or not use_existing_env:
+                self.env = self._load_env(blueprint_path,
+                                          inputs=inputs,
+                                          name=name)
+            self.env.execute('workflow')
+        finally:
+            self._remove_temp_module()
+
+    def _blueprint_1(self, workflow_method, operation_methods):
+        interfaces = {
+            'test': [
+                {'op{}'.format(index):
+                 'p.{}.{}'.format(self._testMethodName,
+                                  op_method.__name__)}
+                for index, op_method in
+                enumerate(operation_methods)
+            ]
+        }
+
+        blueprint = {
+            'inputs': {
+                'from_input': {
+                    'default': 'from_input_default_value'
+                }
+            },
+            'plugins': {
+                'p': {
+                    'derived_from': 'cloudify.plugins.manager_plugin'
+                }
+            },
+            'node_types': {
+                'type': {
+                    'properties': {
+                        'property': {
+                            'default': 'default'
+                        },
+                        'from_input': {
+                            'default': 'from_input_default_value'
+                        }
+                    }
+                }
+            },
+            'relationships': {
+                'cloudify.relationships.contained_in': {}
+            },
+            'node_templates': {
+                'node2': {
+                    'type': 'type',
+                    'interfaces': interfaces,
+                },
+                'node': {
+                    'type': 'type',
+                    'interfaces': interfaces,
+                    'properties': {
+                        'property': 'value',
+                        'from_input': {'get_input': 'from_input'}
+                    },
+                    'relationships': [{
+                        'target': 'node2',
+                        'type': 'cloudify.relationships.contained_in',
+                        'source_interfaces': interfaces,
+                        'target_interfaces': interfaces
+                    }]
+                },
+            },
+            'workflows': {
+                'workflow': 'p.{}.{}'.format(self._testMethodName,
+                                             workflow_method.__name__)
+            }
+        }
+        return blueprint
+
+    def _create_temp_module(self):
+        import imp
+        temp_module = imp.new_module(self._testMethodName)
+        sys.modules[self._testMethodName] = temp_module
+        return temp_module
+
+    def _remove_temp_module(self):
+        del sys.modules[self._testMethodName]
+
+
+@nose.tools.nottest
+class LocalWorkflowTest(BaseWorkflowTest):
 
     def test_workflow_and_operation_logging_and_events(self):
 
@@ -244,115 +388,6 @@ class LocalWorkflowTest(unittest.TestCase):
     def test_install_uninstall(self):
         self.fail()
 
-    def _load_env(self, blueprint_path, name=None):
-        if name is None:
-            name = self._testMethodName
-        return local.Environment(blueprint_path,
-                                 name=name,
-                                 storage_cls=self.storage_cls,
-                                 **self.storage_kwargs)
-
-    def _execute_workflow(self, workflow_method=None, operation_methods=None):
-        if workflow_method is None and len(operation_methods) == 1:
-            def workflow_method(ctx, **_):
-                instance = _instance(ctx, 'node')
-                instance.set_state('state').get()
-                instance.execute_operation('test.op0')
-
-        # same as @workflow above the method
-        workflow_method = workflow(workflow_method, force_not_celery=True)
-
-        def stub_op(ctx, **_):
-            pass
-        if operation_methods is None:
-            operation_methods = [stub_op]
-        # same as @operation above each op method
-        operation_methods = [operation(m, force_not_celery=True)
-                             for m in operation_methods]
-
-        temp_module = self._create_temp_module()
-
-        setattr(temp_module,
-                workflow_method.__name__,
-                workflow_method)
-        for operation_method in operation_methods:
-            setattr(temp_module,
-                    operation_method.__name__,
-                    operation_method)
-
-        interfaces = {
-            'test': [
-                {'op{}'.format(index):
-                 'p.{}.{}'.format(self._testMethodName,
-                                  op_method.__name__)}
-                for index, op_method in
-                enumerate(operation_methods)
-            ]
-        }
-
-        try:
-            blueprint = {
-                'plugins': {
-                    'p': {
-                        'derived_from': 'cloudify.plugins.manager_plugin'
-                    }
-                },
-                'node_types': {
-                    'type': {
-                        'properties': {
-                            'property': {
-                                'default': 'default'
-                            }
-                        }
-                    }
-                },
-                'relationships': {
-                    'cloudify.relationships.contained_in': {}
-                },
-                'node_templates': {
-                    'node2': {
-                        'type': 'type',
-                        'interfaces': interfaces,
-                    },
-                    'node': {
-                        'type': 'type',
-                        'interfaces': interfaces,
-                        'properties': {'property': 'value'},
-                        'relationships': [{
-                            'target': 'node2',
-                            'type': 'cloudify.relationships.contained_in',
-                            'source_interfaces': interfaces,
-                            'target_interfaces': interfaces
-                        }]
-                    },
-                },
-                'workflows': {
-                    'workflow': 'p.{}.{}'.format(self._testMethodName,
-                                                 workflow_method.__name__)
-                }
-            }
-
-            blueprint_dir = os.path.join(self.work_dir, 'blueprint')
-            os.mkdir(blueprint_dir)
-            with open(os.path.join(blueprint_dir, 'resource'), 'w') as f:
-                f.write('content')
-            blueprint_path = os.path.join(blueprint_dir, 'blueprint.yaml')
-            with open(blueprint_path, 'w') as f:
-                f.write(yaml.safe_dump(blueprint))
-            env = self._load_env(blueprint_path)
-            env.execute('workflow')
-        finally:
-            self._remove_temp_module()
-
-    def _create_temp_module(self):
-        import imp
-        temp_module = imp.new_module(self._testMethodName)
-        sys.modules[self._testMethodName] = temp_module
-        return temp_module
-
-    def _remove_temp_module(self):
-        del sys.modules[self._testMethodName]
-
 
 @nose.tools.istest
 class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
@@ -360,7 +395,6 @@ class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
     def setUp(self):
         super(LocalWorkflowTestInMemoryStorage, self).setUp()
         self.storage_cls = local.InMemoryStorage
-        self.storage_kwargs = {}
 
 
 @nose.tools.istest
@@ -372,34 +406,172 @@ class LocalWorkflowTestFileStorage(LocalWorkflowTest):
         self.storage_kwargs = {'storage_dir': self.storage_dir}
 
 
-class LocalWorkflowEnvironmentTest(unittest.TestCase):
+@nose.tools.istest
+class FileStorageTest(BaseWorkflowTest):
 
     def setUp(self):
-        pass
+        super(FileStorageTest, self).setUp()
+        self.storage_cls = local.FileStorage
+        self.storage_kwargs = {'storage_dir': self.storage_dir}
+
+    def test_storage_dir(self):
+        def stub_workflow(ctx, **_):
+            pass
+        self._execute_workflow(stub_workflow, name=self._testMethodName)
+        self.assertTrue(os.path.isdir(
+            os.path.join(self.storage_dir, self._testMethodName)))
+
+    def test_persistency(self):
+        self._test_persistency(clear=False)
+
+    def test_clear(self):
+        self._test_persistency(clear=True)
+
+    def _test_persistency(self, clear):
+        def persistency_1(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.set_state('persistency')
+
+        def persistency_2(ctx, **_):
+            expected = None if clear else 'persistency'
+            instance = _instance(ctx, 'node')
+            self.assertEqual(expected, instance.get_state().get())
+
+        self._execute_workflow(persistency_1)
+        self.storage_kwargs.update({'clear': clear})
+        self._execute_workflow(persistency_2, use_existing_env=False)
+
+
+@nose.tools.istest
+class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
+
+    def setUp(self):
+        super(LocalWorkflowEnvironmentTest, self).setUp()
+        self.storage_cls = local.InMemoryStorage
 
     def test_inputs(self):
-        self.fail()
+        def op(ctx, **_):
+            self.assertEqual('new_input', ctx.properties['from_input'])
+        self._execute_workflow(operation_methods=[op],
+                               inputs={'from_input': 'new_input'})
 
     def test_workflow_parameters(self):
         self.fail()
 
     def test_no_operation_module(self):
-        self.fail()
+        self._no_module_or_attribute_test(
+            is_missing_module=True,
+            test_type='operation')
 
     def test_no_operation_attribute(self):
-        self.fail()
+        self._no_module_or_attribute_test(
+            is_missing_module=False,
+            test_type='operation')
 
     def test_no_source_operation_module(self):
-        self.fail()
+        self._no_module_or_attribute_test(
+            is_missing_module=True,
+            test_type='source')
 
     def test_no_source_operation_attribute(self):
-        self.fail()
+        self._no_module_or_attribute_test(
+            is_missing_module=False,
+            test_type='source')
 
     def test_no_target_operation_module(self):
-        self.fail()
+        self._no_module_or_attribute_test(
+            is_missing_module=True,
+            test_type='target')
 
     def test_no_target_operation_attribute(self):
-        self.fail()
+        self._no_module_or_attribute_test(
+            is_missing_module=False,
+            test_type='target')
+
+    def test_no_workflow_module(self):
+        self._no_module_or_attribute_test(
+            is_missing_module=True,
+            test_type='workflow')
+
+    def test_no_workflow_attribute(self):
+        self._no_module_or_attribute_test(
+            is_missing_module=False,
+            test_type='workflow')
+
+    def _no_module_or_attribute_test(self, is_missing_module, test_type):
+        try:
+            self._execute_workflow(
+                create_blueprint_func=self._blueprint_2(is_missing_module,
+                                                        test_type))
+            self.fail()
+        except ImportError, e:
+            if is_missing_module:
+                self.assertIn('No module named zzz', e.message)
+                self.assertIn(test_type, e.message)
+            else:
+                raise
+        except AttributeError, e:
+            if not is_missing_module:
+                self.assertIn("has no attribute 'does_not_exist'", e.message)
+                self.assertIn(test_type, e.message)
+            else:
+                raise
+
+    def _blueprint_2(self,
+                     is_missing_module,
+                     test_type):
+        def func(*_):
+            module_name = 'zzz' if is_missing_module else self._testMethodName
+            interfaces = {
+                'test': [
+                    {'op': 'p.{}.{}'.format(module_name, 'does_not_exist')}
+                ]
+            }
+            blueprint = {
+                'plugins': {
+                    'p': {
+                        'derived_from': 'cloudify.plugins.manager_plugin'
+                    }
+                },
+                'node_types': {
+                    'type': {}
+                },
+                'relationships': {
+                    'cloudify.relationships.contained_in': {}
+                },
+                'node_templates': {
+                    'node2': {
+                        'type': 'type',
+                    },
+                    'node': {
+                        'type': 'type',
+                        'relationships': [{
+                            'target': 'node2',
+                            'type': 'cloudify.relationships.contained_in',
+                        }]
+                    },
+                },
+                'workflows': {
+                    'workflow': 'p.{}.{}'.format(module_name,
+                                                 'does_not_exist')
+                }
+            }
+
+            node = blueprint['node_templates']['node']
+            relationship = node['relationships'][0]
+            if test_type == 'operation':
+                node['interfaces'] = interfaces
+            elif test_type == 'source':
+                relationship['source_interfaces'] = interfaces
+            elif test_type == 'target':
+                relationship['target_interfaces'] = interfaces
+            elif test_type == 'workflow':
+                pass
+            else:
+                self.fail('unsupported: {}'.format(test_type))
+
+            return blueprint
+        return func
 
 
 def _instance(ctx, node_name):
