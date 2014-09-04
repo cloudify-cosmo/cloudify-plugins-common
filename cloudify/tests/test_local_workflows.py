@@ -385,9 +385,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertDictEqual({}, ctx.provider_context)
         self._execute_workflow(operation_methods=[contexts])
 
-    def test_install_uninstall(self):
-        self.fail()
-
 
 @nose.tools.istest
 class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
