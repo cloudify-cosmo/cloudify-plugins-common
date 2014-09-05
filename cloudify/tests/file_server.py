@@ -28,8 +28,6 @@ import time
 PORT = 53229
 FNULL = open(os.devnull, 'w')
 
-
-root = logging.getLogger()
 ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
@@ -37,12 +35,11 @@ formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
                               datefmt='%H:%M:%S')
 ch.setFormatter(formatter)
 
-# clear all other handlers
-for handler in root.handlers:
-    root.removeHandler(handler)
-
-root.addHandler(ch)
 logger = logging.getLogger("FileServer")
+for handler in logger.handlers:
+    logger.removeHandler(handler)
+
+logger.addHandler(ch)
 logger.setLevel(logging.DEBUG)
 
 
