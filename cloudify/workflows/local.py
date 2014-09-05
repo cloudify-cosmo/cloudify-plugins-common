@@ -74,7 +74,10 @@ class Environment(object):
 
         self.storage = storage_cls(**storage_kwargs)
 
-    def execute(self, workflow):
+    def execute(self,
+                workflow,
+                task_retries=-1,
+                task_retry_interval=30):
         workflow_name = workflow
         workflow = self.plan['workflows'][workflow_name]
         workflow_method = self._get_module_method(workflow['operation'],
@@ -87,7 +90,9 @@ class Environment(object):
             'blueprint_id': self.name,
             'execution_id': execution_id,
             'workflow_id': workflow_name,
-            'storage': self.storage
+            'storage': self.storage,
+            'task_retries': task_retries,
+            'task_retry_interval': task_retry_interval
         }
         workflow_method(__cloudify_context=ctx)
 

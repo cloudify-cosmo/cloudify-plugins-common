@@ -338,6 +338,11 @@ class CloudifyWorkflowContext(object):
         # Before anything else so property access will work properly
         self._context = ctx
 
+        self._task_retry_interval = ctx.get('task_retry_interval',
+                                            DEFAULT_RETRY_INTERVAL)
+        self._task_retries = ctx.get('task_retries',
+                                     DEFAULT_TOTAL_RETRIES)
+
         if self.local:
             storage = ctx.pop('storage')
             nodes = storage.get_nodes()
@@ -673,9 +678,12 @@ class CloudifyWorkflowContextInternal(object):
     def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
         workflows = bootstrap_context.get('workflows', {})
-        total_retries = workflows.get('task_retries', DEFAULT_TOTAL_RETRIES)
-        retry_interval = workflows.get('task_retry_interval',
-                                       DEFAULT_RETRY_INTERVAL)
+        total_retries = workflows.get(
+            'task_retries',
+            self.workflow_context._task_retries)
+        retry_interval = workflows.get(
+            'task_retry_interval',
+            self.workflow_context._task_retry_interval)
         return dict(total_retries=total_retries,
                     retry_interval=retry_interval)
 

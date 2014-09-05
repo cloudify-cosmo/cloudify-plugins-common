@@ -14,6 +14,7 @@
 #    * limitations under the License.
 
 
+import time
 import yaml
 import sys
 import tempfile
@@ -55,11 +56,14 @@ class BaseWorkflowTest(unittest.TestCase):
                           workflow_method=None,
                           operation_methods=None,
                           use_existing_env=True,
+                          execute_kwargs=None,
                           name=None,
                           inputs=None,
                           create_blueprint_func=None):
         if create_blueprint_func is None:
             create_blueprint_func = self._blueprint_1
+
+        execute_kwargs = execute_kwargs or {}
 
         def stub_op(ctx, **_):
             pass
@@ -103,7 +107,7 @@ class BaseWorkflowTest(unittest.TestCase):
                 self.env = self._load_env(blueprint_path,
                                           inputs=inputs,
                                           name=name)
-            self.env.execute('workflow')
+            self.env.execute('workflow', **execute_kwargs)
         finally:
             self._remove_temp_module()
 
@@ -513,6 +517,28 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
 
     def test_workflow_parameters(self):
         self.fail()
+
+    def test_retry_configuration(self):
+        def flow(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.execute_operation('test.op0')
+
+        retry_interval = 0.1
+        task_retries = 2
+
+        def op(ctx, **_):
+            current_retry = ctx.runtime_properties.get('current', 0)
+            last_timestamp = ctx.runtime_properties.get('timestamp')
+            current_timestamp = time.time()
+            # if current_retry < task_retries
+            self.fail()
+
+        self._execute_workflow(
+            flow,
+            operation_methods=[op],
+            execute_kwargs={
+                'task_retry_interval': retry_interval,
+                'task_retries': task_retries})
 
     def test_invalid_storage_class(self):
         def flow(ctx, **_):
