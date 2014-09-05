@@ -102,6 +102,13 @@ def _send_task_event_func(task, event_type, message, out_func):
                              out_func=out_func)
 
 
+def _filter_task(task, state):
+    if task.name in TASK_TO_FILTER and state != tasks_api.TASK_FAILED:
+        return True
+
+    return False
+
+
 def send_task_event(state, task, send_event_func, event):
     """
     Send a task event delegating to 'send_event_func'
@@ -116,8 +123,7 @@ def send_task_event(state, task, send_event_func, event):
                   follows celery event structure but used by local tasks as
                   well
     """
-
-    if task.name in TASK_TO_FILTER:
+    if _filter_task(task, state):
         return
 
     if state in [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED] and \
