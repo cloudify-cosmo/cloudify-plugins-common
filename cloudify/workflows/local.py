@@ -67,6 +67,10 @@ class Environment(object):
 
         if storage_cls is None:
             storage_cls = InMemoryStorage
+        if storage_cls is Storage or not issubclass(storage_cls, Storage):
+            raise ValueError('class {} must strictly derive from '
+                             'Storage. [see InMemoryStorage and FileStorage]'
+                             .format(storage_cls.__name__))
 
         self.storage = storage_cls(**storage_kwargs)
 

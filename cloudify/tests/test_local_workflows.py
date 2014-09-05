@@ -514,6 +514,16 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
     def test_workflow_parameters(self):
         self.fail()
 
+    def test_invalid_storage_class(self):
+        def flow(ctx, **_):
+            pass
+        self.storage_cls = local.Storage
+        self.assertRaises(ValueError,
+                          self._execute_workflow, flow)
+        self.storage_cls = self.__class__
+        self.assertRaises(ValueError,
+                          self._execute_workflow, flow)
+
     def test_no_operation_module(self):
         self._no_module_or_attribute_test(
             is_missing_module=True,
