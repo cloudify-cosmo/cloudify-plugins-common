@@ -29,7 +29,8 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
-                                      DEFAULT_RETRY_INTERVAL)
+                                      DEFAULT_RETRY_INTERVAL,
+                                      DEFAULT_SEND_TASK_EVENTS)
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify import logs
@@ -75,7 +76,8 @@ class CloudifyWorkflowRelationshipInstance(object):
     def execute_source_operation(self,
                                  operation,
                                  kwargs=None,
-                                 allow_kwargs_override=False):
+                                 allow_kwargs_override=False,
+                                 send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Execute a node relationship source operation
 
@@ -88,12 +90,14 @@ class CloudifyWorkflowRelationshipInstance(object):
             related_node_instance=self.target_node_instance,
             operations=self.relationship.source_operations,
             kwargs=kwargs,
-            allow_kwargs_override=allow_kwargs_override)
+            allow_kwargs_override=allow_kwargs_override,
+            send_task_events=send_task_events)
 
     def execute_target_operation(self,
                                  operation,
                                  kwargs=None,
-                                 allow_kwargs_override=False):
+                                 allow_kwargs_override=False,
+                                 send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Execute a node relationship target operation
 
@@ -106,7 +110,8 @@ class CloudifyWorkflowRelationshipInstance(object):
             related_node_instance=self.node_instance,
             operations=self.relationship.target_operations,
             kwargs=kwargs,
-            allow_kwargs_override=allow_kwargs_override)
+            allow_kwargs_override=allow_kwargs_override,
+            send_task_events=send_task_events)
 
 
 class CloudifyWorkflowRelationship(object):
@@ -214,7 +219,8 @@ class CloudifyWorkflowNodeInstance(object):
     def execute_operation(self,
                           operation,
                           kwargs=None,
-                          allow_kwargs_override=False):
+                          allow_kwargs_override=False,
+                          send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Execute a node operation
 
@@ -226,7 +232,8 @@ class CloudifyWorkflowNodeInstance(object):
             node_instance=self,
             operations=self.node.operations,
             kwargs=kwargs,
-            allow_kwargs_override=allow_kwargs_override)
+            allow_kwargs_override=allow_kwargs_override,
+            send_task_events=send_task_events)
 
     @property
     def id(self):
@@ -471,7 +478,8 @@ class CloudifyWorkflowContext(object):
                            operations,
                            related_node_instance=None,
                            kwargs=None,
-                           allow_kwargs_override=False):
+                           allow_kwargs_override=False,
+                           send_task_events=DEFAULT_SEND_TASK_EVENTS):
         kwargs = kwargs or {}
         node = node_instance.node
         op_struct = operations.get(operation)
@@ -507,7 +515,8 @@ class CloudifyWorkflowContext(object):
         return self.execute_task(task_name,
                                  task_queue=task_queue,
                                  kwargs=final_kwargs,
-                                 node_context=node_context)
+                                 node_context=node_context,
+                                 send_task_events=send_task_events)
 
     @staticmethod
     def _merge_dicts(merged_from, merged_into, allow_override=False):
@@ -559,7 +568,8 @@ class CloudifyWorkflowContext(object):
                      task_name,
                      task_queue=None,
                      kwargs=None,
-                     node_context=None):
+                     node_context=None,
+                     send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Execute a task
 
@@ -588,7 +598,8 @@ class CloudifyWorkflowContext(object):
                                    info=task_name,
                                    name=task_name,
                                    kwargs=kwargs,
-                                   task_id=task_id)
+                                   task_id=task_id,
+                                   send_task_events=send_task_events)
         else:
             # Remote task
             # Import here because this only applies to remote tasks execution
@@ -601,7 +612,8 @@ class CloudifyWorkflowContext(object):
                                   immutable=True)
             return self.remote_task(task=task,
                                     cloudify_context=cloudify_context,
-                                    task_id=task_id)
+                                    task_id=task_id,
+                                    send_task_events=send_task_events)
 
     def local_task(self,
                    local_task,
@@ -609,7 +621,8 @@ class CloudifyWorkflowContext(object):
                    info=None,
                    kwargs=None,
                    task_id=None,
-                   name=None):
+                   name=None,
+                   send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Create a local workflow task
 
@@ -626,6 +639,7 @@ class CloudifyWorkflowContext(object):
                               node=node,
                               info=info,
                               kwargs=kwargs,
+                              send_task_events=send_task_events,
                               task_id=task_id,
                               name=name,
                               **self.internal.get_task_configuration()))
@@ -633,7 +647,8 @@ class CloudifyWorkflowContext(object):
     def remote_task(self,
                     task,
                     cloudify_context,
-                    task_id):
+                    task_id,
+                    send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Create a remote workflow task
 
@@ -647,6 +662,7 @@ class CloudifyWorkflowContext(object):
                                cloudify_context=cloudify_context,
                                workflow_context=self,
                                task_id=task_id,
+                               send_task_events=send_task_events,
                                **self.internal.get_task_configuration()))
 
     def _process_task(self, task):

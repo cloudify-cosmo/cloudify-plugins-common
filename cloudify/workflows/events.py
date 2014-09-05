@@ -103,10 +103,7 @@ def _send_task_event_func(task, event_type, message, out_func):
 
 
 def _filter_task(task, state):
-    if task.name in TASK_TO_FILTER and state != tasks_api.TASK_FAILED:
-        return True
-
-    return False
+    return state != tasks_api.TASK_FAILED and not task.send_task_events
 
 
 def send_task_event(state, task, send_event_func, event):
