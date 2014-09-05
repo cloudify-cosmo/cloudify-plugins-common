@@ -432,6 +432,11 @@ class LocalWorkflowTask(WorkflowTask):
         """The task name"""
         return self._name
 
+    @property
+    def cloudify_context(self):
+        """The task cloudify context (may be None for simple local tasks)"""
+        return self.kwargs.get('__cloudify_context')
+
 
 # NOP tasks class
 class NOPLocalWorkflowTask(LocalWorkflowTask):
