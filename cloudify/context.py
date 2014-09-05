@@ -581,7 +581,7 @@ class CloudifyContext(CommonContextOperations):
             self._node_instance = None
 
     def _init_cloudify_logger(self):
-        logger_name = self.task_name if self.task_name is not None \
+        logger_name = self.task_id if self.task_id is not None \
             else 'cloudify_plugin'
         handler = self._endpoint.get_logging_handler()
         return init_cloudify_logger(handler, logger_name)
