@@ -264,10 +264,9 @@ class CloudifyWorkflowNodeInstance(object):
         return self._logger
 
     def _init_cloudify_logger(self):
-        logger_name = self.id if self.id is not None \
-            else 'cloudify_workflow_node'
-        logging_handler = \
-            self.ctx.internal.handler.get_node_logging_handler(self)
+        logger_name = '{}-{}'.format(self.ctx.execution_id, self.id)
+        logging_handler = self.ctx.internal.handler.get_node_logging_handler(
+            self)
         return init_cloudify_logger(logging_handler, logger_name)
 
 
@@ -428,8 +427,7 @@ class CloudifyWorkflowContext(object):
         return self._logger
 
     def _init_cloudify_logger(self):
-        logger_name = self.workflow_id if self.workflow_id is not None \
-            else 'cloudify_workflow'
+        logger_name = self.execution_id
         logging_handler = self.internal.handler.get_context_logging_handler()
         return init_cloudify_logger(logging_handler, logger_name)
 
