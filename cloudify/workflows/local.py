@@ -60,7 +60,7 @@ class Environment(object):
 
         storage_kwargs.update(dict(
             name=self.name,
-            resources_root=os.path.dirname(blueprint_path),
+            resources_root=os.path.dirname(os.path.abspath(blueprint_path)),
             nodes=nodes,
             node_instances=node_instances
         ))

@@ -164,11 +164,7 @@ def workflow(func=None, **arguments):
 def _remote_workflow(ctx, func, args, kwargs):
     def update_execution_cancelled():
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
-        send_workflow_event(
-            ctx,
-            event_type='workflow_cancelled',
-            message="'{}' workflow execution cancelled"
-                    .format(ctx.workflow_id))
+        _send_workflow_cancelled_event(ctx)
 
     rest = get_rest_client()
     parent_conn, child_conn = Pipe()
@@ -181,10 +177,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             return api.EXECUTION_CANCELLED_RESULT
 
         update_execution_status(ctx.execution_id, Execution.STARTED)
-        send_workflow_event(
-            ctx,
-            event_type='workflow_started',
-            message="Starting '{}' workflow execution".format(ctx.workflow_id))
+        _send_workflow_started_event(ctx)
 
         # the actual execution of the workflow will run in another
         # process - this wrapper is the entry point for that
@@ -262,10 +255,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             update_execution_cancelled()
         else:
             update_execution_status(ctx.execution_id, Execution.TERMINATED)
-            send_workflow_event(
-                ctx, event_type='workflow_succeeded',
-                message="'{}' workflow execution succeeded"
-                .format(ctx.workflow_id))
+            _send_workflow_succeeded_event(ctx)
         return result
     except BaseException, e:
         if isinstance(e, ProcessExecutionError):
@@ -276,12 +266,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             error_traceback = error.getvalue()
         update_execution_status(ctx.execution_id, Execution.FAILED,
                                 error_traceback)
-        send_workflow_event(
-            ctx,
-            event_type='workflow_failed',
-            message="'{}' workflow execution failed: {}"
-                    .format(ctx.workflow_id, str(e)),
-            args={'error': error_traceback})
+        _send_workflow_failed_event(ctx, e, error_traceback)
         raise
     finally:
         parent_conn.close()
@@ -289,7 +274,16 @@ def _remote_workflow(ctx, func, args, kwargs):
 
 
 def _local_workflow(ctx, func, args, kwargs):
-    return _execute_workflow_function(ctx, func, args, kwargs)
+    try:
+        _send_workflow_started_event(ctx)
+        result = _execute_workflow_function(ctx, func, args, kwargs)
+        _send_workflow_succeeded_event(ctx)
+        return result
+    except Exception, e:
+        error = StringIO()
+        traceback.print_exc(file=error)
+        _send_workflow_failed_event(ctx, e, error.getvalue())
+        raise
 
 
 def _execute_workflow_function(ctx, func, args, kwargs):
@@ -305,6 +299,34 @@ def _execute_workflow_function(ctx, func, args, kwargs):
     finally:
         ctx.internal.stop_local_tasks_processing()
         current_workflow_ctx.clear()
+
+
+def _send_workflow_started_event(ctx):
+    ctx.internal.send_workflow_event(
+        event_type='workflow_started',
+        message="Starting '{}' workflow execution".format(ctx.workflow_id))
+
+
+def _send_workflow_succeeded_event(ctx):
+    ctx.internal.send_workflow_event(
+        event_type='workflow_succeeded',
+        message="'{}' workflow execution succeeded"
+        .format(ctx.workflow_id))
+
+
+def _send_workflow_failed_event(ctx, exception, error_traceback):
+    ctx.internal.send_workflow_event(
+        event_type='workflow_failed',
+        message="'{}' workflow execution failed: {}"
+        .format(ctx.workflow_id, str(exception)),
+        args={'error': error_traceback})
+
+
+def _send_workflow_cancelled_event(ctx):
+    ctx.internal.send_workflow_event(
+        event_type='workflow_cancelled',
+        message="'{}' workflow execution cancelled"
+        .format(ctx.workflow_id))
 
 
 def _process_wrapper(wrapper, arguments):

@@ -760,6 +760,11 @@ class CloudifyWorkflowContextInternal(object):
         send_task_event_func = self.handler.get_send_task_event_func(task)
         events.send_task_event(state, task, send_task_event_func, event)
 
+    def send_workflow_event(self, event_type, message=None, args=None):
+        self.handler.send_workflow_event(event_type=event_type,
+                                         message=message,
+                                         args=args)
+
     def start_local_tasks_processing(self):
         self.local_tasks_processor.start()
 
@@ -844,6 +849,9 @@ class CloudifyWorkflowContextHandler(object):
         raise NotImplementedError('Implemented by subclasses')
 
     def get_get_state_task(self, workflow_node_instance):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def send_workflow_event(self, event_type, message=None, args=None):
         raise NotImplementedError('Implemented by subclasses')
 
 
@@ -931,6 +939,13 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             return get_node_instance(workflow_node_instance.id).state
         return get_state_task
 
+    def send_workflow_event(self, event_type, message=None, args=None):
+        send_workflow_event(self.workflow_ctx,
+                            event_type=event_type,
+                            message=message,
+                            args=args,
+                            out_func=logs.amqp_event_out)
+
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
@@ -1010,6 +1025,13 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                 workflow_node_instance.id)
             return instance.state
         return get_state_task
+
+    def send_workflow_event(self, event_type, message=None, args=None):
+        send_workflow_event(self.workflow_ctx,
+                            event_type=event_type,
+                            message=message,
+                            args=args,
+                            out_func=logs.stdout_event_out)
 
 
 def task_config(fn=None, **arguments):

@@ -254,16 +254,16 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self._execute_workflow(the_workflow, operation_methods=[
                 the_operation])
 
-            self.assertEqual(9, len(events))
+            self.assertEqual(11, len(events))
             self.assertEqual(3, len(logs))
             self.assertEqual('workflow_event',
-                             events[0]['message']['text'])
-            self.assertEqual('node_instance_event',
                              events[1]['message']['text'])
-            assert_task_events([2, 3, 5], events)
+            self.assertEqual('node_instance_event',
+                             events[2]['message']['text'])
+            assert_task_events([3, 4, 6], events)
             self.assertEqual('op_event',
-                             events[4]['message']['text'])
-            assert_task_events([6, 7, 8], events)
+                             events[5]['message']['text'])
+            assert_task_events([7, 8, 9], events)
             self.assertEqual('workflow_logging',
                              logs[0]['message']['text'])
             self.assertEqual('node_instance_logging',
@@ -280,7 +280,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         with self._mock_stdout_event_and_log() as (events, _):
             self._execute_workflow(flow1, use_existing_env=False)
-            self.assertEqual(3, len(events))
+            self.assertEqual(5, len(events))
 
         def flow2(ctx, **_):
             def task():
@@ -289,7 +289,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         with self._mock_stdout_event_and_log() as (events, _):
             self._execute_workflow(flow2, use_existing_env=False)
-            self.assertEqual(0, len(events))
+            self.assertEqual(2, len(events))
 
         def flow3(ctx, **_):
             @task_config(send_task_events=False)
@@ -299,7 +299,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         with self._mock_stdout_event_and_log() as (events, _):
             self._execute_workflow(flow3, use_existing_env=False)
-            self.assertEqual(0, len(events))
+            self.assertEqual(2, len(events))
 
         def flow4(ctx, **_):
             @task_config(send_task_events=True)
@@ -309,7 +309,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         with self._mock_stdout_event_and_log() as (events, _):
             self._execute_workflow(flow4, use_existing_env=False)
-            self.assertEqual(3, len(events))
+            self.assertEqual(5, len(events))
 
         def flow5(ctx, **_):
             def task():
@@ -320,8 +320,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertRaises(AssertionError,
                               self._execute_workflow,
                               flow5, use_existing_env=False)
-            self.assertEqual(1, len(events))
-            self.assertEqual('task_failed', events[0]['event_type'])
+            self.assertEqual(3, len(events))
+            self.assertEqual('task_failed', events[1]['event_type'])
 
     def test_task_config_decorator(self):
         def flow(ctx, **_):
