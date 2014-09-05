@@ -14,6 +14,7 @@
 #    * limitations under the License.
 
 
+import contextlib
 import time
 import yaml
 import sys
@@ -27,6 +28,7 @@ import nose.tools
 import cloudify.logs
 from cloudify.decorators import workflow, operation
 from cloudify.workflows import local
+from cloudify.workflows.workflow_context import task_config
 
 
 @nose.tools.nottest
@@ -191,12 +193,8 @@ class BaseWorkflowTest(unittest.TestCase):
     def _remove_temp_module(self):
         del sys.modules[self._testMethodName]
 
-
-@nose.tools.nottest
-class LocalWorkflowTest(BaseWorkflowTest):
-
-    def test_workflow_and_operation_logging_and_events(self):
-
+    @contextlib.contextmanager
+    def _mock_stdout_event_and_log(self):
         events = []
         logs = []
 
@@ -210,22 +208,43 @@ class LocalWorkflowTest(BaseWorkflowTest):
         o_stdout_log = cloudify.logs.stdout_log_out
         cloudify.logs.stdout_event_out = mock_stdout_event
         cloudify.logs.stdout_log_out = mock_stdout_log
+
         try:
-            def the_workflow(ctx, **_):
-                def local_task():
-                    pass
-                instance = _instance(ctx, 'node')
-                ctx.logger.info('workflow_logging')
-                ctx.send_event('workflow_event').get()
-                instance.logger.info('node_instance_logging')
-                instance.send_event('node_instance_event').get()
-                instance.execute_operation('test.op0').get()
-                ctx.local_task(local_task).get()
+            yield events, logs
+        finally:
+            cloudify.logs.stdout_event_out = o_stdout_log
+            cloudify.logs.stdout_event_out = o_stdout_event
 
-            def the_operation(ctx, **_):
-                ctx.logger.info('op_logging')
-                ctx.send_event('op_event')
 
+@nose.tools.nottest
+class LocalWorkflowTest(BaseWorkflowTest):
+
+    def test_workflow_and_operation_logging_and_events(self):
+
+        def assert_task_events(indexes, events):
+            self.assertEqual('sending_task',
+                             events[indexes[0]]['event_type'])
+            self.assertEqual('task_started',
+                             events[indexes[1]]['event_type'])
+            self.assertEqual('task_succeeded',
+                             events[indexes[2]]['event_type'])
+
+        def the_workflow(ctx, **_):
+            def local_task():
+                pass
+            instance = _instance(ctx, 'node')
+            ctx.logger.info('workflow_logging')
+            ctx.send_event('workflow_event').get()
+            instance.logger.info('node_instance_logging')
+            instance.send_event('node_instance_event').get()
+            instance.execute_operation('test.op0').get()
+            ctx.local_task(local_task).get()
+
+        def the_operation(ctx, **_):
+            ctx.logger.info('op_logging')
+            ctx.send_event('op_event')
+
+        with self._mock_stdout_event_and_log() as (events, logs):
             self._execute_workflow(the_workflow, operation_methods=[
                 the_operation])
 
@@ -235,29 +254,68 @@ class LocalWorkflowTest(BaseWorkflowTest):
                              events[0]['message']['text'])
             self.assertEqual('node_instance_event',
                              events[1]['message']['text'])
-            self.assertEqual('sending_task',
-                             events[2]['event_type'])
-            self.assertEqual('task_started',
-                             events[3]['event_type'])
+            assert_task_events([2, 3, 5], events)
             self.assertEqual('op_event',
                              events[4]['message']['text'])
-            self.assertEqual('task_succeeded',
-                             events[5]['event_type'])
-            self.assertEqual('sending_task',
-                             events[6]['event_type'])
-            self.assertEqual('task_started',
-                             events[7]['event_type'])
-            self.assertEqual('task_succeeded',
-                             events[8]['event_type'])
+            assert_task_events([6, 7, 8], events)
             self.assertEqual('workflow_logging',
                              logs[0]['message']['text'])
             self.assertEqual('node_instance_logging',
                              logs[1]['message']['text'])
             self.assertEqual('op_logging',
                              logs[2]['message']['text'])
-        finally:
-            cloudify.logs.stdout_event_out = o_stdout_log
-            cloudify.logs.stdout_event_out = o_stdout_event
+
+    def test_task_event_filtering(self):
+
+        def flow1(ctx, **_):
+            def task():
+                pass
+            ctx.local_task(task)
+
+        with self._mock_stdout_event_and_log() as (events, _):
+            self._execute_workflow(flow1, use_existing_env=False)
+            self.assertEqual(3, len(events))
+
+        def flow2(ctx, **_):
+            def task():
+                pass
+            ctx.local_task(task, send_task_events=False)
+
+        with self._mock_stdout_event_and_log() as (events, _):
+            self._execute_workflow(flow2, use_existing_env=False)
+            self.assertEqual(0, len(events))
+
+        def flow3(ctx, **_):
+            @task_config(send_task_events=False)
+            def task():
+                pass
+            ctx.local_task(task)
+
+        with self._mock_stdout_event_and_log() as (events, _):
+            self._execute_workflow(flow3, use_existing_env=False)
+            self.assertEqual(0, len(events))
+
+        def flow4(ctx, **_):
+            @task_config(send_task_events=True)
+            def task():
+                pass
+            ctx.local_task(task)
+
+        with self._mock_stdout_event_and_log() as (events, _):
+            self._execute_workflow(flow4, use_existing_env=False)
+            self.assertEqual(3, len(events))
+
+        def flow5(ctx, **_):
+            def task():
+                self.fail()
+            ctx.local_task(task, send_task_events=False)
+
+        with self._mock_stdout_event_and_log() as (events, _):
+            self.assertRaises(AssertionError,
+                              self._execute_workflow,
+                              flow5, use_existing_env=False)
+            self.assertEqual(1, len(events))
+            self.assertEqual('task_failed', events[0]['event_type'])
 
     def test_workflow_bootstrap_context(self):
         def bootstrap_context(ctx, **_):
