@@ -13,11 +13,11 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'idanmo'
 
-import sys
-import logging
-from context import CloudifyContext, ContextCapabilities, BootstrapContext
+from cloudify.context import (CloudifyContext,
+                              ContextCapabilities,
+                              BootstrapContext)
+from cloudify.utils import setup_default_logger
 
 
 class MockCloudifyContext(CloudifyContext):
@@ -59,20 +59,7 @@ class MockCloudifyContext(CloudifyContext):
         self._provider_context = provider_context or {}
         self._bootstrap_context = bootstrap_context or BootstrapContext({})
 
-        logger = logging.getLogger('mock-context-logger')
-
-        for handler in logger.handlers:
-            logger.removeHandler(handler)
-
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
-                                          '[%(name)s] %(message)s',
-                                      datefmt='%H:%M:%S')
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
-        logger.setLevel(logging.DEBUG)
-        self._mock_context_logger = logger
+        self._mock_context_logger = setup_default_logger('mock-context-logger')
 
     @property
     def node_id(self):
