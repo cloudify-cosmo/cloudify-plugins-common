@@ -212,12 +212,15 @@ class LocalWorkflowTest(BaseWorkflowTest):
         cloudify.logs.stdout_log_out = mock_stdout_log
         try:
             def the_workflow(ctx, **_):
+                def local_task():
+                    pass
                 instance = _instance(ctx, 'node')
                 ctx.logger.info('workflow_logging')
                 ctx.send_event('workflow_event').get()
                 instance.logger.info('node_instance_logging')
                 instance.send_event('node_instance_event').get()
                 instance.execute_operation('test.op0').get()
+                ctx.local_task(local_task).get()
 
             def the_operation(ctx, **_):
                 ctx.logger.info('op_logging')
@@ -226,7 +229,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self._execute_workflow(the_workflow, operation_methods=[
                 the_operation])
 
-            self.assertEqual(6, len(events))
+            self.assertEqual(9, len(events))
             self.assertEqual(3, len(logs))
             self.assertEqual('workflow_event',
                              events[0]['message']['text'])
@@ -240,6 +243,12 @@ class LocalWorkflowTest(BaseWorkflowTest):
                              events[4]['message']['text'])
             self.assertEqual('task_succeeded',
                              events[5]['event_type'])
+            self.assertEqual('sending_task',
+                             events[6]['event_type'])
+            self.assertEqual('task_started',
+                             events[7]['event_type'])
+            self.assertEqual('task_succeeded',
+                             events[8]['event_type'])
             self.assertEqual('workflow_logging',
                              logs[0]['message']['text'])
             self.assertEqual('node_instance_logging',
