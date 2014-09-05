@@ -317,6 +317,29 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual(1, len(events))
             self.assertEqual('task_failed', events[0]['event_type'])
 
+    def test_task_config_decorator(self):
+        def flow(ctx, **_):
+            task_config_kwargs = {'key': 'task_config'}
+            invocation_kwargs = {'key': 'invocation'}
+
+            @task_config(kwargs=task_config_kwargs)
+            def task1(**kwargs):
+                self.assertDictEqual(kwargs, task_config_kwargs)
+            ctx.local_task(task1).get()
+
+            @task_config(kwargs=task_config_kwargs)
+            def task2(**kwargs):
+                self.assertDictEqual(kwargs, task_config_kwargs)
+            ctx.local_task(task2, kwargs=invocation_kwargs).get()
+
+            @task_config(kwargs=task_config_kwargs)
+            def task2(**kwargs):
+                self.assertDictEqual(kwargs, invocation_kwargs)
+            ctx.local_task(task2,
+                           kwargs=invocation_kwargs,
+                           override_task_config=True).get()
+        self._execute_workflow(flow)
+
     def test_workflow_bootstrap_context(self):
         def bootstrap_context(ctx, **_):
             bootstrap_context = ctx.internal._get_bootstrap_context()
