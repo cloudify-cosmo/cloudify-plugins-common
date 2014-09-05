@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
 import contextlib
 import time
 import yaml
@@ -61,7 +60,8 @@ class BaseWorkflowTest(unittest.TestCase):
                           execute_kwargs=None,
                           name=None,
                           inputs=None,
-                          create_blueprint_func=None):
+                          create_blueprint_func=None,
+                          workflow_parameters_schema=None):
         if create_blueprint_func is None:
             create_blueprint_func = self._blueprint_1
 
@@ -95,7 +95,9 @@ class BaseWorkflowTest(unittest.TestCase):
                     operation_method.__name__,
                     operation_method)
 
-        blueprint = create_blueprint_func(workflow_method, operation_methods)
+        blueprint = create_blueprint_func(workflow_method,
+                                          operation_methods,
+                                          workflow_parameters_schema)
         try:
             blueprint_dir = os.path.join(self.work_dir, 'blueprint')
             if not os.path.isdir(blueprint_dir):
@@ -120,7 +122,8 @@ class BaseWorkflowTest(unittest.TestCase):
         finally:
             self._remove_temp_module()
 
-    def _blueprint_1(self, workflow_method, operation_methods):
+    def _blueprint_1(self, workflow_method, operation_methods,
+                     workflow_parameters_schema):
         interfaces = {
             'test': [
                 {'op{}'.format(index):
@@ -178,8 +181,11 @@ class BaseWorkflowTest(unittest.TestCase):
                 },
             },
             'workflows': {
-                'workflow': 'p.{}.{}'.format(self._testMethodName,
-                                             workflow_method.__name__)
+                'workflow': {
+                    'mapping': 'p.{}.{}'.format(self._testMethodName,
+                                                workflow_method.__name__),
+                    'parameters': workflow_parameters_schema or {}
+                }
             }
         }
         return blueprint
@@ -639,7 +645,85 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                                inputs={'from_input': 'new_input'})
 
     def test_workflow_parameters(self):
-        self.fail()
+        normal_schema = {
+            'from_invocation': {},
+            'from_default': {
+                'default': 'from_default_default'
+            },
+            'invocation_overrides_default': {
+                'default': 'invocation_overrides_default_default'
+            }
+        }
+
+        normal_execute_kwargs = {
+            'parameters': {
+                'from_invocation': 'from_invocation',
+                'invocation_overrides_default':
+                'invocation_overrides_default_override'
+            }
+        }
+
+        def normal_flow(ctx,
+                        from_invocation,
+                        from_default,
+                        invocation_overrides_default,
+                        **_):
+            self.assertEqual(from_invocation, 'from_invocation')
+            self.assertEqual(from_default, 'from_default_default')
+            self.assertEqual(invocation_overrides_default,
+                             'invocation_overrides_default_override')
+
+        self._execute_workflow(normal_flow,
+                               execute_kwargs=normal_execute_kwargs,
+                               workflow_parameters_schema=normal_schema,
+                               use_existing_env=False)
+
+        # now test missing
+        missing_schema = normal_schema.copy()
+        missing_schema['missing_parameter'] = {}
+        missing_flow = normal_flow
+        missing_execute_kwargs = normal_execute_kwargs
+        self.assertRaises(ValueError,
+                          self._execute_workflow,
+                          missing_flow,
+                          execute_kwargs=missing_execute_kwargs,
+                          workflow_parameters_schema=missing_schema,
+                          use_existing_env=False)
+
+        # now test invalid custom parameters
+        invalid_custom_schema = normal_schema
+        invalid_custom_flow = normal_flow
+        invalid_custom_kwargs = normal_execute_kwargs.copy()
+        invalid_custom_kwargs['parameters']['custom_parameter'] = 'custom'
+        self.assertRaises(ValueError,
+                          self._execute_workflow,
+                          invalid_custom_flow,
+                          execute_kwargs=invalid_custom_kwargs,
+                          workflow_parameters_schema=invalid_custom_schema,
+                          use_existing_env=False)
+
+        # now test valid custom parameters
+        def valid_custom_flow(ctx,
+                              from_invocation,
+                              from_default,
+                              invocation_overrides_default,
+                              custom_parameter,
+                              **_):
+            self.assertEqual(from_invocation, 'from_invocation')
+            self.assertEqual(from_default, 'from_default_default')
+            self.assertEqual(invocation_overrides_default,
+                             'invocation_overrides_default_override')
+            self.assertEqual(custom_parameter, 'custom')
+
+        valid_custom_schema = normal_schema
+        valid_custom_kwargs = normal_execute_kwargs.copy()
+        valid_custom_kwargs['parameters']['custom_parameter'] = 'custom'
+        valid_custom_kwargs['allow_custom_parameters'] = True
+        self._execute_workflow(
+            valid_custom_flow,
+            execute_kwargs=valid_custom_kwargs,
+            workflow_parameters_schema=valid_custom_schema,
+            use_existing_env=False)
 
     def test_retry_configuration(self):
         retry_interval = 0.1

@@ -76,6 +76,8 @@ class Environment(object):
 
     def execute(self,
                 workflow,
+                parameters=None,
+                allow_custom_parameters=False,
                 task_retries=-1,
                 task_retry_interval=30):
         workflow_name = workflow
@@ -94,7 +96,11 @@ class Environment(object):
             'task_retries': task_retries,
             'task_retry_interval': task_retry_interval
         }
-        workflow_method(__cloudify_context=ctx)
+
+        merged_parameters = self._merge_and_validate_execution_parameters(
+            workflow, workflow_name, parameters, allow_custom_parameters)
+
+        workflow_method(__cloudify_context=ctx, **merged_parameters)
 
     def _prepare_nodes_and_instances(self, nodes, node_instances):
 
@@ -135,6 +141,46 @@ class Environment(object):
                                  "[node={}, type={}]"
                                  .format(module.__name__, method_name,
                                          node_name, tpe))
+
+    @staticmethod
+    def _merge_and_validate_execution_parameters(
+            workflow, workflow_name, execution_parameters=None,
+            allow_custom_parameters=False):
+
+        merged_parameters = {}
+        workflow_parameters = workflow.get('parameters', {})
+        execution_parameters = execution_parameters or {}
+
+        missing_mandatory_parameters = set()
+
+        for name, param in workflow_parameters.iteritems():
+            if 'default' not in param:
+                if name not in execution_parameters:
+                    missing_mandatory_parameters.add(name)
+                    continue
+                merged_parameters[name] = execution_parameters[name]
+            else:
+                merged_parameters[name] = execution_parameters[name] if \
+                    name in execution_parameters else param['default']
+
+        if missing_mandatory_parameters:
+            raise ValueError(
+                'Workflow "{0}" must be provided with the following '
+                'parameters to execute: {1}'
+                .format(workflow_name, ','.join(missing_mandatory_parameters)))
+
+        custom_parameters = {k: v for k, v in execution_parameters.iteritems()
+                             if k not in workflow_parameters}
+
+        if not allow_custom_parameters and custom_parameters:
+            raise ValueError(
+                'Workflow "{0}" does not have the following parameters '
+                'declared: {1}. Remove these parameters or use '
+                'the flag for allowing custom parameters'
+                .format(workflow_name, ','.join(custom_parameters.keys())))
+
+        merged_parameters.update(custom_parameters)
+        return merged_parameters
 
 
 class Storage(object):
