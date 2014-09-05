@@ -448,6 +448,31 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertDictEqual({}, ctx.provider_context)
         self._execute_workflow(operation_methods=[contexts])
 
+    def test_workflow_graph_mode(self):
+        def flow(ctx, **_):
+            instance = _instance(ctx, 'node')
+            graph = ctx.graph_mode()
+            sequence = graph.sequence()
+            sequence.add(instance.execute_operation('test.op2'))
+            sequence.add(instance.execute_operation('test.op1'))
+            sequence.add(instance.execute_operation('test.op0'))
+            graph.execute()
+
+        def op0(ctx, **_):
+            invocation = ctx.runtime_properties['invocation']
+            self.assertEqual(2, invocation)
+
+        def op1(ctx, **_):
+            invocation = ctx.runtime_properties['invocation']
+            self.assertEqual(1, invocation)
+            ctx.runtime_properties['invocation'] += 1
+
+        def op2(ctx, **_):
+            invocation = ctx.runtime_properties.get('invocation')
+            self.assertIsNone(invocation)
+            ctx.runtime_properties['invocation'] = 1
+
+        self._execute_workflow(flow, operation_methods=[op0, op1, op2])
 
 @nose.tools.istest
 class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
@@ -519,23 +544,34 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         self.fail()
 
     def test_retry_configuration(self):
+        retry_interval = 0.1
+        task_retries = 1
+
         def flow(ctx, **_):
             instance = _instance(ctx, 'node')
-            instance.execute_operation('test.op0')
+            instance.execute_operation('test.op0').get()
+            instance.execute_operation('test.op1').get()
 
-        retry_interval = 0.1
-        task_retries = 2
-
-        def op(ctx, **_):
-            current_retry = ctx.runtime_properties.get('current', 0)
+        def op0(ctx, **_):
+            self.assertIsNotNone(ctx.node_id)
+            current_retry = ctx.runtime_properties.get('retry', 0)
             last_timestamp = ctx.runtime_properties.get('timestamp')
             current_timestamp = time.time()
-            # if current_retry < task_retries
-            self.fail()
+
+            ctx.runtime_properties['retry'] = current_retry + 1
+            ctx.runtime_properties['timestamp'] = current_timestamp
+
+            if current_retry > 0:
+                self.assertLess(current_timestamp - last_timestamp, 0.5)
+            if current_retry < task_retries:
+                self.fail()
+
+        def op1(ctx, **_):
+            self.assertEqual(task_retries + 1, ctx.runtime_properties['retry'])
 
         self._execute_workflow(
             flow,
-            operation_methods=[op],
+            operation_methods=[op0, op1],
             execute_kwargs={
                 'task_retry_interval': retry_interval,
                 'task_retries': task_retries})

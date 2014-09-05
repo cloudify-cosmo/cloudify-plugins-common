@@ -283,6 +283,7 @@ class RemoteWorkflowTask(WorkflowTask):
         dup = RemoteWorkflowTask(task=self.task,
                                  cloudify_context=self.cloudify_context,
                                  workflow_context=self.workflow_context,
+                                 task_id=None,  # we want a new task id
                                  info=self.info,
                                  on_success=self.on_success,
                                  on_failure=self.on_failure,
@@ -420,7 +421,9 @@ class LocalWorkflowTask(WorkflowTask):
                                 on_success=self.on_success,
                                 on_failure=self.on_failure,
                                 total_retries=self.total_retries,
-                                retry_interval=self.retry_interval)
+                                retry_interval=self.retry_interval,
+                                kwargs=self.kwargs,
+                                name=self.name)
         dup.current_retries = self.current_retries
         return dup
 
