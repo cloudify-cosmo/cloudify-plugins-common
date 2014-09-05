@@ -256,6 +256,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
             self.assertEqual(11, len(events))
             self.assertEqual(3, len(logs))
+            self.assertEqual('workflow_started',
+                             events[0]['event_type'])
             self.assertEqual('workflow_event',
                              events[1]['message']['text'])
             self.assertEqual('node_instance_event',
@@ -264,6 +266,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('op_event',
                              events[5]['message']['text'])
             assert_task_events([7, 8, 9], events)
+            self.assertEqual('workflow_succeeded',
+                             events[10]['event_type'])
             self.assertEqual('workflow_logging',
                              logs[0]['message']['text'])
             self.assertEqual('node_instance_logging',
@@ -322,6 +326,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
                               flow5, use_existing_env=False)
             self.assertEqual(3, len(events))
             self.assertEqual('task_failed', events[1]['event_type'])
+            self.assertEqual('workflow_failed', events[2]['event_type'])
 
     def test_task_config_decorator(self):
         def flow(ctx, **_):
