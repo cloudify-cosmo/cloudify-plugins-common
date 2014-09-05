@@ -13,15 +13,9 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'dank'
-
 
 from cloudify import logs
 from cloudify.workflows import tasks as tasks_api
-
-
-TASK_TO_FILTER = ['worker_installer.tasks.restart',
-                  'send_event_task', 'get_state_task', 'set_state_task']
 
 
 class Monitor(object):
