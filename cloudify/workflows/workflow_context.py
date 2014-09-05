@@ -14,6 +14,7 @@
 #    * limitations under the License.
 
 
+import functools
 import copy
 import uuid
 import importlib
@@ -622,7 +623,8 @@ class CloudifyWorkflowContext(object):
                    kwargs=None,
                    task_id=None,
                    name=None,
-                   send_task_events=DEFAULT_SEND_TASK_EVENTS):
+                   send_task_events=DEFAULT_SEND_TASK_EVENTS,
+                   override_task_config=False):
         """
         Create a local workflow task
 
@@ -633,16 +635,32 @@ class CloudifyWorkflowContext(object):
         :param kwargs: kwargs to pass to the local_task when invoked
         :param task_id: The task id
         """
-        return self._process_task(
-            LocalWorkflowTask(local_task=local_task,
-                              workflow_context=self,
-                              node=node,
-                              info=info,
-                              kwargs=kwargs,
-                              send_task_events=send_task_events,
-                              task_id=task_id,
-                              name=name,
-                              **self.internal.get_task_configuration()))
+        global_task_config = self.internal.get_task_configuration()
+        if hasattr(local_task, 'workflow_task_config'):
+            decorator_task_config = local_task.workflow_task_config
+        else:
+            decorator_task_config = {}
+        invocation_task_config = dict(
+            local_task=local_task,
+            node=node,
+            info=info,
+            kwargs=kwargs,
+            send_task_events=send_task_events,
+            task_id=task_id,
+            name=name)
+
+        final_task_config = {}
+        final_task_config.update(global_task_config)
+        if override_task_config:
+            final_task_config.update(decorator_task_config)
+            final_task_config.update(invocation_task_config)
+        else:
+            final_task_config.update(invocation_task_config)
+            final_task_config.update(decorator_task_config)
+
+        return self._process_task(LocalWorkflowTask(
+            workflow_context=self,
+            **final_task_config))
 
     def remote_task(self,
                     task,
@@ -857,6 +875,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_send_node_event_task(self, workflow_node_instance,
                                  event, additional_context=None):
+        @task_config(send_task_events=False)
         def send_event_task():
             send_workflow_node_event(ctx=workflow_node_instance,
                                      event_type='workflow_node_event',
@@ -867,6 +886,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_send_workflow_event_task(self, event, event_type, args,
                                      additional_context=None):
+        @task_config(send_task_events=False)
         def send_event_task():
             send_workflow_event(ctx=self.workflow_ctx,
                                 event_type=event_type,
@@ -895,6 +915,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                            workflow_node_instance,
                            state,
                            runtime_properties):
+        @task_config(send_task_events=False)
         def set_state_task():
             node_state = get_node_instance(workflow_node_instance.id)
             node_state.state = state
@@ -905,6 +926,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         return set_state_task
 
     def get_get_state_task(self, workflow_node_instance):
+        @task_config(send_task_events=False)
         def get_state_task():
             return get_node_instance(workflow_node_instance.id).state
         return get_state_task
@@ -940,6 +962,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_send_node_event_task(self, workflow_node_instance,
                                  event, additional_context=None):
+        @task_config(send_task_events=False)
         def send_event_task():
             send_workflow_node_event(ctx=workflow_node_instance,
                                      event_type='workflow_node_event',
@@ -950,6 +973,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_send_workflow_event_task(self, event, event_type, args,
                                      additional_context=None):
+        @task_config(send_task_events=False)
         def send_event_task():
             send_workflow_event(ctx=self.workflow_ctx,
                                 event_type=event_type,
@@ -971,6 +995,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                            workflow_node_instance,
                            state,
                            runtime_properties):
+        @task_config(send_task_events=False)
         def set_state_task():
             self.storage.update_node_instance(
                 workflow_node_instance.id,
@@ -979,8 +1004,22 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         return set_state_task
 
     def get_get_state_task(self, workflow_node_instance):
+        @task_config(send_task_events=False)
         def get_state_task():
             instance = self.storage.get_node_instance(
                 workflow_node_instance.id)
             return instance.state
         return get_state_task
+
+
+def task_config(fn=None, **arguments):
+    if fn is not None:
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return fn(*args, **kwargs)
+        wrapper.workflow_task_config = arguments
+        return wrapper
+    else:
+        def partial_wrapper(func):
+            return task_config(func, **arguments)
+        return partial_wrapper
