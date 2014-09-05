@@ -474,6 +474,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         self._execute_workflow(flow, operation_methods=[op0, op1, op2])
 
+
 @nose.tools.istest
 class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
 
