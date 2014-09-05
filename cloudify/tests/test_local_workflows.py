@@ -107,7 +107,14 @@ class BaseWorkflowTest(unittest.TestCase):
                 self.env = self._load_env(blueprint_path,
                                           inputs=inputs,
                                           name=name)
-            self.env.execute('workflow', **execute_kwargs)
+
+            final_execute_kwargs = {
+                'task_retries': 0,
+                'task_retry_interval': 1
+            }
+            final_execute_kwargs.update(execute_kwargs)
+
+            self.env.execute('workflow', **final_execute_kwargs)
         finally:
             self._remove_temp_module()
 
