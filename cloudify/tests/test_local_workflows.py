@@ -61,7 +61,8 @@ class BaseWorkflowTest(unittest.TestCase):
                           name=None,
                           inputs=None,
                           create_blueprint_func=None,
-                          workflow_parameters_schema=None):
+                          workflow_parameters_schema=None,
+                          workflow_name='workflow'):
         if create_blueprint_func is None:
             create_blueprint_func = self._blueprint_1
 
@@ -118,7 +119,7 @@ class BaseWorkflowTest(unittest.TestCase):
             }
             final_execute_kwargs.update(execute_kwargs)
 
-            self.env.execute('workflow', **final_execute_kwargs)
+            self.env.execute(workflow_name, **final_execute_kwargs)
         finally:
             self._remove_temp_module()
 
@@ -812,6 +813,13 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         self._no_module_or_attribute_test(
             is_missing_module=False,
             test_type='workflow')
+
+    def test_no_workflow(self):
+        try:
+            self._execute_workflow(workflow_name='does_not_exist')
+            self.fail()
+        except ValueError, e:
+            self.assertIn("['workflow']", e.message)
 
     def _no_module_or_attribute_test(self, is_missing_module, test_type):
         try:

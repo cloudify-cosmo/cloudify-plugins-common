@@ -80,8 +80,15 @@ class Environment(object):
                 allow_custom_parameters=False,
                 task_retries=-1,
                 task_retry_interval=30):
+        workflows = self.plan['workflows']
         workflow_name = workflow
-        workflow = self.plan['workflows'][workflow_name]
+        if workflow_name not in workflows:
+            raise ValueError("'{}' workflow does not exist. "
+                             "existing workflows are: {}"
+                             .format(workflow_name,
+                                     workflows.keys()))
+
+        workflow = workflows[workflow_name]
         workflow_method = self._get_module_method(workflow['operation'],
                                                   node_name='',
                                                   tpe='workflow')
