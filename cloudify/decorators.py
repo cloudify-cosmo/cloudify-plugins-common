@@ -23,7 +23,6 @@ from functools import wraps
 from cloudify.context import CloudifyContext
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status, get_rest_client
-from cloudify.logs import send_workflow_event
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
 from cloudify.exceptions import ProcessExecutionError
