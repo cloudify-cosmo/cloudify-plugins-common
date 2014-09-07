@@ -12,9 +12,7 @@
 #  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
-import logging
 
-__author__ = 'dan'
 
 from multiprocessing import Process
 import subprocess
@@ -25,25 +23,13 @@ import sys
 import socket
 import time
 
+from cloudify.tests import get_logger
+
 PORT = 53229
 FNULL = open(os.devnull, 'w')
 
 
-root = logging.getLogger()
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
-                                  '[%(name)s] %(message)s',
-                              datefmt='%H:%M:%S')
-ch.setFormatter(formatter)
-
-# clear all other handlers
-for handler in root.handlers:
-    root.removeHandler(handler)
-
-root.addHandler(ch)
-logger = logging.getLogger("FileServer")
-logger.setLevel(logging.DEBUG)
+logger = get_logger('FileServer')
 
 
 class FileServer(object):
@@ -89,10 +75,8 @@ class FileServer(object):
             pass
 
     def start_impl(self):
-        import logging
-        logging.basicConfig(level=logging.DEBUG)
-        logging.info('Starting file server and serving files from: %s',
-                     self.root_path)
+        logger.info('Starting file server and serving files from: %s',
+                    self.root_path)
         os.chdir(self.root_path)
 
         class TCPServer(SocketServer.TCPServer):

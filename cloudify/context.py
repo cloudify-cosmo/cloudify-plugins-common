@@ -13,20 +13,10 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'idanmo'
 
-
-from manager import get_node_instance
-from manager import update_node_instance
-from manager import get_blueprint_resource
-from manager import download_blueprint_resource
-from manager import get_provider_context
-from manager import get_bootstrap_context
-from manager import get_host_node_instance_ip
-from logs import CloudifyPluginLoggingHandler
-from logs import init_cloudify_logger
-from logs import send_plugin_event
-from exceptions import NonRecoverableError
+from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
+from cloudify.logs import init_cloudify_logger
+from cloudify.exceptions import NonRecoverableError
 
 
 class ContextCapabilities(object):
@@ -55,7 +45,8 @@ class ContextCapabilities(object):
     Where the returned value is a dict of node ids as keys and their
     runtime properties as values.
     """
-    def __init__(self, relationships=None):
+    def __init__(self, endpoint, relationships=None):
+        self._endpoint = endpoint
         self._relationships = relationships or []
         self._relationship_runtimes = None
 
@@ -97,7 +88,8 @@ class ContextCapabilities(object):
     def _capabilities(self):
         if self._relationship_runtimes is None:
             self._relationship_runtimes = {
-                rel_id: get_node_instance(rel_id).runtime_properties
+                rel_id: self._endpoint.get_node_instance(
+                    rel_id).runtime_properties
                 for rel_id in self._relationships}
         return self._relationship_runtimes
 
@@ -110,18 +102,19 @@ class CommonContextOperations(object):
                 'Cannot get node state - invocation is not '
                 'in a context of node')
         if self._node_instance is None:
-            self._node_instance = get_node_instance(self.node_id)
+            self._node_instance = self._endpoint.get_node_instance(
+                self.node_id)
 
     def _get_node_instance_ip_if_needed(self):
         self._get_node_instance_if_needed()
         if self._host_ip is None:
             if self.node_id == self._node_instance.host_id:
-                self._host_ip = get_host_node_instance_ip(
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
                     host_id=self.node_id,
                     properties=self.properties,
                     runtime_properties=self.runtime_properties)
             else:
-                self._host_ip = get_host_node_instance_ip(
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
                     host_id=self._node_instance.host_id)
 
     @property
@@ -142,7 +135,8 @@ class CloudifyRelatedNode(CommonContextOperations):
     """
     Represents the related node of a relationship.
     """
-    def __init__(self, ctx):
+    def __init__(self, endpoint, ctx):
+        self._endpoint = endpoint
         self._related = ctx['related']
         self._node_instance = None
         self._host_ip = None
@@ -291,17 +285,26 @@ class CloudifyContext(CommonContextOperations):
             start_server(port=port)
 
     """
-
     def __init__(self, ctx=None):
         self._context = ctx or {}
+        self._local = ctx.get('local', False)
+        if self._local:
+            # there are times when this instance is instantiated merely for
+            # accessing the attributes so we can tolerate no storage (such is
+            # the case in logging)
+            self._endpoint = LocalEndpoint(self, ctx.get('storage'))
+        else:
+            self._endpoint = ManagerEndpoint(self)
         context_capabilities = self._context.get('relationships')
-        self._capabilities = ContextCapabilities(context_capabilities)
+        self._capabilities = ContextCapabilities(self._endpoint,
+                                                 context_capabilities)
         self._logger = None
         self._node_instance = None
         self._node_properties = \
             ImmutableProperties(self._context.get('node_properties') or {})
         if 'related' in self._context:
-            self._related = CloudifyRelatedNode(self._context)
+            self._related = CloudifyRelatedNode(self._endpoint,
+                                                self._context)
         else:
             self._related = None
         self._provider_context = None
@@ -458,7 +461,7 @@ class CloudifyContext(CommonContextOperations):
         :rtype: BootstrapContext
         """
         if self._bootstrap_context is None:
-            context = get_bootstrap_context()
+            context = self._endpoint.get_bootstrap_context()
             self._bootstrap_context = BootstrapContext(context)
         return self._bootstrap_context
 
@@ -468,13 +471,13 @@ class CloudifyContext(CommonContextOperations):
 
         :param event: the event message
         """
-        send_plugin_event(ctx=self, message=event)
+        self._endpoint.send_plugin_event(message=event)
 
     @property
     def provider_context(self):
         """Gets provider context which contains provider specific metadata."""
         if self._provider_context is None:
-            self._provider_context = get_provider_context()
+            self._provider_context = self._endpoint.get_provider_context()
         return self._provider_context
 
     def _verify_node_in_context(self):
@@ -530,7 +533,8 @@ class CloudifyContext(CommonContextOperations):
                               relative to the blueprint file which was
                               uploaded.
         """
-        return get_blueprint_resource(self.blueprint_id, resource_path)
+        return self._endpoint.get_blueprint_resource(self.blueprint_id,
+                                                     resource_path)
 
     def download_resource(self, resource_path, target_path=None):
         """
@@ -558,8 +562,10 @@ class CloudifyContext(CommonContextOperations):
                  failed to be written to the local file system.
 
         """
-        return download_blueprint_resource(self.blueprint_id, resource_path,
-                                           self.logger, target_path)
+        return self._endpoint.download_blueprint_resource(self.blueprint_id,
+                                                          resource_path,
+                                                          self.logger,
+                                                          target_path)
 
     def update(self):
         """
@@ -571,13 +577,13 @@ class CloudifyContext(CommonContextOperations):
         automatically invoked as soon as the task execution is over.
         """
         if self._node_instance is not None and self._node_instance.dirty:
-            update_node_instance(self._node_instance)
+            self._endpoint.update_node_instance(self._node_instance)
             self._node_instance = None
 
     def _init_cloudify_logger(self):
-        logger_name = self.task_name if self.task_name is not None \
+        logger_name = self.task_id if self.task_id is not None \
             else 'cloudify_plugin'
-        handler = CloudifyPluginLoggingHandler(self)
+        handler = self._endpoint.get_logging_handler()
         return init_cloudify_logger(handler, logger_name)
 
     def __str__(self):

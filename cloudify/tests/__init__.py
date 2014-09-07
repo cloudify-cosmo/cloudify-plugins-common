@@ -14,14 +14,21 @@
 #    * limitations under the License.
 
 import logging
-
-__author__ = 'elip'
-
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+import sys
 
 
 def get_logger(name):
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
+                                      '[%(name)s] %(message)s',
+                                  datefmt='%H:%M:%S')
+    ch.setFormatter(formatter)
+
     logger = logging.getLogger(name)
-    logger.level = logging.DEBUG
+    for handler in logger.handlers:
+        logger.removeHandler(handler)
+
+    logger.addHandler(ch)
+    logger.setLevel(logging.DEBUG)
     return logger
