@@ -294,10 +294,6 @@ class CloudifyWorkflowNode(object):
             (relationship['target_id'], CloudifyWorkflowRelationship(
                 self.ctx, self, relationship))
             for relationship in node.relationships)
-        # self._relationships = {
-        #     relationship['target_id']: CloudifyWorkflowRelationship(
-        #         self.ctx, self, relationship)
-        #     for relationship in node.relationships}
         self._node_instances = {}
 
     @property
