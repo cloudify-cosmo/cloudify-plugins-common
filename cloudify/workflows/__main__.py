@@ -25,6 +25,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--name', default='local')
     arg_parser.add_argument('--storage_dir', default='/tmp/cloudify-workflows')
     arg_parser.add_argument('--clear', action='store_true')
+    arg_parser.add_argument('--pool-size', type=int, default=1)
     args = arg_parser.parse_args()
 
     env = local.Environment(args.blueprint_path,
@@ -32,4 +33,7 @@ if __name__ == '__main__':
                             storage_cls=local.FileStorage,
                             storage_dir=args.storage_dir,
                             clear=args.clear)
-    env.execute(args.workflow, task_retries=3, task_retry_interval=1)
+    env.execute(args.workflow,
+                task_retries=3,
+                task_retry_interval=1,
+                task_thread_pool_size=args.pool_size)

@@ -42,7 +42,7 @@ from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            send_workflow_node_event)
 
 
-DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 10
+DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
 
 
 class CloudifyWorkflowRelationshipInstance(object):
