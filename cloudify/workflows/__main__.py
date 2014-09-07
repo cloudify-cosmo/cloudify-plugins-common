@@ -32,4 +32,4 @@ if __name__ == '__main__':
                             storage_cls=local.FileStorage,
                             storage_dir=args.storage_dir,
                             clear=args.clear)
-    env.execute(args.workflow, task_retries=0)
+    env.execute(args.workflow, task_retries=3, task_retry_interval=1)

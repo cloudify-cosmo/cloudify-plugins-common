@@ -21,12 +21,16 @@ import tempfile
 import unittest
 import shutil
 import os
+import threading
+import Queue
 
 import nose.tools
 
 import cloudify.logs
 from cloudify.decorators import workflow, operation
+
 from cloudify.workflows import local
+from cloudify.workflows import workflow_context
 from cloudify.workflows.workflow_context import task_config
 
 
@@ -583,6 +587,66 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         self._execute_workflow(flow, operation_methods=[op0, op1, op2])
 
+    def test_node_instance_version_conflict(self):
+        def flow(ctx, **_):
+            pass
+        # stub to get a properly initialized storage instance
+        self._execute_workflow(flow)
+        storage = self.env.storage
+        instance = storage.get_node_instances()[0]
+        storage.update_node_instance(
+            instance.id,
+            runtime_properties={},
+            state=instance.state,
+            version=instance.version)
+        instance_id = instance.id
+        exception = Queue.Queue()
+        done = Queue.Queue()
+
+        def proceed():
+            try:
+                done.get_nowait()
+                return False
+            except Queue.Empty:
+                return True
+
+        def publisher(key, value):
+            def func():
+                timeout = time.time() + 5
+                while time.time() < timeout and proceed():
+                    p_instance = storage.get_node_instance(instance_id)
+                    p_instance.runtime_properties[key] = value
+                    try:
+                        storage.update_node_instance(
+                            p_instance.id,
+                            runtime_properties=p_instance.runtime_properties,
+                            state=p_instance.state,
+                            version=p_instance.version)
+                    except local.StorageConflictError, e:
+                        exception.put(e)
+                        done.put(True)
+                        return
+            return func
+
+        publisher1 = publisher('publisher1', 'value1')
+        publisher2 = publisher('publisher2', 'value2')
+
+        publisher1_thread = threading.Thread(target=publisher1)
+        publisher2_thread = threading.Thread(target=publisher2)
+
+        publisher1_thread.daemon = True
+        publisher2_thread.daemon = True
+
+        publisher1_thread.start()
+        publisher2_thread.start()
+
+        publisher1_thread.join()
+        publisher2_thread.join()
+
+        conflict_error = exception.get_nowait()
+
+        self.assertIn('does not match current', conflict_error.message)
+
 
 @nose.tools.istest
 class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
@@ -763,6 +827,26 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             execute_kwargs={
                 'task_retry_interval': retry_interval,
                 'task_retries': task_retries})
+
+    def test_local_task_thread_pool_size(self):
+        default_size = workflow_context.DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE
+
+        def flow(ctx, **_):
+            task_processor = ctx.internal.local_tasks_processor
+            self.assertEqual(len(task_processor._local_task_processing_pool),
+                             default_size)
+        self._execute_workflow(
+            flow,
+            use_existing_env=False)
+
+        def flow(ctx, **_):
+            task_processor = ctx.internal.local_tasks_processor
+            self.assertEqual(len(task_processor._local_task_processing_pool),
+                             default_size + 1)
+        self._execute_workflow(
+            flow,
+            execute_kwargs={'task_thread_pool_size': default_size + 1},
+            use_existing_env=False)
 
     def test_invalid_storage_class(self):
         def flow(ctx, **_):
