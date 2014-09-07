@@ -96,9 +96,9 @@ def send_task_event_local_task_func(task, event_type, message):
 
 def send_task_event_local_func(logger):
     def func(task, event_type, message):
-        logger.info('[task={}, event_type={}] {}'.format(task.name,
-                                                         event_type,
-                                                         message))
+        logger.info('[task={0}, event_type={1}] {2}'.format(task.name,
+                                                            event_type,
+                                                            message))
     return func
 
 
@@ -122,34 +122,34 @@ def send_task_event(state, task, send_event_func, event):
 
     if state in [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED] and \
             event is None:
-        raise RuntimeError('Event for task {} is None'.format(task.name))
+        raise RuntimeError('Event for task {0} is None'.format(task.name))
 
     if state == tasks_api.TASK_SENDING:
-        message = "Sending task '{}'".format(task.name)
+        message = "Sending task '{0}'".format(task.name)
         event_type = 'sending_task'
     elif state == tasks_api.TASK_STARTED:
-        message = "Task started '{}'".format(task.name)
+        message = "Task started '{0}'".format(task.name)
         event_type = 'task_started'
     elif state == tasks_api.TASK_SUCCEEDED:
         result = str(event.get('result'))
-        suffix = ' ({})'.format(result) if result != str(None) else ''
-        message = "Task succeeded '{}{}'".format(task.name, suffix)
+        suffix = ' ({0})'.format(result) if result != str(None) else ''
+        message = "Task succeeded '{0}{1}'".format(task.name, suffix)
         event_type = 'task_succeeded'
     elif state == tasks_api.TASK_FAILED:
-        message = "Task failed '{}' -> {}".format(task.name,
-                                                  event.get('exception'))
+        message = "Task failed '{0}' -> {1}".format(task.name,
+                                                    event.get('exception'))
         event_type = 'task_failed'
         task.error = event.get('exception')
     else:
-        raise RuntimeError('unhandled event type: {}'.format(state))
+        raise RuntimeError('unhandled event type: {0}'.format(state))
 
     if task.current_retries > 0 or state == tasks_api.TASK_FAILED:
-        attempt = '[attempt {}{}]'.format(
-            task.current_retries+1,
-            '/{}'.format(task.total_retries + 1)
+        attempt = '[attempt {0}{1}]'.format(
+            task.current_retries + 1,
+            '/{0}'.format(task.total_retries + 1)
             if task.total_retries >= 0
             else '')
-        message = '{} {}'.format(message, attempt)
+        message = '{0} {1}'.format(message, attempt)
 
     send_event_func(task=task,
                     event_type=event_type,

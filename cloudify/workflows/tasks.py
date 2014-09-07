@@ -130,8 +130,8 @@ class WorkflowTask(object):
 
         if state not in [TASK_PENDING, TASK_SENDING, TASK_SENT, TASK_STARTED,
                          TASK_SUCCEEDED, TASK_FAILED]:
-            raise RuntimeError('Illegal state set on task: {} '
-                               '[task={}]'.format(state, str(self)))
+            raise RuntimeError('Illegal state set on task: {0} '
+                               '[task={1}]'.format(state, str(self)))
 
         self._state = state
         if state in [TASK_SUCCEEDED, TASK_FAILED]:
@@ -182,7 +182,7 @@ class WorkflowTask(object):
                 exception = self.async_result.result
             except:
                 exception = NonRecoverableError('Could not deserialize task '
-                                                '{} exception'
+                                                '{0} exception'
                                                 .format(self.name))
             if isinstance(exception, NonRecoverableError):
                 handler_result = HandlerResult.fail()
@@ -192,7 +192,7 @@ class WorkflowTask(object):
 
     def __str__(self):
         suffix = self.info if self.info is not None else ''
-        return '{}({})'.format(self.name, suffix)
+        return '{0}({1})'.format(self.name, suffix)
 
     def duplicate(self):
         """
@@ -310,8 +310,8 @@ class RemoteWorkflowTask(WorkflowTask):
             cache[self.target] = registered
 
         if self.name not in registered:
-            raise RuntimeError('Missing task: {} in worker celery.{} \n'
-                               'Registered tasks are: {}'
+            raise RuntimeError('Missing task: {0} in worker celery.{1} \n'
+                               'Registered tasks are: {2}'
                                .format(self.name, self.target, registered))
 
     def _get_registered(self):
@@ -319,7 +319,7 @@ class RemoteWorkflowTask(WorkflowTask):
         # environments
         from cloudify.celery import celery
 
-        worker_name = 'celery.{}'.format(self.target)
+        worker_name = 'celery.{0}'.format(self.target)
         inspect = celery.control.inspect(destination=[worker_name])
         registered = inspect.registered() or {}
         result = registered.get(worker_name, set())

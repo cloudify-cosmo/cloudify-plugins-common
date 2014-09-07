@@ -216,7 +216,7 @@ class CloudifyWorkflowNodeInstance(object):
                                          message=event,
                                          additional_context=additional_context)
             else:
-                self.logger.info('[{}] {} [additional_context={}]'
+                self.logger.info('[{0}] {1} [additional_context={2}]'
                                  .format(self.id,
                                          event,
                                          additional_context or {}))
@@ -457,7 +457,7 @@ class CloudifyWorkflowContext(object):
                                     args=args,
                                     additional_context=additional_context)
             else:
-                self.logger.info('[{}] {} [additional_context={}]'
+                self.logger.info('[{0}] {1} [additional_context={2}]'
                                  .format(self.workflow_id,
                                          event,
                                          additional_context or {}))
@@ -541,7 +541,7 @@ class CloudifyWorkflowContext(object):
         result = copy.copy(merged_into)
         for key, value in merged_from.iteritems():
             if not allow_override and key in merged_into:
-                raise RuntimeError('Duplicate definition of {} in operation'
+                raise RuntimeError('Duplicate definition of {0} in operation'
                                    ' properties and in kwargs. To allow '
                                    'redefinition, pass '
                                    '"allow_kwargs_override" to '

@@ -170,7 +170,7 @@ def _remote_workflow(ctx, func, args, kwargs):
         send_workflow_event(
             ctx,
             event_type='workflow_cancelled',
-            message="'{}' workflow execution cancelled"
+            message="'{0}' workflow execution cancelled"
                     .format(ctx.workflow_id))
 
     rest = get_rest_client()
@@ -187,7 +187,8 @@ def _remote_workflow(ctx, func, args, kwargs):
         send_workflow_event(
             ctx,
             event_type='workflow_started',
-            message="Starting '{}' workflow execution".format(ctx.workflow_id))
+            message="Starting '{0}' workflow execution".format(
+                ctx.workflow_id))
 
         # the actual execution of the workflow will run in another
         # process - this wrapper is the entry point for that
@@ -267,7 +268,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             update_execution_status(ctx.execution_id, Execution.TERMINATED)
             send_workflow_event(
                 ctx, event_type='workflow_succeeded',
-                message="'{}' workflow execution succeeded"
+                message="'{0}' workflow execution succeeded"
                 .format(ctx.workflow_id))
         return result
     except BaseException as e:
@@ -282,7 +283,7 @@ def _remote_workflow(ctx, func, args, kwargs):
         send_workflow_event(
             ctx,
             event_type='workflow_failed',
-            message="'{}' workflow execution failed: {}"
+            message="'{0}' workflow execution failed: {1}"
                     .format(ctx.workflow_id, str(e)),
             args={'error': error_traceback})
         raise
