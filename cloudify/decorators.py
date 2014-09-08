@@ -191,7 +191,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             except api.ExecutionCancelled:
                 child_conn.send({
                     'result': api.EXECUTION_CANCELLED_RESULT})
-            except BaseException, workflow_ex:
+            except BaseException as workflow_ex:
                 tb = StringIO()
                 traceback.print_exc(file=tb)
                 err = {
@@ -256,7 +256,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             update_execution_status(ctx.execution_id, Execution.TERMINATED)
             _send_workflow_succeeded_event(ctx)
         return result
-    except BaseException, e:
+    except BaseException as e:
         if isinstance(e, ProcessExecutionError):
             error_traceback = e.traceback
         else:

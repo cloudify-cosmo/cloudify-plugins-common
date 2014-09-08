@@ -167,13 +167,12 @@ class CloudifyWorkflowNodeInstance(object):
         self.ctx = ctx
         self._node = node
         self._node_instance = node_instance
-        self._relationship_instances = {
-            relationship_instance['target_id']:
-                CloudifyWorkflowRelationshipInstance(self.ctx,
-                                                     self,
-                                                     relationship_instance)
-            for relationship_instance in node_instance.relationships
-        }
+        self._relationship_instances = dict(
+            (relationship_instance['target_id'],
+                CloudifyWorkflowRelationshipInstance(
+                    self.ctx, self, relationship_instance))
+            for relationship_instance in node_instance.relationships)
+
         # adding the node instance to the node instances map
         node._node_instances[self.id] = self
 
@@ -284,10 +283,10 @@ class CloudifyWorkflowNode(object):
     def __init__(self, ctx, node):
         self.ctx = ctx
         self._node = node
-        self._relationships = {
-            relationship['target_id']: CloudifyWorkflowRelationship(
-                self.ctx, self, relationship)
-            for relationship in node.relationships}
+        self._relationships = dict(
+            (relationship['target_id'], CloudifyWorkflowRelationship(
+                self.ctx, self, relationship))
+            for relationship in node.relationships)
         self._node_instances = {}
 
     @property
@@ -367,12 +366,14 @@ class CloudifyWorkflowContext(object):
             node_instances = rest.node_instances.list(self.deployment_id)
             handler = RemoteCloudifyWorkflowContextHandler(self)
 
-        self._nodes = {node.id: CloudifyWorkflowNode(self, node) for
-                       node in nodes}
-        self._node_instances = {
-            instance.id: CloudifyWorkflowNodeInstance(
-                self, self._nodes[instance.node_id], instance)
-            for instance in node_instances}
+        self._nodes = dict(
+            (node.id, CloudifyWorkflowNode(self, node))
+            for node in nodes)
+
+        self._node_instances = dict(
+            (instance.id, CloudifyWorkflowNodeInstance(
+                self, self._nodes[instance.node_id], instance))
+            for instance in node_instances)
 
         self._logger = None
 
@@ -452,7 +453,6 @@ class CloudifyWorkflowContext(object):
 
         send_event_task = self.internal.handler.get_send_workflow_event_task(
             event, event_type, args, additional_context)
-
         return self.local_task(
             local_task=send_event_task,
             info=event)
@@ -528,7 +528,7 @@ class CloudifyWorkflowContext(object):
         result = copy.copy(merged_into)
         for key, value in merged_from.iteritems():
             if not allow_override and key in merged_into:
-                raise RuntimeError('Duplicate definition of {} in operation'
+                raise RuntimeError('Duplicate definition of {0} in operation'
                                    ' properties and in kwargs. To allow '
                                    'redefinition, pass '
                                    '"allow_kwargs_override" to '

@@ -41,7 +41,7 @@ class RecoverableError(Exception):
     def __init__(self, message=None, retry_after=None):
         message = message or ''
         if retry_after is not None:
-            message = '{} [retry_after={}]'.format(message, retry_after)
+            message = '{0} [retry_after={1}]'.format(message, retry_after)
         super(RecoverableError, self).__init__(message)
         self.retry_after = retry_after
 
@@ -105,5 +105,5 @@ class ProcessExecutionError(RuntimeError):
 
     def __str__(self):
         if self.error_type:
-            return '{}: {}'.format(self.error_type, self.message)
+            return '{0}: {1}'.format(self.error_type, self.message)
         return self.message

@@ -41,7 +41,7 @@ class TaskDependencyGraph(object):
 
         :param task: The task
         """
-        self.ctx.logger.debug('adding task: {}'.format(task))
+        self.ctx.logger.debug('adding task: {0}'.format(task))
         self.graph.add_node(task.id, task=task)
 
     def get_task(self, task_id):
@@ -73,8 +73,8 @@ class TaskDependencyGraph(object):
         :param dst_task: The target task
         """
 
-        self.ctx.logger.debug('adding dependency: {} -> {}'.format(src_task,
-                                                                   dst_task))
+        self.ctx.logger.debug('adding dependency: {0} -> {1}'.format(src_task,
+                                                                     dst_task))
         if not self.graph.has_node(src_task.id):
             raise RuntimeError('source task {0} is not in graph (task id: '
                                '{1})'.format(src_task, src_task.id))
@@ -184,8 +184,8 @@ class TaskDependencyGraph(object):
         handler_result = task.handle_task_terminated()
         if handler_result.action == tasks.HandlerResult.HANDLER_FAIL:
             raise RuntimeError(
-                "Workflow failed: Task failed '{}' -> {}".format(task.name,
-                                                                 task.error))
+                "Workflow failed: Task failed '{0}' -> {1}".format(task.name,
+                                                                   task.error))
 
         dependents = self.graph.predecessors(task.id)
         removed_edges = [(dependent, task.id)

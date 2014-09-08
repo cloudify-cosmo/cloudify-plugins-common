@@ -215,7 +215,7 @@ def get_node_instance_ip(node_instance_id):
     client = get_rest_client()
     instance = client.node_instances.get(node_instance_id)
     if instance.host_id is None:
-        raise NonRecoverableError('node instance: {} is missing host_id'
+        raise NonRecoverableError('node instance: {0} is missing host_id'
                                   'property'.format(instance.id))
     if node_instance_id != instance.host_id:
         instance = client.node_instances.get(instance.host_id)
@@ -224,9 +224,9 @@ def get_node_instance_ip(node_instance_id):
     node = client.nodes.get(instance.deployment_id, instance.node_id)
     if node.properties.get('ip'):
         return node.properties['ip']
-    raise NonRecoverableError('could not find ip for node instance: {} with '
-                              'host id: {}'.format(node_instance_id,
-                                                   instance.id))
+    raise NonRecoverableError('could not find ip for node instance: {0} with '
+                              'host id: {1}'.format(node_instance_id,
+                                                    instance.id))
 
 
 # TODO: some nasty code duplication between these two methods
@@ -250,7 +250,7 @@ def get_host_node_instance_ip(host_id,
         properties = node.properties
     if properties.get('ip'):
         return properties['ip']
-    raise NonRecoverableError('could not find ip for host node instance: {}'
+    raise NonRecoverableError('could not find ip for host node instance: {0}'
                               .format(host_id))
 
 

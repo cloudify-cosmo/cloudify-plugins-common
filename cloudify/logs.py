@@ -223,7 +223,7 @@ def _send_event(ctx, context_type, event_type,
         message_context = message_context_from_workflow_node_instance_context(
             ctx)
     else:
-        raise RuntimeError('Invalid context_type: {}'.format(context_type))
+        raise RuntimeError('Invalid context_type: {0}'.format(context_type))
 
     additional_context = additional_context or {}
     message_context.update(additional_context)
