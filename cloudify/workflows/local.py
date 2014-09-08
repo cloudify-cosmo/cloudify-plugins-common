@@ -202,12 +202,13 @@ class Storage(object):
         self.name = name
         self.resources_root = resources_root
         self._nodes = nodes
-        self._node_instances = {instance.id: instance
-                                for instance in node_instances}
+        self._node_instances = dict((
+            instance.id, instance) for instance in node_instances)
         for instance in self._node_instances.values():
             instance['version'] = 0
-        self._locks = {instance_id: threading.RLock()
-                       for instance_id in self._instance_ids()}
+        self._locks = dict((
+            instance_id, threading.RLock()) for instance_id
+            in self._instance_ids())
 
     def get_resource(self, resource_path):
         with open(os.path.join(self.resources_root, resource_path)) as f:
