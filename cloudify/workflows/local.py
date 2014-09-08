@@ -182,7 +182,7 @@ class Environment(object):
                 .format(workflow_name, ','.join(missing_mandatory_parameters)))
 
         custom_parameters = dict(
-            (k, v) for (k, v), in execution_parameters.iteritems()
+            (k, v) for (k, v) in execution_parameters.iteritems()
             if k not in workflow_parameters)
 
         if not allow_custom_parameters and custom_parameters:
