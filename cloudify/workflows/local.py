@@ -26,6 +26,9 @@ import shutil
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
 
+from cloudify.workflows.workflow_context import (
+    DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
+
 try:
     from dsl_parser import parser as dsl_parser, tasks as dsl_tasks
 except ImportError:
@@ -79,7 +82,8 @@ class Environment(object):
                 parameters=None,
                 allow_custom_parameters=False,
                 task_retries=-1,
-                task_retry_interval=30):
+                task_retry_interval=30,
+                task_thread_pool_size=DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE):
         workflows = self.plan['workflows']
         workflow_name = workflow
         if workflow_name not in workflows:
@@ -101,7 +105,8 @@ class Environment(object):
             'workflow_id': workflow_name,
             'storage': self.storage,
             'task_retries': task_retries,
-            'task_retry_interval': task_retry_interval
+            'task_retry_interval': task_retry_interval,
+            'local_task_thread_pool_size': task_thread_pool_size
         }
 
         merged_parameters = self._merge_and_validate_execution_parameters(
@@ -194,9 +199,16 @@ class Environment(object):
 
 class Storage(object):
 
-    def __init__(self, name, resources_root):
+    def __init__(self, name, resources_root, nodes, node_instances):
         self.name = name
         self.resources_root = resources_root
+        self._nodes = nodes
+        self._node_instances = {instance.id: instance
+                                for instance in node_instances}
+        for instance in self._node_instances.values():
+            instance['version'] = 0
+        self._locks = {instance_id: threading.RLock()
+                       for instance_id in self._instance_ids()}
 
     def get_resource(self, resource_path):
         with open(os.path.join(self.resources_root, resource_path)) as f:
@@ -216,17 +228,25 @@ class Storage(object):
 
     def update_node_instance(self,
                              node_instance_id,
+                             version,
                              runtime_properties=None,
-                             state=None,
-                             version=None):
-        instance = self._get_node_instance(node_instance_id)
-        if runtime_properties is not None:
-            instance['runtime_properties'] = runtime_properties
-        if state is not None:
-            instance['state'] = state
-        if version is not None:
-            instance['version'] = version
-        self._store_instance(instance)
+                             state=None):
+        with self._lock(node_instance_id):
+            instance = self._get_node_instance(node_instance_id)
+            if state is None and version != instance['version']:
+                raise StorageConflictError('version {} does not match '
+                                           'current version of '
+                                           'node instance {} which is {}'
+                                           .format(version,
+                                                   node_instance_id,
+                                                   instance['version']))
+            else:
+                instance['version'] += 1
+            if runtime_properties is not None:
+                instance['runtime_properties'] = runtime_properties
+            if state is not None:
+                instance['state'] = state
+            self._store_instance(instance)
 
     def _get_node_instance(self, node_instance_id):
         instance = self._load_instance(node_instance_id)
@@ -242,19 +262,25 @@ class Storage(object):
         raise NotImplementedError()
 
     def get_nodes(self):
-        raise NotImplementedError()
+        return copy.deepcopy(self._nodes)
 
     def get_node_instances(self):
         raise NotImplementedError()
+
+    def _instance_ids(self):
+        raise NotImplementedError()
+
+    def _lock(self, node_instance_id):
+        return self._locks[node_instance_id]
 
 
 class InMemoryStorage(Storage):
 
     def __init__(self, name, resources_root, nodes, node_instances):
-        super(InMemoryStorage, self).__init__(name, resources_root)
-        self._nodes = nodes
-        self._node_instances = {instance.id: instance
-                                for instance in node_instances}
+        super(InMemoryStorage, self).__init__(name,
+                                              resources_root,
+                                              nodes,
+                                              node_instances)
 
     def get_node_instance(self, node_instance_id):
         return copy.deepcopy(self._get_node_instance(node_instance_id))
@@ -265,11 +291,11 @@ class InMemoryStorage(Storage):
     def _store_instance(self, node_instance):
         pass
 
-    def get_nodes(self):
-        return self._nodes
-
     def get_node_instances(self):
-        return self._node_instances.values()
+        return copy.deepcopy(self._node_instances.values())
+
+    def _instance_ids(self):
+        return self._node_instances.keys()
 
 
 class FileStorage(Storage):
@@ -277,20 +303,22 @@ class FileStorage(Storage):
     def __init__(self, name, resources_root, nodes, node_instances,
                  storage_dir='/tmp/cloudify-workflows',
                  clear=False):
-        super(FileStorage, self).__init__(name, resources_root)
         self._storage_dir = os.path.join(storage_dir, name)
+        self._instances_dir = os.path.join(self._storage_dir,
+                                           'node-instances')
         if os.path.isdir(self._storage_dir) and clear:
             shutil.rmtree(self._storage_dir)
+        super(FileStorage, self).__init__(name,
+                                          resources_root,
+                                          nodes,
+                                          node_instances)
         if not os.path.isdir(self._storage_dir):
             os.makedirs(self._storage_dir)
-        self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
         if not os.path.isdir(self._instances_dir):
             os.mkdir(self._instances_dir)
-            for instance in node_instances:
+            for instance in self._node_instances.values():
                 self._store_instance(instance, lock=False)
-        self._nodes = nodes
-        self._locks = {instance_id: threading.Lock()
-                       for instance_id in self._instance_ids()}
+        self._node_instances = None
 
     def get_node_instance(self, node_instance_id):
         return self._get_node_instance(node_instance_id)
@@ -314,15 +342,18 @@ class FileStorage(Storage):
     def _instance_path(self, node_instance_id):
         return os.path.join(self._instances_dir, node_instance_id)
 
-    def get_nodes(self):
-        return self._nodes
-
     def get_node_instances(self):
         return [self._get_node_instance(instance_id)
                 for instance_id in self._instance_ids()]
 
     def _instance_ids(self):
-        return os.listdir(self._instances_dir)
+        if os.path.isdir(self._instances_dir):
+            return os.listdir(self._instances_dir)
+        else:
+            # only called during construction and when the directory does
+            # not already exist.
+            return self._node_instances.keys()
 
-    def _lock(self, node_instance_id):
-        return self._locks[node_instance_id]
+
+class StorageConflictError(Exception):
+    pass

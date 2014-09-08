@@ -134,7 +134,7 @@ class LocalEndpoint(Endpoint):
         return self.storage.update_node_instance(
             node_instance.id,
             runtime_properties=node_instance.runtime_properties,
-            state=node_instance.state,
+            state=None,
             version=node_instance.version)
 
     def get_blueprint_resource(self, blueprint_id, resource_path):

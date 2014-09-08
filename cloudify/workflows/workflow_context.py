@@ -42,6 +42,9 @@ from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            send_workflow_node_event)
 
 
+DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
+
+
 class CloudifyWorkflowRelationshipInstance(object):
     """
     A node instance relationship instance
@@ -175,7 +178,7 @@ class CloudifyWorkflowNodeInstance(object):
 
         self._logger = None
 
-    def set_state(self, state, runtime_properties=None):
+    def set_state(self, state):
         """
         Set the node state
 
@@ -183,7 +186,7 @@ class CloudifyWorkflowNodeInstance(object):
         :return: the state set
         """
         set_state_task = self.ctx.internal.handler.get_set_state_task(
-            self, state, runtime_properties)
+            self, state)
 
         return self.ctx.local_task(
             local_task=set_state_task,
@@ -344,6 +347,9 @@ class CloudifyWorkflowContext(object):
         # Before anything else so property access will work properly
         self._context = ctx
 
+        self._local_task_thread_pool_size = ctx.get(
+            'local_task_thread_pool_size',
+            DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
         self._task_retry_interval = ctx.get('task_retry_interval',
                                             DEFAULT_RETRY_INTERVAL)
         self._task_retries = ctx.get('task_retries',
@@ -704,8 +710,9 @@ class CloudifyWorkflowContextInternal(object):
         self._event_monitor = None
 
         # local task processing
+        thread_pool_size = self.workflow_context._local_task_thread_pool_size
         self.local_tasks_processor = LocalTasksProcessing(
-            thread_pool_size=1)
+            thread_pool_size=thread_pool_size)
 
     def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
@@ -777,9 +784,11 @@ class LocalTasksProcessing(object):
 
     def __init__(self, thread_pool_size=1):
         self._local_tasks_queue = Queue.Queue()
-        self._local_task_processing_pool = [
-            threading.Thread(target=self._process_local_task)
-            for _ in range(thread_pool_size)]
+        self._local_task_processing_pool = []
+        for _ in range(thread_pool_size):
+            thread = threading.Thread(target=self._process_local_task)
+            thread.daemon = True
+            self._local_task_processing_pool.append(thread)
         self.stopped = False
 
     def start(self):
@@ -842,8 +851,7 @@ class CloudifyWorkflowContextHandler(object):
 
     def get_set_state_task(self,
                            workflow_node_instance,
-                           state,
-                           runtime_properties):
+                           state):
         raise NotImplementedError('Implemented by subclasses')
 
     def get_get_state_task(self, workflow_node_instance):
@@ -919,14 +927,11 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_set_state_task(self,
                            workflow_node_instance,
-                           state,
-                           runtime_properties):
+                           state):
         @task_config(send_task_events=False)
         def set_state_task():
             node_state = get_node_instance(workflow_node_instance.id)
             node_state.state = state
-            if runtime_properties is not None:
-                node_state.runtime_properties.update(runtime_properties)
             update_node_instance(node_state)
             return node_state
         return set_state_task
@@ -1006,14 +1011,13 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_set_state_task(self,
                            workflow_node_instance,
-                           state,
-                           runtime_properties):
+                           state):
         @task_config(send_task_events=False)
         def set_state_task():
             self.storage.update_node_instance(
                 workflow_node_instance.id,
-                runtime_properties,
-                state)
+                state=state,
+                version=None)
         return set_state_task
 
     def get_get_state_task(self, workflow_node_instance):
