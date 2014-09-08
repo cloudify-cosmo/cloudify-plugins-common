@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'dank'
 
 import sys
 import time
@@ -27,6 +26,7 @@ INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
 DEFAULT_RETRY_INTERVAL = 30
 
+DEFAULT_SEND_TASK_EVENTS = True
 
 TASK_PENDING = 'pending'
 TASK_SENDING = 'sending'
@@ -51,7 +51,8 @@ class WorkflowTask(object):
                  on_success=None,
                  on_failure=None,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL):
+                 retry_interval=DEFAULT_RETRY_INTERVAL,
+                 send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
@@ -86,6 +87,7 @@ class WorkflowTask(object):
         self.terminated = Queue.Queue(maxsize=1)
         self.is_terminated = False
         self.workflow_context = workflow_context
+        self.send_task_events = send_task_events
 
         self.current_retries = 0
         # timestamp for which the task should not be executed
@@ -225,7 +227,8 @@ class RemoteWorkflowTask(WorkflowTask):
                  on_success=None,
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
-                 retry_interval=DEFAULT_RETRY_INTERVAL):
+                 retry_interval=DEFAULT_RETRY_INTERVAL,
+                 send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         :param task: The celery task
         :param cloudify_context: the cloudify context dict
@@ -257,7 +260,8 @@ class RemoteWorkflowTask(WorkflowTask):
             on_success=on_success,
             on_failure=on_failure,
             total_retries=total_retries,
-            retry_interval=retry_interval)
+            retry_interval=retry_interval,
+            send_task_events=send_task_events)
         self.task = task
         self.cloudify_context = cloudify_context
 
@@ -283,11 +287,13 @@ class RemoteWorkflowTask(WorkflowTask):
         dup = RemoteWorkflowTask(task=self.task,
                                  cloudify_context=self.cloudify_context,
                                  workflow_context=self.workflow_context,
+                                 task_id=None,  # we want a new task id
                                  info=self.info,
                                  on_success=self.on_success,
                                  on_failure=self.on_failure,
                                  total_retries=self.total_retries,
-                                 retry_interval=self.retry_interval)
+                                 retry_interval=self.retry_interval,
+                                 send_task_events=self.send_task_events)
         dup.cloudify_context['task_id'] = dup.id
         dup.current_retries = self.current_retries
         return dup
@@ -338,6 +344,7 @@ class LocalWorkflowTask(WorkflowTask):
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
                  retry_interval=DEFAULT_RETRY_INTERVAL,
+                 send_task_events=DEFAULT_SEND_TASK_EVENTS,
                  kwargs=None,
                  task_id=None,
                  name=None):
@@ -373,7 +380,8 @@ class LocalWorkflowTask(WorkflowTask):
             total_retries=total_retries,
             retry_interval=retry_interval,
             task_id=task_id,
-            workflow_context=workflow_context)
+            workflow_context=workflow_context,
+            send_task_events=send_task_events)
         self.local_task = local_task
         self.node = node
         self.kwargs = kwargs or {}
@@ -420,7 +428,10 @@ class LocalWorkflowTask(WorkflowTask):
                                 on_success=self.on_success,
                                 on_failure=self.on_failure,
                                 total_retries=self.total_retries,
-                                retry_interval=self.retry_interval)
+                                retry_interval=self.retry_interval,
+                                send_task_events=self.send_task_events,
+                                kwargs=self.kwargs,
+                                name=self.name)
         dup.current_retries = self.current_retries
         return dup
 
@@ -429,12 +440,18 @@ class LocalWorkflowTask(WorkflowTask):
         """The task name"""
         return self._name
 
+    @property
+    def cloudify_context(self):
+        """The task cloudify context (may be None for simple local tasks)"""
+        return self.kwargs.get('__cloudify_context')
+
 
 # NOP tasks class
 class NOPLocalWorkflowTask(LocalWorkflowTask):
 
-    def __init__(self):
-        super(NOPLocalWorkflowTask, self).__init__(lambda: None, None)
+    def __init__(self, workflow_context):
+        super(NOPLocalWorkflowTask, self).__init__(lambda: None,
+                                                   workflow_context)
 
     @property
     def name(self):

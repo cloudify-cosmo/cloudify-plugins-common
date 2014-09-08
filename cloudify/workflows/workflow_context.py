@@ -14,11 +14,10 @@
 #    * limitations under the License.
 
 
+import functools
 import copy
 import uuid
 import importlib
-import logging
-import sys
 import threading
 import Queue
 
@@ -31,9 +30,11 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
-                                      DEFAULT_RETRY_INTERVAL)
+                                      DEFAULT_RETRY_INTERVAL,
+                                      DEFAULT_SEND_TASK_EVENTS)
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
+from cloudify import logs
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            init_cloudify_logger,
@@ -76,7 +77,8 @@ class CloudifyWorkflowRelationshipInstance(object):
     def execute_source_operation(self,
                                  operation,
                                  kwargs=None,
-                                 allow_kwargs_override=False):
+                                 allow_kwargs_override=False,
+                                 send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Execute a node relationship source operation
 
@@ -89,12 +91,14 @@ class CloudifyWorkflowRelationshipInstance(object):
             related_node_instance=self.target_node_instance,
             operations=self.relationship.source_operations,
             kwargs=kwargs,
-            allow_kwargs_override=allow_kwargs_override)
+            allow_kwargs_override=allow_kwargs_override,
+            send_task_events=send_task_events)
 
     def execute_target_operation(self,
                                  operation,
                                  kwargs=None,
-                                 allow_kwargs_override=False):
+                                 allow_kwargs_override=False,
+                                 send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Execute a node relationship target operation
 
@@ -107,7 +111,8 @@ class CloudifyWorkflowRelationshipInstance(object):
             related_node_instance=self.node_instance,
             operations=self.relationship.target_operations,
             kwargs=kwargs,
-            allow_kwargs_override=allow_kwargs_override)
+            allow_kwargs_override=allow_kwargs_override,
+            send_task_events=send_task_events)
 
 
 class CloudifyWorkflowRelationship(object):
@@ -177,13 +182,9 @@ class CloudifyWorkflowNodeInstance(object):
         :param state: The node state
         :return: the state set
         """
-        def set_state_task():
-            node_state = get_node_instance(self.id)
-            node_state.state = state
-            if runtime_properties is not None:
-                node_state.runtime_properties.update(runtime_properties)
-            update_node_instance(node_state)
-            return node_state
+        set_state_task = self.ctx.internal.handler.get_set_state_task(
+            self, state, runtime_properties)
+
         return self.ctx.local_task(
             local_task=set_state_task,
             node=self,
@@ -195,8 +196,7 @@ class CloudifyWorkflowNodeInstance(object):
 
         :return: The node state
         """
-        def get_state_task():
-            return get_node_instance(self.id).state
+        get_state_task = self.ctx.internal.handler.get_get_state_task(self)
         return self.ctx.local_task(
             local_task=get_state_task,
             node=self)
@@ -209,17 +209,8 @@ class CloudifyWorkflowNodeInstance(object):
         :param additional_context: additional context to be added to the
                context
         """
-        def send_event_task():
-            if self.ctx.remote:
-                send_workflow_node_event(ctx=self,
-                                         event_type='workflow_node_event',
-                                         message=event,
-                                         additional_context=additional_context)
-            else:
-                self.logger.info('[{0}] {1} [additional_context={2}]'
-                                 .format(self.id,
-                                         event,
-                                         additional_context or {}))
+        send_event_task = self.ctx.internal.handler.get_send_node_event_task(
+            self, event, additional_context)
         return self.ctx.local_task(
             local_task=send_event_task,
             node=self,
@@ -228,7 +219,8 @@ class CloudifyWorkflowNodeInstance(object):
     def execute_operation(self,
                           operation,
                           kwargs=None,
-                          allow_kwargs_override=False):
+                          allow_kwargs_override=False,
+                          send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Execute a node operation
 
@@ -240,7 +232,8 @@ class CloudifyWorkflowNodeInstance(object):
             node_instance=self,
             operations=self.node.operations,
             kwargs=kwargs,
-            allow_kwargs_override=allow_kwargs_override)
+            allow_kwargs_override=allow_kwargs_override,
+            send_task_events=send_task_events)
 
     @property
     def id(self):
@@ -270,13 +263,10 @@ class CloudifyWorkflowNodeInstance(object):
         return self._logger
 
     def _init_cloudify_logger(self):
-        logger_name = self.id if self.id is not None \
-            else 'cloudify_workflow_node'
-        if self.ctx.remote:
-            handler = CloudifyWorkflowNodeLoggingHandler(self)
-        else:
-            handler = logging.StreamHandler(sys.stdout)
-        return init_cloudify_logger(handler, logger_name)
+        logger_name = '{}-{}'.format(self.ctx.execution_id, self.id)
+        logging_handler = self.ctx.internal.handler.get_node_logging_handler(
+            self)
+        return init_cloudify_logger(logging_handler, logger_name)
 
 
 class CloudifyWorkflowNode(object):
@@ -353,13 +343,22 @@ class CloudifyWorkflowContext(object):
     def __init__(self, ctx):
         # Before anything else so property access will work properly
         self._context = ctx
-        if self.remote:
+
+        self._task_retry_interval = ctx.get('task_retry_interval',
+                                            DEFAULT_RETRY_INTERVAL)
+        self._task_retries = ctx.get('task_retries',
+                                     DEFAULT_TOTAL_RETRIES)
+
+        if self.local:
+            storage = ctx.pop('storage')
+            nodes = storage.get_nodes()
+            node_instances = storage.get_node_instances()
+            handler = LocalCloudifyWorkflowContextHandler(self, storage)
+        else:
             rest = get_rest_client()
             nodes = rest.nodes.list(self.deployment_id)
             node_instances = rest.node_instances.list(self.deployment_id)
-        else:
-            nodes = ctx.pop('nodes')
-            node_instances = ctx.pop('node_instances')
+            handler = RemoteCloudifyWorkflowContextHandler(self)
 
         self._nodes = dict(
             (node.id, CloudifyWorkflowNode(self, node))
@@ -371,7 +370,8 @@ class CloudifyWorkflowContext(object):
             for instance in node_instances)
 
         self._logger = None
-        self._internal = CloudifyWorkflowContextInternal(self)
+
+        self._internal = CloudifyWorkflowContextInternal(self, handler)
 
     def graph_mode(self):
         """
@@ -416,9 +416,9 @@ class CloudifyWorkflowContext(object):
         return self._context.get('workflow_id')
 
     @property
-    def remote(self):
-        """Is the workflow running in a remote context or locally"""
-        return self._context.get('remote', True)
+    def local(self):
+        """Is the workflow running in a local or remote context"""
+        return self._context.get('local', False)
 
     @property
     def logger(self):
@@ -428,13 +428,9 @@ class CloudifyWorkflowContext(object):
         return self._logger
 
     def _init_cloudify_logger(self):
-        logger_name = self.workflow_id if self.workflow_id is not None \
-            else 'cloudify_workflow'
-        if self.remote:
-            handler = CloudifyWorkflowLoggingHandler(self)
-        else:
-            handler = logging.StreamHandler(sys.stdout)
-        return init_cloudify_logger(handler, logger_name)
+        logger_name = self.execution_id
+        logging_handler = self.internal.handler.get_context_logging_handler()
+        return init_cloudify_logger(logging_handler, logger_name)
 
     def send_event(self, event, event_type='workflow_stage',
                    args=None,
@@ -449,18 +445,8 @@ class CloudifyWorkflowContext(object):
                context
         """
 
-        def send_event_task():
-            if self.remote:
-                send_workflow_event(ctx=self,
-                                    event_type=event_type,
-                                    message=event,
-                                    args=args,
-                                    additional_context=additional_context)
-            else:
-                self.logger.info('[{0}] {1} [additional_context={2}]'
-                                 .format(self.workflow_id,
-                                         event,
-                                         additional_context or {}))
+        send_event_task = self.internal.handler.get_send_workflow_event_task(
+            event, event_type, args, additional_context)
         return self.local_task(
             local_task=send_event_task,
             info=event)
@@ -491,24 +477,18 @@ class CloudifyWorkflowContext(object):
                            operations,
                            related_node_instance=None,
                            kwargs=None,
-                           allow_kwargs_override=False):
+                           allow_kwargs_override=False,
+                           send_task_events=DEFAULT_SEND_TASK_EVENTS):
         kwargs = kwargs or {}
         node = node_instance.node
-        rest_node = node._node
-        rest_node_instance = node_instance._node_instance
         op_struct = operations.get(operation)
         if op_struct is None:
-            return NOPLocalWorkflowTask()
+            return NOPLocalWorkflowTask(self)
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties', {})
-        task_queue = None
-        if self.remote:
-            task_queue = 'cloudify.management'
-            if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
-                task_queue = rest_node_instance.host_id
-            elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
-                task_queue = self.deployment_id
+        task_queue = self.internal.handler.get_operation_task_queue(
+            node_instance, plugin_name)
         task_name = operation_mapping
 
         node_context = {
@@ -534,7 +514,8 @@ class CloudifyWorkflowContext(object):
         return self.execute_task(task_name,
                                  task_queue=task_queue,
                                  kwargs=final_kwargs,
-                                 node_context=node_context)
+                                 node_context=node_context,
+                                 send_task_events=send_task_events)
 
     @staticmethod
     def _merge_dicts(merged_from, merged_into, allow_override=False):
@@ -555,12 +536,9 @@ class CloudifyWorkflowContext(object):
         Note that the workflow status gets automatically updated before and
         after its run (whether the run succeeded or failed)
         """
-        def update_execution_status_task():
-            if self.remote:
-                update_execution_status(self.execution_id, new_status)
-            else:
-                raise RuntimeError('Updating execution status is not '
-                                   'supported for local workflow execution')
+        update_execution_status_task = \
+            self.internal.handler.get_update_execution_status_task(new_status)
+
         return self.local_task(
             local_task=update_execution_status_task,
             info=new_status)
@@ -582,13 +560,15 @@ class CloudifyWorkflowContext(object):
             'workflow_id': self.workflow_id,
         }
         context.update(node_context)
+        context.update(self.internal.handler.operation_cloudify_context)
         return context
 
     def execute_task(self,
                      task_name,
                      task_queue=None,
                      kwargs=None,
-                     node_context=None):
+                     node_context=None,
+                     send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Execute a task
 
@@ -617,7 +597,8 @@ class CloudifyWorkflowContext(object):
                                    info=task_name,
                                    name=task_name,
                                    kwargs=kwargs,
-                                   task_id=task_id)
+                                   task_id=task_id,
+                                   send_task_events=send_task_events)
         else:
             # Remote task
             # Import here because this only applies to remote tasks execution
@@ -630,7 +611,8 @@ class CloudifyWorkflowContext(object):
                                   immutable=True)
             return self.remote_task(task=task,
                                     cloudify_context=cloudify_context,
-                                    task_id=task_id)
+                                    task_id=task_id,
+                                    send_task_events=send_task_events)
 
     def local_task(self,
                    local_task,
@@ -638,7 +620,9 @@ class CloudifyWorkflowContext(object):
                    info=None,
                    kwargs=None,
                    task_id=None,
-                   name=None):
+                   name=None,
+                   send_task_events=DEFAULT_SEND_TASK_EVENTS,
+                   override_task_config=False):
         """
         Create a local workflow task
 
@@ -649,20 +633,38 @@ class CloudifyWorkflowContext(object):
         :param kwargs: kwargs to pass to the local_task when invoked
         :param task_id: The task id
         """
-        return self._process_task(
-            LocalWorkflowTask(local_task=local_task,
-                              workflow_context=self,
-                              node=node,
-                              info=info,
-                              kwargs=kwargs,
-                              task_id=task_id,
-                              name=name,
-                              **self.internal.get_task_configuration()))
+        global_task_config = self.internal.get_task_configuration()
+        if hasattr(local_task, 'workflow_task_config'):
+            decorator_task_config = local_task.workflow_task_config
+        else:
+            decorator_task_config = {}
+        invocation_task_config = dict(
+            local_task=local_task,
+            node=node,
+            info=info,
+            kwargs=kwargs,
+            send_task_events=send_task_events,
+            task_id=task_id,
+            name=name)
+
+        final_task_config = {}
+        final_task_config.update(global_task_config)
+        if override_task_config:
+            final_task_config.update(decorator_task_config)
+            final_task_config.update(invocation_task_config)
+        else:
+            final_task_config.update(invocation_task_config)
+            final_task_config.update(decorator_task_config)
+
+        return self._process_task(LocalWorkflowTask(
+            workflow_context=self,
+            **final_task_config))
 
     def remote_task(self,
                     task,
                     cloudify_context,
-                    task_id):
+                    task_id,
+                    send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
         Create a remote workflow task
 
@@ -676,6 +678,7 @@ class CloudifyWorkflowContext(object):
                                cloudify_context=cloudify_context,
                                workflow_context=self,
                                task_id=task_id,
+                               send_task_events=send_task_events,
                                **self.internal.get_task_configuration()))
 
     def _process_task(self, task):
@@ -688,8 +691,9 @@ class CloudifyWorkflowContext(object):
 
 class CloudifyWorkflowContextInternal(object):
 
-    def __init__(self, workflow_context):
+    def __init__(self, workflow_context, handler):
         self.workflow_context = workflow_context
+        self.handler = handler
         self._bootstrap_context = None
         self._graph_mode = False
         # the graph is always created internally for events to work properly
@@ -698,8 +702,6 @@ class CloudifyWorkflowContextInternal(object):
 
         # events related
         self._event_monitor = None
-        self._send_task_event_func = events.send_task_event_local_func(
-            self.workflow_context.logger)
 
         # local task processing
         self.local_tasks_processor = LocalTasksProcessing(
@@ -708,19 +710,17 @@ class CloudifyWorkflowContextInternal(object):
     def get_task_configuration(self):
         bootstrap_context = self._get_bootstrap_context()
         workflows = bootstrap_context.get('workflows', {})
-        total_retries = workflows.get('task_retries', DEFAULT_TOTAL_RETRIES)
-        retry_interval = workflows.get('task_retry_interval',
-                                       DEFAULT_RETRY_INTERVAL)
+        total_retries = workflows.get(
+            'task_retries',
+            self.workflow_context._task_retries)
+        retry_interval = workflows.get(
+            'task_retry_interval',
+            self.workflow_context._task_retry_interval)
         return dict(total_retries=total_retries,
                     retry_interval=retry_interval)
 
     def _get_bootstrap_context(self):
-        if self._bootstrap_context is None:
-            if self.workflow_context.remote:
-                self._bootstrap_context = get_bootstrap_context()
-            else:
-                self._bootstrap_context = {}
-        return self._bootstrap_context
+        return self.handler.bootstrap_context
 
     @property
     def task_graph(self):
@@ -755,14 +755,13 @@ class CloudifyWorkflowContextInternal(object):
         self.event_monitor = thread
 
     def send_task_event(self, state, task, event=None):
-        if self.workflow_context.remote:
-            if task.is_remote():
-                send_task_event_func = events.send_task_event_remote_task_func
-            else:
-                send_task_event_func = events.send_task_event_local_task_func
-        else:
-            send_task_event_func = self._send_task_event_func
+        send_task_event_func = self.handler.get_send_task_event_func(task)
         events.send_task_event(state, task, send_task_event_func, event)
+
+    def send_workflow_event(self, event_type, message=None, args=None):
+        self.handler.send_workflow_event(event_type=event_type,
+                                         message=message,
+                                         args=args)
 
     def start_local_tasks_processing(self):
         self.local_tasks_processor.start()
@@ -801,3 +800,246 @@ class LocalTasksProcessing(object):
                 task()
             except Queue.Empty:
                 pass
+
+# Local/Remote Handlers
+
+
+class CloudifyWorkflowContextHandler(object):
+
+    def __init__(self, workflow_ctx):
+        self.workflow_ctx = workflow_ctx
+
+    def get_context_logging_handler(self):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_node_logging_handler(self, workflow_node_instance):
+        raise NotImplementedError('Implemented by subclasses')
+
+    @property
+    def bootstrap_context(self):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_send_task_event_func(self, task):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_update_execution_status_task(self, new_status):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_send_node_event_task(self, workflow_node_instance,
+                                 event, additional_context=None):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_send_workflow_event_task(self, event, event_type, args,
+                                     additional_context=None):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_operation_task_queue(self, workflow_node_instance, plugin_name):
+        raise NotImplementedError('Implemented by subclasses')
+
+    @property
+    def operation_cloudify_context(self):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_set_state_task(self,
+                           workflow_node_instance,
+                           state,
+                           runtime_properties):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def get_get_state_task(self, workflow_node_instance):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def send_workflow_event(self, event_type, message=None, args=None):
+        raise NotImplementedError('Implemented by subclasses')
+
+
+class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
+
+    def __init__(self, workflow_ctx):
+        super(RemoteCloudifyWorkflowContextHandler, self).__init__(
+            workflow_ctx)
+
+    def get_context_logging_handler(self):
+        return CloudifyWorkflowLoggingHandler(self.workflow_ctx,
+                                              out_func=logs.amqp_log_out)
+
+    def get_node_logging_handler(self, workflow_node_instance):
+        return CloudifyWorkflowNodeLoggingHandler(workflow_node_instance,
+                                                  out_func=logs.amqp_log_out)
+
+    @property
+    def bootstrap_context(self):
+        return get_bootstrap_context()
+
+    def get_send_task_event_func(self, task):
+        return events.send_task_event_func_remote
+
+    def get_update_execution_status_task(self, new_status):
+        def update_execution_status_task():
+            update_execution_status(self.workflow_ctx.execution_id, new_status)
+        return update_execution_status_task
+
+    def get_send_node_event_task(self, workflow_node_instance,
+                                 event, additional_context=None):
+        @task_config(send_task_events=False)
+        def send_event_task():
+            send_workflow_node_event(ctx=workflow_node_instance,
+                                     event_type='workflow_node_event',
+                                     message=event,
+                                     additional_context=additional_context,
+                                     out_func=logs.amqp_event_out)
+        return send_event_task
+
+    def get_send_workflow_event_task(self, event, event_type, args,
+                                     additional_context=None):
+        @task_config(send_task_events=False)
+        def send_event_task():
+            send_workflow_event(ctx=self.workflow_ctx,
+                                event_type=event_type,
+                                message=event,
+                                args=args,
+                                additional_context=additional_context,
+                                out_func=logs.amqp_event_out)
+        return send_event_task
+
+    def get_operation_task_queue(self, workflow_node_instance, plugin_name):
+        workflow_node = workflow_node_instance.node
+        rest_node = workflow_node._node
+        rest_node_instance = workflow_node_instance._node_instance
+        task_queue = 'cloudify.management'
+        if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
+            task_queue = rest_node_instance.host_id
+        elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
+            task_queue = self.workflow_ctx.deployment_id
+        return task_queue
+
+    @property
+    def operation_cloudify_context(self):
+        return {'local': False}
+
+    def get_set_state_task(self,
+                           workflow_node_instance,
+                           state,
+                           runtime_properties):
+        @task_config(send_task_events=False)
+        def set_state_task():
+            node_state = get_node_instance(workflow_node_instance.id)
+            node_state.state = state
+            if runtime_properties is not None:
+                node_state.runtime_properties.update(runtime_properties)
+            update_node_instance(node_state)
+            return node_state
+        return set_state_task
+
+    def get_get_state_task(self, workflow_node_instance):
+        @task_config(send_task_events=False)
+        def get_state_task():
+            return get_node_instance(workflow_node_instance.id).state
+        return get_state_task
+
+    def send_workflow_event(self, event_type, message=None, args=None):
+        send_workflow_event(self.workflow_ctx,
+                            event_type=event_type,
+                            message=message,
+                            args=args,
+                            out_func=logs.amqp_event_out)
+
+
+class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
+
+    def __init__(self, workflow_ctx, storage):
+        super(LocalCloudifyWorkflowContextHandler, self).__init__(
+            workflow_ctx)
+        self.storage = storage
+        self._send_task_event_func = None
+
+    def get_context_logging_handler(self):
+        return CloudifyWorkflowLoggingHandler(self.workflow_ctx,
+                                              out_func=logs.stdout_log_out)
+
+    def get_node_logging_handler(self, workflow_node_instance):
+        return CloudifyWorkflowNodeLoggingHandler(workflow_node_instance,
+                                                  out_func=logs.stdout_log_out)
+
+    @property
+    def bootstrap_context(self):
+        return {}
+
+    def get_send_task_event_func(self, task):
+        return events.send_task_event_func_local
+
+    def get_update_execution_status_task(self, new_status):
+        raise NotImplementedError(
+            'Update execution status is not supported for '
+            'local workflow execution')
+
+    def get_send_node_event_task(self, workflow_node_instance,
+                                 event, additional_context=None):
+        @task_config(send_task_events=False)
+        def send_event_task():
+            send_workflow_node_event(ctx=workflow_node_instance,
+                                     event_type='workflow_node_event',
+                                     message=event,
+                                     additional_context=additional_context,
+                                     out_func=logs.stdout_event_out)
+        return send_event_task
+
+    def get_send_workflow_event_task(self, event, event_type, args,
+                                     additional_context=None):
+        @task_config(send_task_events=False)
+        def send_event_task():
+            send_workflow_event(ctx=self.workflow_ctx,
+                                event_type=event_type,
+                                message=event,
+                                args=args,
+                                additional_context=additional_context,
+                                out_func=logs.stdout_event_out)
+        return send_event_task
+
+    def get_operation_task_queue(self, workflow_node_instance, plugin_name):
+        return None
+
+    @property
+    def operation_cloudify_context(self):
+        return {'local': True,
+                'storage': self.storage}
+
+    def get_set_state_task(self,
+                           workflow_node_instance,
+                           state,
+                           runtime_properties):
+        @task_config(send_task_events=False)
+        def set_state_task():
+            self.storage.update_node_instance(
+                workflow_node_instance.id,
+                runtime_properties,
+                state)
+        return set_state_task
+
+    def get_get_state_task(self, workflow_node_instance):
+        @task_config(send_task_events=False)
+        def get_state_task():
+            instance = self.storage.get_node_instance(
+                workflow_node_instance.id)
+            return instance.state
+        return get_state_task
+
+    def send_workflow_event(self, event_type, message=None, args=None):
+        send_workflow_event(self.workflow_ctx,
+                            event_type=event_type,
+                            message=message,
+                            args=args,
+                            out_func=logs.stdout_event_out)
+
+
+def task_config(fn=None, **arguments):
+    if fn is not None:
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return fn(*args, **kwargs)
+        wrapper.workflow_task_config = arguments
+        return wrapper
+    else:
+        def partial_wrapper(func):
+            return task_config(func, **arguments)
+        return partial_wrapper

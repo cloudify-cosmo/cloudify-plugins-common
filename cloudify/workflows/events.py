@@ -13,14 +13,9 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'dank'
 
-
-from cloudify.logs import send_task_event as send_task_event_amqp
+from cloudify import logs
 from cloudify.workflows import tasks as tasks_api
-
-
-TASK_TO_FILTER = ['worker_installer.tasks.restart', 'send_event_task']
 
 
 class Monitor(object):
@@ -58,7 +53,7 @@ class Monitor(object):
         task_id = event['uuid']
         task = self.tasks_graph.get_task(task_id)
         if task is not None:
-            send_task_event(state, task, send_task_event_remote_task_func,
+            send_task_event(state, task, send_task_event_func_remote,
                             event)
             task.set_state(state)
 
@@ -78,28 +73,31 @@ class Monitor(object):
             receive.capture(limit=None, timeout=None, wakeup=True)
 
 
-def send_task_event_remote_task_func(task, event_type, message):
-    send_task_event_amqp(cloudify_context=task.cloudify_context,
-                         event_type=event_type,
-                         message=message)
+def send_task_event_func_remote(task, event_type, message):
+    _send_task_event_func(task, event_type, message,
+                          out_func=logs.amqp_event_out)
 
 
-def send_task_event_local_task_func(task, event_type, message):
-    cloudify_context = task.kwargs.get('__cloudify_context')
-    if not cloudify_context:
-        # TODO these type of tasks should be dealt with somehow
-        return
-    send_task_event_amqp(cloudify_context=cloudify_context,
-                         event_type=event_type,
-                         message=message)
+def send_task_event_func_local(task, event_type, message):
+    _send_task_event_func(task, event_type, message,
+                          out_func=logs.stdout_event_out)
 
 
-def send_task_event_local_func(logger):
-    def func(task, event_type, message):
-        logger.info('[task={0}, event_type={1}] {2}'.format(task.name,
-                                                            event_type,
-                                                            message))
-    return func
+def _send_task_event_func(task, event_type, message, out_func):
+    if task.cloudify_context is None:
+        logs.send_workflow_event(ctx=task.workflow_context,
+                                 event_type=event_type,
+                                 message=message,
+                                 out_func=out_func)
+    else:
+        logs.send_task_event(cloudify_context=task.cloudify_context,
+                             event_type=event_type,
+                             message=message,
+                             out_func=out_func)
+
+
+def _filter_task(task, state):
+    return state != tasks_api.TASK_FAILED and not task.send_task_events
 
 
 def send_task_event(state, task, send_event_func, event):
@@ -116,8 +114,7 @@ def send_task_event(state, task, send_event_func, event):
                   follows celery event structure but used by local tasks as
                   well
     """
-
-    if task.name in TASK_TO_FILTER:
+    if _filter_task(task, state):
         return
 
     if state in [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED] and \

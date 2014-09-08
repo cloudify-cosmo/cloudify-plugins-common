@@ -16,7 +16,6 @@
 
 __author__ = 'dan'
 
-import datetime
 import json
 
 import pika
@@ -45,16 +44,12 @@ class AMQPClient(object):
         self.events_queue.queue_declare(queue=self.logs_queue_name, **settings)
 
     def publish_log(self, log):
-        self._publish(log, self.logs_queue_name, 'cloudify_log')
+        self._publish(log, self.logs_queue_name)
 
     def publish_event(self, event):
-        self._publish(event, self.events_queue_name, 'cloudify_event')
+        self._publish(event, self.events_queue_name)
 
-    def _publish(self, item, queue, message_type):
-        timestamp = str(datetime.datetime.now())[0:-3]
-        item['timestamp'] = timestamp
-        item['message_code'] = None
-        item['type'] = message_type
+    def _publish(self, item, queue):
         self.events_queue.basic_publish(exchange='',
                                         routing_key=queue,
                                         body=json.dumps(item))

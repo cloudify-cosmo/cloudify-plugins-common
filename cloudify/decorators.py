@@ -23,19 +23,18 @@ from functools import wraps
 from cloudify.context import CloudifyContext
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status, get_rest_client
-from cloudify.logs import send_workflow_event
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
 from cloudify.exceptions import ProcessExecutionError
 from cloudify.state import current_ctx, current_workflow_ctx
 
-
+_stub_task = lambda fn: fn
 try:
     from cloudify.celery import celery as _celery
     _task = _celery.task
 except ImportError:
     _celery = None
-    _task = lambda fn: fn
+    _task = _stub_task
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -94,9 +93,7 @@ def operation(func=None, **arguments):
         def start(ctx, **kwargs):
             pass
     """
-
     if func is not None:
-        @_task
         @wraps(func)
         def wrapper(*args, **kwargs):
             ctx = _find_context_arg(args, kwargs, _is_cloudify_context)
@@ -117,7 +114,7 @@ def operation(func=None, **arguments):
                 current_ctx.clear()
                 ctx.update()
             return result
-        return wrapper
+        return _process_wrapper(wrapper, arguments)
     else:
         def partial_wrapper(fn):
             return operation(fn, **arguments)
@@ -141,7 +138,6 @@ def workflow(func=None, **arguments):
             pass
     """
     if func is not None:
-        @_task
         @wraps(func)
         def wrapper(*args, **kwargs):
 
@@ -151,13 +147,13 @@ def workflow(func=None, **arguments):
                 ctx = CloudifyWorkflowContext(ctx)
             kwargs['ctx'] = ctx
 
-            if ctx.remote:
-                workflow_wrapper = _remote_workflow
-            else:
+            if ctx.local:
                 workflow_wrapper = _local_workflow
+            else:
+                workflow_wrapper = _remote_workflow
 
             return workflow_wrapper(ctx, func, args, kwargs)
-        return wrapper
+        return _process_wrapper(wrapper, arguments)
     else:
         def partial_wrapper(fn):
             return workflow(fn, **arguments)
@@ -167,11 +163,7 @@ def workflow(func=None, **arguments):
 def _remote_workflow(ctx, func, args, kwargs):
     def update_execution_cancelled():
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
-        send_workflow_event(
-            ctx,
-            event_type='workflow_cancelled',
-            message="'{0}' workflow execution cancelled"
-                    .format(ctx.workflow_id))
+        _send_workflow_cancelled_event(ctx)
 
     rest = get_rest_client()
     parent_conn, child_conn = Pipe()
@@ -184,11 +176,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             return api.EXECUTION_CANCELLED_RESULT
 
         update_execution_status(ctx.execution_id, Execution.STARTED)
-        send_workflow_event(
-            ctx,
-            event_type='workflow_started',
-            message="Starting '{0}' workflow execution".format(
-                ctx.workflow_id))
+        _send_workflow_started_event(ctx)
 
         # the actual execution of the workflow will run in another
         # process - this wrapper is the entry point for that
@@ -266,10 +254,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             update_execution_cancelled()
         else:
             update_execution_status(ctx.execution_id, Execution.TERMINATED)
-            send_workflow_event(
-                ctx, event_type='workflow_succeeded',
-                message="'{0}' workflow execution succeeded"
-                .format(ctx.workflow_id))
+            _send_workflow_succeeded_event(ctx)
         return result
     except BaseException as e:
         if isinstance(e, ProcessExecutionError):
@@ -280,12 +265,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             error_traceback = error.getvalue()
         update_execution_status(ctx.execution_id, Execution.FAILED,
                                 error_traceback)
-        send_workflow_event(
-            ctx,
-            event_type='workflow_failed',
-            message="'{0}' workflow execution failed: {1}"
-                    .format(ctx.workflow_id, str(e)),
-            args={'error': error_traceback})
+        _send_workflow_failed_event(ctx, e, error_traceback)
         raise
     finally:
         parent_conn.close()
@@ -293,7 +273,16 @@ def _remote_workflow(ctx, func, args, kwargs):
 
 
 def _local_workflow(ctx, func, args, kwargs):
-    return _execute_workflow_function(ctx, func, args, kwargs)
+    try:
+        _send_workflow_started_event(ctx)
+        result = _execute_workflow_function(ctx, func, args, kwargs)
+        _send_workflow_succeeded_event(ctx)
+        return result
+    except Exception, e:
+        error = StringIO()
+        traceback.print_exc(file=error)
+        _send_workflow_failed_event(ctx, e, error.getvalue())
+        raise
 
 
 def _execute_workflow_function(ctx, func, args, kwargs):
@@ -310,5 +299,39 @@ def _execute_workflow_function(ctx, func, args, kwargs):
         ctx.internal.stop_local_tasks_processing()
         current_workflow_ctx.clear()
 
+
+def _send_workflow_started_event(ctx):
+    ctx.internal.send_workflow_event(
+        event_type='workflow_started',
+        message="Starting '{}' workflow execution".format(ctx.workflow_id))
+
+
+def _send_workflow_succeeded_event(ctx):
+    ctx.internal.send_workflow_event(
+        event_type='workflow_succeeded',
+        message="'{}' workflow execution succeeded"
+        .format(ctx.workflow_id))
+
+
+def _send_workflow_failed_event(ctx, exception, error_traceback):
+    ctx.internal.send_workflow_event(
+        event_type='workflow_failed',
+        message="'{}' workflow execution failed: {}"
+        .format(ctx.workflow_id, str(exception)),
+        args={'error': error_traceback})
+
+
+def _send_workflow_cancelled_event(ctx):
+    ctx.internal.send_workflow_event(
+        event_type='workflow_cancelled',
+        message="'{}' workflow execution cancelled"
+        .format(ctx.workflow_id))
+
+
+def _process_wrapper(wrapper, arguments):
+    result_wrapper = _task
+    if arguments.get('force_not_celery') is True:
+        result_wrapper = _stub_task
+    return result_wrapper(wrapper)
 
 task = operation
