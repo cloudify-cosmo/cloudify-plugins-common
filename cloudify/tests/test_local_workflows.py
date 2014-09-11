@@ -145,6 +145,11 @@ class BaseWorkflowTest(unittest.TestCase):
                     'default': 'from_input_default_value'
                 }
             },
+            'outputs': {
+                'some_output': {
+                    'value': {'get_attribute': ['node', 'some_output']}
+                }
+            },
             'plugins': {
                 'p': {
                     'derived_from': 'cloudify.plugins.manager_plugin'
@@ -713,6 +718,21 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             self.assertEqual('new_input', ctx.properties['from_input'])
         self._execute_workflow(operation_methods=[op],
                                inputs={'from_input': 'new_input'})
+
+    def test_outputs(self):
+        def op(ctx, **_):
+            pass
+        self._execute_workflow(operation_methods=[op],
+                               use_existing_env=False)
+        self.assertEqual(self.env.outputs(),
+                         {'some_output': {'value': [None]}})
+
+        def op(ctx, **_):
+            ctx.runtime_properties['some_output'] = 'value'
+        self._execute_workflow(operation_methods=[op],
+                               use_existing_env=False)
+        self.assertEqual(self.env.outputs(),
+                         {'some_output': {'value': ['value']}})
 
     def test_workflow_parameters(self):
         normal_schema = {

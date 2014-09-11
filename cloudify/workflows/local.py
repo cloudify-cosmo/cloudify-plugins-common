@@ -31,9 +31,13 @@ from cloudify.workflows.workflow_context import (
 
 try:
     from dsl_parser import parser as dsl_parser, tasks as dsl_tasks
+    from dsl_parser import functions as dsl_functions
+    from dsl_parser import utils as dsl_utils
 except ImportError:
     dsl_parser = None
     dsl_tasks = None
+    dsl_functions = None
+    dsl_utils = None
 
 
 class Environment(object):
@@ -76,6 +80,29 @@ class Environment(object):
                              .format(storage_cls.__name__))
 
         self.storage = storage_cls(**storage_kwargs)
+
+    def outputs(self):
+        context = {}
+
+        def handler(dict_, k, v, _):
+            func = dsl_functions.parse(v)
+            if isinstance(func, dsl_functions.GetAttribute):
+                attributes = []
+                if 'instances' not in context:
+                    instances = self.storage.get_node_instances()
+                    context['instances'] = instances
+                for instance in context['instances']:
+                    if instance.node_id == func.node_name:
+                        runtime_properties = instance.runtime_properties or {}
+                        attributes.append(runtime_properties.get(
+                            func.attribute_name))
+                dict_[k] = attributes
+
+        outputs = copy.deepcopy(self.plan['outputs'])
+        dsl_utils.scan_properties(outputs,
+                                  handler,
+                                  '{0}.outputs'.format(self.name))
+        return outputs
 
     def execute(self,
                 workflow,
