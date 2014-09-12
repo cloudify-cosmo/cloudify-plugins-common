@@ -12,6 +12,7 @@
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
+from cloudify.exceptions import NonRecoverableError
 
 __author__ = 'dank'
 
@@ -469,11 +470,16 @@ class CloudifyWorkflowContext(object):
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
         operation_properties = op_struct.get('properties', {})
-        task_queue = 'cloudify.management'
-        if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
+        task_queue = None
+        executor = rest_node.plugins[plugin_name]['executor']
+        if executor == 'host_agent':
             task_queue = rest_node_instance.host_id
-        elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
+        elif executor == 'central_deployment_agent':
             task_queue = self.deployment_id
+        if not task_queue:
+            raise NonRecoverableError("Failed to conclude 'task_queue' for operation {0} on {1}"
+                                      .format(operation, rest_node_instance))
+
         task_name = operation_mapping
 
         node_context = {

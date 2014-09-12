@@ -27,6 +27,7 @@ from logs import CloudifyPluginLoggingHandler
 from logs import init_cloudify_logger
 from logs import send_plugin_event
 from exceptions import NonRecoverableError
+from utils import get_manager_file_server_blueprints_root_url
 
 
 class ContextCapabilities(object):
@@ -461,6 +462,12 @@ class CloudifyContext(CommonContextOperations):
             context = get_bootstrap_context()
             self._bootstrap_context = BootstrapContext(context)
         return self._bootstrap_context
+
+    @property
+    def blueprint_plugins_url(self):
+        return '{0}/{1}/{2}'.format(
+            get_manager_file_server_blueprints_root_url(),
+            self.blueprint_id, 'plugins')
 
     def send_event(self, event):
         """

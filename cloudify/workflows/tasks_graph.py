@@ -179,8 +179,8 @@ class TaskDependencyGraph(object):
         handler_result = task.handle_task_terminated()
         if handler_result.action == tasks.HandlerResult.HANDLER_FAIL:
             raise RuntimeError(
-                "Workflow failed: Task failed '{}' -> {}".format(task.name,
-                                                                 task.error))
+                "Workflow failed: Task failed '{0}' -> {1}".format(task.name,
+                                                                   task.error))
 
         dependents = self.graph.predecessors(task.id)
         removed_edges = [(dependent, task.id)
