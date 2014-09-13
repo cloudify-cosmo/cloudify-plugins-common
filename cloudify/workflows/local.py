@@ -39,10 +39,7 @@ except ImportError:
     dsl_utils = None
 
 
-
-
 class _Environment(object):
-
 
     def __init__(self,
                  storage,
