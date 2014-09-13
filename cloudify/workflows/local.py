@@ -259,6 +259,9 @@ class Storage(object):
         self.name = name
         self.resources_root = resources_root
         self.plan = plan
+        self._init_locks_and_nodes(nodes)
+
+    def _init_locks_and_nodes(self, nodes):
         self._nodes = dict((node.id, node) for node in nodes)
         self._locks = dict((instance_id, threading.RLock()) for instance_id
                            in self._instance_ids())
@@ -376,39 +379,33 @@ class FileStorage(Storage):
         self._data_path = None
 
     def init(self, name, plan, nodes, node_instances, resources_root):
-        self._storage_dir = os.path.join(self._root_storage_dir, name)
-        self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
-        self._data_path = os.path.join(self._storage_dir, 'data')
-        os.makedirs(self._storage_dir)
-        os.mkdir(self._instances_dir)
-        with open(self._data_path, 'w') as f:
+        storage_dir = os.path.join(self._root_storage_dir, name)
+        instances_dir = os.path.join(storage_dir, 'node-instances')
+        data_path = os.path.join(storage_dir, 'data')
+        os.makedirs(storage_dir)
+        os.mkdir(instances_dir)
+        with open(data_path, 'w') as f:
             f.write(json.dumps({
                 'plan': plan,
-                'name': name,
                 'resources_root': resources_root,
                 'nodes': nodes
             }))
+        self._instances_dir = instances_dir
         for instance in node_instances:
             self._store_instance(instance, lock=False)
-        super(FileStorage, self).init(name,
-                                      plan,
-                                      nodes,
-                                      node_instances,
-                                      resources_root)
+        self.load(name)
 
     def load(self, name):
+        self.name = name
         self._storage_dir = os.path.join(self._root_storage_dir, name)
         self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
         self._data_path = os.path.join(self._storage_dir, 'data')
         with open(self._data_path) as f:
             data = json.loads(f.read())
         self.plan = data['plan']
-        self.name = data['name']
         self.resources_root = data['resources_root']
         nodes = [Node(node) for node in data['nodes']]
-        self._nodes = dict((node.id, node) for node in nodes)
-        self._locks = dict((instance_id, threading.RLock()) for instance_id
-                           in self._instance_ids())
+        self._init_locks_and_nodes(nodes)
 
     def get_node_instance(self, node_instance_id):
         return self._get_node_instance(node_instance_id)
