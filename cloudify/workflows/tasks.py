@@ -297,16 +297,7 @@ class RemoteWorkflowTask(WorkflowTask):
         return self.cloudify_context['task_target']
 
     def _verify_task_registered(self):
-        cache = RemoteWorkflowTask.cache
-        registered = cache.get(self.target, set())
-        if self.name not in registered:
-            registered = self._get_registered()
-            cache[self.target] = registered
-
-        if self.name not in registered:
-            raise RuntimeError('Missing task: {} in worker celery.{} \n'
-                               'Registered tasks are: {}'
-                               .format(self.name, self.target, registered))
+        verify_task_registered(self.name, self.target, self._get_registered)
 
     def _get_registered(self):
         # import here because this only applies in remote execution
@@ -568,3 +559,17 @@ class HandlerResult(object):
     @classmethod
     def ignore(cls):
         return HandlerResult(cls.HANDLER_IGNORE)
+
+
+def verify_task_registered(name, target, get_registered):
+
+    cache = RemoteWorkflowTask.cache
+    registered = cache.get(target, set())
+    if name not in registered:
+        registered = get_registered()
+        cache[target] = registered
+
+    if name not in registered:
+        raise RuntimeError('Missing task: {0} in worker celery.{1} \n'
+                           'Registered tasks are: {2}'
+                           .format(name, target, registered))
