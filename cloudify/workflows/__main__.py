@@ -41,13 +41,14 @@ if __name__ == '__main__':
                 task_thread_pool_size=args.pool_size)
     if args.bootstrap:
         outputs = env.outputs()
-        provider_context = outputs['provider_context']['value'][0] or {}
+        provider = outputs['provider']['value']
+        provider_context = provider['context'][0] or {}
         bootstrap_context = outputs['cloudify']['value']
         agent_key_path = bootstrap_context['cloudify_agent'][
             'agent_key_path'][0]
         bootstrap_context['cloudify_agent']['agent_key_path'] = agent_key_path
         provider_context['cloudify'] = bootstrap_context
-        management_ip = outputs['management_ip']['value'][0]
-        provider_name = outputs['provider_name']['value'][0]
-        rest = CloudifyClient(management_ip)
-        rest.manager.create_context(provider_name, provider_context)
+        management_endpoint = outputs['management_endpoint']['value'][0]
+        rest = CloudifyClient(management_endpoint['manager_ip'])
+        rest.manager.create_context(provider['name'],
+                                    provider_context)
