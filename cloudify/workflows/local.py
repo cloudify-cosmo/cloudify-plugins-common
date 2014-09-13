@@ -21,7 +21,6 @@ import importlib
 import uuid
 import json
 import threading
-import shutil
 
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
@@ -42,19 +41,44 @@ except ImportError:
 
 class Environment(object):
 
+    @staticmethod
+    def init(blueprint_path,
+             name='local',
+             inputs=None,
+             storage=None):
+        if storage is None:
+            storage = InMemoryStorage()
+        return Environment(storage=storage,
+                           blueprint_path=blueprint_path,
+                           name=name,
+                           inputs=inputs,
+                           load_existing=False)
+
+    @staticmethod
+    def load(name, storage):
+        return Environment(storage=storage,
+                           name=name,
+                           load_existing=True)
+
     def __init__(self,
                  storage,
-                 blueprint_path,
+                 blueprint_path=None,
                  name='local',
-                 inputs=None):
+                 inputs=None,
+                 load_existing=False):
         self.storage = storage
-        plan, nodes, node_instances = _parse_plan(blueprint_path, inputs)
-        storage.init(
-            name=name,
-            plan=plan,
-            nodes=nodes,
-            node_instances=node_instances,
-            resources_root=os.path.dirname(os.path.abspath(blueprint_path)))
+
+        if load_existing:
+            self.storage.load(name)
+        else:
+            plan, nodes, node_instances = _parse_plan(blueprint_path, inputs)
+            storage.init(
+                name=name,
+                plan=plan,
+                nodes=nodes,
+                node_instances=node_instances,
+                resources_root=os.path.dirname(
+                    os.path.abspath(blueprint_path)))
 
     @property
     def plan(self):
@@ -226,15 +250,21 @@ class Storage(object):
 
     def __init__(self):
         self.name = None
-        self.plan = None
         self.resources_root = None
+        self.plan = None
+        self._nodes = None
         self._locks = None
 
     def init(self, name, plan, nodes, node_instances, resources_root):
         self.name = name
         self.resources_root = resources_root
+        self.plan = plan
+        self._nodes = dict((node.id, node) for node in nodes)
         self._locks = dict((instance_id, threading.RLock()) for instance_id
                            in self._instance_ids())
+
+    def load(self, name):
+        raise NotImplementedError()
 
     def get_resource(self, resource_path):
         with open(os.path.join(self.resources_root, resource_path)) as f:
@@ -248,15 +278,6 @@ class Storage(object):
         with open(target_path, 'w') as f:
             f.write(resource)
         return target_path
-
-    def get_node(self, node_id):
-        raise NotImplementedError()
-
-    def get_nodes(self):
-        raise NotImplementedError()
-
-    def get_node_instance(self, node_instance_id):
-        raise NotImplementedError()
 
     def update_node_instance(self,
                              node_instance_id,
@@ -287,6 +308,19 @@ class Storage(object):
                                .format(node_instance_id))
         return instance
 
+    def get_node(self, node_id):
+        node = self._nodes.get(node_id)
+        if node is None:
+            raise RuntimeError('Node {} does not exist'
+                               .format(node_id))
+        return copy.deepcopy(node)
+
+    def get_nodes(self):
+        return copy.deepcopy(self._nodes.values())
+
+    def get_node_instance(self, node_instance_id):
+        return copy.deepcopy(self._get_node_instance(node_instance_id))
+
     def _load_instance(self, node_instance_id):
         raise NotImplementedError()
 
@@ -307,29 +341,17 @@ class InMemoryStorage(Storage):
 
     def __init__(self):
         super(InMemoryStorage, self).__init__()
-        self._nodes = None
         self._node_instances = None
 
     def init(self, name, plan, nodes, node_instances, resources_root):
         self.plan = plan
-        self._nodes = dict((node.id, node) for node in nodes)
         self._node_instances = dict((instance.id, instance)
                                     for instance in node_instances)
         super(InMemoryStorage, self).init(name, plan, nodes, node_instances,
                                           resources_root)
 
-    def get_node(self, node_id):
-        node = self._nodes.get(node_id)
-        if node is None:
-            raise RuntimeError('Node {} does not exist'
-                               .format(node_id))
-        return copy.deepcopy(node)
-
-    def get_nodes(self):
-        return copy.deepcopy(self._nodes.values())
-
-    def get_node_instance(self, node_instance_id):
-        return copy.deepcopy(self._get_node_instance(node_instance_id))
+    def load(self, name):
+        raise NotImplementedError('load is not implemented by memory storage')
 
     def _load_instance(self, node_instance_id):
         return self._node_instances.get(node_instance_id)
@@ -351,22 +373,42 @@ class FileStorage(Storage):
         self._root_storage_dir = os.path.join(storage_dir)
         self._storage_dir = None
         self._instances_dir = None
+        self._data_path = None
 
     def init(self, name, plan, nodes, node_instances, resources_root):
         self._storage_dir = os.path.join(self._root_storage_dir, name)
         self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
+        self._data_path = os.path.join(self._storage_dir, 'data')
+        os.makedirs(self._storage_dir)
+        os.mkdir(self._instances_dir)
+        with open(self._data_path, 'w') as f:
+            f.write(json.dumps({
+                'plan': plan,
+                'name': name,
+                'resources_root': resources_root,
+                'nodes': nodes
+            }))
+        for instance in node_instances:
+            self._store_instance(instance, lock=False)
         super(FileStorage, self).init(name,
                                       plan,
                                       nodes,
                                       node_instances,
                                       resources_root)
-        if not os.path.isdir(self._storage_dir):
-            os.makedirs(self._storage_dir)
-        if not os.path.isdir(self._instances_dir):
-            os.mkdir(self._instances_dir)
-            for instance in self._node_instances.values():
-                self._store_instance(instance, lock=False)
-        self._node_instances = None
+
+    def load(self, name):
+        self._storage_dir = os.path.join(self._root_storage_dir, name)
+        self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
+        self._data_path = os.path.join(self._storage_dir, 'data')
+        with open(self._data_path) as f:
+            data = json.loads(f.read())
+        self.plan = data['plan']
+        self.name = data['name']
+        self.resources_root = data['resources_root']
+        nodes = [Node(node) for node in data['nodes']]
+        self._nodes = dict((node.id, node) for node in nodes)
+        self._locks = dict((instance_id, threading.RLock()) for instance_id
+                           in self._instance_ids())
 
     def get_node_instance(self, node_instance_id):
         return self._get_node_instance(node_instance_id)
@@ -395,12 +437,7 @@ class FileStorage(Storage):
                 for instance_id in self._instance_ids()]
 
     def _instance_ids(self):
-        if os.path.isdir(self._instances_dir):
-            return os.listdir(self._instances_dir)
-        else:
-            # only called during construction and when the directory does
-            # not already exist.
-            return self._node_instances.keys()
+        return os.listdir(self._instances_dir)
 
 
 class StorageConflictError(Exception):
