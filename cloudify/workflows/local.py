@@ -43,43 +43,26 @@ except ImportError:
 class Environment(object):
 
     def __init__(self,
+                 storage,
                  blueprint_path,
                  name='local',
-                 inputs=None,
-                 storage_cls=None,
-                 **storage_kwargs):
-
-        if dsl_parser is None:
-            raise ImportError('cloudify-dsl-parser must be installed to '
-                              'execute local workflows. '
-                              '(e.g. "pip install cloudify-dsl-parser")')
-
-        self.name = name
-
-        self.plan = dsl_tasks.prepare_deployment_plan(
-            dsl_parser.parse_from_path(blueprint_path), inputs=inputs)
-
-        nodes = [Node(node) for node in self.plan['nodes']]
-        node_instances = [NodeInstance(instance)
-                          for instance in self.plan['node_instances']]
-
-        self._prepare_nodes_and_instances(nodes, node_instances)
-
-        storage_kwargs.update(dict(
-            name=self.name,
-            resources_root=os.path.dirname(os.path.abspath(blueprint_path)),
+                 inputs=None):
+        self.storage = storage
+        plan, nodes, node_instances = _parse_plan(blueprint_path, inputs)
+        storage.init(
+            name=name,
+            plan=plan,
             nodes=nodes,
-            node_instances=node_instances
-        ))
+            node_instances=node_instances,
+            resources_root=os.path.dirname(os.path.abspath(blueprint_path)))
 
-        if storage_cls is None:
-            storage_cls = InMemoryStorage
-        if storage_cls is Storage or not issubclass(storage_cls, Storage):
-            raise ValueError('class {} must strictly derive from '
-                             'Storage. [see InMemoryStorage and FileStorage]'
-                             .format(storage_cls.__name__))
+    @property
+    def plan(self):
+        return self.storage.plan
 
-        self.storage = storage_cls(**storage_kwargs)
+    @property
+    def name(self):
+        return self.storage.name
 
     def outputs(self):
         context = {}
@@ -120,9 +103,9 @@ class Environment(object):
                                      workflows.keys()))
 
         workflow = workflows[workflow_name]
-        workflow_method = self._get_module_method(workflow['operation'],
-                                                  node_name='',
-                                                  tpe='workflow')
+        workflow_method = _get_module_method(workflow['operation'],
+                                             node_name='',
+                                             tpe='workflow')
         execution_id = str(uuid.uuid4())
         ctx = {
             'local': True,
@@ -136,107 +119,122 @@ class Environment(object):
             'local_task_thread_pool_size': task_thread_pool_size
         }
 
-        merged_parameters = self._merge_and_validate_execution_parameters(
+        merged_parameters = _merge_and_validate_execution_parameters(
             workflow, workflow_name, parameters, allow_custom_parameters)
 
         workflow_method(__cloudify_context=ctx, **merged_parameters)
 
-    def _prepare_nodes_and_instances(self, nodes, node_instances):
 
-        def scan(parent, name, node):
-            for operation in parent.get(name, {}).values():
-                self._get_module_method(operation['operation'],
-                                        tpe=name,
-                                        node_name=node.id)
+def _parse_plan(blueprint_path, inputs):
+    if dsl_parser is None:
+        raise ImportError('cloudify-dsl-parser must be installed to '
+                          'execute local workflows. '
+                          '(e.g. "pip install cloudify-dsl-parser")')
+    plan = dsl_tasks.prepare_deployment_plan(
+        dsl_parser.parse_from_path(blueprint_path), inputs=inputs)
+    nodes = [Node(node) for node in plan['nodes']]
+    node_instances = [NodeInstance(instance)
+                      for instance in plan['node_instances']]
+    _prepare_nodes_and_instances(nodes, node_instances)
+    return plan, nodes, node_instances
 
-        for node in nodes:
-            if 'relationships' not in node:
-                node['relationships'] = []
-            scan(node, 'operations', node)
-            for relationship in node['relationships']:
-                scan(relationship, 'source_operations', node)
-                scan(relationship, 'target_operations', node)
 
-        for node_instance in node_instances:
-            node_instance['node_id'] = node_instance['name']
-            if 'relationships' not in node_instance:
-                node_instance['relationships'] = []
+def _prepare_nodes_and_instances(nodes, node_instances):
 
-    @staticmethod
-    def _get_module_method(module_method_path, tpe, node_name):
-        split = module_method_path.split('.')
-        module_name = '.'.join(split[:-1])
-        method_name = split[-1]
-        try:
-            module = importlib.import_module(module_name)
-        except ImportError:
-            raise ImportError('mapping error: No module named {} '
-                              '[node={}, type={}]'
-                              .format(module_name, node_name, tpe))
-        try:
-            return getattr(module, method_name)
-        except AttributeError:
-            raise AttributeError("mapping error: {} has no attribute '{}' "
-                                 "[node={}, type={}]"
-                                 .format(module.__name__, method_name,
-                                         node_name, tpe))
+    def scan(parent, name, node):
+        for operation in parent.get(name, {}).values():
+            _get_module_method(operation['operation'],
+                               tpe=name,
+                               node_name=node.id)
 
-    @staticmethod
-    def _merge_and_validate_execution_parameters(
-            workflow, workflow_name, execution_parameters=None,
-            allow_custom_parameters=False):
+    for node in nodes:
+        if 'relationships' not in node:
+            node['relationships'] = []
+        scan(node, 'operations', node)
+        for relationship in node['relationships']:
+            scan(relationship, 'source_operations', node)
+            scan(relationship, 'target_operations', node)
 
-        merged_parameters = {}
-        workflow_parameters = workflow.get('parameters', {})
-        execution_parameters = execution_parameters or {}
+    for node_instance in node_instances:
+        node_instance['version'] = 0
+        node_instance['node_id'] = node_instance['name']
+        if 'relationships' not in node_instance:
+            node_instance['relationships'] = []
 
-        missing_mandatory_parameters = set()
 
-        for name, param in workflow_parameters.iteritems():
-            if 'default' not in param:
-                if name not in execution_parameters:
-                    missing_mandatory_parameters.add(name)
-                    continue
-                merged_parameters[name] = execution_parameters[name]
-            else:
-                merged_parameters[name] = execution_parameters[name] if \
-                    name in execution_parameters else param['default']
+def _get_module_method(module_method_path, tpe, node_name):
+    split = module_method_path.split('.')
+    module_name = '.'.join(split[:-1])
+    method_name = split[-1]
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError:
+        raise ImportError('mapping error: No module named {} '
+                          '[node={}, type={}]'
+                          .format(module_name, node_name, tpe))
+    try:
+        return getattr(module, method_name)
+    except AttributeError:
+        raise AttributeError("mapping error: {} has no attribute '{}' "
+                             "[node={}, type={}]"
+                             .format(module.__name__, method_name,
+                                     node_name, tpe))
 
-        if missing_mandatory_parameters:
-            raise ValueError(
-                'Workflow "{0}" must be provided with the following '
-                'parameters to execute: {1}'
-                .format(workflow_name, ','.join(missing_mandatory_parameters)))
 
-        custom_parameters = dict(
-            (k, v) for (k, v) in execution_parameters.iteritems()
-            if k not in workflow_parameters)
+def _merge_and_validate_execution_parameters(
+        workflow, workflow_name, execution_parameters=None,
+        allow_custom_parameters=False):
 
-        if not allow_custom_parameters and custom_parameters:
-            raise ValueError(
-                'Workflow "{0}" does not have the following parameters '
-                'declared: {1}. Remove these parameters or use '
-                'the flag for allowing custom parameters'
-                .format(workflow_name, ','.join(custom_parameters.keys())))
+    merged_parameters = {}
+    workflow_parameters = workflow.get('parameters', {})
+    execution_parameters = execution_parameters or {}
 
-        merged_parameters.update(custom_parameters)
-        return merged_parameters
+    missing_mandatory_parameters = set()
+
+    for name, param in workflow_parameters.iteritems():
+        if 'default' not in param:
+            if name not in execution_parameters:
+                missing_mandatory_parameters.add(name)
+                continue
+            merged_parameters[name] = execution_parameters[name]
+        else:
+            merged_parameters[name] = execution_parameters[name] if \
+                name in execution_parameters else param['default']
+
+    if missing_mandatory_parameters:
+        raise ValueError(
+            'Workflow "{0}" must be provided with the following '
+            'parameters to execute: {1}'
+            .format(workflow_name, ','.join(missing_mandatory_parameters)))
+
+    custom_parameters = dict(
+        (k, v) for (k, v) in execution_parameters.iteritems()
+        if k not in workflow_parameters)
+
+    if not allow_custom_parameters and custom_parameters:
+        raise ValueError(
+            'Workflow "{0}" does not have the following parameters '
+            'declared: {1}. Remove these parameters or use '
+            'the flag for allowing custom parameters'
+            .format(workflow_name, ','.join(custom_parameters.keys())))
+
+    merged_parameters.update(custom_parameters)
+    return merged_parameters
 
 
 class Storage(object):
 
-    def __init__(self, name, resources_root, nodes, node_instances):
+    def __init__(self):
+        self.name = None
+        self.plan = None
+        self.resources_root = None
+        self._locks = None
+
+    def init(self, name, plan, nodes, node_instances, resources_root):
         self.name = name
         self.resources_root = resources_root
-        self._nodes = dict((
-            node.id, node) for node in nodes)
-        self._node_instances = dict((
-            instance.id, instance) for instance in node_instances)
-        for instance in self._node_instances.values():
-            instance['version'] = 0
-        self._locks = dict((
-            instance_id, threading.RLock()) for instance_id
-            in self._instance_ids())
+        self._locks = dict((instance_id, threading.RLock()) for instance_id
+                           in self._instance_ids())
 
     def get_resource(self, resource_path):
         with open(os.path.join(self.resources_root, resource_path)) as f:
@@ -250,6 +248,12 @@ class Storage(object):
         with open(target_path, 'w') as f:
             f.write(resource)
         return target_path
+
+    def get_node(self, node_id):
+        raise NotImplementedError()
+
+    def get_nodes(self):
+        raise NotImplementedError()
 
     def get_node_instance(self, node_instance_id):
         raise NotImplementedError()
@@ -289,16 +293,6 @@ class Storage(object):
     def _store_instance(self, node_instance):
         raise NotImplementedError()
 
-    def get_node(self, node_id):
-        node = self._nodes.get(node_id)
-        if node is None:
-            raise RuntimeError('Node {} does not exist'
-                               .format(node_id))
-        return copy.deepcopy(node)
-
-    def get_nodes(self):
-        return copy.deepcopy(self._nodes.values())
-
     def get_node_instances(self):
         raise NotImplementedError()
 
@@ -311,11 +305,28 @@ class Storage(object):
 
 class InMemoryStorage(Storage):
 
-    def __init__(self, name, resources_root, nodes, node_instances):
-        super(InMemoryStorage, self).__init__(name,
-                                              resources_root,
-                                              nodes,
-                                              node_instances)
+    def __init__(self):
+        super(InMemoryStorage, self).__init__()
+        self._nodes = None
+        self._node_instances = None
+
+    def init(self, name, plan, nodes, node_instances, resources_root):
+        self.plan = plan
+        self._nodes = dict((node.id, node) for node in nodes)
+        self._node_instances = dict((instance.id, instance)
+                                    for instance in node_instances)
+        super(InMemoryStorage, self).init(name, plan, nodes, node_instances,
+                                          resources_root)
+
+    def get_node(self, node_id):
+        node = self._nodes.get(node_id)
+        if node is None:
+            raise RuntimeError('Node {} does not exist'
+                               .format(node_id))
+        return copy.deepcopy(node)
+
+    def get_nodes(self):
+        return copy.deepcopy(self._nodes.values())
 
     def get_node_instance(self, node_instance_id):
         return copy.deepcopy(self._get_node_instance(node_instance_id))
@@ -335,18 +346,20 @@ class InMemoryStorage(Storage):
 
 class FileStorage(Storage):
 
-    def __init__(self, name, resources_root, nodes, node_instances,
-                 storage_dir='/tmp/cloudify-workflows',
-                 clear=False):
-        self._storage_dir = os.path.join(storage_dir, name)
-        self._instances_dir = os.path.join(self._storage_dir,
-                                           'node-instances')
-        if os.path.isdir(self._storage_dir) and clear:
-            shutil.rmtree(self._storage_dir)
-        super(FileStorage, self).__init__(name,
-                                          resources_root,
-                                          nodes,
-                                          node_instances)
+    def __init__(self, storage_dir='/tmp/cloudify-workflows'):
+        super(FileStorage, self).__init__()
+        self._root_storage_dir = os.path.join(storage_dir)
+        self._storage_dir = None
+        self._instances_dir = None
+
+    def init(self, name, plan, nodes, node_instances, resources_root):
+        self._storage_dir = os.path.join(self._root_storage_dir, name)
+        self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
+        super(FileStorage, self).init(name,
+                                      plan,
+                                      nodes,
+                                      node_instances,
+                                      resources_root)
         if not os.path.isdir(self._storage_dir):
             os.makedirs(self._storage_dir)
         if not os.path.isdir(self._instances_dir):
