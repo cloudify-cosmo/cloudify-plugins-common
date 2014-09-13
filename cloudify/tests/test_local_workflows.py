@@ -58,7 +58,7 @@ class BaseWorkflowTest(unittest.TestCase):
         if isinstance(storage, local.FileStorage):
             shutil.rmtree(self.storage_kwargs['storage_dir'])
 
-        return local.Environment.init(blueprint_path,
+        return local.init_environment(blueprint_path,
                                       name=name,
                                       inputs=inputs,
                                       storage=storage)
@@ -69,7 +69,7 @@ class BaseWorkflowTest(unittest.TestCase):
 
         storage = self.storage_cls(**self.storage_kwargs)
 
-        return local.Environment.load(name=name,
+        return local.load_environment(name=name,
                                       storage=storage)
 
     def _setup_env(self,

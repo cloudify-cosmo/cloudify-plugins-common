@@ -39,26 +39,10 @@ except ImportError:
     dsl_utils = None
 
 
-class Environment(object):
 
-    @staticmethod
-    def init(blueprint_path,
-             name='local',
-             inputs=None,
-             storage=None):
-        if storage is None:
-            storage = InMemoryStorage()
-        return Environment(storage=storage,
-                           blueprint_path=blueprint_path,
-                           name=name,
-                           inputs=inputs,
-                           load_existing=False)
 
-    @staticmethod
-    def load(name, storage):
-        return Environment(storage=storage,
-                           name=name,
-                           load_existing=True)
+class _Environment(object):
+
 
     def __init__(self,
                  storage,
@@ -147,6 +131,25 @@ class Environment(object):
             workflow, workflow_name, parameters, allow_custom_parameters)
 
         workflow_method(__cloudify_context=ctx, **merged_parameters)
+
+
+def init_environment(blueprint_path,
+                     name='local',
+                     inputs=None,
+                     storage=None):
+    if storage is None:
+        storage = InMemoryStorage()
+    return _Environment(storage=storage,
+                        blueprint_path=blueprint_path,
+                        name=name,
+                        inputs=inputs,
+                        load_existing=False)
+
+
+def load_environment(name, storage):
+    return _Environment(storage=storage,
+                        name=name,
+                        load_existing=True)
 
 
 def _parse_plan(blueprint_path, inputs):
@@ -246,7 +249,7 @@ def _merge_and_validate_execution_parameters(
     return merged_parameters
 
 
-class Storage(object):
+class _Storage(object):
 
     def __init__(self):
         self.name = None
@@ -340,7 +343,7 @@ class Storage(object):
         return self._locks[node_instance_id]
 
 
-class InMemoryStorage(Storage):
+class InMemoryStorage(_Storage):
 
     def __init__(self):
         super(InMemoryStorage, self).__init__()
@@ -369,7 +372,7 @@ class InMemoryStorage(Storage):
         return self._node_instances.keys()
 
 
-class FileStorage(Storage):
+class FileStorage(_Storage):
 
     def __init__(self, storage_dir='/tmp/cloudify-workflows'):
         super(FileStorage, self).__init__()
