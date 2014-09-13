@@ -78,7 +78,7 @@ class Endpoint(object):
             return runtime_properties['ip']
         if properties is None:
             # instance is not None (see comment above)
-            node = self.get_node(host_id)
+            node = self.get_node(instance.node_id)
             properties = node.properties
         if properties.get('ip'):
             return properties['ip']
@@ -148,6 +148,7 @@ class LocalEndpoint(Endpoint):
         instance = self.storage.get_node_instance(node_instance_id)
         return manager.NodeInstance(
             node_instance_id,
+            instance.node_id,
             runtime_properties=instance.runtime_properties,
             state=instance.state,
             version=instance.version,

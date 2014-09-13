@@ -165,14 +165,37 @@ class BaseWorkflowTest(unittest.TestCase):
                             'default': 'from_input_default_value'
                         }
                     }
+                },
+                'cloudify.types.host': {
+                    'derived_from': 'type',
+                    'properties': {
+                        'ip': {
+                            'default': ''
+                        }
+                    }
                 }
             },
             'relationships': {
                 'cloudify.relationships.contained_in': {}
             },
             'node_templates': {
-                'node2': {
+                'node4': {
                     'type': 'type',
+                    'interfaces': interfaces,
+                    'relationships': [{
+                        'target': 'node3',
+                        'type': 'cloudify.relationships.contained_in',
+                    }]
+                },
+                'node3': {
+                    'type': 'cloudify.types.host',
+                    'interfaces': interfaces,
+                    'properties': {
+                        'ip': '1.1.1.1'
+                    }
+                },
+                'node2': {
+                    'type': 'cloudify.types.host',
                     'interfaces': interfaces,
                 },
                 'node': {
@@ -406,7 +429,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             relationship = node1_relationships[0]
             relationship_instance = instance1_relationships[0]
 
-            self.assertEqual(2, len(nodes))
+            self.assertEqual(4, len(nodes))
             self.assertEqual(1, len(node1_instances))
             self.assertEqual(1, len(node2_instances))
             self.assertEqual(1, len(node1_relationships))
@@ -420,9 +443,10 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('node2', node2.id)
             self.assertEqual('type', node1.type)
             self.assertEqual('type', node1.type)
-            self.assertEqual('type', node2.type)
+            self.assertEqual('cloudify.types.host', node2.type)
             self.assertListEqual(['type'], node1.type_hierarchy)
-            self.assertListEqual(['type'], node2.type_hierarchy)
+            self.assertListEqual(['type', 'cloudify.types.host'],
+                                 node2.type_hierarchy)
             self.assertDictContainsSubset({'property': 'value'},
                                           node1.properties)
             self.assertDictContainsSubset({'property': 'default'},
@@ -557,6 +581,38 @@ class LocalWorkflowTest(BaseWorkflowTest):
             with open(target_path) as f:
                 self.assertEqual('content', f.read())
         self._execute_workflow(operation_methods=[ctx_properties])
+
+    def test_ctx_host_ip(self):
+        def op0(ctx, **_):
+            ctx.runtime_properties['ip'] = '2.2.2.2'
+
+        def op1(ctx, expected_ip, **_):
+            self.assertEqual(ctx.host_ip, expected_ip)
+
+        def flow(ctx, **_):
+            instance1 = _instance(ctx, 'node')
+            instance4 = _instance(ctx, 'node4')
+            # these are hosts
+            # in this one will will set a runtime_property of ip
+            instance2 = _instance(ctx, 'node2')
+            # this one has ip as static properties
+            instance3 = _instance(ctx, 'node3')
+
+            instance2.execute_operation('test.op0').get()
+            instance1.execute_operation('test.op1', kwargs={
+                'expected_ip': '2.2.2.2'
+            }).get()
+            instance2.execute_operation('test.op1', kwargs={
+                'expected_ip': '2.2.2.2'
+            }).get()
+            instance3.execute_operation('test.op1', kwargs={
+                'expected_ip': '1.1.1.1'
+            }).get()
+            instance4.execute_operation('test.op1', kwargs={
+                'expected_ip': '1.1.1.1'
+            }).get()
+
+        self._execute_workflow(flow, operation_methods=[op0, op1])
 
     def test_operation_bootstrap_context(self):
         def contexts(ctx, **_):

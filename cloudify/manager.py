@@ -29,9 +29,15 @@ class NodeInstance(object):
     An instance of this class contains runtime information retrieved
     from Cloudify's runtime storage as well as the node's state.
     """
-    def __init__(self, node_id, runtime_properties=None,
-                 state=None, version=None, host_id=None):
-        self.id = node_id
+    def __init__(self,
+                 node_instance_id,
+                 node_id,
+                 runtime_properties=None,
+                 state=None,
+                 version=None,
+                 host_id=None):
+        self.id = node_instance_id
+        self._node_id = node_id
         self._runtime_properties = \
             DirtyTrackingDict((runtime_properties or {}).copy())
         self._state = state
@@ -91,6 +97,10 @@ class NodeInstance(object):
     @property
     def host_id(self):
         return self._host_id
+
+    @property
+    def node_id(self):
+        return self._node_id
 
 
 def get_rest_client():
@@ -187,6 +197,7 @@ def get_node_instance(node_instance_id):
     client = get_rest_client()
     instance = client.node_instances.get(node_instance_id)
     return NodeInstance(node_instance_id,
+                        instance.node_id,
                         runtime_properties=instance.runtime_properties,
                         state=instance.state,
                         version=instance.version,
