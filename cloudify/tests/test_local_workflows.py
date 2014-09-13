@@ -58,10 +58,10 @@ class BaseWorkflowTest(unittest.TestCase):
         if isinstance(storage, local.FileStorage):
             shutil.rmtree(self.storage_kwargs['storage_dir'])
 
-        return local.init_environment(blueprint_path,
-                                      name=name,
-                                      inputs=inputs,
-                                      storage=storage)
+        return local.init_env(blueprint_path,
+                              name=name,
+                              inputs=inputs,
+                              storage=storage)
 
     def _load_env(self, name):
         if name is None:
@@ -69,8 +69,8 @@ class BaseWorkflowTest(unittest.TestCase):
 
         storage = self.storage_cls(**self.storage_kwargs)
 
-        return local.load_environment(name=name,
-                                      storage=storage)
+        return local.load_env(name=name,
+                              storage=storage)
 
     def _setup_env(self,
                    workflow_methods=None,

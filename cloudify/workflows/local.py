@@ -133,10 +133,10 @@ class _Environment(object):
         workflow_method(__cloudify_context=ctx, **merged_parameters)
 
 
-def init_environment(blueprint_path,
-                     name='local',
-                     inputs=None,
-                     storage=None):
+def init_env(blueprint_path,
+             name='local',
+             inputs=None,
+             storage=None):
     if storage is None:
         storage = InMemoryStorage()
     return _Environment(storage=storage,
@@ -146,7 +146,7 @@ def init_environment(blueprint_path,
                         load_existing=False)
 
 
-def load_environment(name, storage):
+def load_env(name, storage):
     return _Environment(storage=storage,
                         name=name,
                         load_existing=True)
