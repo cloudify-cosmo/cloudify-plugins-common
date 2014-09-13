@@ -71,6 +71,8 @@ class Endpoint(object):
         """
         # properties and runtime_properties are either both None or
         # both not None
+        if not host_id:
+            raise NonRecoverableError('host_id missing')
         if runtime_properties is None:
             instance = self.get_node_instance(host_id)
             runtime_properties = instance.runtime_properties
