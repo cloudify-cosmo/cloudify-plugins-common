@@ -16,6 +16,7 @@
 
 import argparse
 
+from cloudify_rest_client import CloudifyClient
 from cloudify.workflows import local
 
 if __name__ == '__main__':
@@ -25,6 +26,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--name', default='local')
     arg_parser.add_argument('--storage_dir', default='/tmp/cloudify-workflows')
     arg_parser.add_argument('--clear', action='store_true')
+    arg_parser.add_argument('--bootstrap', action='store_true')
     arg_parser.add_argument('--pool-size', type=int, default=1)
     args = arg_parser.parse_args()
 
@@ -37,3 +39,15 @@ if __name__ == '__main__':
                 task_retries=3,
                 task_retry_interval=1,
                 task_thread_pool_size=args.pool_size)
+    if args.bootstrap:
+        outputs = env.outputs()
+        provider_context = outputs['provider_context']['value'][0] or {}
+        bootstrap_context = outputs['cloudify']['value']
+        agent_key_path = bootstrap_context['cloudify_agent'][
+            'agent_key_path'][0]
+        bootstrap_context['cloudify_agent']['agent_key_path'] = agent_key_path
+        provider_context['cloudify'] = bootstrap_context
+        management_ip = outputs['management_ip']['value'][0]
+        provider_name = outputs['provider_name']['value'][0]
+        rest = CloudifyClient(management_ip)
+        rest.manager.create_context(provider_name, provider_context)

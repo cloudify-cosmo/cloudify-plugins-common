@@ -542,8 +542,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
                                             'ctx_properties'),
                              ctx.task_name)
             self.assertIsNone(ctx.task_target)
-            self.assertEqual('127.0.0.1', ctx.host_ip)
-            self.assertEqual('127.0.0.1', ctx.host_ip)
             self.assertEqual('p', ctx.plugin)
             self.assertEqual('test.op0', ctx.operation)
             self.assertDictContainsSubset({'property': 'value'},
@@ -651,6 +649,24 @@ class LocalWorkflowTest(BaseWorkflowTest):
         conflict_error = exception.get_nowait()
 
         self.assertIn('does not match current', conflict_error.message)
+
+    def test_get_node(self):
+        def flow(ctx, **_):
+            pass
+        # stub to get a properly initialized storage instance
+        self._execute_workflow(flow)
+        storage = self.env.storage
+        node = storage.get_node('node')
+        self.assertEqual(node.properties['property'], 'value')
+
+    def test_get_node_missing(self):
+        def flow(ctx, **_):
+            pass
+        # stub to get a properly initialized storage instance
+        self._execute_workflow(flow)
+        storage = self.env.storage
+        self.assertRaises(RuntimeError,
+                          storage.get_node, 'node_that_does_not_exist')
 
 
 @nose.tools.istest

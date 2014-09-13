@@ -228,7 +228,8 @@ class Storage(object):
     def __init__(self, name, resources_root, nodes, node_instances):
         self.name = name
         self.resources_root = resources_root
-        self._nodes = nodes
+        self._nodes = dict((
+            node.id, node) for node in nodes)
         self._node_instances = dict((
             instance.id, instance) for instance in node_instances)
         for instance in self._node_instances.values():
@@ -288,8 +289,15 @@ class Storage(object):
     def _store_instance(self, node_instance):
         raise NotImplementedError()
 
+    def get_node(self, node_id):
+        node = self._nodes.get(node_id)
+        if node is None:
+            raise RuntimeError('Node {} does not exist'
+                               .format(node_id))
+        return copy.deepcopy(node)
+
     def get_nodes(self):
-        return copy.deepcopy(self._nodes)
+        return copy.deepcopy(self._nodes.values())
 
     def get_node_instances(self):
         raise NotImplementedError()

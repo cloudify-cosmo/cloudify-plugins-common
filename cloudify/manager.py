@@ -230,28 +230,6 @@ def get_node_instance_ip(node_instance_id):
 
 
 # TODO: some nasty code duplication between these two methods
-def get_host_node_instance_ip(host_id,
-                              properties=None,
-                              runtime_properties=None):
-    """
-    See ``get_node_instance_ip`` (this method duplicates its logic for the
-    sake of some minor optimizations).
-    """
-    # properties and runtime_properties are either both None or both not None
-    client = get_rest_client()
-    if runtime_properties is None:
-        instance = client.node_instances.get(host_id)
-        runtime_properties = instance.runtime_properties
-    if runtime_properties.get('ip'):
-        return runtime_properties['ip']
-    if properties is None:
-        # instance is not None (see comment above)
-        node = client.nodes.get(instance.deployment_id, instance.node_id)
-        properties = node.properties
-    if properties.get('ip'):
-        return properties['ip']
-    raise NonRecoverableError('could not find ip for host node instance: {0}'
-                              .format(host_id))
 
 
 def update_execution_status(execution_id, status, error=None):
