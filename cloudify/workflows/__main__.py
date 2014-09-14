@@ -25,30 +25,32 @@ if __name__ == '__main__':
     arg_parser.add_argument('blueprint_path')
     arg_parser.add_argument('--name', default='local')
     arg_parser.add_argument('--storage_dir', default='/tmp/cloudify-workflows')
-    arg_parser.add_argument('--clear', action='store_true')
+    arg_parser.add_argument('--init', action='store_true')
     arg_parser.add_argument('--bootstrap', action='store_true')
     arg_parser.add_argument('--pool-size', type=int, default=1)
     args = arg_parser.parse_args()
 
-    env = local.Environment(args.blueprint_path,
-                            name=args.name,
-                            storage_cls=local.FileStorage,
-                            storage_dir=args.storage_dir,
-                            clear=args.clear)
-    env.execute(args.workflow,
-                task_retries=3,
-                task_retry_interval=1,
-                task_thread_pool_size=args.pool_size)
-    if args.bootstrap:
-        outputs = env.outputs()
-        provider = outputs['provider']['value']
-        provider_context = provider['context'][0] or {}
-        bootstrap_context = outputs['cloudify']['value']
-        agent_key_path = bootstrap_context['cloudify_agent'][
-            'agent_key_path'][0]
-        bootstrap_context['cloudify_agent']['agent_key_path'] = agent_key_path
-        provider_context['cloudify'] = bootstrap_context
-        management_endpoint = outputs['management_endpoint']['value'][0]
-        rest = CloudifyClient(management_endpoint['manager_ip'])
-        rest.manager.create_context(provider['name'],
-                                    provider_context)
+    storage = local.FileStorage(args.storage_dir)
+    name = args.name
+    if args.init:
+        env = local.init_env(args.blueprint_path, name=name, storage=storage)
+    else:
+        env = local.load_env(name=name, storage=storage)
+        env.execute(args.workflow,
+                    task_retries=3,
+                    task_retry_interval=1,
+                    task_thread_pool_size=args.pool_size)
+        if args.bootstrap:
+            outputs = env.outputs()
+            provider = outputs['provider']['value']
+            provider_context = provider['context'][0] or {}
+            bootstrap_context = outputs['cloudify']['value']
+            agent_key_path = bootstrap_context['cloudify_agent'][
+                'agent_key_path'][0]
+            bootstrap_context['cloudify_agent'][
+                'agent_key_path'] = agent_key_path
+            provider_context['cloudify'] = bootstrap_context
+            management_endpoint = outputs['management_endpoint']['value'][0]
+            rest = CloudifyClient(management_endpoint['manager_ip'])
+            rest.manager.create_context(provider['name'],
+                                        provider_context)

@@ -47,15 +47,93 @@ class BaseWorkflowTest(unittest.TestCase):
 
     def cleanup(self):
         shutil.rmtree(self.work_dir)
+        self._remove_temp_module()
 
-    def _load_env(self, blueprint_path, inputs=None, name=None):
+    def _init_env(self, blueprint_path, inputs=None, name=None):
         if name is None:
             name = self._testMethodName
-        return local.Environment(blueprint_path,
-                                 name=name,
-                                 inputs=inputs,
-                                 storage_cls=self.storage_cls,
-                                 **self.storage_kwargs)
+
+        storage = self.storage_cls(**self.storage_kwargs)
+
+        if isinstance(storage, local.FileStorage):
+            shutil.rmtree(self.storage_kwargs['storage_dir'])
+
+        return local.init_env(blueprint_path,
+                              name=name,
+                              inputs=inputs,
+                              storage=storage)
+
+    def _load_env(self, name):
+        if name is None:
+            name = self._testMethodName
+
+        storage = self.storage_cls(**self.storage_kwargs)
+
+        return local.load_env(name=name,
+                              storage=storage)
+
+    def _setup_env(self,
+                   workflow_methods=None,
+                   operation_methods=None,
+                   use_existing_env=True,
+                   name=None,
+                   inputs=None,
+                   create_blueprint_func=None,
+                   workflow_parameters_schema=None,
+                   load_env=False):
+        if create_blueprint_func is None:
+            create_blueprint_func = self._blueprint_1
+
+        def stub_op(ctx, **_):
+            pass
+        if operation_methods is None:
+            operation_methods = [stub_op]
+
+        if workflow_methods[0] is None:
+            def workflow_method(ctx, **_):
+                instance = _instance(ctx, 'node')
+                instance.set_state('state').get()
+                instance.execute_operation('test.op0')
+            workflow_methods = [workflow_method]
+
+        # same as @workflow above the method
+        workflow_methods = [workflow(m, force_not_celery=True)
+                            for m in workflow_methods]
+
+        # same as @operation above each op method
+        operation_methods = [operation(m, force_not_celery=True)
+                             for m in operation_methods]
+
+        temp_module = self._create_temp_module()
+
+        for workflow_method in workflow_methods:
+            setattr(temp_module,
+                    workflow_method.__name__,
+                    workflow_method)
+        for operation_method in operation_methods:
+            setattr(temp_module,
+                    operation_method.__name__,
+                    operation_method)
+
+        blueprint = create_blueprint_func(workflow_methods,
+                                          operation_methods,
+                                          workflow_parameters_schema)
+
+        blueprint_dir = os.path.join(self.work_dir, 'blueprint')
+        if not os.path.isdir(blueprint_dir):
+            os.mkdir(blueprint_dir)
+        with open(os.path.join(blueprint_dir, 'resource'), 'w') as f:
+            f.write('content')
+        blueprint_path = os.path.join(blueprint_dir, 'blueprint.yaml')
+        with open(blueprint_path, 'w') as f:
+            f.write(yaml.safe_dump(blueprint))
+        if not self.env or not use_existing_env:
+            if load_env:
+                self.env = self._load_env(name)
+            else:
+                self.env = self._init_env(blueprint_path,
+                                          inputs=inputs,
+                                          name=name)
 
     def _execute_workflow(self,
                           workflow_method=None,
@@ -66,68 +144,32 @@ class BaseWorkflowTest(unittest.TestCase):
                           inputs=None,
                           create_blueprint_func=None,
                           workflow_parameters_schema=None,
-                          workflow_name='workflow'):
-        if create_blueprint_func is None:
-            create_blueprint_func = self._blueprint_1
+                          workflow_name='workflow0',
+                          load_env=False,
+                          setup_env=True):
+        if setup_env:
+            self._setup_env(
+                workflow_methods=[workflow_method],
+                operation_methods=operation_methods,
+                use_existing_env=use_existing_env,
+                name=name,
+                inputs=inputs,
+                create_blueprint_func=create_blueprint_func,
+                workflow_parameters_schema=workflow_parameters_schema,
+                load_env=load_env)
+        elif load_env:
+            self.env = self._load_env(name)
 
         execute_kwargs = execute_kwargs or {}
+        final_execute_kwargs = {
+            'task_retries': 0,
+            'task_retry_interval': 1
+        }
+        final_execute_kwargs.update(execute_kwargs)
 
-        def stub_op(ctx, **_):
-            pass
-        if operation_methods is None:
-            operation_methods = [stub_op]
+        self.env.execute(workflow_name, **final_execute_kwargs)
 
-        if workflow_method is None and len(operation_methods) == 1:
-            def workflow_method(ctx, **_):
-                instance = _instance(ctx, 'node')
-                instance.set_state('state').get()
-                instance.execute_operation('test.op0')
-
-        # same as @workflow above the method
-        workflow_method = workflow(workflow_method, force_not_celery=True)
-
-        # same as @operation above each op method
-        operation_methods = [operation(m, force_not_celery=True)
-                             for m in operation_methods]
-
-        temp_module = self._create_temp_module()
-
-        setattr(temp_module,
-                workflow_method.__name__,
-                workflow_method)
-        for operation_method in operation_methods:
-            setattr(temp_module,
-                    operation_method.__name__,
-                    operation_method)
-
-        blueprint = create_blueprint_func(workflow_method,
-                                          operation_methods,
-                                          workflow_parameters_schema)
-        try:
-            blueprint_dir = os.path.join(self.work_dir, 'blueprint')
-            if not os.path.isdir(blueprint_dir):
-                os.mkdir(blueprint_dir)
-            with open(os.path.join(blueprint_dir, 'resource'), 'w') as f:
-                f.write('content')
-            blueprint_path = os.path.join(blueprint_dir, 'blueprint.yaml')
-            with open(blueprint_path, 'w') as f:
-                f.write(yaml.safe_dump(blueprint))
-            if not self.env or not use_existing_env:
-                self.env = self._load_env(blueprint_path,
-                                          inputs=inputs,
-                                          name=name)
-
-            final_execute_kwargs = {
-                'task_retries': 0,
-                'task_retry_interval': 1
-            }
-            final_execute_kwargs.update(execute_kwargs)
-
-            self.env.execute(workflow_name, **final_execute_kwargs)
-        finally:
-            self._remove_temp_module()
-
-    def _blueprint_1(self, workflow_method, operation_methods,
+    def _blueprint_1(self, workflow_methods, operation_methods,
                      workflow_parameters_schema):
         interfaces = {
             'test': [
@@ -138,6 +180,14 @@ class BaseWorkflowTest(unittest.TestCase):
                 enumerate(operation_methods)
             ]
         }
+
+        workflows = dict((
+            ('workflow{}'.format(index), {
+                'mapping': 'p.{}.{}'.format(self._testMethodName,
+                                            w_method.__name__),
+                'parameters': workflow_parameters_schema or {}
+            }) for index, w_method in enumerate(workflow_methods)
+        ))
 
         blueprint = {
             'inputs': {
@@ -213,13 +263,7 @@ class BaseWorkflowTest(unittest.TestCase):
                     }]
                 },
             },
-            'workflows': {
-                'workflow': {
-                    'mapping': 'p.{}.{}'.format(self._testMethodName,
-                                                workflow_method.__name__),
-                    'parameters': workflow_parameters_schema or {}
-                }
-            }
+            'workflows': workflows
         }
         return blueprint
 
@@ -230,7 +274,8 @@ class BaseWorkflowTest(unittest.TestCase):
         return temp_module
 
     def _remove_temp_module(self):
-        del sys.modules[self._testMethodName]
+        if self._testMethodName in sys.modules:
+            del sys.modules[self._testMethodName]
 
     @contextlib.contextmanager
     def _mock_stdout_event_and_log(self):
@@ -325,7 +370,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
             ctx.local_task(task, send_task_events=False)
 
         with self._mock_stdout_event_and_log() as (events, _):
-            self._execute_workflow(flow2, use_existing_env=False)
+            self._execute_workflow(flow2,
+                                   use_existing_env=False)
             self.assertEqual(2, len(events))
 
         def flow3(ctx, **_):
@@ -409,7 +455,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
         def attributes(ctx, **_):
             self.assertEqual(self._testMethodName, ctx.blueprint_id)
             self.assertEqual(self._testMethodName, ctx.deployment_id)
-            self.assertEqual('workflow', ctx.workflow_id)
+            self.assertEqual('workflow0', ctx.workflow_id)
             self.assertIsNotNone(ctx.execution_id)
         self._execute_workflow(attributes)
 
@@ -560,7 +606,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual(self._testMethodName, ctx.blueprint_id)
             self.assertEqual(self._testMethodName, ctx.deployment_id)
             self.assertIsNotNone(ctx.execution_id)
-            self.assertEqual('workflow', ctx.workflow_id)
+            self.assertEqual('workflow0', ctx.workflow_id)
             self.assertIsNotNone(ctx.task_id)
             self.assertEqual('{}.{}'.format(self._testMethodName,
                                             'ctx_properties'),
@@ -758,24 +804,28 @@ class FileStorageTest(BaseWorkflowTest):
             os.path.join(self.storage_dir, self._testMethodName)))
 
     def test_persistency(self):
-        self._test_persistency(clear=False)
-
-    def test_clear(self):
-        self._test_persistency(clear=True)
-
-    def _test_persistency(self, clear):
         def persistency_1(ctx, **_):
             instance = _instance(ctx, 'node')
             instance.set_state('persistency')
+            instance.execute_operation('test.op0').get()
 
         def persistency_2(ctx, **_):
-            expected = None if clear else 'persistency'
             instance = _instance(ctx, 'node')
-            self.assertEqual(expected, instance.get_state().get())
+            self.assertEqual('persistency', instance.get_state().get())
+            instance.execute_operation('test.op0').get()
 
-        self._execute_workflow(persistency_1)
-        self.storage_kwargs.update({'clear': clear})
-        self._execute_workflow(persistency_2, use_existing_env=False)
+        def op(ctx, **_):
+            self.assertEqual('new_input', ctx.properties['from_input'])
+            self.assertEqual('content', ctx.get_resource('resource'))
+
+        self._setup_env(workflow_methods=[persistency_1, persistency_2],
+                        operation_methods=[op],
+                        inputs={'from_input': 'new_input'})
+
+        self._execute_workflow(workflow_name='workflow0',
+                               setup_env=False, load_env=True)
+        self._execute_workflow(workflow_name='workflow1',
+                               setup_env=False, load_env=True)
 
 
 @nose.tools.istest
@@ -940,16 +990,6 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             execute_kwargs={'task_thread_pool_size': default_size + 1},
             use_existing_env=False)
 
-    def test_invalid_storage_class(self):
-        def flow(ctx, **_):
-            pass
-        self.storage_cls = local.Storage
-        self.assertRaises(ValueError,
-                          self._execute_workflow, flow)
-        self.storage_cls = self.__class__
-        self.assertRaises(ValueError,
-                          self._execute_workflow, flow)
-
     def test_no_operation_module(self):
         self._no_module_or_attribute_test(
             is_missing_module=True,
@@ -995,13 +1035,14 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             self._execute_workflow(workflow_name='does_not_exist')
             self.fail()
         except ValueError, e:
-            self.assertIn("['workflow']", e.message)
+            self.assertIn("['workflow0']", e.message)
 
     def _no_module_or_attribute_test(self, is_missing_module, test_type):
         try:
             self._execute_workflow(
                 create_blueprint_func=self._blueprint_2(is_missing_module,
-                                                        test_type))
+                                                        test_type),
+                workflow_name='workflow')
             self.fail()
         except ImportError, e:
             if is_missing_module:
