@@ -17,12 +17,16 @@
 from cloudify import manager
 from cloudify import logs
 from cloudify.logs import CloudifyPluginLoggingHandler
+from cloudify.exceptions import NonRecoverableError
 
 
 class Endpoint(object):
 
     def __init__(self, ctx):
         self.ctx = ctx
+
+    def get_node(self, node_id):
+        raise NotImplementedError('Implemented by subclasses')
 
     def get_node_instance(self, node_instance_id):
         raise NotImplementedError('Implemented by subclasses')
@@ -46,12 +50,6 @@ class Endpoint(object):
     def get_bootstrap_context(self):
         raise NotImplementedError('Implemented by subclasses')
 
-    def get_host_node_instance_ip(self,
-                                  host_id,
-                                  properties=None,
-                                  runtime_properties=None):
-        raise NotImplementedError('Implemented by subclasses')
-
     def get_logging_handler(self):
         raise NotImplementedError('Implemented by subclasses')
 
@@ -61,11 +59,43 @@ class Endpoint(object):
                           additional_context=None):
         raise NotImplementedError('Implemented by subclasses')
 
+    def get_host_node_instance_ip(self,
+                                  host_id,
+                                  properties=None,
+                                  runtime_properties=None):
+        """
+        See ``manager.get_node_instance_ip``
+        (this method duplicates its logic for the
+        sake of some minor optimizations and so that it can be used in local
+        context).
+        """
+        # properties and runtime_properties are either both None or
+        # both not None
+        if not host_id:
+            raise NonRecoverableError('host_id missing')
+        if runtime_properties is None:
+            instance = self.get_node_instance(host_id)
+            runtime_properties = instance.runtime_properties
+        if runtime_properties.get('ip'):
+            return runtime_properties['ip']
+        if properties is None:
+            # instance is not None (see comment above)
+            node = self.get_node(instance.node_id)
+            properties = node.properties
+        if properties.get('ip'):
+            return properties['ip']
+        raise NonRecoverableError('could not find ip for host node instance: '
+                                  '{0}'.format(host_id))
+
 
 class ManagerEndpoint(Endpoint):
 
     def __init__(self, ctx):
         super(ManagerEndpoint, self).__init__(ctx)
+
+    def get_node(self, node_id):
+        client = manager.get_rest_client()
+        return client.nodes.get(self.ctx.deployment_id, node_id)
 
     def get_node_instance(self, node_instance_id):
         return manager.get_node_instance(node_instance_id)
@@ -92,14 +122,6 @@ class ManagerEndpoint(Endpoint):
     def get_bootstrap_context(self):
         return manager.get_bootstrap_context()
 
-    def get_host_node_instance_ip(self,
-                                  host_id,
-                                  properties=None,
-                                  runtime_properties=None):
-        return manager.get_host_node_instance_ip(host_id,
-                                                 properties,
-                                                 runtime_properties)
-
     def get_logging_handler(self):
         return CloudifyPluginLoggingHandler(self.ctx,
                                             out_func=logs.amqp_log_out)
@@ -121,10 +143,14 @@ class LocalEndpoint(Endpoint):
         super(LocalEndpoint, self).__init__(ctx)
         self.storage = storage
 
+    def get_node(self, node_id):
+        return self.storage.get_node(node_id)
+
     def get_node_instance(self, node_instance_id):
         instance = self.storage.get_node_instance(node_instance_id)
         return manager.NodeInstance(
             node_instance_id,
+            instance.node_id,
             runtime_properties=instance.runtime_properties,
             state=instance.state,
             version=instance.version,
@@ -155,13 +181,6 @@ class LocalEndpoint(Endpoint):
     def get_bootstrap_context(self):
         # TODO
         return {}
-
-    def get_host_node_instance_ip(self,
-                                  host_id,
-                                  properties=None,
-                                  runtime_properties=None):
-        # TODO
-        return '127.0.0.1'
 
     def get_logging_handler(self):
         return CloudifyPluginLoggingHandler(self.ctx,

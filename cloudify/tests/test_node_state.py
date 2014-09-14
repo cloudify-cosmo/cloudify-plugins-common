@@ -23,7 +23,7 @@ from cloudify.manager import NodeInstance
 class NodeStateTest(unittest.TestCase):
 
     def test_put_get(self):
-        node = NodeInstance('id', {})
+        node = NodeInstance('instance_id', 'node_id', {})
         node['key'] = 'value'
         self.assertEqual('value', node['key'])
         props = node.runtime_properties
@@ -31,11 +31,11 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('value', props['key'])
 
     def test_no_updates_to_empty_node(self):
-        node = NodeInstance('id')
+        node = NodeInstance('instance_id', 'node_id')
         self.assertEqual(0, len(node.runtime_properties))
 
     def test_put_new_property(self):
-        node = NodeInstance('id')
+        node = NodeInstance('instance_id', 'node_id')
         node.put('key', 'value')
         self.assertEqual('value', node.get('key'))
         props = node.runtime_properties
@@ -43,7 +43,7 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('value', props['key'])
 
     def test_put_several_properties(self):
-        node = NodeInstance('id', {'key0': 'value0'})
+        node = NodeInstance('instance_id', 'node_id', {'key0': 'value0'})
         node.put('key1', 'value1')
         node.put('key2', 'value2')
         props = node.runtime_properties
@@ -53,7 +53,7 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('value2', props['key2'])
 
     def test_update_property(self):
-        node = NodeInstance('id')
+        node = NodeInstance('instance_id', 'node_id')
         node.put('key', 'value')
         self.assertEqual('value', node.get('key'))
         props = node.runtime_properties
@@ -61,7 +61,7 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('value', props['key'])
 
     def test_put_new_property_twice(self):
-        node = NodeInstance('id')
+        node = NodeInstance('instance_id', 'node_id')
         node.put('key', 'value')
         node.put('key', 'v')
         self.assertEqual('v', node.get('key'))
@@ -70,25 +70,25 @@ class NodeStateTest(unittest.TestCase):
         self.assertEqual('v', props['key'])
 
     def test_delete_property(self):
-        node = NodeInstance('id')
+        node = NodeInstance('instance_id', 'node_id')
         node.put('key', 'value')
         self.assertEquals('value', node.get('key'))
         node.delete('key')
         self.assertNotIn('key', node)
 
     def test_delete_property_sugared_syntax(self):
-        node = NodeInstance('id')
+        node = NodeInstance('instance_id', 'node_id')
         node.put('key', 'value')
         self.assertEquals('value', node.get('key'))
         del(node['key'])
         self.assertNotIn('key', node)
 
     def test_delete_nonexistent_property(self):
-        node = NodeInstance('id')
+        node = NodeInstance('instance_id', 'node_id')
         self.assertRaises(KeyError, node.delete, 'key')
 
     def test_delete_makes_properties_dirty(self):
-        node = NodeInstance('id',
+        node = NodeInstance('instance_id', 'node_id',
                             runtime_properties={'preexisting-key': 'val'})
         self.assertFalse(node.dirty)
         del(node['preexisting-key'])

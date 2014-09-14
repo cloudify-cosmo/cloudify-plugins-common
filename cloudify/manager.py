@@ -29,9 +29,15 @@ class NodeInstance(object):
     An instance of this class contains runtime information retrieved
     from Cloudify's runtime storage as well as the node's state.
     """
-    def __init__(self, node_id, runtime_properties=None,
-                 state=None, version=None, host_id=None):
-        self.id = node_id
+    def __init__(self,
+                 node_instance_id,
+                 node_id,
+                 runtime_properties=None,
+                 state=None,
+                 version=None,
+                 host_id=None):
+        self.id = node_instance_id
+        self._node_id = node_id
         self._runtime_properties = \
             DirtyTrackingDict((runtime_properties or {}).copy())
         self._state = state
@@ -91,6 +97,10 @@ class NodeInstance(object):
     @property
     def host_id(self):
         return self._host_id
+
+    @property
+    def node_id(self):
+        return self._node_id
 
 
 def get_rest_client():
@@ -187,6 +197,7 @@ def get_node_instance(node_instance_id):
     client = get_rest_client()
     instance = client.node_instances.get(node_instance_id)
     return NodeInstance(node_instance_id,
+                        instance.node_id,
                         runtime_properties=instance.runtime_properties,
                         state=instance.state,
                         version=instance.version,
@@ -230,28 +241,6 @@ def get_node_instance_ip(node_instance_id):
 
 
 # TODO: some nasty code duplication between these two methods
-def get_host_node_instance_ip(host_id,
-                              properties=None,
-                              runtime_properties=None):
-    """
-    See ``get_node_instance_ip`` (this method duplicates its logic for the
-    sake of some minor optimizations).
-    """
-    # properties and runtime_properties are either both None or both not None
-    client = get_rest_client()
-    if runtime_properties is None:
-        instance = client.node_instances.get(host_id)
-        runtime_properties = instance.runtime_properties
-    if runtime_properties.get('ip'):
-        return runtime_properties['ip']
-    if properties is None:
-        # instance is not None (see comment above)
-        node = client.nodes.get(instance.deployment_id, instance.node_id)
-        properties = node.properties
-    if properties.get('ip'):
-        return properties['ip']
-    raise NonRecoverableError('could not find ip for host node instance: {0}'
-                              .format(host_id))
 
 
 def update_execution_status(execution_id, status, error=None):
