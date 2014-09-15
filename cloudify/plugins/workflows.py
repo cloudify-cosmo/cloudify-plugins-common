@@ -243,6 +243,10 @@ def _wait_for_host_to_start(host_node_instance):
 
 
 def _host_post_start(host_node_instance):
+
+    plugins_to_install = filter(lambda plugin: plugin['install'],
+                                host_node_instance.node.plugins_to_install)
+
     tasks = [_wait_for_host_to_start(host_node_instance)]
     if host_node_instance.node.properties['install_agent'] is True:
         tasks += [
@@ -251,13 +255,14 @@ def _host_post_start(host_node_instance):
                 'cloudify.interfaces.worker_installer.install'),
             host_node_instance.execute_operation(
                 'cloudify.interfaces.worker_installer.start'),
-            host_node_instance.send_event('Installing plugin'),
-            host_node_instance.send_event('Installing plugins: {0}'.format(
-                host_node_instance.node.plugins_to_install)),
+        ]
+    if plugins_to_install:
+        tasks += [
+            host_node_instance.send_event('Installing host plugins'),
             host_node_instance.execute_operation(
                 'cloudify.interfaces.plugin_installer.install',
                 kwargs={
-                    'plugins': host_node_instance.node.plugins_to_install}),
+                    'plugins': plugins_to_install}),
             host_node_instance.execute_operation(
                 'cloudify.interfaces.worker_installer.restart',
                 send_task_events=False)
