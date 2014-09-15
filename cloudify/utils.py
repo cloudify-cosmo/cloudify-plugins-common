@@ -30,11 +30,11 @@ from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, \
     MANAGER_FILE_SERVER_URL_KEY
 
 
-def setup_default_logger(logger_name):
+def setup_default_logger(logger_name, level=logging.DEBUG):
     """
     :param logger_name: Name of the logger.
     :return: A logger instance.
-    :rtype: logger
+    :rtype: Logger
     """
 
     # clear all other handlers
@@ -49,7 +49,7 @@ def setup_default_logger(logger_name):
                                       '[%(name)s] %(message)s',
                                   datefmt='%H:%M:%S')
     handler.setFormatter(formatter)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(level)
     logger.addHandler(handler)
 
     return logger
