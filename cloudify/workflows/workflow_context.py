@@ -913,13 +913,12 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
     def get_operation_task_queue(self, workflow_node_instance, plugin_name):
         workflow_node = workflow_node_instance.node
         rest_node = workflow_node._node
+        executor = rest_node.plugins[plugin_name]['executor']
         rest_node_instance = workflow_node_instance._node_instance
-        task_queue = 'cloudify.management'
-        if rest_node.plugins[plugin_name]['agent_plugin'] == 'true':
-            task_queue = rest_node_instance.host_id
-        elif rest_node.plugins[plugin_name]['manager_plugin'] == 'true':
-            task_queue = self.workflow_ctx.deployment_id
-        return task_queue
+        if executor == 'host_agent':
+            return rest_node_instance.host_id
+        if executor == 'central_deployment_agent':
+            return self.workflow_ctx.deployment_id
 
     @property
     def operation_cloudify_context(self):
