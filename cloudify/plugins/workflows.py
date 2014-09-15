@@ -13,6 +13,8 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+__author__ = 'dank'
+
 
 from cloudify.decorators import workflow
 from cloudify.workflows.tasks_graph import forkjoin
@@ -21,10 +23,7 @@ from cloudify.workflows import tasks as workflow_tasks
 
 @workflow
 def install(ctx, **kwargs):
-
-    """
-    Default install workflow.
-    """
+    """Default install workflow"""
 
     # switch to graph mode (operations on the context return tasks instead of
     # result instances)
@@ -252,13 +251,16 @@ def _host_post_start(host_node_instance):
                 'cloudify.interfaces.worker_installer.install'),
             host_node_instance.execute_operation(
                 'cloudify.interfaces.worker_installer.start'),
-            host_node_instance.send_event('Installing agent plugins'),
+            host_node_instance.send_event('Installing plugin'),
+            host_node_instance.send_event('Installing plugins: {0}'.format(
+                host_node_instance.node.plugins_to_install)),
             host_node_instance.execute_operation(
                 'cloudify.interfaces.plugin_installer.install',
                 kwargs={
                     'plugins': host_node_instance.node.plugins_to_install}),
             host_node_instance.execute_operation(
-                'cloudify.interfaces.worker_installer.restart')
+                'cloudify.interfaces.worker_installer.restart',
+                send_task_events=False)
         ]
     return tasks
 
