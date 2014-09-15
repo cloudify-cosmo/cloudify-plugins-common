@@ -14,7 +14,6 @@
 #    * limitations under the License.
 
 
-
 from cloudify.decorators import workflow
 from cloudify.workflows.tasks_graph import forkjoin
 from cloudify.workflows import tasks as workflow_tasks
