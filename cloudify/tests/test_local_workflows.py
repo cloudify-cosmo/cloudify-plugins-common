@@ -847,14 +847,14 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         self._execute_workflow(operation_methods=[op],
                                use_existing_env=False)
         self.assertEqual(self.env.outputs(),
-                         {'some_output': {'value': [None]}})
+                         {'some_output': None})
 
         def op(ctx, **_):
             ctx.runtime_properties['some_output'] = 'value'
         self._execute_workflow(operation_methods=[op],
                                use_existing_env=False)
         self.assertEqual(self.env.outputs(),
-                         {'some_output': {'value': ['value']}})
+                         {'some_output': 'value'})
 
     def test_workflow_parameters(self):
         normal_schema = {

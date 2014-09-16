@@ -70,27 +70,8 @@ class _Environment(object):
         return self.storage.name
 
     def outputs(self):
-        context = {}
-
-        def handler(dict_, k, v, _):
-            func = dsl_functions.parse(v)
-            if isinstance(func, dsl_functions.GetAttribute):
-                attributes = []
-                if 'instances' not in context:
-                    instances = self.storage.get_node_instances()
-                    context['instances'] = instances
-                for instance in context['instances']:
-                    if instance.node_id == func.node_name:
-                        runtime_properties = instance.runtime_properties or {}
-                        attributes.append(runtime_properties.get(
-                            func.attribute_name))
-                dict_[k] = attributes
-
-        outputs = copy.deepcopy(self.plan['outputs'])
-        dsl_utils.scan_properties(outputs,
-                                  handler,
-                                  '{0}.outputs'.format(self.name))
-        return outputs
+        return dsl_functions.evaluate_outputs(self.plan['outputs'],
+                                              self.storage.get_node_instances)
 
     def execute(self,
                 workflow,
