@@ -23,7 +23,9 @@ setup(
     version='3.1a4',
     author='elip',
     author_email='elip@gigaspaces.com',
-    packages=['cloudify', 'cloudify.workflows'],
+    packages=['cloudify',
+              'cloudify.workflows',
+              'cloudify.plugins'],
     license='LICENSE',
     description='Contains necessary decorators and utility methods for '
                 'writing Cloudify plugins',
