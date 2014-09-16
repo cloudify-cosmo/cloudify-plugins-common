@@ -938,7 +938,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             use_existing_env=False)
 
     def test_retry_configuration(self):
-        retry_interval = 0.1
+        retry_interval = 1
         task_retries = 1
 
         def flow(ctx, **_):
@@ -956,7 +956,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             ctx.runtime_properties['timestamp'] = current_timestamp
 
             if current_retry > 0:
-                self.assertLess(current_timestamp - last_timestamp, 0.5)
+                self.assertGreaterEqual(current_timestamp - last_timestamp, 1)
             if current_retry < task_retries:
                 self.fail()
 
