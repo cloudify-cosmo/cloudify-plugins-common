@@ -15,6 +15,7 @@
 
 
 import traceback
+import copy
 from multiprocessing import Process
 from multiprocessing import Pipe
 from StringIO import StringIO
@@ -101,6 +102,11 @@ def operation(func=None, **arguments):
                 ctx = {}
             if not _is_cloudify_context(ctx):
                 ctx = CloudifyContext(ctx)
+                # remove __cloudify_context
+                kwargs.pop(CLOUDIFY_CONTEXT_PROPERTY_KEY, None)
+                # task is local (not through celery so we need to clone kwarg
+                if ctx.task_target is None:
+                    kwargs = copy.deepcopy(kwargs)
                 kwargs['ctx'] = ctx
             try:
                 current_ctx.set(ctx, kwargs)
