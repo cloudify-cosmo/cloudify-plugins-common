@@ -945,10 +945,12 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
 
         def flow(ctx, **_):
             instance = _instance(ctx, 'node')
-            instance.execute_operation('test.op0').get()
+            instance.execute_operation('test.op0', kwargs={
+                'props': {'key': 'initial_value'}
+            }).get()
             instance.execute_operation('test.op1').get()
 
-        def op0(ctx, **_):
+        def op0(ctx, props, **_):
             self.assertIsNotNone(ctx.node_id)
             current_retry = ctx.runtime_properties.get('retry', 0)
             last_timestamp = ctx.runtime_properties.get('timestamp')
@@ -956,6 +958,9 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
 
             ctx.runtime_properties['retry'] = current_retry + 1
             ctx.runtime_properties['timestamp'] = current_timestamp
+
+            self.assertEqual('initial_value', props['key'])
+            props['key'] = 'new_value'
 
             if current_retry > 0:
                 self.assertGreaterEqual(current_timestamp - last_timestamp, 1)
