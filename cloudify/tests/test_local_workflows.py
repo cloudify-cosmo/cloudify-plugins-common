@@ -614,6 +614,15 @@ class LocalWorkflowTest(BaseWorkflowTest):
             op0, op1])
 
     def test_operation_ctx_properties_and_methods(self):
+        def flow(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.set_state('state').get()
+            instance.execute_operation('test.op0').get()
+            target_path = ctx.internal.handler.download_blueprint_resource(
+                'resource')
+            with open(target_path) as f:
+                self.assertEqual('content', f.read())
+
         def ctx_properties(ctx, **_):
             self.assertEqual('node', ctx.node_name)
             self.assertIn('node_', ctx.node_id)
@@ -641,7 +650,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual(target_path, expected_target_path)
             with open(target_path) as f:
                 self.assertEqual('content', f.read())
-        self._execute_workflow(operation_methods=[ctx_properties])
+        self._execute_workflow(flow, operation_methods=[ctx_properties])
 
     def test_ctx_host_ip(self):
         def op0(ctx, **_):
