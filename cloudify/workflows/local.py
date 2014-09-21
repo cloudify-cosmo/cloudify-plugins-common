@@ -44,13 +44,16 @@ class _Environment(object):
                  blueprint_path=None,
                  name='local',
                  inputs=None,
-                 load_existing=False):
+                 load_existing=False,
+                 ignored_modules=None):
         self.storage = storage
 
         if load_existing:
             self.storage.load(name)
         else:
-            plan, nodes, node_instances = _parse_plan(blueprint_path, inputs)
+            plan, nodes, node_instances = _parse_plan(blueprint_path,
+                                                      inputs,
+                                                      ignored_modules)
             storage.init(
                 name=name,
                 plan=plan,
@@ -106,20 +109,22 @@ class _Environment(object):
         merged_parameters = _merge_and_validate_execution_parameters(
             workflow, workflow_name, parameters, allow_custom_parameters)
 
-        workflow_method(__cloudify_context=ctx, **merged_parameters)
+        return workflow_method(__cloudify_context=ctx, **merged_parameters)
 
 
 def init_env(blueprint_path,
              name='local',
              inputs=None,
-             storage=None):
+             storage=None,
+             ignored_modules=None):
     if storage is None:
         storage = InMemoryStorage()
     return _Environment(storage=storage,
                         blueprint_path=blueprint_path,
                         name=name,
                         inputs=inputs,
-                        load_existing=False)
+                        load_existing=False,
+                        ignored_modules=ignored_modules)
 
 
 def load_env(name, storage):
@@ -128,7 +133,7 @@ def load_env(name, storage):
                         load_existing=True)
 
 
-def _parse_plan(blueprint_path, inputs):
+def _parse_plan(blueprint_path, inputs, ignored_modules):
     if dsl_parser is None:
         raise ImportError('cloudify-dsl-parser must be installed to '
                           'execute local workflows. '
@@ -138,17 +143,18 @@ def _parse_plan(blueprint_path, inputs):
     nodes = [Node(node) for node in plan['nodes']]
     node_instances = [NodeInstance(instance)
                       for instance in plan['node_instances']]
-    _prepare_nodes_and_instances(nodes, node_instances)
+    _prepare_nodes_and_instances(nodes, node_instances, ignored_modules)
     return plan, nodes, node_instances
 
 
-def _prepare_nodes_and_instances(nodes, node_instances):
+def _prepare_nodes_and_instances(nodes, node_instances, ignored_modules):
 
     def scan(parent, name, node):
         for operation in parent.get(name, {}).values():
             _get_module_method(operation['operation'],
                                tpe=name,
-                               node_name=node.id)
+                               node_name=node.id,
+                               ignored_modules=ignored_modules)
 
     for node in nodes:
         if 'relationships' not in node:
@@ -165,9 +171,13 @@ def _prepare_nodes_and_instances(nodes, node_instances):
             node_instance['relationships'] = []
 
 
-def _get_module_method(module_method_path, tpe, node_name):
+def _get_module_method(module_method_path, tpe, node_name,
+                       ignored_modules=None):
+    ignored_modules = ignored_modules or []
     split = module_method_path.split('.')
     module_name = '.'.join(split[:-1])
+    if module_name in ignored_modules:
+        return None
     method_name = split[-1]
     try:
         module = importlib.import_module(module_name)

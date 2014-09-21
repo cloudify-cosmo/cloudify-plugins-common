@@ -25,7 +25,8 @@ from cloudify.manager import (get_node_instance,
                               update_node_instance,
                               update_execution_status,
                               get_bootstrap_context,
-                              get_rest_client)
+                              get_rest_client,
+                              download_blueprint_resource)
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
@@ -860,6 +861,11 @@ class CloudifyWorkflowContextHandler(object):
     def send_workflow_event(self, event_type, message=None, args=None):
         raise NotImplementedError('Implemented by subclasses')
 
+    def download_blueprint_resource(self,
+                                    resource_path,
+                                    target_path=None):
+        raise NotImplementedError('Implemented by subclasses')
+
 
 class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
@@ -948,6 +954,16 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                             args=args,
                             out_func=logs.amqp_event_out)
 
+    def download_blueprint_resource(self,
+                                    resource_path,
+                                    target_path=None):
+        blueprint_id = self.workflow_ctx.blueprint_id
+        logger = self.workflow_ctx.logger
+        return download_blueprint_resource(blueprint_id=blueprint_id,
+                                           resource_path=resource_path,
+                                           target_path=target_path,
+                                           logger=logger)
+
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
@@ -1033,6 +1049,12 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                             message=message,
                             args=args,
                             out_func=logs.stdout_event_out)
+
+    def download_blueprint_resource(self,
+                                    resource_path,
+                                    target_path=None):
+        return self.storage.download_resource(resource_path=resource_path,
+                                              target_path=target_path)
 
 
 def task_config(fn=None, **arguments):
