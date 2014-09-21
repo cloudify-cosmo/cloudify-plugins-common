@@ -109,7 +109,7 @@ class _Environment(object):
         merged_parameters = _merge_and_validate_execution_parameters(
             workflow, workflow_name, parameters, allow_custom_parameters)
 
-        workflow_method(__cloudify_context=ctx, **merged_parameters)
+        return workflow_method(__cloudify_context=ctx, **merged_parameters)
 
 
 def init_env(blueprint_path,

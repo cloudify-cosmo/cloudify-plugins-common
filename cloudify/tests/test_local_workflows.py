@@ -176,7 +176,7 @@ class BaseWorkflowTest(unittest.TestCase):
         }
         final_execute_kwargs.update(execute_kwargs)
 
-        self.env.execute(workflow_name, **final_execute_kwargs)
+        return self.env.execute(workflow_name, **final_execute_kwargs)
 
     def _blueprint_1(self, workflow_methods, operation_methods,
                      workflow_parameters_schema, ignored_modules):
@@ -870,6 +870,11 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                                use_existing_env=False)
         self.assertEqual(self.env.outputs(),
                          {'some_output': 'value'})
+
+    def test_workflow_return_value(self):
+        def flow(ctx, **_):
+            return 1
+        self.assertEqual(1, self._execute_workflow(flow))
 
     def test_workflow_parameters(self):
         normal_schema = {
