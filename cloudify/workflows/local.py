@@ -31,12 +31,10 @@ from cloudify.workflows.workflow_context import (
 try:
     from dsl_parser import parser as dsl_parser, tasks as dsl_tasks
     from dsl_parser import functions as dsl_functions
-    from dsl_parser import utils as dsl_utils
 except ImportError:
     dsl_parser = None
     dsl_tasks = None
     dsl_functions = None
-    dsl_utils = None
 
 
 class _Environment(object):
