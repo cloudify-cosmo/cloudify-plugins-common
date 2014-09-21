@@ -190,7 +190,7 @@ class BaseWorkflowTest(unittest.TestCase):
         ))
 
         blueprint = {
-            'tosca_definitions_version': 'cloudify_1_0',
+            'tosca_definitions_version': 'cloudify_dsl_1_0',
             'inputs': {
                 'from_input': {
                     'default': 'from_input_default_value'
@@ -1075,7 +1075,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                 ]
             }
             blueprint = {
-                'tosca_definitions_version': 'cloudify_1_0',
+                'tosca_definitions_version': 'cloudify_dsl_1_0',
                 'plugins': {
                     'p': {
                         'executor': 'central_deployment_agent',
