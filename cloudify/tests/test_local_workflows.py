@@ -49,7 +49,10 @@ class BaseWorkflowTest(unittest.TestCase):
         shutil.rmtree(self.work_dir)
         self._remove_temp_module()
 
-    def _init_env(self, blueprint_path, inputs=None, name=None):
+    def _init_env(self, blueprint_path,
+                  inputs=None,
+                  name=None,
+                  ignored_modules=None):
         if name is None:
             name = self._testMethodName
 
@@ -61,7 +64,8 @@ class BaseWorkflowTest(unittest.TestCase):
         return local.init_env(blueprint_path,
                               name=name,
                               inputs=inputs,
-                              storage=storage)
+                              storage=storage,
+                              ignored_modules=ignored_modules)
 
     def _load_env(self, name):
         if name is None:
@@ -80,7 +84,8 @@ class BaseWorkflowTest(unittest.TestCase):
                    inputs=None,
                    create_blueprint_func=None,
                    workflow_parameters_schema=None,
-                   load_env=False):
+                   load_env=False,
+                   ignored_modules=None):
         if create_blueprint_func is None:
             create_blueprint_func = self._blueprint_1
 
@@ -117,7 +122,8 @@ class BaseWorkflowTest(unittest.TestCase):
 
         blueprint = create_blueprint_func(workflow_methods,
                                           operation_methods,
-                                          workflow_parameters_schema)
+                                          workflow_parameters_schema,
+                                          ignored_modules)
 
         blueprint_dir = os.path.join(self.work_dir, 'blueprint')
         if not os.path.isdir(blueprint_dir):
@@ -133,7 +139,8 @@ class BaseWorkflowTest(unittest.TestCase):
             else:
                 self.env = self._init_env(blueprint_path,
                                           inputs=inputs,
-                                          name=name)
+                                          name=name,
+                                          ignored_modules=ignored_modules)
 
     def _execute_workflow(self,
                           workflow_method=None,
@@ -146,7 +153,8 @@ class BaseWorkflowTest(unittest.TestCase):
                           workflow_parameters_schema=None,
                           workflow_name='workflow0',
                           load_env=False,
-                          setup_env=True):
+                          setup_env=True,
+                          ignored_modules=None):
         if setup_env:
             self._setup_env(
                 workflow_methods=[workflow_method],
@@ -156,7 +164,8 @@ class BaseWorkflowTest(unittest.TestCase):
                 inputs=inputs,
                 create_blueprint_func=create_blueprint_func,
                 workflow_parameters_schema=workflow_parameters_schema,
-                load_env=load_env)
+                load_env=load_env,
+                ignored_modules=ignored_modules)
         elif load_env:
             self.env = self._load_env(name)
 
@@ -170,7 +179,7 @@ class BaseWorkflowTest(unittest.TestCase):
         self.env.execute(workflow_name, **final_execute_kwargs)
 
     def _blueprint_1(self, workflow_methods, operation_methods,
-                     workflow_parameters_schema):
+                     workflow_parameters_schema, ignored_modules):
         interfaces = {
             'test': [
                 {'op{}'.format(index):
@@ -180,6 +189,10 @@ class BaseWorkflowTest(unittest.TestCase):
                 enumerate(operation_methods)
             ]
         }
+
+        if ignored_modules:
+            interfaces['test'].append({'ignored_op': 'p.{0}.ignored'
+                                       .format(ignored_modules[0])})
 
         workflows = dict((
             ('workflow{}'.format(index), {
@@ -1001,6 +1014,13 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         self._no_module_or_attribute_test(
             is_missing_module=True,
             test_type='operation')
+
+    def test_no_operation_module_ignored(self):
+        def op1(ctx, **_):
+            pass
+
+        self._execute_workflow(operation_methods=[op1],
+                               ignored_modules=['ignored_module'])
 
     def test_no_operation_attribute(self):
         self._no_module_or_attribute_test(
