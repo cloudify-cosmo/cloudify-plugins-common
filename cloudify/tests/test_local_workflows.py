@@ -126,8 +126,13 @@ class BaseWorkflowTest(unittest.TestCase):
                                           ignored_modules)
 
         blueprint_dir = os.path.join(self.work_dir, 'blueprint')
+        inner_dir = os.path.join(blueprint_dir, 'inner')
         if not os.path.isdir(blueprint_dir):
             os.mkdir(blueprint_dir)
+        if not os.path.isdir(inner_dir):
+            os.mkdir(inner_dir)
+        with open(os.path.join(inner_dir, 'imported.yaml'), 'w') as f:
+            f.write('node_types: { imported_type: {} }')
         with open(os.path.join(blueprint_dir, 'resource'), 'w') as f:
             f.write('content')
         blueprint_path = os.path.join(blueprint_dir, 'blueprint.yaml')
@@ -204,6 +209,7 @@ class BaseWorkflowTest(unittest.TestCase):
 
         blueprint = {
             'tosca_definitions_version': 'cloudify_1_0',
+            'imports': ['inner/imported.yaml'],
             'inputs': {
                 'from_input': {
                     'default': 'from_input_default_value'
@@ -277,6 +283,9 @@ class BaseWorkflowTest(unittest.TestCase):
                         'target_interfaces': interfaces
                     }]
                 },
+                'node5': {
+                    'type': 'imported_type'
+                }
             },
             'workflows': workflows
         }
@@ -490,7 +499,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             relationship = node1_relationships[0]
             relationship_instance = instance1_relationships[0]
 
-            self.assertEqual(4, len(nodes))
+            self.assertEqual(5, len(nodes))
             self.assertEqual(1, len(node1_instances))
             self.assertEqual(1, len(node2_instances))
             self.assertEqual(1, len(node1_relationships))
@@ -884,6 +893,12 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         def flow(ctx, **_):
             return 1
         self.assertEqual(1, self._execute_workflow(flow))
+
+    def test_blueprint_imports(self):
+        def flow(ctx, **_):
+            node = ctx.get_node('node5')
+            self.assertEqual('imported_type', node.type)
+        self._execute_workflow(flow)
 
     def test_workflow_parameters(self):
         normal_schema = {
