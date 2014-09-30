@@ -281,13 +281,22 @@ def stdout_log_out(log):
 def create_event_message_prefix(event):
     context = event['context']
     deployment_id = context['deployment_id']
-    node_info = ''
-    operation = ''
-    if 'node_id' in context and context['node_id'] is not None:
-        node_id = context['node_id']
-        if 'operation' in context and context['operation'] is not None:
-            operation = '.{0}'.format(context['operation'].split('.')[-1])
-        node_info = '[{0}{1}] '.format(node_id, operation)
+
+    node_id = context.get('node_id')
+    operation = context.get('operation')
+    group = context.get('group')
+    policy = context.get('policy')
+    trigger = context.get('trigger')
+
+    if operation is not None:
+        operation = operation.split('.')[-1]
+
+    info_elements = [e for e in [node_id, operation, group, policy, trigger]
+                     if e is not None]
+    info = '.'.join(info_elements)
+    if info:
+        info = '[{0}] '.format(info)
+
     level = 'CFY'
     message = event['message']['text'].encode('utf-8')
     if 'cloudify_log' in event['type']:
@@ -299,7 +308,7 @@ def create_event_message_prefix(event):
     return '{0} {1} <{2}> {3}{4}'.format(timestamp,
                                          level,
                                          deployment_id,
-                                         node_info,
+                                         info,
                                          message)
 
 
