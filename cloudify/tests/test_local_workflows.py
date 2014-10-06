@@ -477,8 +477,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
     def test_workflow_ctx_properties(self):
         def attributes(ctx, **_):
-            self.assertEqual(self._testMethodName, ctx.blueprint_id)
-            self.assertEqual(self._testMethodName, ctx.deployment_id)
+            self.assertEqual(self._testMethodName, ctx.blueprint.id)
+            self.assertEqual(self._testMethodName, ctx.deployment.id)
             self.assertEqual('workflow0', ctx.workflow_id)
             self.assertIsNotNone(ctx.execution_id)
         self._execute_workflow(attributes)
@@ -636,8 +636,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('node', ctx.node_name)
             self.assertIn('node_', ctx.node_id)
             self.assertEqual('state', ctx.node_state)
-            self.assertEqual(self._testMethodName, ctx.blueprint_id)
-            self.assertEqual(self._testMethodName, ctx.deployment_id)
+            self.assertEqual(self._testMethodName, ctx.blueprint.id)
+            self.assertEqual(self._testMethodName, ctx.deployment.id)
             self.assertIsNotNone(ctx.execution_id)
             self.assertEqual('workflow0', ctx.workflow_id)
             self.assertIsNotNone(ctx.task_id)

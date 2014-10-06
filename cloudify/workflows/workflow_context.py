@@ -21,6 +21,7 @@ import importlib
 import threading
 import Queue
 
+from cloudify import context
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
                               update_execution_status,
@@ -337,7 +338,7 @@ class CloudifyWorkflowNode(object):
         return self._relationships.get(target_id)
 
 
-class CloudifyWorkflowContext(object):
+class CloudifyWorkflowContext(context.CommonContextOperations):
     """
     A context used in workflow operations
 
@@ -345,8 +346,7 @@ class CloudifyWorkflowContext(object):
     """
 
     def __init__(self, ctx):
-        # Before anything else so property access will work properly
-        self._context = ctx
+        super(CloudifyWorkflowContext, self).__init__(ctx)
 
         self._local_task_thread_pool_size = ctx.get(
             'local_task_thread_pool_size',
@@ -363,8 +363,8 @@ class CloudifyWorkflowContext(object):
             handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
             rest = get_rest_client()
-            nodes = rest.nodes.list(self.deployment_id)
-            node_instances = rest.node_instances.list(self.deployment_id)
+            nodes = rest.nodes.list(self.deployment.id)
+            node_instances = rest.node_instances.list(self.deployment.id)
             handler = RemoteCloudifyWorkflowContextHandler(self)
 
         self._nodes = dict(
@@ -401,16 +401,6 @@ class CloudifyWorkflowContext(object):
     def nodes(self):
         """The plan node instances"""
         return self._nodes.itervalues()
-
-    @property
-    def deployment_id(self):
-        """The deployment id"""
-        return self._context.get('deployment_id')
-
-    @property
-    def blueprint_id(self):
-        """The blueprint id"""
-        return self._context.get('blueprint_id')
 
     @property
     def execution_id(self):
@@ -561,8 +551,8 @@ class CloudifyWorkflowContext(object):
             'task_id': task_id,
             'task_name': task_name,
             'task_target': task_queue,
-            'blueprint_id': self.blueprint_id,
-            'deployment_id': self.deployment_id,
+            'blueprint_id': self.blueprint.id,
+            'deployment_id': self.deployment.id,
             'execution_id': self.execution_id,
             'workflow_id': self.workflow_id,
         }
@@ -924,7 +914,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         if executor == 'host_agent':
             return rest_node_instance.host_id
         if executor == 'central_deployment_agent':
-            return self.workflow_ctx.deployment_id
+            return self.workflow_ctx.deployment.id
 
     @property
     def operation_cloudify_context(self):
@@ -957,7 +947,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
     def download_blueprint_resource(self,
                                     resource_path,
                                     target_path=None):
-        blueprint_id = self.workflow_ctx.blueprint_id
+        blueprint_id = self.workflow_ctx.blueprint.id
         logger = self.workflow_ctx.logger
         return download_blueprint_resource(blueprint_id=blueprint_id,
                                            resource_path=resource_path,

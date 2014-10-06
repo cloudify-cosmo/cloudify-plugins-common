@@ -96,6 +96,11 @@ class ContextCapabilities(object):
 
 class CommonContextOperations(object):
 
+    def __init__(self, ctx=None):
+        self._context = ctx or {}
+        self.blueprint = BlueprintContext(self._context, None)
+        self.deployment = DeploymentContext(self._context, None)
+
     def _get_node_instance_if_needed(self):
         if self.node_id is None:
             raise NonRecoverableError(
@@ -271,6 +276,49 @@ class BootstrapContext(object):
         return self._bootstrap_context.get('resources_prefix', '')
 
 
+class EntityContext(object):
+
+    def __init__(self, context, endpoint):
+        self._context = context
+        self._endpoint = endpoint
+
+
+class BlueprintContext(EntityContext):
+
+    @property
+    def id(self):
+        """The blueprint id the plugin invocation belongs to."""
+        return self._context.get('blueprint_id')
+
+
+class DeploymentContext(EntityContext):
+
+    @property
+    def id(self):
+        """The deployment id the plugin invocation belongs to."""
+        return self._context.get('deployment_id')
+
+
+class NodeContext(EntityContext):
+
+    @property
+    def id(self):
+        """The node instance id."""
+        return self._context.get('node_id')
+
+    @property
+    def name(self):
+        """The node instance name."""
+        return self._context.get('node_name')
+
+    @property
+    def properties(self):
+        """The node properties as dict (read-only).
+        These properties are the properties specified in the blueprint.
+        """
+        return self._node_properties
+
+
 class CloudifyContext(CommonContextOperations):
     """
     A context object passed to plugins tasks invocations.
@@ -286,7 +334,7 @@ class CloudifyContext(CommonContextOperations):
 
     """
     def __init__(self, ctx=None):
-        self._context = ctx or {}
+        super(CloudifyContext, self).__init__(ctx=ctx)
         self._local = ctx.get('local', False)
         if self._local:
             # there are times when this instance is instantiated merely for
@@ -311,23 +359,23 @@ class CloudifyContext(CommonContextOperations):
         self._bootstrap_context = None
         self._host_ip = None
 
-    @property
-    def node_id(self):
-        """The node instance id."""
-        return self._context.get('node_id')
-
-    @property
-    def node_name(self):
-        """The node instance name."""
-        return self._context.get('node_name')
-
-    @property
-    def properties(self):
-        """
-        The node properties as dict (read-only).
-        These properties are the properties specified in the blueprint.
-        """
-        return self._node_properties
+    # @property
+    # def node_id(self):
+    #     """The node instance id."""
+    #     return self._context.get('node_id')
+    #
+    # @property
+    # def node_name(self):
+    #     """The node instance name."""
+    #     return self._context.get('node_name')
+    #
+    # @property
+    # def properties(self):
+    #     """
+    #     The node properties as dict (read-only).
+    #     These properties are the properties specified in the blueprint.
+    #     """
+    #     return self._node_properties
 
     @property
     def runtime_properties(self):
@@ -345,16 +393,6 @@ class CloudifyContext(CommonContextOperations):
         """The node's state."""
         self._get_node_instance_if_needed()
         return self._node_instance.state
-
-    @property
-    def blueprint_id(self):
-        """The blueprint id the plugin invocation belongs to."""
-        return self._context.get('blueprint_id')
-
-    @property
-    def deployment_id(self):
-        """The deployment id the plugin invocation belongs to."""
-        return self._context.get('deployment_id')
 
     @property
     def execution_id(self):
@@ -533,7 +571,7 @@ class CloudifyContext(CommonContextOperations):
                               relative to the blueprint file which was
                               uploaded.
         """
-        return self._endpoint.get_blueprint_resource(self.blueprint_id,
+        return self._endpoint.get_blueprint_resource(self.blueprint.id,
                                                      resource_path)
 
     def download_resource(self, resource_path, target_path=None):
@@ -562,7 +600,7 @@ class CloudifyContext(CommonContextOperations):
                  failed to be written to the local file system.
 
         """
-        return self._endpoint.download_blueprint_resource(self.blueprint_id,
+        return self._endpoint.download_blueprint_resource(self.blueprint.id,
                                                           resource_path,
                                                           self.logger,
                                                           target_path)
