@@ -119,7 +119,8 @@ def operation(func=None, **arguments):
                 raise
             finally:
                 current_ctx.clear()
-                ctx.update()
+                if ctx.instance:
+                    ctx.instance.update()
             return result
         return _process_wrapper(wrapper, arguments)
     else:

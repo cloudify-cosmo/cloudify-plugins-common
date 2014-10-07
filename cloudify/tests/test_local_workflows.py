@@ -554,7 +554,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             instance.execute_operation('test.op1').get()
 
         def op0(ctx, **_):
-            ctx.runtime_properties['key'] = 'value'
+            ctx.instance.runtime_properties['key'] = 'value'
 
         def op1(ctx, **_):
             caps = ctx.capabilities.get_all()
@@ -572,10 +572,10 @@ class LocalWorkflowTest(BaseWorkflowTest):
             instance.execute_operation('test.op1').get()
 
         def op0(ctx, **_):
-            ctx.runtime_properties['key'] = 'value'
+            ctx.instance.runtime_properties['key'] = 'value'
 
         def op1(ctx, **_):
-            self.assertEqual('value', ctx.runtime_properties['key'])
+            self.assertEqual('value', ctx.instance.runtime_properties['key'])
 
         self._execute_workflow(runtime_properties, operation_methods=[
             op0, op1])
@@ -614,7 +614,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
                 'test.op1', kwargs={'value': 'instance1'}).get()
 
         def op0(ctx, value, **_):
-            ctx.runtime_properties['key'] = value
+            ctx.instance.runtime_properties['key'] = value
 
         def op1(ctx, value, **_):
             self.assertEqual(value, ctx.related.runtime_properties['key'])
@@ -633,8 +633,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
                 self.assertEqual('content', f.read())
 
         def ctx_properties(ctx, **_):
-            self.assertEqual('node', ctx.node_name)
-            self.assertIn('node_', ctx.node_id)
+            self.assertEqual('node', ctx.node.name)
+            self.assertIn('node_', ctx.instance.id)
             self.assertEqual('state', ctx.node_state)
             self.assertEqual(self._testMethodName, ctx.blueprint.id)
             self.assertEqual(self._testMethodName, ctx.deployment.id)
@@ -648,7 +648,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('p', ctx.plugin)
             self.assertEqual('test.op0', ctx.operation)
             self.assertDictContainsSubset({'property': 'value'},
-                                          ctx.properties)
+                                          ctx.node.properties)
             self.assertEqual('content', ctx.get_resource('resource'))
             target_path = ctx.download_resource('resource')
             with open(target_path) as f:
@@ -663,7 +663,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
     def test_ctx_host_ip(self):
         def op0(ctx, **_):
-            ctx.runtime_properties['ip'] = '2.2.2.2'
+            ctx.instance.runtime_properties['ip'] = '2.2.2.2'
 
         def op1(ctx, expected_ip, **_):
             self.assertEqual(ctx.host_ip, expected_ip)
@@ -710,18 +710,18 @@ class LocalWorkflowTest(BaseWorkflowTest):
             graph.execute()
 
         def op0(ctx, **_):
-            invocation = ctx.runtime_properties['invocation']
+            invocation = ctx.instance.runtime_properties['invocation']
             self.assertEqual(2, invocation)
 
         def op1(ctx, **_):
-            invocation = ctx.runtime_properties['invocation']
+            invocation = ctx.instance.runtime_properties['invocation']
             self.assertEqual(1, invocation)
-            ctx.runtime_properties['invocation'] += 1
+            ctx.instance.runtime_properties['invocation'] += 1
 
         def op2(ctx, **_):
-            invocation = ctx.runtime_properties.get('invocation')
+            invocation = ctx.instance.runtime_properties.get('invocation')
             self.assertIsNone(invocation)
-            ctx.runtime_properties['invocation'] = 1
+            ctx.instance.runtime_properties['invocation'] = 1
 
         self._execute_workflow(flow, operation_methods=[op0, op1, op2])
 
@@ -848,7 +848,7 @@ class FileStorageTest(BaseWorkflowTest):
             instance.execute_operation('test.op0').get()
 
         def op(ctx, **_):
-            self.assertEqual('new_input', ctx.properties['from_input'])
+            self.assertEqual('new_input', ctx.node.properties['from_input'])
             self.assertEqual('content', ctx.get_resource('resource'))
 
         self._setup_env(workflow_methods=[persistency_1, persistency_2],
@@ -870,7 +870,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
 
     def test_inputs(self):
         def op(ctx, **_):
-            self.assertEqual('new_input', ctx.properties['from_input'])
+            self.assertEqual('new_input', ctx.node.properties['from_input'])
         self._execute_workflow(operation_methods=[op],
                                inputs={'from_input': 'new_input'})
 
@@ -883,7 +883,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                          {'some_output': None})
 
         def op(ctx, **_):
-            ctx.runtime_properties['some_output'] = 'value'
+            ctx.instance.runtime_properties['some_output'] = 'value'
         self._execute_workflow(operation_methods=[op],
                                use_existing_env=False)
         self.assertEqual(self.env.outputs(),
@@ -993,13 +993,13 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             instance.execute_operation('test.op1').get()
 
         def op0(ctx, props, **_):
-            self.assertIsNotNone(ctx.node_id)
-            current_retry = ctx.runtime_properties.get('retry', 0)
-            last_timestamp = ctx.runtime_properties.get('timestamp')
+            self.assertIsNotNone(ctx.instance.id)
+            current_retry = ctx.instance.runtime_properties.get('retry', 0)
+            last_timestamp = ctx.instance.runtime_properties.get('timestamp')
             current_timestamp = time.time()
 
-            ctx.runtime_properties['retry'] = current_retry + 1
-            ctx.runtime_properties['timestamp'] = current_timestamp
+            ctx.instance.runtime_properties['retry'] = current_retry + 1
+            ctx.instance.runtime_properties['timestamp'] = current_timestamp
 
             self.assertEqual('initial_value', props['key'])
             props['key'] = 'new_value'
@@ -1010,7 +1010,8 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                 self.fail()
 
         def op1(ctx, **_):
-            self.assertEqual(task_retries + 1, ctx.runtime_properties['retry'])
+            self.assertEqual(
+                task_retries + 1, ctx.instance.runtime_properties['retry'])
 
         self._execute_workflow(
             flow,

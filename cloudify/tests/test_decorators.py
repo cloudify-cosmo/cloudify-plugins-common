@@ -13,8 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'idanmo'
-
 
 import unittest
 
@@ -67,22 +65,21 @@ class OperationTest(unittest.TestCase):
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)
         self.assertIsInstance(ctx, CloudifyContext)
-        self.assertEquals('1234', getattr(ctx, 'node_id'))
+        self.assertEquals('1234', ctx.instance.id)
 
     def test_proxied_ctx(self):
 
         self.assertRaises(RuntimeError,
-                          lambda: ctx_proxy.node_id)
+                          lambda: ctx_proxy.instance.id)
 
         @operation
         def test_op(ctx, **kwargs):
             self.assertEqual(ctx, ctx_proxy)
-            ctx_proxy.node_id
 
         test_op()
 
         self.assertRaises(RuntimeError,
-                          lambda: ctx_proxy.node_id)
+                          lambda: ctx_proxy.instance.id)
 
     def test_provided_capabilities(self):
         ctx = {
@@ -136,7 +133,7 @@ class OperationTest(unittest.TestCase):
             'node_id': '5678'
         }}
         ctx = acquire_context(0, 0, **kwargs)
-        self.assertRaises(NonRecoverableError, ctx.properties.__setitem__,
+        self.assertRaises(NonRecoverableError, ctx.node.properties.__setitem__,
                           'k', 'v')
 
     def test_workflow_error_delegation(self):

@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'idanmo'
 
 import sys
 import threading
@@ -37,8 +36,8 @@ def message_context_from_cloudify_context(ctx):
         'task_id': ctx.task_id,
         'task_name': ctx.task_name,
         'task_target': ctx.task_target,
-        'node_name': ctx.node_name,
-        'node_id': ctx.node_id,
+        'node_name': ctx.node.name if ctx.node else None,
+        'node_id': ctx.instance.id if ctx.instance else None,
         'operation': ctx.operation,
         'plugin': ctx.plugin,
     }

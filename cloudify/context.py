@@ -98,26 +98,40 @@ class CommonContextOperations(object):
 
     def __init__(self, ctx=None):
         self._context = ctx or {}
-        self.blueprint = BlueprintContext(self._context, None)
-        self.deployment = DeploymentContext(self._context, None)
+        self._local = ctx.get('local', False)
+        if self._local:
+            # there are times when this instance is instantiated merely for
+            # accessing the attributes so we can tolerate no storage (such is
+            # the case in logging)
+            self._endpoint = LocalEndpoint(self, ctx.get('storage'))
+        else:
+            self._endpoint = ManagerEndpoint(self)
+        self.blueprint = BlueprintContext(self._context, self._endpoint)
+        self.deployment = DeploymentContext(self._context, self._endpoint)
+        if self._context.get('node_id'):
+            self.node = NodeContext(self._context, self._endpoint)
+            self.instance = NodeInstanceContext(self._context, self._endpoint)
+        else:
+            self.node = None
+            self.instance = None
 
     def _get_node_instance_if_needed(self):
-        if self.node_id is None:
+        if self.instance is None:
             raise NonRecoverableError(
                 'Cannot get node state - invocation is not '
                 'in a context of node')
         if self._node_instance is None:
             self._node_instance = self._endpoint.get_node_instance(
-                self.node_id)
+                self.instance.id)
 
     def _get_node_instance_ip_if_needed(self):
         self._get_node_instance_if_needed()
         if self._host_ip is None:
-            if self.node_id == self._node_instance.host_id:
+            if self.instance.id == self._node_instance.host_id:
                 self._host_ip = self._endpoint.get_host_node_instance_ip(
-                    host_id=self.node_id,
-                    properties=self.properties,
-                    runtime_properties=self.runtime_properties)
+                    host_id=self.instance.id,
+                    properties=self.node.properties,
+                    runtime_properties=self.instance.runtime_properties)
             else:
                 self._host_ip = self._endpoint.get_host_node_instance_ip(
                     host_id=self._node_instance.host_id)
@@ -145,6 +159,8 @@ class CloudifyRelatedNode(CommonContextOperations):
         self._related = ctx['related']
         self._node_instance = None
         self._host_ip = None
+        self.node = NodeContext(self._related, self._endpoint)
+        self.instance = NodeInstanceContext(self._related, self._endpoint)
 
     @property
     def node_id(self):
@@ -301,10 +317,10 @@ class DeploymentContext(EntityContext):
 
 class NodeContext(EntityContext):
 
-    @property
-    def id(self):
-        """The node instance id."""
-        return self._context.get('node_id')
+    def __init__(self, *args, **kwargs):
+        super(NodeContext, self).__init__(*args, **kwargs)
+        self._properties = ImmutableProperties(
+            self._context.get('node_properties') or {})
 
     @property
     def name(self):
@@ -316,7 +332,48 @@ class NodeContext(EntityContext):
         """The node properties as dict (read-only).
         These properties are the properties specified in the blueprint.
         """
-        return self._node_properties
+        return self._properties
+
+
+class NodeInstanceContext(EntityContext):
+
+    def __init__(self, *args, **kwargs):
+        super(NodeInstanceContext, self).__init__(*args, **kwargs)
+        self._node_instance = None
+        self._host_ip = None
+
+    def _get_node_instance_if_needed(self):
+        if self._node_instance is None:
+            self._node_instance = self._endpoint.get_node_instance(self.id)
+
+    @property
+    def id(self):
+        """The node instance id."""
+        return self._context.get('node_id')
+
+    @property
+    def runtime_properties(self):
+        """The node instance runtime properties as a dict (read-only).
+
+        Runtime properties are properties set during the node instance's
+        lifecycle.
+        Retrieving runtime properties involves a call to Cloudify's storage.
+        """
+        self._get_node_instance_if_needed()
+        return self._node_instance.runtime_properties
+
+    def update(self):
+        """
+        Stores new/updated runtime properties for the node instance in context
+        in Cloudify's storage.
+
+        This method should be invoked only if its necessary to immediately
+        update Cloudify's storage with changes. Otherwise, the method is
+        automatically invoked as soon as the task execution is over.
+        """
+        if self._node_instance is not None and self._node_instance.dirty:
+            self._endpoint.update_node_instance(self._node_instance)
+            self._node_instance = None
 
 
 class CloudifyContext(CommonContextOperations):
@@ -335,14 +392,6 @@ class CloudifyContext(CommonContextOperations):
     """
     def __init__(self, ctx=None):
         super(CloudifyContext, self).__init__(ctx=ctx)
-        self._local = ctx.get('local', False)
-        if self._local:
-            # there are times when this instance is instantiated merely for
-            # accessing the attributes so we can tolerate no storage (such is
-            # the case in logging)
-            self._endpoint = LocalEndpoint(self, ctx.get('storage'))
-        else:
-            self._endpoint = ManagerEndpoint(self)
         context_capabilities = self._context.get('relationships')
         self._capabilities = ContextCapabilities(self._endpoint,
                                                  context_capabilities)
@@ -358,35 +407,6 @@ class CloudifyContext(CommonContextOperations):
         self._provider_context = None
         self._bootstrap_context = None
         self._host_ip = None
-
-    # @property
-    # def node_id(self):
-    #     """The node instance id."""
-    #     return self._context.get('node_id')
-    #
-    # @property
-    # def node_name(self):
-    #     """The node instance name."""
-    #     return self._context.get('node_name')
-    #
-    # @property
-    # def properties(self):
-    #     """
-    #     The node properties as dict (read-only).
-    #     These properties are the properties specified in the blueprint.
-    #     """
-    #     return self._node_properties
-
-    @property
-    def runtime_properties(self):
-        """The node instance runtime properties as a dict (read-only).
-
-        Runtime properties are properties set during the node instance's
-        lifecycle.
-        Retrieving runtime properties involves a call to Cloudify's storage.
-        """
-        self._get_node_instance_if_needed()
-        return self._node_instance.runtime_properties
 
     @property
     def node_state(self):
@@ -605,29 +625,11 @@ class CloudifyContext(CommonContextOperations):
                                                           self.logger,
                                                           target_path)
 
-    def update(self):
-        """
-        Stores new/updated runtime properties for the node in context in
-        Cloudify's storage.
-
-        This method should be invoked only if its necessary to immediately
-        update Cloudify's storage with changes. Otherwise, the method is
-        automatically invoked as soon as the task execution is over.
-        """
-        if self._node_instance is not None and self._node_instance.dirty:
-            self._endpoint.update_node_instance(self._node_instance)
-            self._node_instance = None
-
     def _init_cloudify_logger(self):
         logger_name = self.task_id if self.task_id is not None \
             else 'cloudify_plugin'
         handler = self._endpoint.get_logging_handler()
         return init_cloudify_logger(handler, logger_name)
-
-    def __str__(self):
-        attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')
-        info = ' '.join(["{0}={1}".format(a, getattr(self, a)) for a in attrs])
-        return '<' + self.__class__.__name__ + ' ' + info + '>'
 
 
 class ImmutableProperties(dict):
