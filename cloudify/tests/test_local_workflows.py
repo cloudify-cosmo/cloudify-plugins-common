@@ -635,7 +635,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
         def ctx_properties(ctx, **_):
             self.assertEqual('node', ctx.node.name)
             self.assertIn('node_', ctx.instance.id)
-            self.assertEqual('state', ctx.node_state)
             self.assertEqual(self._testMethodName, ctx.blueprint.id)
             self.assertEqual(self._testMethodName, ctx.deployment.id)
             self.assertIsNotNone(ctx.execution_id)
@@ -666,7 +665,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             ctx.instance.runtime_properties['ip'] = '2.2.2.2'
 
         def op1(ctx, expected_ip, **_):
-            self.assertEqual(ctx.host_ip, expected_ip)
+            self.assertEqual(ctx.instance.host_ip, expected_ip)
 
         def flow(ctx, **_):
             instance1 = _instance(ctx, 'node')

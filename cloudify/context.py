@@ -108,46 +108,6 @@ class CommonContextOperations(object):
             self._endpoint = ManagerEndpoint(self)
         self.blueprint = BlueprintContext(self._context, self._endpoint)
         self.deployment = DeploymentContext(self._context, self._endpoint)
-        if self._context.get('node_id'):
-            self.node = NodeContext(self._context, self._endpoint)
-            self.instance = NodeInstanceContext(self._context, self._endpoint)
-        else:
-            self.node = None
-            self.instance = None
-
-    def _get_node_instance_if_needed(self):
-        if self.instance is None:
-            raise NonRecoverableError(
-                'Cannot get node state - invocation is not '
-                'in a context of node')
-        if self._node_instance is None:
-            self._node_instance = self._endpoint.get_node_instance(
-                self.instance.id)
-
-    def _get_node_instance_ip_if_needed(self):
-        self._get_node_instance_if_needed()
-        if self._host_ip is None:
-            if self.instance.id == self._node_instance.host_id:
-                self._host_ip = self._endpoint.get_host_node_instance_ip(
-                    host_id=self.instance.id,
-                    properties=self.node.properties,
-                    runtime_properties=self.instance.runtime_properties)
-            else:
-                self._host_ip = self._endpoint.get_host_node_instance_ip(
-                    host_id=self._node_instance.host_id)
-
-    @property
-    def host_ip(self):
-        """
-        Returns the node instance host ip address.
-
-        This values is derived by reading the ``host_id`` from the relevant
-        node instance and then reading its ``ip`` runtime property or its
-        node_state ``ip`` property.
-        """
-
-        self._get_node_instance_ip_if_needed()
-        return self._host_ip
 
 
 class CloudifyRelatedNode(CommonContextOperations):
@@ -160,7 +120,9 @@ class CloudifyRelatedNode(CommonContextOperations):
         self._node_instance = None
         self._host_ip = None
         self.node = NodeContext(self._related, self._endpoint)
-        self.instance = NodeInstanceContext(self._related, self._endpoint)
+        self.instance = NodeInstanceContext(self._related,
+                                            self._endpoint,
+                                            node=self.node)
 
     @property
     def node_id(self):
@@ -195,6 +157,36 @@ class CloudifyRelatedNode(CommonContextOperations):
 
     def __contains__(self, key):
         return key in self.properties or key in self.runtime_properties
+
+    def _get_node_instance_if_needed(self):
+        if self._node_instance is None:
+            self._node_instance = self._endpoint.get_node_instance(
+                self.node_id)
+
+    def _get_node_instance_ip_if_needed(self):
+        self._get_node_instance_if_needed()
+        if self._host_ip is None:
+            if self.node_id == self._node_instance.host_id:
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
+                    host_id=self.node_id,
+                    properties=self.properties,
+                    runtime_properties=self.runtime_properties)
+            else:
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
+                    host_id=self._node_instance.host_id)
+
+    @property
+    def host_ip(self):
+        """
+        Returns the node instance host ip address.
+
+        This values is derived by reading the ``host_id`` from the relevant
+        node instance and then reading its ``ip`` runtime property or its
+        node_state ``ip`` property.
+        """
+
+        self._get_node_instance_ip_if_needed()
+        return self._host_ip
 
 
 class BootstrapContext(object):
@@ -294,7 +286,7 @@ class BootstrapContext(object):
 
 class EntityContext(object):
 
-    def __init__(self, context, endpoint):
+    def __init__(self, context, endpoint, **_):
         self._context = context
         self._endpoint = endpoint
 
@@ -339,6 +331,7 @@ class NodeInstanceContext(EntityContext):
 
     def __init__(self, *args, **kwargs):
         super(NodeInstanceContext, self).__init__(*args, **kwargs)
+        self._node = kwargs['node']
         self._node_instance = None
         self._host_ip = None
 
@@ -375,6 +368,31 @@ class NodeInstanceContext(EntityContext):
             self._endpoint.update_node_instance(self._node_instance)
             self._node_instance = None
 
+    def _get_node_instance_ip_if_needed(self):
+        self._get_node_instance_if_needed()
+        if self._host_ip is None:
+            if self.id == self._node_instance.host_id:
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
+                    host_id=self.id,
+                    properties=self._node.properties,
+                    runtime_properties=self.runtime_properties)
+            else:
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
+                    host_id=self._node_instance.host_id)
+
+    @property
+    def host_ip(self):
+        """
+        Returns the node instance host ip address.
+
+        This values is derived by reading the ``host_id`` from the relevant
+        node instance and then reading its ``ip`` runtime property or its
+        node_state ``ip`` property.
+        """
+
+        self._get_node_instance_ip_if_needed()
+        return self._host_ip
+
 
 class CloudifyContext(CommonContextOperations):
     """
@@ -397,8 +415,6 @@ class CloudifyContext(CommonContextOperations):
                                                  context_capabilities)
         self._logger = None
         self._node_instance = None
-        self._node_properties = \
-            ImmutableProperties(self._context.get('node_properties') or {})
         if 'related' in self._context:
             self._related = CloudifyRelatedNode(self._endpoint,
                                                 self._context)
@@ -407,12 +423,14 @@ class CloudifyContext(CommonContextOperations):
         self._provider_context = None
         self._bootstrap_context = None
         self._host_ip = None
-
-    @property
-    def node_state(self):
-        """The node's state."""
-        self._get_node_instance_if_needed()
-        return self._node_instance.state
+        if self._context.get('node_id'):
+            self.node = NodeContext(self._context, self._endpoint)
+            self.instance = NodeInstanceContext(self._context,
+                                                self._endpoint,
+                                                node=self.node)
+        else:
+            self.node = None
+            self.instance = None
 
     @property
     def execution_id(self):
