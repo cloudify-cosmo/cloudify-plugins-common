@@ -15,6 +15,7 @@
 
 
 from cloudify.context import (CloudifyContext,
+                              BlueprintContext,
                               ContextCapabilities,
                               BootstrapContext)
 from cloudify.utils import setup_default_logger
@@ -39,10 +40,11 @@ class MockCloudifyContext(CloudifyContext):
                  resources=None,
                  provider_context=None,
                  bootstrap_context=None):
-        super(MockCloudifyContext, self).__init__({'operation': operation})
+        super(MockCloudifyContext, self).__init__({
+            'blueprint_id': blueprint_id,
+            'operation': operation})
         self._node_id = node_id
         self._node_name = node_name
-        self._blueprint_id = blueprint_id
         self._deployment_id = deployment_id
         self._execution_id = execution_id
         self._properties = properties or {}
