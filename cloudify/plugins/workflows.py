@@ -22,6 +22,65 @@ from cloudify.workflows import tasks as workflow_tasks
 
 
 @workflow
+def execute_operation(ctx, operation, operation_kwargs,
+                      run_by_dependency_order, type_names, node_ids,
+                      node_instance_ids, **kwargs):
+    """ A generic workflow for executing operations on nodes """
+
+    graph = ctx.graph_mode()
+
+    send_event_starting_tasks = {}
+    send_event_done_tasks = {}
+
+    # filtering node instances
+    filtered_node_instances = []
+    for node in ctx.nodes:
+        if node_ids and node.id not in node_ids:
+            continue
+        if type_names and not next((type_name for type_name in type_names if
+                                    type_name in node.type_hierarchy), None):
+            continue
+
+        for instance in node.instances:
+            if node_instance_ids and instance.id not in node_instance_ids:
+                continue
+            filtered_node_instances.append(instance)
+
+    # pre-preparing events tasks
+    for instance in filtered_node_instances:
+        start_event_message = 'Starting operation {0}'.format(operation)
+        if operation_kwargs:
+            start_event_message += ' (Operation parameters: {0})'.format(
+                operation_kwargs)
+
+        send_event_starting_tasks[instance.id] = \
+            instance.send_event(start_event_message)
+        send_event_done_tasks[instance.id] = \
+            instance.send_event('Finished operation {0}'.format(operation))
+
+    # registering actual tasks to sequences
+    for instance in filtered_node_instances:
+        sequence = graph.sequence()
+        sequence.add(
+            send_event_starting_tasks[instance.id],
+            instance.execute_operation(operation, kwargs=operation_kwargs),
+            send_event_done_tasks[instance.id])
+
+    # adding tasks dependencies if required
+    if run_by_dependency_order:
+        for instance in filtered_node_instances:
+            for rel in instance.relationships:
+                instance_starting_task = send_event_starting_tasks[instance.id]
+                target_done_task = send_event_done_tasks.get(rel.target_id)
+
+                if target_done_task:
+                    graph.add_dependency(instance_starting_task,
+                                         target_done_task)
+
+    return graph.execute()
+
+
+@workflow
 def install(ctx, **kwargs):
     """Default install workflow"""
 
