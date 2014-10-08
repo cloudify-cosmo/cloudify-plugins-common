@@ -36,7 +36,7 @@ class MockNodeInstanceContext(object):
 
     def update(self):
         pass
-    
+
 
 class MockCloudifyContext(CloudifyContext):
     """
