@@ -107,7 +107,36 @@ class TestBuiltinWorkflows(unittest.TestCase):
                                      type_names=type_names)
 
     def test_execute_operation_with_dependency_order(self):
-        pass
+        params = self._get_params(
+            op='cloudify.interfaces.lifecycle.start',
+            run_by_dep=True)
+        self.env.execute('execute_operation', params, task_thread_pool_size=4)
+
+        instances_and_visit_times = sorted(
+            ((inst, inst.runtime_properties['visit_time']) for inst in
+             self.env.storage.get_node_instances()),
+            key=lambda inst_and_time: inst_and_time[1])
+
+        self.assertListEqual(['node1', 'node2', 'node2', 'node3'],
+                             [inst_and_time[0].node_id for inst_and_time in
+                              instances_and_visit_times])
+
+        # asserting time difference between the operation execution for the
+        # different nodes. this way if something breaks and the tasks aren't
+        # dependent on one another, there's a better chance we'll catch
+        # it, since even if the order of the visits happens to be correct,
+        # it's less likely there'll be a significant time difference between
+        # the visits
+        def assert_time_difference(earlier_inst_index, later_inst_index):
+            self.assertGreaterEqual(
+                instances_and_visit_times[later_inst_index][1] -
+                instances_and_visit_times[earlier_inst_index][1],
+                1)
+
+        assert_time_difference(0, 1)  # node 2 instance and node 1 instance
+        assert_time_difference(0, 2)  # node 2 instance and node 1 instance
+        assert_time_difference(1, 3)  # node 3 instance and node 2 instance
+        assert_time_difference(2, 3)  # node 3 instance and node 2 instance
 
     def _make_filter_assertions(self, expected_num_of_visited_instances,
                                 node_ids=None, node_instance_ids=None,
