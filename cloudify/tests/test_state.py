@@ -13,14 +13,14 @@ class TestCurrentContextAndCtxLocalProxy(unittest.TestCase):
 
     def test_basic(self):
         self.assertRaises(RuntimeError, current_ctx.get_ctx)
-        self.assertRaises(RuntimeError, lambda: ctx.node_id)
+        self.assertRaises(RuntimeError, lambda: ctx.instance.id)
         value = MockCloudifyContext(node_id='1')
         current_ctx.set(value)
         self.assertEqual(value, current_ctx.get_ctx())
-        self.assertEqual(value.node_id, ctx.node_id)
+        self.assertEqual(value.instance.id, ctx.instance.id)
         current_ctx.clear()
         self.assertRaises(RuntimeError, current_ctx.get_ctx)
-        self.assertRaises(RuntimeError, lambda: ctx.node_id)
+        self.assertRaises(RuntimeError, lambda: ctx.instance.id)
 
     def test_threads(self):
         num_iterations = 1000
@@ -31,13 +31,13 @@ class TestCurrentContextAndCtxLocalProxy(unittest.TestCase):
             def run(queue, value):
                 try:
                     self.assertRaises(RuntimeError, current_ctx.get_ctx)
-                    self.assertRaises(RuntimeError, lambda: ctx.node_id)
+                    self.assertRaises(RuntimeError, lambda: ctx.instance.id)
                     current_ctx.set(value)
                     self.assertEqual(value, current_ctx.get_ctx())
-                    self.assertEqual(value.node_id, ctx.node_id)
+                    self.assertEqual(value.instance.id, ctx.instance.id)
                     current_ctx.clear()
                     self.assertRaises(RuntimeError, current_ctx.get_ctx)
-                    self.assertRaises(RuntimeError, lambda: ctx.node_id)
+                    self.assertRaises(RuntimeError, lambda: ctx.instance.id)
                 except Exception as e:
                     queue.put(e)
                 else:
