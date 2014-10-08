@@ -22,7 +22,7 @@ from cloudify.workflows import local
 from cloudify.decorators import operation
 
 
-class TestBuiltinWorkflows(unittest.TestCase):
+class TestExecuteOperationWorkflow(unittest.TestCase):
 
     def setUp(self):
         blueprint_path = os.path.join(
