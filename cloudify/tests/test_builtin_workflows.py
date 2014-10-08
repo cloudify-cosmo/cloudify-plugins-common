@@ -51,9 +51,11 @@ class TestBuiltinWorkflows(unittest.TestCase):
 
         instances = self.env.storage.get_node_instances()
         for instance in instances:
-            self.assertIn(operation_param_key, instance.runtime_properties)
+            self.assertIn('op_kwargs', instance.runtime_properties)
+            op_kwargs = instance.runtime_properties['op_kwargs']
+            self.assertIn(operation_param_key, op_kwargs)
             self.assertEquals(operation_param_value,
-                              instance.runtime_properties[operation_param_key])
+                              op_kwargs[operation_param_key])
 
     def test_execute_operation_by_nodes(self):
         node_ids = ['node2', 'node3']
@@ -75,13 +77,34 @@ class TestBuiltinWorkflows(unittest.TestCase):
         self._make_filter_assertions(3, type_names=type_names)
 
     def test_execute_operation_by_nodes_and_types(self):
-        pass
+        node_ids = ['node1', 'node2']
+        type_names = ['mock_type2']
+        params = self._get_params(node_ids=node_ids, type_names=type_names)
+        self.env.execute('execute_operation', params)
+        self._make_filter_assertions(2, node_ids=node_ids,
+                                     type_names=type_names)
 
     def test_execute_operation_by_nodes_types_and_node_instances(self):
-        pass
+        node_ids = ['node2', 'node3']
+        type_names = ['mock_type2', 'mock_type1']
+        instances = self.env.storage.get_node_instances()
+        node_instance_ids = [next(inst.id for inst in instances if
+                                  inst.node_id == 'node2')]
+        params = self._get_params(node_ids=node_ids,
+                                  node_instance_ids=node_instance_ids,
+                                  type_names=type_names)
+        self.env.execute('execute_operation', params)
+        self._make_filter_assertions(1, node_ids=node_ids,
+                                     node_instance_ids=node_instance_ids,
+                                     type_names=type_names)
 
     def test_execute_operation_empty_intersection(self):
-        pass
+        node_ids = ['node1', 'node2']
+        type_names = ['mock_type3']
+        params = self._get_params(node_ids=node_ids, type_names=type_names)
+        self.env.execute('execute_operation', params)
+        self._make_filter_assertions(0, node_ids=node_ids,
+                                     type_names=type_names)
 
     def test_execute_operation_with_dependency_order(self):
         pass
@@ -100,9 +123,9 @@ class TestBuiltinWorkflows(unittest.TestCase):
                 and \
                 (not node_instance_ids or inst.id in node_instance_ids) \
                 and \
-                (not type_names or (next(type for type in nodes_by_id[
+                (not type_names or (next((type for type in nodes_by_id[
                     inst.node_id].type_hierarchy if type in type_names),
-                                    None)):
+                    None))):
                 self.assertTrue(test_op_visited)
                 num_of_visited_instances += 1
             else:
