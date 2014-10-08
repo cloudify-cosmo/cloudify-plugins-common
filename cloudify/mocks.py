@@ -34,6 +34,9 @@ class MockNodeInstanceContext(object):
     def runtime_properties(self):
         return self._runtime_properties
 
+    def update(self):
+        pass
+    
 
 class MockCloudifyContext(CloudifyContext):
     """
