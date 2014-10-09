@@ -327,6 +327,30 @@ def execute_operation(ctx, operation, operation_kwargs,
         send_event_done_tasks[instance.id] = \
             instance.send_event('Finished operation {0}'.format(operation))
 
+    if run_by_dependency_order:
+        # if run by dependency order is set, then create NOP tasks for the
+        # rest of the instances. This is done to support indirect
+        # dependencies, i.e. when instance A is dependent on instance B
+        # which is dependent on instance C, where A and C are to be executed
+        #  with the operation on (i.e. they're in filtered_node_instances)
+        # yet B isn't.
+        # We add the NOP tasks rather than creating dependencies between A
+        # and C themselves since even though it may sometimes increase the
+        # number of dependency relationships in the execution graph, it also
+        # ensures their number is linear to the number of relationships in
+        # the deployment (e.g. consider if A and C are one out of N instances
+        # of their respective nodes yet there's a single instance of B -
+        # using NOP tasks we'll have 2N relationships instead of N^2).
+        filtered_node_instances_ids = {inst.id for inst in
+                                       filtered_node_instances}
+        for node in ctx.nodes:
+            for instance in node.instances:
+                if instance.id not in filtered_node_instances_ids:
+                    nop_task = workflow_tasks.NOPLocalWorkflowTask(ctx)
+                    send_event_starting_tasks[instance.id] = nop_task
+                    send_event_done_tasks[instance.id] = nop_task
+                    graph.add_task(nop_task)
+
     # registering actual tasks to sequences
     for instance in filtered_node_instances:
         sequence = graph.sequence()
@@ -337,12 +361,14 @@ def execute_operation(ctx, operation, operation_kwargs,
 
     # adding tasks dependencies if required
     if run_by_dependency_order:
-        for instance in filtered_node_instances:
-            for rel in instance.relationships:
-                instance_starting_task = send_event_starting_tasks[instance.id]
-                target_done_task = send_event_done_tasks.get(rel.target_id)
+        for node in ctx.nodes:
+            for instance in node.instances:
+                for rel in instance.relationships:
+                    instance_starting_task = \
+                        send_event_starting_tasks[instance.id]
+                    target_done_task = \
+                        send_event_done_tasks.get(rel.target_id)
 
-                if target_done_task:
                     graph.add_dependency(instance_starting_task,
                                          target_done_task)
 
