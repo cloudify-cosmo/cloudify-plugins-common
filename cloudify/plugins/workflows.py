@@ -294,7 +294,7 @@ def _host_pre_stop(host_node_instance):
 def execute_operation(ctx, operation, operation_kwargs,
                       run_by_dependency_order, type_names, node_ids,
                       node_instance_ids, **kwargs):
-    """ A generic workflow for executing operations on nodes """
+    """ A generic workflow for executing arbitrary operations on nodes """
 
     graph = ctx.graph_mode()
 
