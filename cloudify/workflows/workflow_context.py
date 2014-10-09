@@ -794,7 +794,6 @@ class LocalTasksProcessing(object):
 
     def start(self):
         for thread in self._local_task_processing_pool:
-            thread.daemon = True
             thread.start()
 
     def stop(self):
