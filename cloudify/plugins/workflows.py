@@ -332,7 +332,7 @@ def execute_operation(ctx, operation, operation_kwargs,
         # rest of the instances. This is done to support indirect
         # dependencies, i.e. when instance A is dependent on instance B
         # which is dependent on instance C, where A and C are to be executed
-        #  with the operation on (i.e. they're in filtered_node_instances)
+        # with the operation on (i.e. they're in filtered_node_instances)
         # yet B isn't.
         # We add the NOP tasks rather than creating dependencies between A
         # and C themselves since even though it may sometimes increase the
