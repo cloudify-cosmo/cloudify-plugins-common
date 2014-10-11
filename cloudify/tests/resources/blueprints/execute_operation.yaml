@@ -1,0 +1,37 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:
+    - http://getcloudify.org/spec/cloudify/3.1/types.yaml
+
+node_templates:
+    node1:
+        type: mock_type1
+    node2:
+        type: mock_type2
+        instances:
+            deploy: 2
+        relationships:
+            - target: node1
+              type: cloudify.relationships.connected_to
+    node3:
+        type: mock_type3
+        relationships:
+            - target: node2
+              type: cloudify.relationships.connected_to
+
+node_types:
+    mock_type1:
+        derived_from: cloudify.types.base
+        interfaces:
+            cloudify.interfaces.lifecycle:
+                - create: mock.cloudify.tests.test_builtin_workflows.exec_op_test_operation
+                - start: mock.cloudify.tests.test_builtin_workflows.exec_op_dependency_order_test_operation
+    mock_type2:
+        derived_from: mock_type1
+    mock_type3:
+        derived_from: mock_type2
+
+plugins:
+    mock:
+        executor: central_deployment_agent
+        install: false

@@ -288,3 +288,88 @@ def _host_pre_stop(host_node_instance):
                 'Error occurred while uninstalling worker - ignoring...')
 
     return tasks
+
+
+@workflow
+def execute_operation(ctx, operation, operation_kwargs,
+                      run_by_dependency_order, type_names, node_ids,
+                      node_instance_ids, **kwargs):
+    """ A generic workflow for executing arbitrary operations on nodes """
+
+    graph = ctx.graph_mode()
+
+    send_event_starting_tasks = {}
+    send_event_done_tasks = {}
+
+    # filtering node instances
+    filtered_node_instances = []
+    for node in ctx.nodes:
+        if node_ids and node.id not in node_ids:
+            continue
+        if type_names and not next((type_name for type_name in type_names if
+                                    type_name in node.type_hierarchy), None):
+            continue
+
+        for instance in node.instances:
+            if node_instance_ids and instance.id not in node_instance_ids:
+                continue
+            filtered_node_instances.append(instance)
+
+    # pre-preparing events tasks
+    for instance in filtered_node_instances:
+        start_event_message = 'Starting operation {0}'.format(operation)
+        if operation_kwargs:
+            start_event_message += ' (Operation parameters: {0})'.format(
+                operation_kwargs)
+
+        send_event_starting_tasks[instance.id] = \
+            instance.send_event(start_event_message)
+        send_event_done_tasks[instance.id] = \
+            instance.send_event('Finished operation {0}'.format(operation))
+
+    if run_by_dependency_order:
+        # if run by dependency order is set, then create NOP tasks for the
+        # rest of the instances. This is done to support indirect
+        # dependencies, i.e. when instance A is dependent on instance B
+        # which is dependent on instance C, where A and C are to be executed
+        # with the operation on (i.e. they're in filtered_node_instances)
+        # yet B isn't.
+        # We add the NOP tasks rather than creating dependencies between A
+        # and C themselves since even though it may sometimes increase the
+        # number of dependency relationships in the execution graph, it also
+        # ensures their number is linear to the number of relationships in
+        # the deployment (e.g. consider if A and C are one out of N instances
+        # of their respective nodes yet there's a single instance of B -
+        # using NOP tasks we'll have 2N relationships instead of N^2).
+        filtered_node_instances_ids = set(inst.id for inst in
+                                          filtered_node_instances)
+        for node in ctx.nodes:
+            for instance in node.instances:
+                if instance.id not in filtered_node_instances_ids:
+                    nop_task = workflow_tasks.NOPLocalWorkflowTask(ctx)
+                    send_event_starting_tasks[instance.id] = nop_task
+                    send_event_done_tasks[instance.id] = nop_task
+                    graph.add_task(nop_task)
+
+    # registering actual tasks to sequences
+    for instance in filtered_node_instances:
+        sequence = graph.sequence()
+        sequence.add(
+            send_event_starting_tasks[instance.id],
+            instance.execute_operation(operation, kwargs=operation_kwargs),
+            send_event_done_tasks[instance.id])
+
+    # adding tasks dependencies if required
+    if run_by_dependency_order:
+        for node in ctx.nodes:
+            for instance in node.instances:
+                for rel in instance.relationships:
+                    instance_starting_task = \
+                        send_event_starting_tasks[instance.id]
+                    target_done_task = \
+                        send_event_done_tasks.get(rel.target_id)
+
+                    graph.add_dependency(instance_starting_task,
+                                         target_done_task)
+
+    return graph.execute()
