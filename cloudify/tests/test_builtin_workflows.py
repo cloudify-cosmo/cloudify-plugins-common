@@ -31,6 +31,7 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
             os.path.dirname(os.path.realpath(__file__)),
             "resources/blueprints/execute_operation.yaml")
         self.env = local.init_env(blueprint_path)
+        super(TestExecuteOperationWorkflow, self).setUp()
 
     def test_execute_operation(self):
         params = self._get_params()
