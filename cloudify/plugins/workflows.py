@@ -341,8 +341,8 @@ def execute_operation(ctx, operation, operation_kwargs,
         # the deployment (e.g. consider if A and C are one out of N instances
         # of their respective nodes yet there's a single instance of B -
         # using NOP tasks we'll have 2N relationships instead of N^2).
-        filtered_node_instances_ids = {inst.id for inst in
-                                       filtered_node_instances}
+        filtered_node_instances_ids = set(inst.id for inst in
+                                          filtered_node_instances)
         for node in ctx.nodes:
             for instance in node.instances:
                 if instance.id not in filtered_node_instances_ids:

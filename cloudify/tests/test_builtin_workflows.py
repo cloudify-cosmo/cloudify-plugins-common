@@ -134,7 +134,8 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
                                 type_names=None):
         num_of_visited_instances = 0
         instances = self.env.storage.get_node_instances()
-        nodes_by_id = {node.id: node for node in self.env.storage.get_nodes()}
+        nodes_by_id = dict((node.id, node) for node in
+                           self.env.storage.get_nodes())
 
         for inst in instances:
             test_op_visited = inst.runtime_properties.get('test_op_visited')
