@@ -14,15 +14,17 @@
 #  * limitations under the License.
 
 
-import unittest
 import os
 import time
+
+import testtools
+from nose.tools import nottest
 
 from cloudify.workflows import local
 from cloudify.decorators import operation
 
 
-class TestExecuteOperationWorkflow(unittest.TestCase):
+class TestExecuteOperationWorkflow(testtools.TestCase):
 
     def setUp(self):
         blueprint_path = os.path.join(
@@ -108,10 +110,10 @@ class TestExecuteOperationWorkflow(unittest.TestCase):
 
     def test_execute_operation_with_dependency_order(self):
         time_diff_assertions_pairs = [
-            (0, 1),  # node 2 instance and node 1 instance
-            (0, 2),  # node 2 instance and node 1 instance
-            (1, 3),  # node 3 instance and node 2 instance
-            (2, 3)   # node 3 instance and node 2 instance
+            (0, 1),  # node 1 instance and node 2 instance
+            (0, 2),  # node 1 instance and node 2 instance
+            (1, 3),  # node 2 instance and node 3 instance
+            (2, 3)   # node 2 instance and node 3 instance
         ]
 
         self._dep_order_tests_helper([],
@@ -120,7 +122,7 @@ class TestExecuteOperationWorkflow(unittest.TestCase):
 
     def test_execute_operation_with_indirect_dependency_order(self):
         time_diff_assertions_pairs = [
-            (0, 1),  # node 3 instance and node 1 instance
+            (0, 1),  # node 1 instance and node 3 instance
         ]
 
         self._dep_order_tests_helper(['node1', 'node3'],
@@ -200,6 +202,7 @@ class TestExecuteOperationWorkflow(unittest.TestCase):
         }
 
 
+@nottest
 @operation
 def exec_op_test_operation(ctx, **kwargs):
     ctx.runtime_properties['test_op_visited'] = True
@@ -207,6 +210,7 @@ def exec_op_test_operation(ctx, **kwargs):
         ctx.runtime_properties['op_kwargs'] = kwargs
 
 
+@nottest
 @operation
 def exec_op_dependency_order_test_operation(ctx, **kwargs):
     ctx.runtime_properties['visit_time'] = time.time()
