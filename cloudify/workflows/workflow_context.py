@@ -338,7 +338,7 @@ class CloudifyWorkflowNode(object):
         return self._relationships.get(target_id)
 
 
-class CloudifyWorkflowContext(context.CommonContext):
+class CloudifyWorkflowContext(object):
     """
     A context used in workflow operations
 
@@ -346,7 +346,7 @@ class CloudifyWorkflowContext(context.CommonContext):
     """
 
     def __init__(self, ctx):
-        super(CloudifyWorkflowContext, self).__init__(ctx)
+        self._context = ctx or {}
 
         self._local_task_thread_pool_size = ctx.get(
             'local_task_thread_pool_size',
@@ -355,6 +355,9 @@ class CloudifyWorkflowContext(context.CommonContext):
                                             DEFAULT_RETRY_INTERVAL)
         self._task_retries = ctx.get('task_retries',
                                      DEFAULT_TOTAL_RETRIES)
+
+        self.blueprint = context.BlueprintContext(self._context)
+        self.deployment = context.DeploymentContext(self._context)
 
         if self.local:
             storage = ctx.pop('storage')

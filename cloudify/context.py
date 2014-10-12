@@ -106,8 +106,9 @@ class CommonContext(object):
             self._endpoint = LocalEndpoint(self, ctx.get('storage'))
         else:
             self._endpoint = ManagerEndpoint(self)
-        self.blueprint = BlueprintContext(self._context, self._endpoint)
-        self.deployment = DeploymentContext(self._context, self._endpoint)
+
+        self.blueprint = BlueprintContext(self._context)
+        self.deployment = DeploymentContext(self._context)
 
 
 class CloudifyRelatedNode(CommonContext):
@@ -119,9 +120,9 @@ class CloudifyRelatedNode(CommonContext):
         self._related = ctx['related']
         self._node_instance = None
         self._host_ip = None
-        self.node = NodeContext(self._related, self._endpoint)
+        self.node = NodeContext(self._related)
         self.instance = NodeInstanceContext(self._related,
-                                            self._endpoint,
+                                            endpoint=self._endpoint,
                                             node=self.node)
 
     @property
@@ -286,9 +287,8 @@ class BootstrapContext(object):
 
 class EntityContext(object):
 
-    def __init__(self, context, endpoint, **_):
+    def __init__(self, context, **_):
         self._context = context
-        self._endpoint = endpoint
 
 
 class BlueprintContext(EntityContext):
@@ -331,6 +331,7 @@ class NodeInstanceContext(EntityContext):
 
     def __init__(self, *args, **kwargs):
         super(NodeInstanceContext, self).__init__(*args, **kwargs)
+        self._endpoint = kwargs['endpoint']
         self._node = kwargs['node']
         self._node_instance = None
         self._host_ip = None
@@ -424,9 +425,9 @@ class CloudifyContext(CommonContext):
         self._bootstrap_context = None
         self._host_ip = None
         if self._context.get('node_id'):
-            self.node = NodeContext(self._context, self._endpoint)
+            self.node = NodeContext(self._context)
             self.instance = NodeInstanceContext(self._context,
-                                                self._endpoint,
+                                                endpoint=self._endpoint,
                                                 node=self.node)
         else:
             self.node = None
