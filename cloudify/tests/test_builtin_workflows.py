@@ -207,13 +207,13 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
 @nottest
 @operation
 def exec_op_test_operation(ctx, **kwargs):
-    ctx.runtime_properties['test_op_visited'] = True
+    ctx.instance.runtime_properties['test_op_visited'] = True
     if kwargs:
-        ctx.runtime_properties['op_kwargs'] = kwargs
+        ctx.instance.runtime_properties['op_kwargs'] = kwargs
 
 
 @nottest
 @operation
 def exec_op_dependency_order_test_operation(ctx, **kwargs):
-    ctx.runtime_properties['visit_time'] = time.time()
+    ctx.instance.runtime_properties['visit_time'] = time.time()
     time.sleep(1)
