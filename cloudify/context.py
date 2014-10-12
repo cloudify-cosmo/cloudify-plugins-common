@@ -94,7 +94,7 @@ class ContextCapabilities(object):
         return self._relationship_runtimes
 
 
-class CommonContextOperations(object):
+class CommonContext(object):
 
     def __init__(self, ctx=None):
         self._context = ctx or {}
@@ -110,7 +110,7 @@ class CommonContextOperations(object):
         self.deployment = DeploymentContext(self._context, self._endpoint)
 
 
-class CloudifyRelatedNode(CommonContextOperations):
+class CloudifyRelatedNode(CommonContext):
     """
     Represents the related node of a relationship.
     """
@@ -394,7 +394,7 @@ class NodeInstanceContext(EntityContext):
         return self._host_ip
 
 
-class CloudifyContext(CommonContextOperations):
+class CloudifyContext(CommonContext):
     """
     A context object passed to plugins tasks invocations.
     The context object is used in plugins when interacting with

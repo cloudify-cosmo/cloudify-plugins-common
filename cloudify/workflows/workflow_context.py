@@ -338,7 +338,7 @@ class CloudifyWorkflowNode(object):
         return self._relationships.get(target_id)
 
 
-class CloudifyWorkflowContext(context.CommonContextOperations):
+class CloudifyWorkflowContext(context.CommonContext):
     """
     A context used in workflow operations
 
