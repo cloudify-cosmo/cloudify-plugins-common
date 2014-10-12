@@ -95,7 +95,7 @@ class ManagerEndpoint(Endpoint):
 
     def get_node(self, node_id):
         client = manager.get_rest_client()
-        return client.nodes.get(self.ctx.deployment_id, node_id)
+        return client.nodes.get(self.ctx.deployment.id, node_id)
 
     def get_node_instance(self, node_instance_id):
         return manager.get_node_instance(node_instance_id)

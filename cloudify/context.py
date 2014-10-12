@@ -94,44 +94,24 @@ class ContextCapabilities(object):
         return self._relationship_runtimes
 
 
-class CommonContextOperations(object):
+class CommonContext(object):
 
-    def _get_node_instance_if_needed(self):
-        if self.node_id is None:
-            raise NonRecoverableError(
-                'Cannot get node state - invocation is not '
-                'in a context of node')
-        if self._node_instance is None:
-            self._node_instance = self._endpoint.get_node_instance(
-                self.node_id)
+    def __init__(self, ctx=None):
+        self._context = ctx or {}
+        self._local = ctx.get('local', False)
+        if self._local:
+            # there are times when this instance is instantiated merely for
+            # accessing the attributes so we can tolerate no storage (such is
+            # the case in logging)
+            self._endpoint = LocalEndpoint(self, ctx.get('storage'))
+        else:
+            self._endpoint = ManagerEndpoint(self)
 
-    def _get_node_instance_ip_if_needed(self):
-        self._get_node_instance_if_needed()
-        if self._host_ip is None:
-            if self.node_id == self._node_instance.host_id:
-                self._host_ip = self._endpoint.get_host_node_instance_ip(
-                    host_id=self.node_id,
-                    properties=self.properties,
-                    runtime_properties=self.runtime_properties)
-            else:
-                self._host_ip = self._endpoint.get_host_node_instance_ip(
-                    host_id=self._node_instance.host_id)
-
-    @property
-    def host_ip(self):
-        """
-        Returns the node instance host ip address.
-
-        This values is derived by reading the ``host_id`` from the relevant
-        node instance and then reading its ``ip`` runtime property or its
-        node_state ``ip`` property.
-        """
-
-        self._get_node_instance_ip_if_needed()
-        return self._host_ip
+        self.blueprint = BlueprintContext(self._context)
+        self.deployment = DeploymentContext(self._context)
 
 
-class CloudifyRelatedNode(CommonContextOperations):
+class CloudifyRelatedNode(CommonContext):
     """
     Represents the related node of a relationship.
     """
@@ -140,6 +120,10 @@ class CloudifyRelatedNode(CommonContextOperations):
         self._related = ctx['related']
         self._node_instance = None
         self._host_ip = None
+        self.node = NodeContext(self._related)
+        self.instance = NodeInstanceContext(self._related,
+                                            endpoint=self._endpoint,
+                                            node=self.node)
 
     @property
     def node_id(self):
@@ -174,6 +158,36 @@ class CloudifyRelatedNode(CommonContextOperations):
 
     def __contains__(self, key):
         return key in self.properties or key in self.runtime_properties
+
+    def _get_node_instance_if_needed(self):
+        if self._node_instance is None:
+            self._node_instance = self._endpoint.get_node_instance(
+                self.node_id)
+
+    def _get_node_instance_ip_if_needed(self):
+        self._get_node_instance_if_needed()
+        if self._host_ip is None:
+            if self.node_id == self._node_instance.host_id:
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
+                    host_id=self.node_id,
+                    properties=self.properties,
+                    runtime_properties=self.runtime_properties)
+            else:
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
+                    host_id=self._node_instance.host_id)
+
+    @property
+    def host_ip(self):
+        """
+        Returns the node instance host ip address.
+
+        This values is derived by reading the ``host_id`` from the relevant
+        node instance and then reading its ``ip`` runtime property or its
+        node_state ``ip`` property.
+        """
+
+        self._get_node_instance_ip_if_needed()
+        return self._host_ip
 
 
 class BootstrapContext(object):
@@ -271,63 +285,70 @@ class BootstrapContext(object):
         return self._bootstrap_context.get('resources_prefix', '')
 
 
-class CloudifyContext(CommonContextOperations):
-    """
-    A context object passed to plugins tasks invocations.
-    The context object is used in plugins when interacting with
-    the Cloudify environment::
+class EntityContext(object):
 
-        @operation
-        def my_start(ctx, **kwargs):
-            # port is a property that was configured on the current instance's
-            # node
-            port = ctx.properties['port']
-            start_server(port=port)
+    def __init__(self, context, **_):
+        self._context = context
 
-    """
-    def __init__(self, ctx=None):
-        self._context = ctx or {}
-        self._local = ctx.get('local', False)
-        if self._local:
-            # there are times when this instance is instantiated merely for
-            # accessing the attributes so we can tolerate no storage (such is
-            # the case in logging)
-            self._endpoint = LocalEndpoint(self, ctx.get('storage'))
-        else:
-            self._endpoint = ManagerEndpoint(self)
-        context_capabilities = self._context.get('relationships')
-        self._capabilities = ContextCapabilities(self._endpoint,
-                                                 context_capabilities)
-        self._logger = None
-        self._node_instance = None
-        self._node_properties = \
-            ImmutableProperties(self._context.get('node_properties') or {})
-        if 'related' in self._context:
-            self._related = CloudifyRelatedNode(self._endpoint,
-                                                self._context)
-        else:
-            self._related = None
-        self._provider_context = None
-        self._bootstrap_context = None
-        self._host_ip = None
+
+class BlueprintContext(EntityContext):
 
     @property
-    def node_id(self):
-        """The node instance id."""
-        return self._context.get('node_id')
+    def id(self):
+        """The blueprint id the plugin invocation belongs to."""
+        return self._context.get('blueprint_id')
+
+
+class DeploymentContext(EntityContext):
 
     @property
-    def node_name(self):
-        """The node instance name."""
+    def id(self):
+        """The deployment id the plugin invocation belongs to."""
+        return self._context.get('deployment_id')
+
+
+class NodeContext(EntityContext):
+
+    def __init__(self, *args, **kwargs):
+        super(NodeContext, self).__init__(*args, **kwargs)
+        self._properties = ImmutableProperties(
+            self._context.get('node_properties') or {})
+
+    @property
+    def id(self):
+        """The node's id"""
+        return self.name
+
+    @property
+    def name(self):
+        """The node's name"""
         return self._context.get('node_name')
 
     @property
     def properties(self):
-        """
-        The node properties as dict (read-only).
+        """The node properties as dict (read-only).
         These properties are the properties specified in the blueprint.
         """
-        return self._node_properties
+        return self._properties
+
+
+class NodeInstanceContext(EntityContext):
+
+    def __init__(self, *args, **kwargs):
+        super(NodeInstanceContext, self).__init__(*args, **kwargs)
+        self._endpoint = kwargs['endpoint']
+        self._node = kwargs['node']
+        self._node_instance = None
+        self._host_ip = None
+
+    def _get_node_instance_if_needed(self):
+        if self._node_instance is None:
+            self._node_instance = self._endpoint.get_node_instance(self.id)
+
+    @property
+    def id(self):
+        """The node instance id."""
+        return self._context.get('node_id')
 
     @property
     def runtime_properties(self):
@@ -340,21 +361,84 @@ class CloudifyContext(CommonContextOperations):
         self._get_node_instance_if_needed()
         return self._node_instance.runtime_properties
 
-    @property
-    def node_state(self):
-        """The node's state."""
+    def update(self):
+        """
+        Stores new/updated runtime properties for the node instance in context
+        in Cloudify's storage.
+
+        This method should be invoked only if its necessary to immediately
+        update Cloudify's storage with changes. Otherwise, the method is
+        automatically invoked as soon as the task execution is over.
+        """
+        if self._node_instance is not None and self._node_instance.dirty:
+            self._endpoint.update_node_instance(self._node_instance)
+            self._node_instance = None
+
+    def _get_node_instance_ip_if_needed(self):
         self._get_node_instance_if_needed()
-        return self._node_instance.state
+        if self._host_ip is None:
+            if self.id == self._node_instance.host_id:
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
+                    host_id=self.id,
+                    properties=self._node.properties,
+                    runtime_properties=self.runtime_properties)
+            else:
+                self._host_ip = self._endpoint.get_host_node_instance_ip(
+                    host_id=self._node_instance.host_id)
 
     @property
-    def blueprint_id(self):
-        """The blueprint id the plugin invocation belongs to."""
-        return self._context.get('blueprint_id')
+    def host_ip(self):
+        """
+        Returns the node instance host ip address.
 
-    @property
-    def deployment_id(self):
-        """The deployment id the plugin invocation belongs to."""
-        return self._context.get('deployment_id')
+        This values is derived by reading the ``host_id`` from the relevant
+        node instance and then reading its ``ip`` runtime property or its
+        node_state ``ip`` property.
+        """
+
+        self._get_node_instance_ip_if_needed()
+        return self._host_ip
+
+
+class CloudifyContext(CommonContext):
+    """
+    A context object passed to plugins tasks invocations.
+    The context object is used in plugins when interacting with
+    the Cloudify environment::
+
+        from cloudify import ctx
+
+        @operation
+        def my_start(**kwargs):
+            # port is a property that was configured on the current instance's
+            # node
+            port = ctx.node.properties['port']
+            start_server(port=port)
+
+    """
+    def __init__(self, ctx=None):
+        super(CloudifyContext, self).__init__(ctx=ctx)
+        context_capabilities = self._context.get('relationships')
+        self._capabilities = ContextCapabilities(self._endpoint,
+                                                 context_capabilities)
+        self._logger = None
+        self._node_instance = None
+        if 'related' in self._context:
+            self._related = CloudifyRelatedNode(self._endpoint,
+                                                self._context)
+        else:
+            self._related = None
+        self._provider_context = None
+        self._bootstrap_context = None
+        self._host_ip = None
+        if self._context.get('node_id'):
+            self.node = NodeContext(self._context)
+            self.instance = NodeInstanceContext(self._context,
+                                                endpoint=self._endpoint,
+                                                node=self.node)
+        else:
+            self.node = None
+            self.instance = None
 
     @property
     def execution_id(self):
@@ -533,7 +617,7 @@ class CloudifyContext(CommonContextOperations):
                               relative to the blueprint file which was
                               uploaded.
         """
-        return self._endpoint.get_blueprint_resource(self.blueprint_id,
+        return self._endpoint.get_blueprint_resource(self.blueprint.id,
                                                      resource_path)
 
     def download_resource(self, resource_path, target_path=None):
@@ -562,34 +646,16 @@ class CloudifyContext(CommonContextOperations):
                  failed to be written to the local file system.
 
         """
-        return self._endpoint.download_blueprint_resource(self.blueprint_id,
+        return self._endpoint.download_blueprint_resource(self.blueprint.id,
                                                           resource_path,
                                                           self.logger,
                                                           target_path)
-
-    def update(self):
-        """
-        Stores new/updated runtime properties for the node in context in
-        Cloudify's storage.
-
-        This method should be invoked only if its necessary to immediately
-        update Cloudify's storage with changes. Otherwise, the method is
-        automatically invoked as soon as the task execution is over.
-        """
-        if self._node_instance is not None and self._node_instance.dirty:
-            self._endpoint.update_node_instance(self._node_instance)
-            self._node_instance = None
 
     def _init_cloudify_logger(self):
         logger_name = self.task_id if self.task_id is not None \
             else 'cloudify_plugin'
         handler = self._endpoint.get_logging_handler()
         return init_cloudify_logger(handler, logger_name)
-
-    def __str__(self):
-        attrs = ('node_id', 'properties', 'runtime_properties', 'capabilities')
-        info = ' '.join(["{0}={1}".format(a, getattr(self, a)) for a in attrs])
-        return '<' + self.__class__.__name__ + ' ' + info + '>'
 
 
 class ImmutableProperties(dict):

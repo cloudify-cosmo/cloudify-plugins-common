@@ -20,6 +20,24 @@ from cloudify.context import (CloudifyContext,
 from cloudify.utils import setup_default_logger
 
 
+class MockNodeInstanceContext(object):
+
+    def __init__(self, id=None, runtime_properties=None):
+        self._id = id
+        self._runtime_properties = runtime_properties
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def runtime_properties(self):
+        return self._runtime_properties
+
+    def update(self):
+        pass
+
+
 class MockCloudifyContext(CloudifyContext):
     """
     Cloudify context mock that can be used when testing Cloudify plugins.
@@ -39,10 +57,15 @@ class MockCloudifyContext(CloudifyContext):
                  resources=None,
                  provider_context=None,
                  bootstrap_context=None):
-        super(MockCloudifyContext, self).__init__({'operation': operation})
+        super(MockCloudifyContext, self).__init__({
+            'blueprint_id': blueprint_id,
+            'deployment_id': deployment_id,
+            'node_id': node_id,
+            'node_name': node_name,
+            'node_properties': properties,
+            'operation': operation})
         self._node_id = node_id
         self._node_name = node_name
-        self._blueprint_id = blueprint_id
         self._deployment_id = deployment_id
         self._execution_id = execution_id
         self._properties = properties or {}
@@ -58,36 +81,14 @@ class MockCloudifyContext(CloudifyContext):
         self._related = related
         self._provider_context = provider_context or {}
         self._bootstrap_context = bootstrap_context or BootstrapContext({})
-
         self._mock_context_logger = setup_default_logger('mock-context-logger')
-
-    @property
-    def node_id(self):
-        return self._node_id
-
-    @property
-    def node_name(self):
-        return self._node_name
-
-    @property
-    def blueprint_id(self):
-        return self._blueprint_id
-
-    @property
-    def deployment_id(self):
-        return self._deployment_id
+        self.instance = MockNodeInstanceContext(
+            id=node_id,
+            runtime_properties=self._runtime_properties)
 
     @property
     def execution_id(self):
         return self._execution_id
-
-    @property
-    def properties(self):
-        return self._properties
-
-    @property
-    def runtime_properties(self):
-        return self._runtime_properties
 
     @property
     def capabilities(self):

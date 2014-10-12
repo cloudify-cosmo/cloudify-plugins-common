@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'idanmo'
 
 import sys
 import threading
@@ -30,15 +29,15 @@ clients = threading.local()
 def message_context_from_cloudify_context(ctx):
     """Build a message context from a CloudifyContext instance"""
     return {
-        'blueprint_id': ctx.blueprint_id,
-        'deployment_id': ctx.deployment_id,
+        'blueprint_id': ctx.blueprint.id,
+        'deployment_id': ctx.deployment.id,
         'execution_id': ctx.execution_id,
         'workflow_id': ctx.workflow_id,
         'task_id': ctx.task_id,
         'task_name': ctx.task_name,
         'task_target': ctx.task_target,
-        'node_name': ctx.node_name,
-        'node_id': ctx.node_id,
+        'node_name': ctx.node.name if ctx.node else None,
+        'node_id': ctx.instance.id if ctx.instance else None,
         'operation': ctx.operation,
         'plugin': ctx.plugin,
     }
@@ -47,8 +46,8 @@ def message_context_from_cloudify_context(ctx):
 def message_context_from_workflow_context(ctx):
     """Build a message context from a CloudifyWorkflowContext instance"""
     return {
-        'blueprint_id': ctx.blueprint_id,
-        'deployment_id': ctx.deployment_id,
+        'blueprint_id': ctx.blueprint.id,
+        'deployment_id': ctx.deployment.id,
         'execution_id': ctx.execution_id,
         'workflow_id': ctx.workflow_id,
     }
