@@ -315,8 +315,13 @@ class NodeContext(EntityContext):
             self._context.get('node_properties') or {})
 
     @property
+    def id(self):
+        """The node's id"""
+        return self.name
+
+    @property
     def name(self):
-        """The node instance name."""
+        """The node's name"""
         return self._context.get('node_name')
 
     @property
@@ -401,11 +406,13 @@ class CloudifyContext(CommonContext):
     The context object is used in plugins when interacting with
     the Cloudify environment::
 
+        from cloudify import ctx
+
         @operation
-        def my_start(ctx, **kwargs):
+        def my_start(**kwargs):
             # port is a property that was configured on the current instance's
             # node
-            port = ctx.properties['port']
+            port = ctx.node.properties['port']
             start_server(port=port)
 
     """
