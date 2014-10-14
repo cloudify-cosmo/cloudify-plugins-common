@@ -91,7 +91,7 @@ def install(ctx, **kwargs):
                 set_state_started_tasks[instance.id],
                 forkjoin(
                     instance.execute_operation(
-                        'cloudify.interfaces.monitor_lifecycle.start'),
+                        'cloudify.interfaces.monitoring.start'),
                     *_relationship_operations(
                         instance,
                         'cloudify.interfaces.relationship_lifecycle.establish'
@@ -143,7 +143,7 @@ def uninstall(ctx, **kwargs):
             stop_node_tasks[instance.id] = instance.execute_operation(
                 'cloudify.interfaces.lifecycle.stop')
             stop_monitor_tasks[instance.id] = instance.execute_operation(
-                'cloudify.interfaces.monitor_lifecycle.stop')
+                'cloudify.interfaces.monitoring.stop')
             delete_node_tasks[instance.id] = instance.execute_operation(
                 'cloudify.interfaces.lifecycle.delete')
 
@@ -256,22 +256,34 @@ def _host_post_start(host_node_instance):
             host_node_instance.execute_operation(
                 'cloudify.interfaces.worker_installer.start'),
         ]
-    if plugins_to_install:
-        tasks += [
-            host_node_instance.send_event('Installing host plugins'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.plugin_installer.install',
-                kwargs={
-                    'plugins': plugins_to_install}),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.worker_installer.restart',
-                send_task_events=False)
-        ]
+        if plugins_to_install:
+            tasks += [
+                host_node_instance.send_event('Installing host plugins'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.plugin_installer.install',
+                    kwargs={
+                        'plugins': plugins_to_install}),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.worker_installer.restart',
+                    send_task_events=False)
+            ]
+    tasks += [
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.install'),
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.start'),
+    ]
     return tasks
 
 
 def _host_pre_stop(host_node_instance):
     tasks = []
+    tasks += [
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.stop'),
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.uninstall'),
+    ]
     if host_node_instance.node.properties['install_agent'] is True:
         tasks += [
             host_node_instance.send_event('Uninstalling worker'),
