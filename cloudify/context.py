@@ -19,6 +19,11 @@ from cloudify.logs import init_cloudify_logger
 from cloudify.exceptions import NonRecoverableError
 
 
+DEPLOYMENT = 'deployment'
+NODE_INSTANCE = 'node-instance'
+RELATIONSHIP_INSTANCE = 'relationship-instance'
+
+
 class ContextCapabilities(object):
     """
     Represents dependency nodes capabilities.
@@ -109,85 +114,6 @@ class CommonContext(object):
 
         self.blueprint = BlueprintContext(self._context)
         self.deployment = DeploymentContext(self._context)
-
-
-class CloudifyRelatedNode(CommonContext):
-    """
-    Represents the related node of a relationship.
-    """
-    def __init__(self, endpoint, ctx):
-        self._endpoint = endpoint
-        self._related = ctx['related']
-        self._node_instance = None
-        self._host_ip = None
-        self.node = NodeContext(self._related)
-        self.instance = NodeInstanceContext(self._related,
-                                            endpoint=self._endpoint,
-                                            node=self.node)
-
-    @property
-    def node_id(self):
-        """The related node's id."""
-        return self._related['node_id']
-
-    @property
-    def properties(self):
-        """The related node's properties as dict (read-only)."""
-        return self._related['node_properties']
-
-    @property
-    def runtime_properties(self):
-        """The related node's context runtime properties as a dict
-        (read-only).
-
-        Runtime properties are properties set during the node's lifecycle.
-        Retrieving runtime properties involves a call to Cloudify's storage.
-        """
-        self._get_node_instance_if_needed()
-        return self._node_instance.runtime_properties
-
-    def __getitem__(self, key):
-        """
-        A syntactic sugar for getting related node's properties/runtime
-        properties where the priority is for properties (properties
-         specified in the blueprint).
-        """
-        if key in self.properties:
-            return self.properties[key]
-        return self.runtime_properties[key]
-
-    def __contains__(self, key):
-        return key in self.properties or key in self.runtime_properties
-
-    def _get_node_instance_if_needed(self):
-        if self._node_instance is None:
-            self._node_instance = self._endpoint.get_node_instance(
-                self.node_id)
-
-    def _get_node_instance_ip_if_needed(self):
-        self._get_node_instance_if_needed()
-        if self._host_ip is None:
-            if self.node_id == self._node_instance.host_id:
-                self._host_ip = self._endpoint.get_host_node_instance_ip(
-                    host_id=self.node_id,
-                    properties=self.properties,
-                    runtime_properties=self.runtime_properties)
-            else:
-                self._host_ip = self._endpoint.get_host_node_instance_ip(
-                    host_id=self._node_instance.host_id)
-
-    @property
-    def host_ip(self):
-        """
-        Returns the node instance host ip address.
-
-        This values is derived by reading the ``host_id`` from the relevant
-        node instance and then reading its ``ip`` runtime property or its
-        node_state ``ip`` property.
-        """
-
-        self._get_node_instance_ip_if_needed()
-        return self._host_ip
 
 
 class BootstrapContext(object):
@@ -400,6 +326,16 @@ class NodeInstanceContext(EntityContext):
         return self._host_ip
 
 
+class RelationshipContext(object):
+
+    def __init__(self, context, endpoint):
+        self._context = context
+        self.node = NodeContext(context)
+        self.instance = NodeInstanceContext(context,
+                                            endpoint=endpoint,
+                                            node=self.node)
+
+
 class CloudifyContext(CommonContext):
     """
     A context object passed to plugins tasks invocations.
@@ -418,27 +354,77 @@ class CloudifyContext(CommonContext):
     """
     def __init__(self, ctx=None):
         super(CloudifyContext, self).__init__(ctx=ctx)
-        context_capabilities = self._context.get('relationships')
+        context_capabilities = self._context.get('relationships', [])
         self._capabilities = ContextCapabilities(self._endpoint,
                                                  context_capabilities)
         self._logger = None
         self._node_instance = None
-        if 'related' in self._context:
-            self._related = CloudifyRelatedNode(self._endpoint,
-                                                self._context)
-        else:
-            self._related = None
         self._provider_context = None
         self._bootstrap_context = None
         self._host_ip = None
-        if self._context.get('node_id'):
-            self.node = NodeContext(self._context)
-            self.instance = NodeInstanceContext(self._context,
-                                                endpoint=self._endpoint,
-                                                node=self.node)
-        else:
-            self.node = None
-            self.instance = None
+        self._node = None
+        self._instance = None
+        self._source = None
+        self._target = None
+
+        if 'related' in self._context:
+            related_instance_id = self._context['related']['node_id']
+            if related_instance_id in context_capabilities:
+                self._source = RelationshipContext(self._context,
+                                                   endpoint=self._endpoint)
+                self._target = RelationshipContext(self._context['related'],
+                                                   endpoint=self._endpoint)
+            else:
+                self._source = RelationshipContext(self._context['related'],
+                                                   endpoint=self._endpoint)
+                self._target = RelationshipContext(self._context,
+                                                   endpoint=self._endpoint)
+        elif self._context.get('node_id'):
+            self._node = NodeContext(self._context)
+            self._instance = NodeInstanceContext(self._context,
+                                                 endpoint=self._endpoint,
+                                                 node=self._node)
+
+    def _verify_in_node_context(self):
+        if self.type != NODE_INSTANCE:
+            raise NonRecoverableError(
+                'ctx.node/ctx.instance can only be used in a {0} context but '
+                'used in a {1} context.'.format(NODE_INSTANCE, self.type))
+
+    def _verify_in_relationship_context(self):
+        if self.type != RELATIONSHIP_INSTANCE:
+            raise NonRecoverableError(
+                'ctx.source/ctx.target can only be used in a {0} context but '
+                'used in a {1} context.'.format(RELATIONSHIP_INSTANCE,
+                                                self.type))
+
+    @property
+    def instance(self):
+        self._verify_in_node_context()
+        return self._instance
+
+    @property
+    def node(self):
+        self._verify_in_node_context()
+        return self._node
+
+    @property
+    def source(self):
+        self._verify_in_relationship_context()
+        return self._source
+
+    @property
+    def target(self):
+        self._verify_in_relationship_context()
+        return self._target
+
+    @property
+    def type(self):
+        if self._source:
+            return RELATIONSHIP_INSTANCE
+        if self._instance:
+            return NODE_INSTANCE
+        return DEPLOYMENT
 
     @property
     def execution_id(self):
@@ -510,20 +496,20 @@ class CloudifyContext(CommonContext):
         """
         return self._capabilities
 
-    @property
-    def related(self):
-        """
-        The related node in a relationship.
-
-        When using relationship interfaces, if the relationship hook is
-        executed at source node, the node in context is the source node
-        and the related node is the target node.
-        If relationship hook is executed at target node, the node in
-        context is the target node and the related node is the source node.
-
-        :rtype: CloudifyRelatedNode
-        """
-        return self._related
+    # @property
+    # def related(self):
+    #     """
+    #     The related node in a relationship.
+    #
+    #     When using relationship interfaces, if the relationship hook is
+    #     executed at source node, the node in context is the source node
+    #     and the related node is the target node.
+    #     If relationship hook is executed at target node, the node in
+    #     context is the target node and the related node is the source node.
+    #
+    #     :rtype: CloudifyRelatedNode
+    #     """
+    #     return self._related
 
     @property
     def logger(self):

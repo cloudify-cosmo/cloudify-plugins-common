@@ -16,11 +16,13 @@
 
 import unittest
 
+from mock import patch
+
 from cloudify import ctx as ctx_proxy
 from cloudify import manager
 from cloudify import decorators
 from cloudify.decorators import operation, workflow
-from cloudify.context import CloudifyContext
+from cloudify import context
 from cloudify.exceptions import NonRecoverableError, ProcessExecutionError
 from cloudify.workflows import workflow_context
 
@@ -46,6 +48,10 @@ class MockPicklableException(Exception):
 def acquire_context(a, b, ctx, **kwargs):
     return ctx
 
+@operation
+def some_operation(**kwargs):
+    from cloudify import ctx
+    return ctx
 
 @workflow
 def error_workflow(ctx, picklable=False, **_):
@@ -58,13 +64,13 @@ class OperationTest(unittest.TestCase):
 
     def test_empty_ctx(self):
         ctx = acquire_context(0, 0)
-        self.assertIsInstance(ctx, CloudifyContext)
+        self.assertIsInstance(ctx, context.CloudifyContext)
 
     def test_provided_ctx(self):
         ctx = {'node_id': '1234'}
         kwargs = {'__cloudify_context': ctx}
         ctx = acquire_context(0, 0, **kwargs)
-        self.assertIsInstance(ctx, CloudifyContext)
+        self.assertIsInstance(ctx, context.CloudifyContext)
         self.assertEquals('1234', ctx.instance.id)
 
     def test_proxied_ctx(self):
@@ -158,3 +164,25 @@ class OperationTest(unittest.TestCase):
             self.assertTrue('hello world!' in e.message)
             self.assertTrue('test_decorators.py' in e.traceback)
             self.assertTrue(MockPicklableException.__name__ in e.error_type)
+
+    def test_instance_update(self):
+        with patch.object(context.NodeInstanceContext,
+                          'update') as mock_update:
+            kwargs = {'__cloudify_context': {
+                'node_id': '5678'
+            }}
+            some_operation(**kwargs)
+            mock_update.assert_called_once_with()
+
+    def test_source_target_update_in_relationship(self):
+        with patch.object(context.NodeInstanceContext,
+                          'update') as mock_update:
+            kwargs = {'__cloudify_context': {
+                'node_id': '5678',
+                'relationships': ['1111'],
+                'related': {
+                    'node_id': '1111'
+                }
+            }}
+            some_operation(**kwargs)
+            self.assertEqual(2, mock_update.call_count)

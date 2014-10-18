@@ -28,6 +28,7 @@ clients = threading.local()
 
 def message_context_from_cloudify_context(ctx):
     """Build a message context from a CloudifyContext instance"""
+    from cloudify.context import NODE_INSTANCE
     return {
         'blueprint_id': ctx.blueprint.id,
         'deployment_id': ctx.deployment.id,
@@ -36,8 +37,8 @@ def message_context_from_cloudify_context(ctx):
         'task_id': ctx.task_id,
         'task_name': ctx.task_name,
         'task_target': ctx.task_target,
-        'node_name': ctx.node.name if ctx.node else None,
-        'node_id': ctx.instance.id if ctx.instance else None,
+        'node_name': ctx.node.name if ctx.type == NODE_INSTANCE else None,
+        'node_id': ctx.instance.id if ctx.type == NODE_INSTANCE else None,
         'operation': ctx.operation,
         'plugin': ctx.plugin,
     }
