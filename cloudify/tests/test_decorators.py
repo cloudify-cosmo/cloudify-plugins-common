@@ -48,10 +48,12 @@ class MockPicklableException(Exception):
 def acquire_context(a, b, ctx, **kwargs):
     return ctx
 
+
 @operation
 def some_operation(**kwargs):
     from cloudify import ctx
     return ctx
+
 
 @workflow
 def error_workflow(ctx, picklable=False, **_):
