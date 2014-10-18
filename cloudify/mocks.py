@@ -82,9 +82,10 @@ class MockCloudifyContext(CloudifyContext):
         self._provider_context = provider_context or {}
         self._bootstrap_context = bootstrap_context or BootstrapContext({})
         self._mock_context_logger = setup_default_logger('mock-context-logger')
-        self._node_instance = MockNodeInstanceContext(
-            id=node_id,
-            runtime_properties=self._runtime_properties)
+        if node_id:
+            self._instance = MockNodeInstanceContext(
+                id=node_id,
+                runtime_properties=self._runtime_properties)
 
     @property
     def execution_id(self):
