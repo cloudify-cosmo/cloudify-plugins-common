@@ -166,6 +166,7 @@ def _prepare_nodes_and_instances(nodes, node_instances, ignored_modules):
 
     for node_instance in node_instances:
         node_instance['version'] = 0
+        node_instance['runtime_properties'] = {}
         node_instance['node_id'] = node_instance['name']
         if 'relationships' not in node_instance:
             node_instance['relationships'] = []
