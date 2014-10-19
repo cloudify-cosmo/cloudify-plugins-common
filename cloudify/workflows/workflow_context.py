@@ -261,6 +261,10 @@ class CloudifyWorkflowNodeInstance(object):
         return self._node
 
     @property
+    def modification(self):
+        return self._node_instance.get('modification')
+
+    @property
     def logger(self):
         """A logger for this workflow node"""
         if self._logger is None:
@@ -357,27 +361,24 @@ class CloudifyWorkflowContext(object):
                                      DEFAULT_TOTAL_RETRIES)
 
         self.blueprint = context.BlueprintContext(self._context)
-        self.deployment = context.DeploymentContext(self._context)
+        self.deployment = WorkflowDeploymentContext(self._context, self)
 
         if self.local:
             storage = ctx.pop('storage')
-            nodes = storage.get_nodes()
-            node_instances = storage.get_node_instances()
+            raw_nodes = storage.get_nodes()
+            raw_node_instances = storage.get_node_instances()
             handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
             rest = get_rest_client()
-            nodes = rest.nodes.list(self.deployment.id)
-            node_instances = rest.node_instances.list(self.deployment.id)
+            raw_nodes = rest.nodes.list(self.deployment.id)
+            raw_node_instances = rest.node_instances.list(self.deployment.id)
             handler = RemoteCloudifyWorkflowContextHandler(self)
 
-        self._nodes = dict(
-            (node.id, CloudifyWorkflowNode(self, node))
-            for node in nodes)
-
-        self._node_instances = dict(
-            (instance.id, CloudifyWorkflowNodeInstance(
-                self, self._nodes[instance.node_id], instance))
-            for instance in node_instances)
+        nodes, nodes_instances = _build_workflow_nodes_and_node_instances(
+            self, raw_nodes, raw_node_instances)
+        self._raw_nodes = raw_nodes
+        self._nodes = nodes
+        self._node_instances = nodes_instances
 
         self._logger = None
 
@@ -871,6 +872,12 @@ class CloudifyWorkflowContextHandler(object):
                                     target_path=None):
         raise NotImplementedError('Implemented by subclasses')
 
+    def start_deployment_modification(self, nodes):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def finish_deployment_modification(self, modification):
+        raise NotImplementedError('Implemented by subclasses')
+
 
 class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
@@ -969,6 +976,18 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                            target_path=target_path,
                                            logger=logger)
 
+    def start_deployment_modification(self, nodes):
+        deployment_id = self.workflow_ctx.deployment.id
+        client = get_rest_client()
+        modification = client.deployments.modify.start(deployment_id, nodes)
+        return Modification(self.workflow_ctx, modification)
+
+    def finish_deployment_modification(self, modification):
+        deployment_id = self.workflow_ctx.deployment.id
+        client = get_rest_client()
+        client.deployments.modify.finish(deployment_id,
+                                         modification)
+
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
@@ -1062,6 +1081,63 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                               target_path=target_path)
 
 
+class Modification(object):
+
+    def __init__(self, workflow_ctx, modification):
+        self._raw_modification = modification
+        self.workflow_ctx = workflow_ctx
+        node_instances = modification.node_instances
+        added_raw_nodes = dict(
+            (instance.node_id, workflow_ctx.get_node(instance.node_id)._node)
+            for instance in node_instances.added_and_related).values()
+        added_raw_node_instances = node_instances.added_and_related
+        self.added = ModificationNodes(self,
+                                       added_raw_nodes,
+                                       added_raw_node_instances)
+
+        removed_raw_nodes = dict(
+            (instance.node_id, workflow_ctx.get_node(instance.node_id)._node)
+            for instance in node_instances.removed_and_related).values()
+        removed_raw_node_instances = node_instances.removed_and_related
+        self.removed = ModificationNodes(self,
+                                         removed_raw_nodes,
+                                         removed_raw_node_instances)
+
+    def finish(self):
+        self.workflow_ctx.internal.handler.finish_deployment_modification(
+            self._raw_modification)
+
+
+class ModificationNodes(object):
+
+    def __init__(self, modification, raw_nodes, raw_node_instances):
+        nodes, node_instances = _build_workflow_nodes_and_node_instances(
+            modification.workflow_ctx, raw_nodes, raw_node_instances)
+        self._nodes = nodes
+        self._node_instances = node_instances
+
+    @property
+    def nodes(self):
+        return self._nodes.itervalues()
+
+    def get_node(self, node_id):
+        return self._nodes.get(node_id)
+
+    def get_node_instance(self, node_instance_id):
+        return self._node_instances.get(node_instance_id)
+
+
+class WorkflowDeploymentContext(context.DeploymentContext):
+
+    def __init__(self, cloudify_context, workflow_ctx):
+        super(WorkflowDeploymentContext, self).__init__(cloudify_context)
+        self.workflow_ctx = workflow_ctx
+
+    def start_modification(self, nodes):
+        handler = self.workflow_ctx.internal.handler
+        return handler.start_deployment_modification(nodes)
+
+
 def task_config(fn=None, **arguments):
     if fn is not None:
         @functools.wraps(fn)
@@ -1073,3 +1149,17 @@ def task_config(fn=None, **arguments):
         def partial_wrapper(func):
             return task_config(func, **arguments)
         return partial_wrapper
+
+
+def _build_workflow_nodes_and_node_instances(
+        workflow_context, raw_nodes, raw_node_instances):
+    nodes = dict(
+        (node.id, CloudifyWorkflowNode(workflow_context, node))
+        for node in raw_nodes)
+
+    node_instances = dict(
+        (instance.id, CloudifyWorkflowNodeInstance(
+            workflow_context, nodes[instance.node_id], instance))
+        for instance in raw_node_instances)
+
+    return nodes, node_instances
