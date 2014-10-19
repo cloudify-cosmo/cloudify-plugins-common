@@ -327,6 +327,9 @@ class NodeInstanceContext(EntityContext):
 
 
 class RelationshipContext(object):
+    """In relationship operations, an instance of this class will be returned
+    for ctx.source and ctx.target.
+    """
 
     def __init__(self, context, endpoint):
         self._context = context
@@ -354,7 +357,7 @@ class CloudifyContext(CommonContext):
     """
     def __init__(self, ctx=None):
         super(CloudifyContext, self).__init__(ctx=ctx)
-        context_capabilities = self._context.get('relationships', [])
+        context_capabilities = self._context.get('relationships')
         self._capabilities = ContextCapabilities(self._endpoint,
                                                  context_capabilities)
         self._logger = None
@@ -370,15 +373,15 @@ class CloudifyContext(CommonContext):
         if 'related' in self._context:
             related_instance_id = self._context['related']['node_id']
             if related_instance_id in context_capabilities:
-                self._source = RelationshipContext(self._context,
-                                                   endpoint=self._endpoint)
-                self._target = RelationshipContext(self._context['related'],
-                                                   endpoint=self._endpoint)
+                source_context = self._context
+                target_context = self._context['related']
             else:
-                self._source = RelationshipContext(self._context['related'],
-                                                   endpoint=self._endpoint)
-                self._target = RelationshipContext(self._context,
-                                                   endpoint=self._endpoint)
+                source_context = self._context['related']
+                target_context = self._context
+
+            self._source = RelationshipContext(source_context, self._endpoint)
+            self._target = RelationshipContext(target_context, self._endpoint)
+
         elif self._context.get('node_id'):
             self._node = NodeContext(self._context)
             self._instance = NodeInstanceContext(self._context,
@@ -400,26 +403,52 @@ class CloudifyContext(CommonContext):
 
     @property
     def instance(self):
+        """The node instance the operation is executed for.
+
+        This property is only relevant for NODE_INSTANCE context operations.
+        """
         self._verify_in_node_context()
         return self._instance
 
     @property
     def node(self):
+        """The node the operation is executed for.
+
+        This property is only relevant for NODE_INSTANCE context operations.
+        """
         self._verify_in_node_context()
         return self._node
 
     @property
     def source(self):
+        """Provides access to the relationship's operation source node and
+        node instance.
+
+        This property is only relevant for relationship operations.
+        """
         self._verify_in_relationship_context()
         return self._source
 
     @property
     def target(self):
+        """Provides access to the relationship's operation target node and
+        node instance.
+
+        This property is only relevant for relationship operations.
+        """
         self._verify_in_relationship_context()
         return self._target
 
     @property
     def type(self):
+        """The type of this context.
+
+        Available values:
+
+        - DEPLOYMENT
+        - NODE_INSTANCE
+        - RELATIONSHIP_INSTANCE
+        """
         if self._source:
             return RELATIONSHIP_INSTANCE
         if self._instance:
@@ -495,21 +524,6 @@ class CloudifyContext(CommonContext):
         the dependency node's runtime properties.
         """
         return self._capabilities
-
-    # @property
-    # def related(self):
-    #     """
-    #     The related node in a relationship.
-    #
-    #     When using relationship interfaces, if the relationship hook is
-    #     executed at source node, the node in context is the source node
-    #     and the related node is the target node.
-    #     If relationship hook is executed at target node, the node in
-    #     context is the target node and the related node is the source node.
-    #
-    #     :rtype: CloudifyRelatedNode
-    #     """
-    #     return self._related
 
     @property
     def logger(self):
