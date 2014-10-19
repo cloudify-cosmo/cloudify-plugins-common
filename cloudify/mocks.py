@@ -38,6 +38,15 @@ class MockNodeInstanceContext(object):
         pass
 
 
+class MockContext(dict):
+
+    def __init__(self, values=None):
+        self.update(values or {})
+
+    def __getattr__(self, item):
+        return self[item]
+
+
 class MockCloudifyContext(CloudifyContext):
     """
     Cloudify context mock that can be used when testing Cloudify plugins.
@@ -53,6 +62,8 @@ class MockCloudifyContext(CloudifyContext):
                  runtime_properties=None,
                  capabilities=None,
                  related=None,
+                 source=None,
+                 target=None,
                  operation=None,
                  resources=None,
                  provider_context=None,
@@ -71,6 +82,8 @@ class MockCloudifyContext(CloudifyContext):
         self._properties = properties or {}
         self._runtime_properties = runtime_properties or {}
         self._resources = resources or {}
+        self._source = source
+        self._target = target
         if capabilities and not isinstance(capabilities, ContextCapabilities):
             raise ValueError(
                 "MockCloudifyContext(capabilities=?) must be "
@@ -86,6 +99,11 @@ class MockCloudifyContext(CloudifyContext):
             self._instance = MockNodeInstanceContext(
                 id=node_id,
                 runtime_properties=self._runtime_properties)
+        if self._source is None and self._target:
+            self._source = MockContext({
+                'instance': None,
+                'node': None
+            })
 
     @property
     def execution_id(self):
