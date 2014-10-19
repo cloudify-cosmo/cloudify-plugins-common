@@ -269,12 +269,12 @@ def amqp_log_out(log):
 
 def stdout_event_out(event):
     populate_base_item(event, 'cloudify_event')
-    sys.stdout.write('{}\n'.format(create_event_message_prefix(event)))
+    sys.stdout.write('{0}\n'.format(create_event_message_prefix(event)))
 
 
 def stdout_log_out(log):
     populate_base_item(log, 'cloudify_log')
-    sys.stdout.write('{}\n'.format(create_event_message_prefix(log)))
+    sys.stdout.write('{0}\n'.format(create_event_message_prefix(log)))
 
 
 def create_event_message_prefix(event):

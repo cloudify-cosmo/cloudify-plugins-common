@@ -187,8 +187,8 @@ class BaseWorkflowTest(unittest.TestCase):
                      workflow_parameters_schema, ignored_modules):
         interfaces = {
             'test': [
-                {'op{}'.format(index):
-                 'p.{}.{}'.format(self._testMethodName,
+                {'op{0}'.format(index):
+                 'p.{0}.{1}'.format(self._testMethodName,
                                   op_method.__name__)}
                 for index, op_method in
                 enumerate(operation_methods)
@@ -200,8 +200,8 @@ class BaseWorkflowTest(unittest.TestCase):
                                        .format(ignored_modules[0])})
 
         workflows = dict((
-            ('workflow{}'.format(index), {
-                'mapping': 'p.{}.{}'.format(self._testMethodName,
+            ('workflow{0}'.format(index), {
+                'mapping': 'p.{0}.{1}'.format(self._testMethodName,
                                             w_method.__name__),
                 'parameters': workflow_parameters_schema or {}
             }) for index, w_method in enumerate(workflow_methods)
@@ -595,7 +595,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
                 self.assertDictContainsSubset({'property': 'value'},
                                               ctx.related.properties)
             else:
-                self.fail('unexpected: {}'.format(ctx.related.node_id))
+                self.fail('unexpected: {0}'.format(ctx.related.node_id))
 
         self._execute_workflow(the_workflow, operation_methods=[op])
 
@@ -640,7 +640,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertIsNotNone(ctx.execution_id)
             self.assertEqual('workflow0', ctx.workflow_id)
             self.assertIsNotNone(ctx.task_id)
-            self.assertEqual('{}.{}'.format(self._testMethodName,
+            self.assertEqual('{0}.{1}'.format(self._testMethodName,
                                             'ctx_properties'),
                              ctx.task_name)
             self.assertIsNone(ctx.task_target)
@@ -1120,7 +1120,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             module_name = 'zzz' if is_missing_module else self._testMethodName
             interfaces = {
                 'test': [
-                    {'op': 'p.{}.{}'.format(module_name, 'does_not_exist')}
+                    {'op': 'p.{0}.{1}'.format(module_name, 'does_not_exist')}
                 ]
             }
             blueprint = {
@@ -1150,7 +1150,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                     },
                 },
                 'workflows': {
-                    'workflow': 'p.{}.{}'.format(module_name,
+                    'workflow': 'p.{0}.{1}'.format(module_name,
                                                  'does_not_exist')
                 }
             }
