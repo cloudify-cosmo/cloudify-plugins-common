@@ -64,7 +64,7 @@ def install(ctx, **kwargs):
                 forkjoin(*_relationship_operations(
                     instance,
                     'cloudify.interfaces.relationship_lifecycle.preconfigure'
-                )),
+                ).values()),
                 forkjoin(
                     instance.set_state('configuring'),
                     instance.send_event('Configuring node')),
@@ -74,7 +74,7 @@ def install(ctx, **kwargs):
                 forkjoin(*_relationship_operations(
                     instance,
                     'cloudify.interfaces.relationship_lifecycle.postconfigure'
-                )),
+                ).values()),
                 forkjoin(
                     instance.set_state('starting'),
                     instance.send_event('Starting node')),
@@ -91,11 +91,11 @@ def install(ctx, **kwargs):
                 set_state_started_tasks[instance.id],
                 forkjoin(
                     instance.execute_operation(
-                        'cloudify.interfaces.monitor_lifecycle.start'),
+                        'cloudify.interfaces.monitoring.start'),
                     *_relationship_operations(
                         instance,
                         'cloudify.interfaces.relationship_lifecycle.establish'
-                    )))
+                    ).values()))
 
     # Create task dependencies based on node relationships
     # for each node, make a dependency between the create tasks (event, state)
@@ -143,7 +143,7 @@ def uninstall(ctx, **kwargs):
             stop_node_tasks[instance.id] = instance.execute_operation(
                 'cloudify.interfaces.lifecycle.stop')
             stop_monitor_tasks[instance.id] = instance.execute_operation(
-                'cloudify.interfaces.monitor_lifecycle.stop')
+                'cloudify.interfaces.monitoring.stop')
             delete_node_tasks[instance.id] = instance.execute_operation(
                 'cloudify.interfaces.lifecycle.delete')
 
@@ -152,6 +152,9 @@ def uninstall(ctx, **kwargs):
     # added to it will be executed in a sequential manner
     for node in ctx.nodes:
         for instance in node.instances:
+            unlink_tasks = _relationship_operations(
+                instance, 'cloudify.interfaces.relationship_lifecycle.unlink')
+
             sequence = graph.sequence()
 
             sequence.add(set_state_stopping_tasks[instance.id],
@@ -160,10 +163,7 @@ def uninstall(ctx, **kwargs):
                 sequence.add(*_host_pre_stop(instance))
             sequence.add(stop_node_tasks[instance.id],
                          instance.set_state('stopped'),
-                         forkjoin(*_relationship_operations(
-                             instance,
-                             'cloudify.interfaces.relationship_lifecycle'
-                             '.unlink')),
+                         forkjoin(*unlink_tasks.values()),
                          instance.set_state('deleting'),
                          instance.send_event('Deleting node'),
                          delete_node_tasks[instance.id],
@@ -191,6 +191,13 @@ def uninstall(ctx, **kwargs):
                 instance,
                 "Error occurred while deleting node - ignoring...")
 
+            for target_id, unlink_task in unlink_tasks.iteritems():
+                _set_send_node_event_on_error_handler(
+                    unlink_task,
+                    instance,
+                    "Error occurred while unlinking node from node {0} - "
+                    "ignoring...".format(target_id))
+
     # Create task dependencies based on node relationships
     # for each node, make a dependency between the target's stopping task
     # and the deleted state task of the current node
@@ -212,10 +219,12 @@ def _set_send_node_event_on_error_handler(task, node_instance, error_message):
 
 
 def _relationship_operations(node_instance, operation):
-    tasks = []
+    tasks = {}
     for relationship in node_instance.relationships:
-        tasks.append(relationship.execute_source_operation(operation))
-        tasks.append(relationship.execute_target_operation(operation))
+        tasks[relationship.target_id] = relationship.execute_source_operation(
+            operation)
+        tasks[relationship.target_id] = relationship.execute_target_operation(
+            operation)
     return tasks
 
 
@@ -256,22 +265,34 @@ def _host_post_start(host_node_instance):
             host_node_instance.execute_operation(
                 'cloudify.interfaces.worker_installer.start'),
         ]
-    if plugins_to_install:
-        tasks += [
-            host_node_instance.send_event('Installing host plugins'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.plugin_installer.install',
-                kwargs={
-                    'plugins': plugins_to_install}),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.worker_installer.restart',
-                send_task_events=False)
-        ]
+        if plugins_to_install:
+            tasks += [
+                host_node_instance.send_event('Installing host plugins'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.plugin_installer.install',
+                    kwargs={
+                        'plugins': plugins_to_install}),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.worker_installer.restart',
+                    send_task_events=False)
+            ]
+    tasks += [
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.install'),
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.start'),
+    ]
     return tasks
 
 
 def _host_pre_stop(host_node_instance):
     tasks = []
+    tasks += [
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.stop'),
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.uninstall'),
+    ]
     if host_node_instance.node.properties['install_agent'] is True:
         tasks += [
             host_node_instance.send_event('Uninstalling worker'),
