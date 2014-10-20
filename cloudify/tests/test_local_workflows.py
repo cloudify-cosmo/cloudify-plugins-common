@@ -18,11 +18,15 @@ import time
 import yaml
 import sys
 import tempfile
-import unittest
 import shutil
 import os
 import threading
 import Queue
+
+try:
+    import unittest2 as unittest
+except ImportError:
+    import unittest
 
 import nose.tools
 
