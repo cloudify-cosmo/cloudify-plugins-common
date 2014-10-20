@@ -38,8 +38,6 @@ def message_context_from_cloudify_context(ctx):
         'task_id': ctx.task_id,
         'task_name': ctx.task_name,
         'task_target': ctx.task_target,
-        'node_name': ctx.node.name if ctx.type == NODE_INSTANCE else None,
-        'node_id': ctx.instance.id if ctx.type == NODE_INSTANCE else None,
         'operation': ctx.operation,
         'plugin': ctx.plugin,
     }
