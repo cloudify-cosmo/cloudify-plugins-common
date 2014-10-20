@@ -28,7 +28,9 @@ clients = threading.local()
 
 def message_context_from_cloudify_context(ctx):
     """Build a message context from a CloudifyContext instance"""
-    return {
+    from cloudify.context import NODE_INSTANCE, RELATIONSHIP_INSTANCE
+
+    context = {
         'blueprint_id': ctx.blueprint.id,
         'deployment_id': ctx.deployment.id,
         'execution_id': ctx.execution_id,
@@ -36,11 +38,19 @@ def message_context_from_cloudify_context(ctx):
         'task_id': ctx.task_id,
         'task_name': ctx.task_name,
         'task_target': ctx.task_target,
-        'node_name': ctx.node.name if ctx.node else None,
-        'node_id': ctx.instance.id if ctx.instance else None,
         'operation': ctx.operation,
         'plugin': ctx.plugin,
     }
+    if ctx.type == NODE_INSTANCE:
+        context['node_id'] = ctx.instance.id
+        context['node_name'] = ctx.node.name
+    elif ctx.type == RELATIONSHIP_INSTANCE:
+        context['source_id'] = ctx.source.instance.id
+        context['source_name'] = ctx.source.node.name
+        context['target_id'] = ctx.target.instance.id
+        context['target_name'] = ctx.target.node.name
+
+    return context
 
 
 def message_context_from_workflow_context(ctx):
@@ -286,13 +296,20 @@ def create_event_message_prefix(event):
     group = context.get('group')
     policy = context.get('policy')
     trigger = context.get('trigger')
+    source_id = context.get('source_id')
+    target_id = context.get('target_id')
 
     if operation is not None:
         operation = operation.split('.')[-1]
 
-    info_elements = [e for e in [node_id, operation, group, policy, trigger]
-                     if e is not None]
-    info = '.'.join(info_elements)
+    if source_id is not None:
+        info = '{0}->{1}|{2}'.format(source_id, target_id, operation)
+    else:
+        info_elements = [
+            e for e in [node_id, operation, group, policy, trigger]
+            if e is not None]
+        info = '.'.join(info_elements)
+
     if info:
         info = '[{0}] '.format(info)
 
