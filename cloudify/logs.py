@@ -305,8 +305,9 @@ def create_event_message_prefix(event):
     if source_id is not None:
         info = '{0}->{1}|{2}'.format(source_id, target_id, operation)
     else:
-        info_elements = [e for e in [node_id, operation, group, policy, trigger]
-                         if e is not None]
+        info_elements = [
+            e for e in [node_id, operation, group, policy, trigger]
+            if e is not None]
         info = '.'.join(info_elements)
 
     if info:
