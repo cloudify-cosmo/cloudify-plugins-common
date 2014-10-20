@@ -17,14 +17,17 @@
 import os
 import time
 
-import testtools
+try:
+    import unittest2 as unittest    # noqa
+except ImportError:
+    import unittest
 from nose.tools import nottest
 
 from cloudify.workflows import local
 from cloudify.decorators import operation
 
 
-class TestExecuteOperationWorkflow(testtools.TestCase):
+class TestExecuteOperationWorkflow(unittest.TestCase):
 
     def setUp(self):
         blueprint_path = os.path.join(

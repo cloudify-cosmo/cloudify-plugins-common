@@ -16,7 +16,10 @@
 __author__ = 'idanmo'
 
 
-import unittest
+try:
+    import unittest2 as unittest    # noqa
+except ImportError:
+    import unittest
 from cloudify.manager import NodeInstance
 
 

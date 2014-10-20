@@ -1,5 +1,4 @@
 from os.path import dirname
-import unittest
 import os
 
 from cloudify.constants import MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY, \
@@ -8,9 +7,10 @@ from cloudify.context import CloudifyContext
 from cloudify.exceptions import HttpException
 from cloudify.utils import create_temp_folder
 import cloudify.tests as tests_path
-
-
-__author__ = 'elip'
+try:
+    import unittest2 as unittest    # noqa
+except ImportError:
+    import unittest
 
 
 class CloudifyContextTest(unittest.TestCase):
