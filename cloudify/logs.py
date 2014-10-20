@@ -302,13 +302,13 @@ def create_event_message_prefix(event):
     if operation is not None:
         operation = operation.split('.')[-1]
 
-    if node_id is not None:
-        node_info = node_id
-    elif source_id is not None:
-        node_info = '{0} -> {1}'.format(source_id, target_id)
-    info_elements = [e for e in [node_info, operation, group, policy, trigger]
-                     if e is not None]
-    info = '.'.join(info_elements)
+    if source_id is not None:
+        info = '{0}->{1}|{2}'.format(source_id, target_id, operation)
+    else:
+        info_elements = [e for e in [node_id, operation, group, policy, trigger]
+                         if e is not None]
+        info = '.'.join(info_elements)
+
     if info:
         info = '[{0}] '.format(info)
 
