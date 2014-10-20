@@ -17,16 +17,17 @@
 import os
 import time
 
-import unittest
+import testtools
 from nose.tools import nottest
 
 from cloudify.workflows import local
 from cloudify.decorators import operation
 
 
-class TestExecuteOperationWorkflow(unittest.TestCase):
+class TestExecuteOperationWorkflow(testtools.TestCase):
 
     def setUp(self):
+        super(TestExecuteOperationWorkflow, self).setUp()
         blueprint_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             "resources/blueprints/execute_operation.yaml")
