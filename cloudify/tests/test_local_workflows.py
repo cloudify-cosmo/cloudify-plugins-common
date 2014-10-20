@@ -24,10 +24,9 @@ import threading
 import Queue
 
 try:
-    import unittest2 as unittest
+    import unittest2 as unittest    # noqa
 except ImportError:
     import unittest
-
 import nose.tools
 
 import cloudify.logs
