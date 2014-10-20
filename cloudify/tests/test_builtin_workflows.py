@@ -17,10 +17,7 @@
 import os
 import time
 
-try:
-    import unittest2 as unittest    # noqa
-except ImportError:
-    import unittest
+import unittest
 from nose.tools import nottest
 
 from cloudify.workflows import local

@@ -23,12 +23,7 @@ import os
 import threading
 import Queue
 
-try:
-    import unittest2 as unittest    # noqa
-except ImportError:
-    import unittest
-import nose.tools
-
+import unittest
 import cloudify.logs
 from cloudify.decorators import workflow, operation
 

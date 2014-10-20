@@ -13,13 +13,9 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'idanmo'
 
 
-try:
-    import unittest2 as unittest    # noqa
-except ImportError:
-    import unittest
+import unittest
 from cloudify.manager import NodeInstance
 
 

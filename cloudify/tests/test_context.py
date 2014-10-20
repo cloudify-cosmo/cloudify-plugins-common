@@ -7,10 +7,7 @@ from cloudify.context import CloudifyContext
 from cloudify.exceptions import HttpException
 from cloudify.utils import create_temp_folder
 import cloudify.tests as tests_path
-try:
-    import unittest2 as unittest    # noqa
-except ImportError:
-    import unittest
+import unittest
 
 
 class CloudifyContextTest(unittest.TestCase):
