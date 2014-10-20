@@ -99,8 +99,8 @@ class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
 class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
     """A Handler class for writing workflow log messages to RabbitMQ"""
     def __init__(self, ctx, out_func=None):
-        super(CloudifyWorkflowLoggingHandler, self).__init__(
-            ctx, out_func, message_context_from_workflow_context)
+        CloudifyBaseLoggingHandler.__init__(
+            self, ctx, out_func, message_context_from_workflow_context)
 
 
 class CloudifyWorkflowNodeLoggingHandler(CloudifyBaseLoggingHandler):

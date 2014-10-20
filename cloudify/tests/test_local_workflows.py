@@ -189,7 +189,7 @@ class BaseWorkflowTest(unittest.TestCase):
             'test': [
                 {'op{0}'.format(index):
                  'p.{0}.{1}'.format(self._testMethodName,
-                                  op_method.__name__)}
+                                    op_method.__name__)}
                 for index, op_method in
                 enumerate(operation_methods)
             ]
@@ -202,7 +202,7 @@ class BaseWorkflowTest(unittest.TestCase):
         workflows = dict((
             ('workflow{0}'.format(index), {
                 'mapping': 'p.{0}.{1}'.format(self._testMethodName,
-                                            w_method.__name__),
+                                              w_method.__name__),
                 'parameters': workflow_parameters_schema or {}
             }) for index, w_method in enumerate(workflow_methods)
         ))
@@ -641,7 +641,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('workflow0', ctx.workflow_id)
             self.assertIsNotNone(ctx.task_id)
             self.assertEqual('{0}.{1}'.format(self._testMethodName,
-                                            'ctx_properties'),
+                                              'ctx_properties'),
                              ctx.task_name)
             self.assertIsNone(ctx.task_target)
             self.assertEqual('p', ctx.plugin)
@@ -1151,7 +1151,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                 },
                 'workflows': {
                     'workflow': 'p.{0}.{1}'.format(module_name,
-                                                 'does_not_exist')
+                                                   'does_not_exist')
                 }
             }
 
