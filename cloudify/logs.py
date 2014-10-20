@@ -67,7 +67,7 @@ class CloudifyBaseLoggingHandler(logging.Handler):
     """A base handler class for writing log messages to RabbitMQ"""
 
     def __init__(self, ctx, out_func, message_context_builder):
-        super(CloudifyBaseLoggingHandler, self).__init__()
+        logging.Handler.__init__(self)
         self.context = message_context_builder(ctx)
         if out_func is None:
             out_func = amqp_log_out
@@ -92,8 +92,8 @@ class CloudifyBaseLoggingHandler(logging.Handler):
 class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
     """A handler class for writing plugin log messages to RabbitMQ"""
     def __init__(self, ctx, out_func=None):
-        super(CloudifyPluginLoggingHandler, self).__init__(
-            ctx, out_func, message_context_from_cloudify_context)
+        CloudifyBaseLoggingHandler.__init__(
+            self, ctx, out_func, message_context_from_cloudify_context)
 
 
 class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
@@ -106,8 +106,9 @@ class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
 class CloudifyWorkflowNodeLoggingHandler(CloudifyBaseLoggingHandler):
     """A Handler class for writing workflow nodes log messages to RabbitMQ"""
     def __init__(self, ctx, out_func=None):
-        super(CloudifyWorkflowNodeLoggingHandler, self).__init__(
-            ctx, out_func, message_context_from_workflow_node_instance_context)
+        CloudifyBaseLoggingHandler.__init__(
+            self, ctx, out_func,
+            message_context_from_workflow_node_instance_context)
 
 
 def init_cloudify_logger(handler, logger_name,
