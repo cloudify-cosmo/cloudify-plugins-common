@@ -64,7 +64,7 @@ def install(ctx, **kwargs):
                 forkjoin(*_relationship_operations(
                     instance,
                     'cloudify.interfaces.relationship_lifecycle.preconfigure'
-                ).values()),
+                )),
                 forkjoin(
                     instance.set_state('configuring'),
                     instance.send_event('Configuring node')),
@@ -74,7 +74,7 @@ def install(ctx, **kwargs):
                 forkjoin(*_relationship_operations(
                     instance,
                     'cloudify.interfaces.relationship_lifecycle.postconfigure'
-                ).values()),
+                )),
                 forkjoin(
                     instance.set_state('starting'),
                     instance.send_event('Starting node')),
@@ -95,7 +95,7 @@ def install(ctx, **kwargs):
                     *_relationship_operations(
                         instance,
                         'cloudify.interfaces.relationship_lifecycle.establish'
-                    ).values()))
+                    )))
 
     # Create task dependencies based on node relationships
     # for each node, make a dependency between the create tasks (event, state)
@@ -152,7 +152,7 @@ def uninstall(ctx, **kwargs):
     # added to it will be executed in a sequential manner
     for node in ctx.nodes:
         for instance in node.instances:
-            unlink_tasks = _relationship_operations(
+            unlink_tasks = _relationship_operations_with_targets(
                 instance, 'cloudify.interfaces.relationship_lifecycle.unlink')
 
             sequence = graph.sequence()
@@ -163,7 +163,7 @@ def uninstall(ctx, **kwargs):
                 sequence.add(*_host_pre_stop(instance))
             sequence.add(stop_node_tasks[instance.id],
                          instance.set_state('stopped'),
-                         forkjoin(*unlink_tasks.values()),
+                         forkjoin(*[task for task, _ in unlink_tasks]),
                          instance.set_state('deleting'),
                          instance.send_event('Deleting node'),
                          delete_node_tasks[instance.id],
@@ -191,7 +191,7 @@ def uninstall(ctx, **kwargs):
                 instance,
                 "Error occurred while deleting node - ignoring...")
 
-            for target_id, unlink_task in unlink_tasks.iteritems():
+            for unlink_task, target_id in unlink_tasks:
                 _set_send_node_event_on_error_handler(
                     unlink_task,
                     instance,
@@ -219,12 +219,20 @@ def _set_send_node_event_on_error_handler(task, node_instance, error_message):
 
 
 def _relationship_operations(node_instance, operation):
-    tasks = {}
+    tasks_with_targets = _relationship_operations_with_targets(
+        node_instance, operation)
+    return [task for task, _ in tasks_with_targets]
+
+
+def _relationship_operations_with_targets(node_instance, operation):
+    tasks = []
     for relationship in node_instance.relationships:
-        tasks[relationship.target_id] = relationship.execute_source_operation(
-            operation)
-        tasks[relationship.target_id] = relationship.execute_target_operation(
-            operation)
+        tasks.append(
+            (relationship.execute_source_operation(operation),
+             relationship.target_id))
+        tasks.append(
+            (relationship.execute_target_operation(operation),
+             relationship.target_id))
     return tasks
 
 
