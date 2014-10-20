@@ -27,7 +27,6 @@ from cloudify.decorators import operation
 class TestExecuteOperationWorkflow(testtools.TestCase):
 
     def setUp(self):
-        super(TestExecuteOperationWorkflow, self).setUp()
         blueprint_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             "resources/blueprints/execute_operation.yaml")

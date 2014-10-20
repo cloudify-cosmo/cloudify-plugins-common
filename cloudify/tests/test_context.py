@@ -7,10 +7,10 @@ from cloudify.context import CloudifyContext
 from cloudify.exceptions import HttpException
 from cloudify.utils import create_temp_folder
 import cloudify.tests as tests_path
-import unittest
+import testtools
 
 
-class CloudifyContextTest(unittest.TestCase):
+class CloudifyContextTest(testtools.TestCase):
     file_server_process = None
 
     @classmethod

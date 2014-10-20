@@ -14,7 +14,7 @@
 #    * limitations under the License.
 
 
-import unittest
+import testtools
 
 from cloudify import ctx as ctx_proxy
 from cloudify import manager
@@ -54,7 +54,7 @@ def error_workflow(ctx, picklable=False, **_):
     raise MockNotPicklableException('hello world!')
 
 
-class OperationTest(unittest.TestCase):
+class OperationTest(testtools.TestCase):
 
     def test_empty_ctx(self):
         ctx = acquire_context(0, 0)

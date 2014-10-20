@@ -23,7 +23,9 @@ import os
 import threading
 import Queue
 
-import unittest
+from testtools import TestCase
+from testtools.matchers import MatchesDict
+import nose.tools
 import cloudify.logs
 from cloudify.decorators import workflow, operation
 
@@ -33,9 +35,10 @@ from cloudify.workflows.workflow_context import task_config
 
 
 @nose.tools.nottest
-class BaseWorkflowTest(unittest.TestCase):
+class BaseWorkflowTest(TestCase):
 
     def setUp(self):
+        super(BaseWorkflowTest, self).setUp()
         self.work_dir = tempfile.mkdtemp(prefix='cloudify-workflows-')
         self.storage_dir = os.path.join(self.work_dir, 'storage')
         self.storage_kwargs = {}
@@ -455,7 +458,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
     def test_workflow_bootstrap_context(self):
         def bootstrap_context(ctx, **_):
             bootstrap_context = ctx.internal._get_bootstrap_context()
-            self.assertDictEqual(bootstrap_context, {})
+            self.assertThat(bootstrap_context, MatchesDict({}))
         self._execute_workflow(bootstrap_context)
 
     def test_update_execution_status(self):
@@ -559,7 +562,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual(1, len(caps))
             key, value = next(caps.iteritems())
             self.assertIn('node2_', key)
-            self.assertDictEqual(value, {'key': 'value'})
+            self.assertThat(value, MatchesDict({'key': 'value'}))
 
         self._execute_workflow(the_workflow, operation_methods=[op0, op1])
 
@@ -692,8 +695,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
     def test_operation_bootstrap_context(self):
         def contexts(ctx, **_):
-            self.assertDictEqual({}, ctx.bootstrap_context._bootstrap_context)
-            self.assertDictEqual({}, ctx.provider_context)
+            self.assertThat({}, MatchesDict(
+                ctx.bootstrap_context._bootstrap_context))
+            self.assertThat({}, MatchesDict(ctx.provider_context))
         self._execute_workflow(operation_methods=[contexts])
 
     def test_workflow_graph_mode(self):
