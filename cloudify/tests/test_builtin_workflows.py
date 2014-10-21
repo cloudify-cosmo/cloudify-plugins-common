@@ -18,7 +18,7 @@ import os
 import time
 
 import testtools
-from testtools.matchers import MatchAny, Equals, GreaterThan
+from testtools.matchers import MatchesAny, Equals, GreaterThan
 from nose.tools import nottest
 
 from cloudify.workflows import local
