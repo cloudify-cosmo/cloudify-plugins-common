@@ -186,7 +186,7 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
         def assert_time_difference(earlier_inst_index, later_inst_index):
             td = instances_and_visit_times[later_inst_index][1] - \
                 instances_and_visit_times[earlier_inst_index][1]
-            self.assertThat(td, MatchAny(Equals(1), GreaterThan(1)))
+            self.assertThat(td, MatchesAny(Equals(1), GreaterThan(1)))
 
         for index1, index2 in indices_pairs_for_time_diff_assertions:
             assert_time_difference(index1, index2)
