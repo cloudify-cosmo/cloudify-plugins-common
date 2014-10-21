@@ -438,17 +438,17 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
             @task_config(kwargs=task_config_kwargs)
             def task1(**kwargs):
-                self.assertDictEqual(kwargs, task_config_kwargs)
+                self.assertEqual(kwargs, task_config_kwargs)
             ctx.local_task(task1).get()
 
             @task_config(kwargs=task_config_kwargs)
             def task2(**kwargs):
-                self.assertDictEqual(kwargs, task_config_kwargs)
+                self.assertEqual(kwargs, task_config_kwargs)
             ctx.local_task(task2, kwargs=invocation_kwargs).get()
 
             @task_config(kwargs=task_config_kwargs)
             def task2(**kwargs):
-                self.assertDictEqual(kwargs, invocation_kwargs)
+                self.assertEqual(kwargs, invocation_kwargs)
             ctx.local_task(task2,
                            kwargs=invocation_kwargs,
                            override_task_config=True).get()
@@ -514,15 +514,15 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('type', node1.type)
             self.assertEqual('type', node1.type)
             self.assertEqual('cloudify.types.host', node2.type)
-            self.assertListEqual(['type'], node1.type_hierarchy)
-            self.assertListEqual(['type', 'cloudify.types.host'],
+            self.assertEqual(['type'], node1.type_hierarchy)
+            self.assertEqual(['type', 'cloudify.types.host'],
                                  node2.type_hierarchy)
             self.assertDictContainsSubset({'property': 'value'},
                                           node1.properties)
             self.assertDictContainsSubset({'property': 'default'},
                                           node2.properties)
-            self.assertListEqual(sorted_ops, sorted(node1.operations.keys()))
-            self.assertListEqual(sorted_ops, sorted(node2.operations.keys()))
+            self.assertEqual(sorted_ops, sorted(node1.operations.keys()))
+            self.assertEqual(sorted_ops, sorted(node2.operations.keys()))
             self.assertIs(relationship, node1.get_relationship('node2'))
 
             self.assertIn('node_', instance1.id)
@@ -534,9 +534,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
             self.assertEqual(node2.id, relationship.target_id)
             self.assertEqual(node2, relationship.target_node)
-            self.assertListEqual(sorted_ops,
+            self.assertEqual(sorted_ops,
                                  sorted(relationship.source_operations.keys()))
-            self.assertListEqual(sorted_ops,
+            self.assertEqual(sorted_ops,
                                  sorted(relationship.target_operations.keys()))
 
             self.assertEqual(instance2.id, relationship_instance.target_id)
