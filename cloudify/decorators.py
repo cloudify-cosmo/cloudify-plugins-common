@@ -314,20 +314,20 @@ def _execute_workflow_function(ctx, func, args, kwargs):
 def _send_workflow_started_event(ctx):
     ctx.internal.send_workflow_event(
         event_type='workflow_started',
-        message="Starting '{}' workflow execution".format(ctx.workflow_id))
+        message="Starting '{0}' workflow execution".format(ctx.workflow_id))
 
 
 def _send_workflow_succeeded_event(ctx):
     ctx.internal.send_workflow_event(
         event_type='workflow_succeeded',
-        message="'{}' workflow execution succeeded"
+        message="'{0}' workflow execution succeeded"
         .format(ctx.workflow_id))
 
 
 def _send_workflow_failed_event(ctx, exception, error_traceback):
     ctx.internal.send_workflow_event(
         event_type='workflow_failed',
-        message="'{}' workflow execution failed: {}"
+        message="'{0}' workflow execution failed: {1}"
         .format(ctx.workflow_id, str(exception)),
         args={'error': error_traceback})
 
@@ -335,7 +335,7 @@ def _send_workflow_failed_event(ctx, exception, error_traceback):
 def _send_workflow_cancelled_event(ctx):
     ctx.internal.send_workflow_event(
         event_type='workflow_cancelled',
-        message="'{}' workflow execution cancelled"
+        message="'{0}' workflow execution cancelled"
         .format(ctx.workflow_id))
 
 

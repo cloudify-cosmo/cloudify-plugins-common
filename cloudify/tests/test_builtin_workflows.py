@@ -18,6 +18,7 @@ import os
 import time
 
 import testtools
+from testtools.matchers import MatchesAny, Equals, GreaterThan
 from nose.tools import nottest
 
 from cloudify.workflows import local
@@ -172,9 +173,9 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
              inst.runtime_properties),
             key=lambda inst_and_time: inst_and_time[1])
 
-        self.assertListEqual(ordered_node_ids_of_instances,
-                             [inst_and_time[0].node_id for inst_and_time in
-                              instances_and_visit_times])
+        self.assertEqual(ordered_node_ids_of_instances,
+                         [inst_and_time[0].node_id for inst_and_time in
+                          instances_and_visit_times])
 
         # asserting time difference between the operation execution for the
         # different nodes. this way if something breaks and the tasks aren't
@@ -183,10 +184,9 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
         # it's less likely there'll be a significant time difference between
         # the visits
         def assert_time_difference(earlier_inst_index, later_inst_index):
-            self.assertGreaterEqual(
-                instances_and_visit_times[later_inst_index][1] -
-                instances_and_visit_times[earlier_inst_index][1],
-                1)
+            td = instances_and_visit_times[later_inst_index][1] - \
+                instances_and_visit_times[earlier_inst_index][1]
+            self.assertThat(td, MatchesAny(Equals(1), GreaterThan(1)))
 
         for index1, index2 in indices_pairs_for_time_diff_assertions:
             assert_time_difference(index1, index2)

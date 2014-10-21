@@ -14,7 +14,7 @@
 #    * limitations under the License.
 
 
-import unittest
+import testtools
 
 from mock import patch
 
@@ -62,7 +62,7 @@ def error_workflow(ctx, picklable=False, **_):
     raise MockNotPicklableException('hello world!')
 
 
-class OperationTest(unittest.TestCase):
+class OperationTest(testtools.TestCase):
 
     def test_empty_ctx(self):
         ctx = acquire_context(0, 0)
@@ -145,27 +145,34 @@ class OperationTest(unittest.TestCase):
                           'k', 'v')
 
     def test_workflow_error_delegation(self):
-        workflow_context.get_rest_client = \
-            lambda: rest_client_mock.MockRestclient()
-        decorators.get_rest_client = \
-            lambda: rest_client_mock.MockRestclient()
-        manager.get_rest_client = \
-            lambda: rest_client_mock.MockRestclient()
-        kwargs = {'__cloudify_context': {}}
         try:
-            error_workflow(picklable=False, **kwargs)
-            self.fail('Expected exception')
-        except ProcessExecutionError as e:
-            self.assertTrue('hello world!' in e.message)
-            self.assertTrue('test_decorators.py' in e.traceback)
-            self.assertTrue(MockNotPicklableException.__name__ in e.error_type)
-        try:
-            error_workflow(picklable=True, **kwargs)
-            self.fail('Expected exception')
-        except ProcessExecutionError as e:
-            self.assertTrue('hello world!' in e.message)
-            self.assertTrue('test_decorators.py' in e.traceback)
-            self.assertTrue(MockPicklableException.__name__ in e.error_type)
+            workflow_context.get_rest_client = \
+                lambda: rest_client_mock.MockRestclient()
+            decorators.get_rest_client = \
+                lambda: rest_client_mock.MockRestclient()
+            manager.get_rest_client = \
+                lambda: rest_client_mock.MockRestclient()
+            kwargs = {'__cloudify_context': {}}
+            try:
+                error_workflow(picklable=False, **kwargs)
+                self.fail('Expected exception')
+            except ProcessExecutionError as e:
+                self.assertTrue('hello world!' in e.message)
+                self.assertTrue('test_decorators.py' in e.traceback)
+                self.assertTrue(MockNotPicklableException.__name__ in
+                                e.error_type)
+            try:
+                error_workflow(picklable=True, **kwargs)
+                self.fail('Expected exception')
+            except ProcessExecutionError as e:
+                self.assertTrue('hello world!' in e.message)
+                self.assertTrue('test_decorators.py' in e.traceback)
+                self.assertTrue(MockPicklableException.__name__ in
+                                e.error_type)
+        finally:
+            from cloudify.workflows import api
+            api.ctx = None
+            api.pipe = None
 
     def test_instance_update(self):
         with patch.object(context.NodeInstanceContext,
