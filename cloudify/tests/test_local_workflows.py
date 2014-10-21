@@ -24,6 +24,7 @@ import threading
 import Queue
 
 import testtools
+from testtools.matchers import MatchesAny, Equals, GreaterThan
 import nose.tools
 import cloudify.logs
 from cloudify.decorators import workflow, operation
@@ -1004,7 +1005,9 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             props['key'] = 'new_value'
 
             if current_retry > 0:
-                self.assertGreaterEqual(current_timestamp - last_timestamp, 1)
+                timestamp = current_timestamp - last_timestamp
+                self.assertThat(timestamp, MatchesAny(Equals(1),
+                                                      GreaterThan(1)))
             if current_retry < task_retries:
                 self.fail()
 

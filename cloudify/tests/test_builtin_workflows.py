@@ -172,9 +172,9 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
              inst.runtime_properties),
             key=lambda inst_and_time: inst_and_time[1])
 
-        self.assertListEqual(ordered_node_ids_of_instances,
-                             [inst_and_time[0].node_id for inst_and_time in
-                              instances_and_visit_times])
+        self.assertEqual(ordered_node_ids_of_instances,
+                         [inst_and_time[0].node_id for inst_and_time in
+                          instances_and_visit_times])
 
         # asserting time difference between the operation execution for the
         # different nodes. this way if something breaks and the tasks aren't
