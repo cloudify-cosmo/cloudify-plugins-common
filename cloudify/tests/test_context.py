@@ -1,19 +1,33 @@
-from os.path import dirname
-import unittest
+########
+# Copyright (c) 2014 GigaSpaces Technologies Ltd. All rights reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+#    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    * See the License for the specific language governing permissions and
+#    * limitations under the License.
+
 import os
+from os.path import dirname
+
+import testtools
+
+import cloudify.tests as tests_path
 
 from cloudify.constants import MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY, \
     MANAGER_FILE_SERVER_URL_KEY
-from cloudify.context import CloudifyContext
-from cloudify.exceptions import HttpException
+from cloudify import context
+from cloudify import exceptions
 from cloudify.utils import create_temp_folder
-import cloudify.tests as tests_path
 
 
-__author__ = 'elip'
-
-
-class CloudifyContextTest(unittest.TestCase):
+class CloudifyContextTest(testtools.TestCase):
     file_server_process = None
 
     @classmethod
@@ -32,7 +46,7 @@ class CloudifyContextTest(unittest.TestCase):
             = "http://localhost:{0}".format(PORT)
         os.environ[MANAGER_FILE_SERVER_URL_KEY] = \
             "http://localhost:{0}".format(PORT)
-        cls.context = CloudifyContext({'blueprint_id': ''})
+        cls.context = context.CloudifyContext({'blueprint_id': ''})
 
     @classmethod
     def tearDownClass(cls):
@@ -62,5 +76,53 @@ class CloudifyContextTest(unittest.TestCase):
                           '/non-existing-folder')
 
     def test_get_non_existing_resource(self):
-        self.assertRaises(HttpException, self.context.get_resource,
+        self.assertRaises(exceptions.HttpException, self.context.get_resource,
                           'non_existing.log')
+
+    def test_ctx_instance_in_relationship(self):
+        ctx = context.CloudifyContext({
+            'node_id': 'node-instance-id',
+            'related': {
+                'node_id': 'related-instance-id'
+            },
+            'relationships': ['related-instance-id']
+        })
+        self.assertEqual('node-instance-id', ctx.source.instance.id)
+        self.assertEqual('related-instance-id', ctx.target.instance.id)
+        e = self.assertRaises(exceptions.NonRecoverableError,
+                              lambda: ctx.node)
+        self.assertIn('ctx.node/ctx.instance can only be used in a '
+                      'node-instance context but used in a '
+                      'relationship-instance context.', str(e))
+        e = self.assertRaises(exceptions.NonRecoverableError,
+                              lambda: ctx.instance)
+        self.assertIn('ctx.node/ctx.instance can only be used in a '
+                      'node-instance context but used in a '
+                      'relationship-instance context.', str(e))
+
+    def test_source_target_not_in_relationship(self):
+        ctx = context.CloudifyContext({})
+        e = self.assertRaises(exceptions.NonRecoverableError,
+                              lambda: ctx.source)
+        self.assertIn('ctx.source/ctx.target can only be used in a '
+                      'relationship-instance context but used in a '
+                      'deployment context.', str(e))
+        e = self.assertRaises(exceptions.NonRecoverableError,
+                              lambda: ctx.target)
+        self.assertIn('ctx.source/ctx.target can only be used in a '
+                      'relationship-instance context but used in a '
+                      'deployment context.', str(e))
+
+    def test_ctx_type(self):
+        ctx = context.CloudifyContext({})
+        self.assertEqual(context.DEPLOYMENT, ctx.type)
+        ctx = context.CloudifyContext({'node_id': 'node-instance-id'})
+        self.assertEqual(context.NODE_INSTANCE, ctx.type)
+        ctx = context.CloudifyContext({
+            'node_id': 'node-instance-id',
+            'related': {
+                'node_id': 'related-instance-id'
+            },
+            'relationships': ['related-instance-id']
+        })
+        self.assertEqual(context.RELATIONSHIP_INSTANCE, ctx.type)

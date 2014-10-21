@@ -21,7 +21,7 @@ from multiprocessing import Pipe
 from StringIO import StringIO
 from functools import wraps
 
-from cloudify.context import CloudifyContext
+from cloudify import context
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import api
@@ -50,7 +50,7 @@ def _is_cloudify_context(obj):
     From some reason Python's isinstance returned False when it should
     have returned True.
     """
-    return CloudifyContext.__name__ in obj.__class__.__name__
+    return context.CloudifyContext.__name__ in obj.__class__.__name__
 
 
 def _is_cloudify_workflow_context(obj):
@@ -101,7 +101,7 @@ def operation(func=None, **arguments):
             if ctx is None:
                 ctx = {}
             if not _is_cloudify_context(ctx):
-                ctx = CloudifyContext(ctx)
+                ctx = context.CloudifyContext(ctx)
                 # remove __cloudify_context
                 kwargs.pop(CLOUDIFY_CONTEXT_PROPERTY_KEY, None)
                 if ctx.task_target is None:
@@ -119,8 +119,11 @@ def operation(func=None, **arguments):
                 raise
             finally:
                 current_ctx.clear()
-                if ctx.instance:
+                if ctx.type == context.NODE_INSTANCE:
                     ctx.instance.update()
+                elif ctx.type == context.RELATIONSHIP_INSTANCE:
+                    ctx.source.instance.update()
+                    ctx.target.instance.update()
             return result
         return _process_wrapper(wrapper, arguments)
     else:

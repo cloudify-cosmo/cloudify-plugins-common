@@ -152,6 +152,9 @@ def uninstall(ctx, **kwargs):
     # added to it will be executed in a sequential manner
     for node in ctx.nodes:
         for instance in node.instances:
+            unlink_tasks = _relationship_operations_with_targets(
+                instance, 'cloudify.interfaces.relationship_lifecycle.unlink')
+
             sequence = graph.sequence()
 
             sequence.add(set_state_stopping_tasks[instance.id],
@@ -160,10 +163,7 @@ def uninstall(ctx, **kwargs):
                 sequence.add(*_host_pre_stop(instance))
             sequence.add(stop_node_tasks[instance.id],
                          instance.set_state('stopped'),
-                         forkjoin(*_relationship_operations(
-                             instance,
-                             'cloudify.interfaces.relationship_lifecycle'
-                             '.unlink')),
+                         forkjoin(*[task for task, _ in unlink_tasks]),
                          instance.set_state('deleting'),
                          instance.send_event('Deleting node'),
                          delete_node_tasks[instance.id],
@@ -191,6 +191,13 @@ def uninstall(ctx, **kwargs):
                 instance,
                 "Error occurred while deleting node - ignoring...")
 
+            for unlink_task, target_id in unlink_tasks:
+                _set_send_node_event_on_error_handler(
+                    unlink_task,
+                    instance,
+                    "Error occurred while unlinking node from node {0} - "
+                    "ignoring...".format(target_id))
+
     # Create task dependencies based on node relationships
     # for each node, make a dependency between the target's stopping task
     # and the deleted state task of the current node
@@ -212,10 +219,20 @@ def _set_send_node_event_on_error_handler(task, node_instance, error_message):
 
 
 def _relationship_operations(node_instance, operation):
+    tasks_with_targets = _relationship_operations_with_targets(
+        node_instance, operation)
+    return [task for task, _ in tasks_with_targets]
+
+
+def _relationship_operations_with_targets(node_instance, operation):
     tasks = []
     for relationship in node_instance.relationships:
-        tasks.append(relationship.execute_source_operation(operation))
-        tasks.append(relationship.execute_target_operation(operation))
+        tasks.append(
+            (relationship.execute_source_operation(operation),
+             relationship.target_id))
+        tasks.append(
+            (relationship.execute_target_operation(operation),
+             relationship.target_id))
     return tasks
 
 
