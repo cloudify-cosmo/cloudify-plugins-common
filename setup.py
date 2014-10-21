@@ -23,8 +23,7 @@ install_requires = [
 ]
 
 try:
-    import importlib
-    importlib
+    import importlib    # noqa
 except ImportError:
     install_requires.append('importlib')
 

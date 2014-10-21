@@ -159,14 +159,16 @@ class OperationTest(testtools.TestCase):
             except ProcessExecutionError as e:
                 self.assertTrue('hello world!' in e.message)
                 self.assertTrue('test_decorators.py' in e.traceback)
-                self.assertTrue(MockNotPicklableException.__name__ in e.error_type)
+                self.assertTrue(MockNotPicklableException.__name__ in
+                                e.error_type)
             try:
                 error_workflow(picklable=True, **kwargs)
                 self.fail('Expected exception')
             except ProcessExecutionError as e:
                 self.assertTrue('hello world!' in e.message)
                 self.assertTrue('test_decorators.py' in e.traceback)
-                self.assertTrue(MockPicklableException.__name__ in e.error_type)
+                self.assertTrue(MockPicklableException.__name__ in
+                                e.error_type)
         finally:
             from cloudify.workflows import api
             api.ctx = None
