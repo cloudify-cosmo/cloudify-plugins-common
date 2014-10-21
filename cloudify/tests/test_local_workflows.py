@@ -517,7 +517,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('cloudify.types.host', node2.type)
             self.assertEqual(['type'], node1.type_hierarchy)
             self.assertEqual(['type', 'cloudify.types.host'],
-                                 node2.type_hierarchy)
+                             node2.type_hierarchy)
             self.assertThat(node1.properties.items(),
                             ContainsAll({'property': 'value'}.items()))
             self.assertThat(node2.properties.items(),
@@ -536,9 +536,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual(node2.id, relationship.target_id)
             self.assertEqual(node2, relationship.target_node)
             self.assertEqual(sorted_ops,
-                                 sorted(relationship.source_operations.keys()))
+                             sorted(relationship.source_operations.keys()))
             self.assertEqual(sorted_ops,
-                                 sorted(relationship.target_operations.keys()))
+                             sorted(relationship.target_operations.keys()))
 
             self.assertEqual(instance2.id, relationship_instance.target_id)
             self.assertEqual(instance2,

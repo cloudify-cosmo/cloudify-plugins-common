@@ -14,7 +14,6 @@
 #    * limitations under the License.
 
 
-
 import testtools
 from cloudify.manager import NodeInstance
 

@@ -145,6 +145,20 @@ class OperationTest(testtools.TestCase):
                           'k', 'v')
 
     def test_workflow_error_delegation(self):
+        workflow_context.get_rest_client = \
+            lambda: rest_client_mock.MockRestclient()
+        decorators.get_rest_client = \
+            lambda: rest_client_mock.MockRestclient()
+        manager.get_rest_client = \
+            lambda: rest_client_mock.MockRestclient()
+        kwargs = {'__cloudify_context': {}}
+        try:
+            error_workflow(picklable=False, **kwargs)
+            self.fail('Expected exception')
+        except ProcessExecutionError as e:
+            self.assertTrue('hello world!' in e.message)
+            self.assertTrue('test_decorators.py' in e.traceback)
+            self.assertTrue(MockNotPicklableException.__name__ in e.error_type)
         try:
             error_workflow(picklable=True, **kwargs)
             self.fail('Expected exception')
@@ -174,4 +188,3 @@ class OperationTest(testtools.TestCase):
             }}
             some_operation(**kwargs)
             self.assertEqual(2, mock_update.call_count)
-
