@@ -589,16 +589,14 @@ class LocalWorkflowTest(BaseWorkflowTest):
             relationship.execute_target_operation('test.op0')
 
         def op(ctx, **_):
-            if 'node2_' in ctx.related.node_id:
-                self.assertThat(ctx.related.properties.items(),
+            if 'node2_' in ctx.target.instance.id:
+                self.assertThat(ctx.target.node.properties.items(),
                                 ContainsAll({'property': 'default'}.items()))
-            elif 'node_' in ctx.related.node_id:
-                self.assertThat(ctx.related.properties.items(),
+            elif 'node_' in ctx.target.instance.id:
+                self.assertThat(ctx.target.node.properties.items(),
                                 ContainsAll({'property': 'value'}.items()))
-
             else:
-                self.fail('unexpected: {0}'.format(ctx.related.node_id))
-
+                self.fail('unexpected: {0}'.format(ctx.target.instance.id))
         self._execute_workflow(the_workflow, operation_methods=[op])
 
     def test_operation_related_runtime_properties(self):
@@ -611,15 +609,24 @@ class LocalWorkflowTest(BaseWorkflowTest):
             instance2.execute_operation('test.op0',
                                         kwargs={'value': 'instance2'}).get()
             relationship.execute_source_operation(
-                'test.op1', kwargs={'value': 'instance2'}).get()
+                'test.op1', kwargs={
+                    'source': 'instance1',
+                    'target': 'instance2'
+                }).get()
             relationship.execute_target_operation(
-                'test.op1', kwargs={'value': 'instance1'}).get()
+                'test.op1', kwargs={
+                    'source': 'instance1',
+                    'target': 'instance2'
+                }).get()
 
         def op0(ctx, value, **_):
             ctx.instance.runtime_properties['key'] = value
 
-        def op1(ctx, value, **_):
-            self.assertEqual(value, ctx.related.runtime_properties['key'])
+        def op1(ctx, source, target, **_):
+            self.assertEqual(source,
+                             ctx.source.instance.runtime_properties['key'])
+            self.assertEqual(target,
+                             ctx.target.instance.runtime_properties['key'])
 
         self._execute_workflow(related_runtime_properties, operation_methods=[
             op0, op1])

@@ -503,6 +503,7 @@ class CloudifyWorkflowContext(object):
         if related_node_instance is not None:
             node_context['related'] = {
                 'node_id': related_node_instance.id,
+                'node_name': related_node_instance.node_id,
                 'node_properties': copy.copy(
                     related_node_instance.node.properties)
             }
