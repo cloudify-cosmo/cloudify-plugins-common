@@ -519,9 +519,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual(['type', 'cloudify.types.host'],
                                  node2.type_hierarchy)
             self.assertThat(node1.properties.items(),
-                            ContainsAll(('property', 'value')))
+                            ContainsAll({'property': 'value'}.items()))
             self.assertThat(node2.properties.items(),
-                            ContainsAll(('property', 'default')))
+                            ContainsAll({'property': 'default'}.items()))
             self.assertEqual(sorted_ops, sorted(node1.operations.keys()))
             self.assertEqual(sorted_ops, sorted(node2.operations.keys()))
             self.assertIs(relationship, node1.get_relationship('node2'))
@@ -591,10 +591,10 @@ class LocalWorkflowTest(BaseWorkflowTest):
         def op(ctx, **_):
             if 'node2_' in ctx.related.node_id:
                 self.assertThat(ctx.related.properties.items(),
-                                ContainsAll(('property', 'default')))
+                                ContainsAll({'property': 'default'}.items()))
             elif 'node_' in ctx.related.node_id:
                 self.assertThat(ctx.related.properties.items(),
-                                ContainsAll(('property', 'value')))
+                                ContainsAll({'property': 'value'}.items()))
 
             else:
                 self.fail('unexpected: {0}'.format(ctx.related.node_id))
@@ -649,7 +649,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('p', ctx.plugin)
             self.assertEqual('test.op0', ctx.operation)
             self.assertThat(ctx.node.properties.items(),
-                            ContainsAll(('property', 'value')))
+                            ContainsAll({'property': 'value'}.items()))
             self.assertEqual('content', ctx.get_resource('resource'))
             target_path = ctx.download_resource('resource')
             with open(target_path) as f:
