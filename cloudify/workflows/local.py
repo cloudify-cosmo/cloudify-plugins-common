@@ -84,8 +84,8 @@ class _Environment(object):
         workflows = self.plan['workflows']
         workflow_name = workflow
         if workflow_name not in workflows:
-            raise ValueError("'{}' workflow does not exist. "
-                             "existing workflows are: {}"
+            raise ValueError("'{0}' workflow does not exist. "
+                             "existing workflows are: {1}"
                              .format(workflow_name,
                                      workflows.keys()))
 
@@ -183,14 +183,14 @@ def _get_module_method(module_method_path, tpe, node_name,
     try:
         module = importlib.import_module(module_name)
     except ImportError:
-        raise ImportError('mapping error: No module named {} '
-                          '[node={}, type={}]'
+        raise ImportError('mapping error: No module named {0} '
+                          '[node={1}, type={2}]'
                           .format(module_name, node_name, tpe))
     try:
         return getattr(module, method_name)
     except AttributeError:
-        raise AttributeError("mapping error: {} has no attribute '{}' "
-                             "[node={}, type={}]"
+        raise AttributeError("mapping error: {0} has no attribute '{1}' "
+                             "[node={2}, type={3}]"
                              .format(module.__name__, method_name,
                                      node_name, tpe))
 
@@ -265,7 +265,7 @@ class _Storage(object):
 
     def download_resource(self, resource_path, target_path=None):
         if not target_path:
-            suffix = '-{}'.format(os.path.basename(resource_path))
+            suffix = '-{0}'.format(os.path.basename(resource_path))
             target_path = tempfile.mktemp(suffix=suffix)
         resource = self.get_resource(resource_path)
         with open(target_path, 'w') as f:
@@ -280,9 +280,9 @@ class _Storage(object):
         with self._lock(node_instance_id):
             instance = self._get_node_instance(node_instance_id)
             if state is None and version != instance['version']:
-                raise StorageConflictError('version {} does not match '
+                raise StorageConflictError('version {0} does not match '
                                            'current version of '
-                                           'node instance {} which is {}'
+                                           'node instance {1} which is {2}'
                                            .format(version,
                                                    node_instance_id,
                                                    instance['version']))
@@ -297,14 +297,14 @@ class _Storage(object):
     def _get_node_instance(self, node_instance_id):
         instance = self._load_instance(node_instance_id)
         if instance is None:
-            raise RuntimeError('Instance {} does not exist'
+            raise RuntimeError('Instance {0} does not exist'
                                .format(node_instance_id))
         return instance
 
     def get_node(self, node_id):
         node = self._nodes.get(node_id)
         if node is None:
-            raise RuntimeError('Node {} does not exist'
+            raise RuntimeError('Node {0} does not exist'
                                .format(node_id))
         return copy.deepcopy(node)
 

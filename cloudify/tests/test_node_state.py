@@ -13,14 +13,12 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'idanmo'
 
-
-import unittest
+import testtools
 from cloudify.manager import NodeInstance
 
 
-class NodeStateTest(unittest.TestCase):
+class NodeStateTest(testtools.TestCase):
 
     def test_put_get(self):
         node = NodeInstance('instance_id', 'node_id', {})

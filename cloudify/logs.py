@@ -77,7 +77,7 @@ class CloudifyBaseLoggingHandler(logging.Handler):
     """A base handler class for writing log messages to RabbitMQ"""
 
     def __init__(self, ctx, out_func, message_context_builder):
-        super(CloudifyBaseLoggingHandler, self).__init__()
+        logging.Handler.__init__(self)
         self.context = message_context_builder(ctx)
         if out_func is None:
             out_func = amqp_log_out
@@ -102,22 +102,23 @@ class CloudifyBaseLoggingHandler(logging.Handler):
 class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
     """A handler class for writing plugin log messages to RabbitMQ"""
     def __init__(self, ctx, out_func=None):
-        super(CloudifyPluginLoggingHandler, self).__init__(
-            ctx, out_func, message_context_from_cloudify_context)
+        CloudifyBaseLoggingHandler.__init__(
+            self, ctx, out_func, message_context_from_cloudify_context)
 
 
 class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
     """A Handler class for writing workflow log messages to RabbitMQ"""
     def __init__(self, ctx, out_func=None):
-        super(CloudifyWorkflowLoggingHandler, self).__init__(
-            ctx, out_func, message_context_from_workflow_context)
+        CloudifyBaseLoggingHandler.__init__(
+            self, ctx, out_func, message_context_from_workflow_context)
 
 
 class CloudifyWorkflowNodeLoggingHandler(CloudifyBaseLoggingHandler):
     """A Handler class for writing workflow nodes log messages to RabbitMQ"""
     def __init__(self, ctx, out_func=None):
-        super(CloudifyWorkflowNodeLoggingHandler, self).__init__(
-            ctx, out_func, message_context_from_workflow_node_instance_context)
+        CloudifyBaseLoggingHandler.__init__(
+            self, ctx, out_func,
+            message_context_from_workflow_node_instance_context)
 
 
 def init_cloudify_logger(handler, logger_name,
@@ -279,12 +280,12 @@ def amqp_log_out(log):
 
 def stdout_event_out(event):
     populate_base_item(event, 'cloudify_event')
-    sys.stdout.write('{}\n'.format(create_event_message_prefix(event)))
+    sys.stdout.write('{0}\n'.format(create_event_message_prefix(event)))
 
 
 def stdout_log_out(log):
     populate_base_item(log, 'cloudify_log')
-    sys.stdout.write('{}\n'.format(create_event_message_prefix(log)))
+    sys.stdout.write('{0}\n'.format(create_event_message_prefix(log)))
 
 
 def create_event_message_prefix(event):

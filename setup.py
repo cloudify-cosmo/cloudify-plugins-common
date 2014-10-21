@@ -13,16 +13,25 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'elip'
-
 from setuptools import setup
 
+install_requires = [
+    'cloudify-rest-client==3.1a5',
+    'pika==0.9.13',
+    'networkx==1.8.1',
+    'proxy_tools==0.1.0'
+]
+
+try:
+    import importlib    # noqa
+except ImportError:
+    install_requires.append('importlib')
 
 setup(
     name='cloudify-plugins-common',
     version='3.1a5',
-    author='elip',
-    author_email='elip@gigaspaces.com',
+    author='cosmo-admin',
+    author_email='cosmo-admin@gigaspaces.com',
     packages=['cloudify',
               'cloudify.workflows',
               'cloudify.plugins'],
@@ -30,10 +39,5 @@ setup(
     description='Contains necessary decorators and utility methods for '
                 'writing Cloudify plugins',
     zip_safe=False,
-    install_requires=[
-        'cloudify-rest-client==3.1a5',
-        'pika==0.9.13',
-        'networkx==1.8.1',
-        'proxy_tools==0.1.0'
-    ]
+    install_requires=install_requires
 )
