@@ -186,17 +186,17 @@ class BaseWorkflowTest(unittest.TestCase):
     def _blueprint_1(self, workflow_methods, operation_methods,
                      workflow_parameters_schema, ignored_modules):
         interfaces = {
-            'test': [
-                {'op{}'.format(index):
+            'test': dict(
+                ('op{}'.format(index),
                  'p.{}.{}'.format(self._testMethodName,
-                                  op_method.__name__)}
+                                  op_method.__name__))
                 for index, op_method in
                 enumerate(operation_methods)
-            ]
+            )
         }
 
         if ignored_modules:
-            interfaces['test'].append({'ignored_op': 'p.{0}.ignored'
+            interfaces['test'].update({'ignored_op': 'p.{0}.ignored'
                                        .format(ignored_modules[0])})
 
         workflows = dict((
@@ -1128,9 +1128,9 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         def func(*_):
             module_name = 'zzz' if is_missing_module else self._testMethodName
             interfaces = {
-                'test': [
-                    {'op': 'p.{}.{}'.format(module_name, 'does_not_exist')}
-                ]
+                'test': {
+                    'op': 'p.{}.{}'.format(module_name, 'does_not_exist')
+                }
             }
             blueprint = {
                 'tosca_definitions_version': 'cloudify_dsl_1_0',
