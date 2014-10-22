@@ -483,6 +483,10 @@ class CloudifyWorkflowContext(object):
         node = node_instance.node
         op_struct = operations.get(operation)
         if op_struct is None:
+            raise RuntimeError('{0} operation of node instance {1} does '
+                               'not exist'.format(operation,
+                                                  node_instance.id))
+        if not op_struct['operation']:
             return NOPLocalWorkflowTask(self)
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
