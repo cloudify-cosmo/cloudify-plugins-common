@@ -268,7 +268,7 @@ class CloudifyWorkflowNodeInstance(object):
         return self._logger
 
     def _init_cloudify_logger(self):
-        logger_name = '{}-{}'.format(self.ctx.execution_id, self.id)
+        logger_name = '{0}-{1}'.format(self.ctx.execution_id, self.id)
         logging_handler = self.ctx.internal.handler.get_node_logging_handler(
             self)
         return init_cloudify_logger(logging_handler, logger_name)
