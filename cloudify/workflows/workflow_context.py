@@ -486,7 +486,7 @@ class CloudifyWorkflowContext(object):
             return NOPLocalWorkflowTask(self)
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
-        operation_properties = op_struct.get('properties', {})
+        operation_properties = op_struct.get('inputs', {})
         task_queue = self.internal.handler.get_operation_task_queue(
             node_instance, plugin_name)
         task_name = operation_mapping
