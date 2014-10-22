@@ -151,6 +151,8 @@ def _prepare_nodes_and_instances(nodes, node_instances, ignored_modules):
 
     def scan(parent, name, node):
         for operation in parent.get(name, {}).values():
+            if not operation['operation']:
+                continue
             _get_module_method(operation['operation'],
                                tpe=name,
                                node_name=node.id,
