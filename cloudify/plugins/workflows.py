@@ -385,3 +385,30 @@ def execute_operation(ctx, operation, operation_kwargs,
                                          target_done_task)
 
     return graph.execute()
+
+
+@workflow
+def auto_heal(
+        ctx,
+        key,
+        value,
+        diagnose_key=None,
+        diagnose_value=None,
+        execution_plans=[{'heart-beat-failure': [
+            'cloudify.interfaces.lifecycle.stop',
+            'cloudify.interfaces.lifecycle.start'
+            ]}],
+        **_
+):
+    """Auto heal workflow"""
+
+    operation_seq = [
+        plan[diagnose_key]
+        for plan
+        in execution_plans
+        if diagnose_key in plan
+    ]
+
+    node_instance = list(ctx.get_node('node').instances)[0]
+    for operation in operation_seq:
+        node_instance.execute_operation(operation, kwargs={'ctx': ctx})
