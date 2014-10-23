@@ -18,13 +18,13 @@ from os.path import dirname
 
 import testtools
 
-import cloudify.tests as tests_path
-
 from cloudify.constants import MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY, \
     MANAGER_FILE_SERVER_URL_KEY
 from cloudify import context
 from cloudify import exceptions
 from cloudify.utils import create_temp_folder
+
+import cloudify.tests as tests_path
 
 
 class CloudifyContextTest(testtools.TestCase):

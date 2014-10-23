@@ -272,7 +272,7 @@ class CloudifyWorkflowNodeInstance(object):
         return self._logger
 
     def _init_cloudify_logger(self):
-        logger_name = '{}-{}'.format(self.ctx.execution_id, self.id)
+        logger_name = '{0}-{1}'.format(self.ctx.execution_id, self.id)
         logging_handler = self.ctx.internal.handler.get_node_logging_handler(
             self)
         return init_cloudify_logger(logging_handler, logger_name)
@@ -484,10 +484,14 @@ class CloudifyWorkflowContext(object):
         node = node_instance.node
         op_struct = operations.get(operation)
         if op_struct is None:
+            raise RuntimeError('{0} operation of node instance {1} does '
+                               'not exist'.format(operation,
+                                                  node_instance.id))
+        if not op_struct['operation']:
             return NOPLocalWorkflowTask(self)
         plugin_name = op_struct['plugin']
         operation_mapping = op_struct['operation']
-        operation_properties = op_struct.get('properties', {})
+        operation_properties = op_struct.get('inputs', {})
         task_queue = self.internal.handler.get_operation_task_queue(
             node_instance, plugin_name)
         task_name = operation_mapping

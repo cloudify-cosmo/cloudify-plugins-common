@@ -18,14 +18,14 @@ import time
 import yaml
 import sys
 import tempfile
-import unittest
 import shutil
 import os
 import threading
 import Queue
 
+import testtools
+from testtools.matchers import MatchesAny, Equals, GreaterThan, ContainsAll
 import nose.tools
-
 import cloudify.logs
 from cloudify.decorators import workflow, operation
 
@@ -35,9 +35,10 @@ from cloudify.workflows.workflow_context import task_config
 
 
 @nose.tools.nottest
-class BaseWorkflowTest(unittest.TestCase):
+class BaseWorkflowTest(testtools.TestCase):
 
     def setUp(self):
+        super(BaseWorkflowTest, self).setUp()
         self.work_dir = tempfile.mkdtemp(prefix='cloudify-workflows-')
         self.storage_dir = os.path.join(self.work_dir, 'storage')
         self.storage_kwargs = {}
@@ -186,23 +187,23 @@ class BaseWorkflowTest(unittest.TestCase):
     def _blueprint_1(self, workflow_methods, operation_methods,
                      workflow_parameters_schema, ignored_modules):
         interfaces = {
-            'test': [
-                {'op{}'.format(index):
-                 'p.{}.{}'.format(self._testMethodName,
-                                  op_method.__name__)}
+            'test': dict(
+                ('op{0}'.format(index),
+                 'p.{0}.{1}'.format(self._testMethodName,
+                                    op_method.__name__))
                 for index, op_method in
                 enumerate(operation_methods)
-            ]
+            )
         }
 
         if ignored_modules:
-            interfaces['test'].append({'ignored_op': 'p.{0}.ignored'
+            interfaces['test'].update({'ignored_op': 'p.{0}.ignored'
                                        .format(ignored_modules[0])})
 
         workflows = dict((
-            ('workflow{}'.format(index), {
-                'mapping': 'p.{}.{}'.format(self._testMethodName,
-                                            w_method.__name__),
+            ('workflow{0}'.format(index), {
+                'mapping': 'p.{0}.{1}'.format(self._testMethodName,
+                                              w_method.__name__),
                 'parameters': workflow_parameters_schema or {}
             }) for index, w_method in enumerate(workflow_methods)
         ))
@@ -438,17 +439,17 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
             @task_config(kwargs=task_config_kwargs)
             def task1(**kwargs):
-                self.assertDictEqual(kwargs, task_config_kwargs)
+                self.assertEqual(kwargs, task_config_kwargs)
             ctx.local_task(task1).get()
 
             @task_config(kwargs=task_config_kwargs)
             def task2(**kwargs):
-                self.assertDictEqual(kwargs, task_config_kwargs)
+                self.assertEqual(kwargs, task_config_kwargs)
             ctx.local_task(task2, kwargs=invocation_kwargs).get()
 
             @task_config(kwargs=task_config_kwargs)
             def task2(**kwargs):
-                self.assertDictEqual(kwargs, invocation_kwargs)
+                self.assertEqual(kwargs, invocation_kwargs)
             ctx.local_task(task2,
                            kwargs=invocation_kwargs,
                            override_task_config=True).get()
@@ -457,7 +458,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
     def test_workflow_bootstrap_context(self):
         def bootstrap_context(ctx, **_):
             bootstrap_context = ctx.internal._get_bootstrap_context()
-            self.assertDictEqual(bootstrap_context, {})
+            self.assertEqual(bootstrap_context, {})
         self._execute_workflow(bootstrap_context)
 
     def test_update_execution_status(self):
@@ -514,15 +515,15 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('type', node1.type)
             self.assertEqual('type', node1.type)
             self.assertEqual('cloudify.types.host', node2.type)
-            self.assertListEqual(['type'], node1.type_hierarchy)
-            self.assertListEqual(['type', 'cloudify.types.host'],
-                                 node2.type_hierarchy)
-            self.assertDictContainsSubset({'property': 'value'},
-                                          node1.properties)
-            self.assertDictContainsSubset({'property': 'default'},
-                                          node2.properties)
-            self.assertListEqual(sorted_ops, sorted(node1.operations.keys()))
-            self.assertListEqual(sorted_ops, sorted(node2.operations.keys()))
+            self.assertEqual(['type'], node1.type_hierarchy)
+            self.assertEqual(['type', 'cloudify.types.host'],
+                             node2.type_hierarchy)
+            self.assertThat(node1.properties.items(),
+                            ContainsAll({'property': 'value'}.items()))
+            self.assertThat(node2.properties.items(),
+                            ContainsAll({'property': 'default'}.items()))
+            self.assertEqual(sorted_ops, sorted(node1.operations.keys()))
+            self.assertEqual(sorted_ops, sorted(node2.operations.keys()))
             self.assertIs(relationship, node1.get_relationship('node2'))
 
             self.assertIn('node_', instance1.id)
@@ -534,10 +535,10 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
             self.assertEqual(node2.id, relationship.target_id)
             self.assertEqual(node2, relationship.target_node)
-            self.assertListEqual(sorted_ops,
-                                 sorted(relationship.source_operations.keys()))
-            self.assertListEqual(sorted_ops,
-                                 sorted(relationship.target_operations.keys()))
+            self.assertEqual(sorted_ops,
+                             sorted(relationship.source_operations.keys()))
+            self.assertEqual(sorted_ops,
+                             sorted(relationship.target_operations.keys()))
 
             self.assertEqual(instance2.id, relationship_instance.target_id)
             self.assertEqual(instance2,
@@ -561,7 +562,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual(1, len(caps))
             key, value = next(caps.iteritems())
             self.assertIn('node2_', key)
-            self.assertDictEqual(value, {'key': 'value'})
+            self.assertEqual(value, {'key': 'value'})
 
         self._execute_workflow(the_workflow, operation_methods=[op0, op1])
 
@@ -589,14 +590,13 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         def op(ctx, **_):
             if 'node2_' in ctx.target.instance.id:
-                self.assertDictContainsSubset({'property': 'default'},
-                                              ctx.target.node.properties)
+                self.assertThat(ctx.target.node.properties.items(),
+                                ContainsAll({'property': 'default'}.items()))
             elif 'node_' in ctx.target.instance.id:
-                self.assertDictContainsSubset({'property': 'value'},
-                                              ctx.target.node.properties)
+                self.assertThat(ctx.target.node.properties.items(),
+                                ContainsAll({'property': 'value'}.items()))
             else:
-                self.fail('unexpected: {}'.format(ctx.target.instance.id))
-
+                self.fail('unexpected: {0}'.format(ctx.target.instance.id))
         self._execute_workflow(the_workflow, operation_methods=[op])
 
     def test_operation_related_runtime_properties(self):
@@ -649,14 +649,14 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertIsNotNone(ctx.execution_id)
             self.assertEqual('workflow0', ctx.workflow_id)
             self.assertIsNotNone(ctx.task_id)
-            self.assertEqual('{}.{}'.format(self._testMethodName,
-                                            'ctx_properties'),
+            self.assertEqual('{0}.{1}'.format(self._testMethodName,
+                                              'ctx_properties'),
                              ctx.task_name)
             self.assertIsNone(ctx.task_target)
             self.assertEqual('p', ctx.plugin)
             self.assertEqual('test.op0', ctx.operation)
-            self.assertDictContainsSubset({'property': 'value'},
-                                          ctx.node.properties)
+            self.assertThat(ctx.node.properties.items(),
+                            ContainsAll({'property': 'value'}.items()))
             self.assertEqual('content', ctx.get_resource('resource'))
             target_path = ctx.download_resource('resource')
             with open(target_path) as f:
@@ -703,8 +703,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
     def test_operation_bootstrap_context(self):
         def contexts(ctx, **_):
-            self.assertDictEqual({}, ctx.bootstrap_context._bootstrap_context)
-            self.assertDictEqual({}, ctx.provider_context)
+            self.assertEqual({}, ctx.bootstrap_context._bootstrap_context)
+            self.assertEqual({}, ctx.provider_context)
         self._execute_workflow(operation_methods=[contexts])
 
     def test_workflow_graph_mode(self):
@@ -810,6 +810,14 @@ class LocalWorkflowTest(BaseWorkflowTest):
         storage = self.env.storage
         self.assertRaises(RuntimeError,
                           storage.get_node, 'node_that_does_not_exist')
+
+    def test_execute_non_existent_operation(self):
+        def flow(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.execute_operation('non_existent')
+        with testtools.testcase.ExpectedException(RuntimeError,
+                                                  ".*does not exist.*"):
+            self._execute_workflow(flow)
 
 
 @nose.tools.istest
@@ -1013,7 +1021,9 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             props['key'] = 'new_value'
 
             if current_retry > 0:
-                self.assertGreaterEqual(current_timestamp - last_timestamp, 1)
+                timestamp = current_timestamp - last_timestamp
+                self.assertThat(timestamp, MatchesAny(Equals(1),
+                                                      GreaterThan(1)))
             if current_retry < task_retries:
                 self.fail()
 
@@ -1128,9 +1138,9 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         def func(*_):
             module_name = 'zzz' if is_missing_module else self._testMethodName
             interfaces = {
-                'test': [
-                    {'op': 'p.{}.{}'.format(module_name, 'does_not_exist')}
-                ]
+                'test': {
+                    'op': 'p.{0}.{1}'.format(module_name, 'does_not_exist')
+                }
             }
             blueprint = {
                 'tosca_definitions_version': 'cloudify_dsl_1_0',
@@ -1159,8 +1169,8 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                     },
                 },
                 'workflows': {
-                    'workflow': 'p.{}.{}'.format(module_name,
-                                                 'does_not_exist')
+                    'workflow': 'p.{0}.{1}'.format(module_name,
+                                                   'does_not_exist')
                 }
             }
 
