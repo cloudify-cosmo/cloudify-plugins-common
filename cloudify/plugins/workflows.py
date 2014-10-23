@@ -394,21 +394,18 @@ def auto_heal(
         value,
         diagnose_key=None,
         diagnose_value=None,
-        execution_plans=[{'heart-beat-failure': [
-            'cloudify.interfaces.lifecycle.stop',
-            'cloudify.interfaces.lifecycle.start'
-            ]}],
+        execution_plans=[],
         **_
 ):
     """Auto heal workflow"""
 
-    operation_seq = [
+    operations_seq = [
         plan[diagnose_key]
         for plan
         in execution_plans
         if diagnose_key in plan
     ]
 
-    node_instance = list(ctx.get_node('node').instances)[0]
-    for operation in operation_seq:
+    node_instance = ctx.get_node_instance(value)
+    for operation in operations_seq:
         node_instance.execute_operation(operation, kwargs={'ctx': ctx})
