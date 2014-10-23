@@ -187,17 +187,17 @@ class BaseWorkflowTest(testtools.TestCase):
     def _blueprint_1(self, workflow_methods, operation_methods,
                      workflow_parameters_schema, ignored_modules):
         interfaces = {
-            'test': [
-                {'op{0}'.format(index):
+            'test': dict(
+                ('op{0}'.format(index),
                  'p.{0}.{1}'.format(self._testMethodName,
-                                    op_method.__name__)}
+                                    op_method.__name__))
                 for index, op_method in
                 enumerate(operation_methods)
-            ]
+            )
         }
 
         if ignored_modules:
-            interfaces['test'].append({'ignored_op': 'p.{0}.ignored'
+            interfaces['test'].update({'ignored_op': 'p.{0}.ignored'
                                        .format(ignored_modules[0])})
 
         workflows = dict((
@@ -811,6 +811,14 @@ class LocalWorkflowTest(BaseWorkflowTest):
         self.assertRaises(RuntimeError,
                           storage.get_node, 'node_that_does_not_exist')
 
+    def test_execute_non_existent_operation(self):
+        def flow(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.execute_operation('non_existent')
+        with testtools.testcase.ExpectedException(RuntimeError,
+                                                  ".*does not exist.*"):
+            self._execute_workflow(flow)
+
 
 @nose.tools.istest
 class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
@@ -1130,9 +1138,9 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         def func(*_):
             module_name = 'zzz' if is_missing_module else self._testMethodName
             interfaces = {
-                'test': [
-                    {'op': 'p.{0}.{1}'.format(module_name, 'does_not_exist')}
-                ]
+                'test': {
+                    'op': 'p.{0}.{1}'.format(module_name, 'does_not_exist')
+                }
             }
             blueprint = {
                 'tosca_definitions_version': 'cloudify_dsl_1_0',
