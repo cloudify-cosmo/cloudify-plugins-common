@@ -399,13 +399,11 @@ def auto_heal(
 ):
     """Auto heal workflow"""
 
-    operations_seq = [
-        plan[diagnose_key]
-        for plan
-        in execution_plans
-        if diagnose_key in plan
-    ]
-
+    operations_seq = []
+    for plan in execution_plans:
+        if diagnose_value in plan:
+            operations_seq = plan[diagnose_value]
+            break
     node_instance = ctx.get_node_instance(value)
     for operation in operations_seq:
-        node_instance.execute_operation(operation, kwargs={'ctx': ctx})
+        node_instance.execute_operation(operation)
