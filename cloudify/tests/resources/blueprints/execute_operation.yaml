@@ -1,7 +1,7 @@
 tosca_definitions_version: cloudify_dsl_1_0
 
 imports:
-    - http://getcloudify.org/spec/cloudify/3.1m5/types.yaml
+    - https://github.com/cloudify-cosmo/cloudify-manager/blob/CFY-1372-tosca-naming-convention/resources/rest-service/cloudify/types/types.yaml
 
 node_templates:
     node1:

@@ -238,7 +238,7 @@ class BaseWorkflowTest(testtools.TestCase):
                         }
                     }
                 },
-                'cloudify.nodes.Root': {
+                'cloudify.nodes.Compute': {
                     'derived_from': 'type',
                     'properties': {
                         'ip': {
@@ -514,7 +514,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('node2', node2.id)
             self.assertEqual('type', node1.type)
             self.assertEqual('type', node1.type)
-            self.assertEqual('cloudify.nodes.Root', node2.type)
+            self.assertEqual('cloudify.nodes.Compute', node2.type)
             self.assertEqual(['type'], node1.type_hierarchy)
             self.assertEqual(['type', 'cloudify.nodes.Compute'],
                              node2.type_hierarchy)
