@@ -238,7 +238,7 @@ class BaseWorkflowTest(testtools.TestCase):
                         }
                     }
                 },
-                'cloudify.types.host': {
+                'cloudify.nodes.Root': {
                     'derived_from': 'type',
                     'properties': {
                         'ip': {
@@ -260,14 +260,14 @@ class BaseWorkflowTest(testtools.TestCase):
                     }]
                 },
                 'node3': {
-                    'type': 'cloudify.types.host',
+                    'type': 'cloudify.nodes.Compute',
                     'interfaces': interfaces,
                     'properties': {
                         'ip': '1.1.1.1'
                     }
                 },
                 'node2': {
-                    'type': 'cloudify.types.host',
+                    'type': 'cloudify.nodes.Compute',
                     'interfaces': interfaces,
                 },
                 'node': {
@@ -514,9 +514,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertEqual('node2', node2.id)
             self.assertEqual('type', node1.type)
             self.assertEqual('type', node1.type)
-            self.assertEqual('cloudify.types.host', node2.type)
+            self.assertEqual('cloudify.nodes.Root', node2.type)
             self.assertEqual(['type'], node1.type_hierarchy)
-            self.assertEqual(['type', 'cloudify.types.host'],
+            self.assertEqual(['type', 'cloudify.nodes.Compute'],
                              node2.type_hierarchy)
             self.assertThat(node1.properties.items(),
                             ContainsAll({'property': 'value'}.items()))
