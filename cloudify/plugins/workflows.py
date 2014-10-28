@@ -13,8 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'dank'
-
 
 from cloudify.decorators import workflow
 from cloudify.workflows.tasks_graph import forkjoin
@@ -237,7 +235,7 @@ def _relationship_operations_with_targets(node_instance, operation):
 
 
 def _is_host_node(node_instance):
-    return 'cloudify.types.host' in node_instance.node.type_hierarchy
+    return 'cloudify.nodes.Compute' in node_instance.node.type_hierarchy
 
 
 def _wait_for_host_to_start(host_node_instance):
