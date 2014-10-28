@@ -56,11 +56,18 @@ def setup_default_logger(logger_name, level=logging.DEBUG):
 
 
 def get_local_ip():
+
     """
     Return the IP address used to connect to this machine by the management.
     machine
     """
-    return os.environ[LOCAL_IP_KEY]
+
+    if LOCAL_IP_KEY in os.environ:
+        return os.environ[LOCAL_IP_KEY]
+    # Fall back to be used outside of
+    # cloudify agents
+    import socket
+    return socket.gethostbyname(socket.gethostname())
 
 
 def get_manager_ip():
