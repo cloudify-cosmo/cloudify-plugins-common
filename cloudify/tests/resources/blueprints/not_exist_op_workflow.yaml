@@ -1,0 +1,24 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:
+    - http://getcloudify.org/spec/cloudify/3.1m5/types.yaml
+
+node_templates:
+    node1:
+        type: cloudify.types.base
+
+workflows:
+    not_exist_op_workflow:
+        mapping: mock.cloudify.tests.test_missing_operation.not_exist_op_workflow
+        parameters: {}
+    not_exist_interface_workflow:
+         mapping: mock.cloudify.tests.test_missing_operation.not_exist_interface_workflow
+         parameters: {}
+    stop_workflow:
+         mapping: mock.cloudify.tests.test_missing_operation.stop_workflow
+         parameters: {}
+
+plugins:
+    mock:
+        executor: central_deployment_agent
+        install: false
