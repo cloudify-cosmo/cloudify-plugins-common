@@ -34,7 +34,6 @@ TASK_SENT = 'sent'
 TASK_STARTED = 'started'
 TASK_SUCCEEDED = 'succeeded'
 TASK_FAILED = 'failed'
-MY_DEBUG = 'my_debug'
 
 
 def retry_failure_handler(task):
