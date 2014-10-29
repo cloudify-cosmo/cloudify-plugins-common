@@ -24,6 +24,7 @@ import threading
 
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
+import sys
 
 from cloudify.workflows.workflow_context import (
     DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
@@ -185,9 +186,20 @@ def _get_module_method(module_method_path, tpe, node_name,
     try:
         module = importlib.import_module(module_name)
     except ImportError:
-        raise ImportError('mapping error: No module named {0} '
-                          '[node={1}, type={2}]'
-                          .format(module_name, node_name, tpe))
+
+        # the module does not exist
+        # recommend a possible solution
+        possible_solutions = [
+            "Run 'cfy local execute --install-plugins'",
+            "Run 'cfy local install-plugins'"
+        ]
+        e = ImportError('mapping error: No module named {0} '
+                        '[node={1}, type={2}]'
+                        .format(module_name,
+                                node_name,
+                                tpe))
+        e.possible_solutions = possible_solutions
+        raise e
     try:
         return getattr(module, method_name)
     except AttributeError:
