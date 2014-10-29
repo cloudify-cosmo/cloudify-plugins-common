@@ -143,20 +143,28 @@ class LocalCommandRunner(object):
         logger = logger or setup_default_logger('LocalCommandRunner')
         self.logger = logger
 
-    def run(self, command, exit_on_failure=True):
+    def run(self, command,
+            exit_on_failure=True,
+            stdout_pipe=True,
+            stderr_pipe=True):
+
         """
         :param command: The command to execute.
         :param exit_on_failure: False to ignore failures.
         :return: A wrapper object for all valuable info from the execution.
         :rtype: CommandExecutionResponse
         """
-        self.logger.info('[{0}] run: {1}'.format(get_local_ip(), command))
+        local_ip = get_local_ip()
+        self.logger.info('[{0}] run: {1}'.format(local_ip, command))
         shlex_split = shlex.split(command)
-        p = subprocess.Popen(shlex_split, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+        stdout = subprocess.PIPE if stdout_pipe else None
+        stderr = subprocess.PIPE if stderr_pipe else None
+        p = subprocess.Popen(shlex_split, stdout=stdout,
+                             stderr=stderr)
         out, err = p.communicate()
         if p.returncode == 0:
-            self.logger.info('[{0}] out: {1}'.format(get_local_ip(), out))
+            if out:
+                self.logger.info('[{0}] out: {1}'.format(local_ip, out))
         else:
             error = CommandExecutionException(
                 command=command,
