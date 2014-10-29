@@ -282,7 +282,8 @@ class RemoteWorkflowTask(WorkflowTask):
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except NonRecoverableError as e:
             self.set_state(TASK_FAILED)
-            self.workflow_context.internal.send_task_event(TASK_FAILED, self, {'exception': e})
+            self.workflow_context.internal\
+                .send_task_event(TASK_FAILED, self, {'exception': e})
             self.error = e
             self.async_result = RemoteWorkflowNotExistTaskResult(self)
 
@@ -318,7 +319,6 @@ class RemoteWorkflowTask(WorkflowTask):
 
     def _verify_task_registered(self):
         verify_task_registered(self.name, self.target, self._get_registered)
-
 
     def _get_registered(self):
         # import here because this only applies in remote execution
@@ -644,5 +644,5 @@ def verify_task_registered(name, target, get_registered):
 
     if name not in registered:
         raise NonRecoverableError('Missing task: {0} in worker celery.{1} \n'
-                           'Registered tasks are: {2}'
-                           .format(name, target, registered))
+                                  'Registered tasks are: {2}'
+                                  .format(name, target, registered))
