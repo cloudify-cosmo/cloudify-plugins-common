@@ -34,6 +34,7 @@ TASK_SENT = 'sent'
 TASK_STARTED = 'started'
 TASK_SUCCEEDED = 'succeeded'
 TASK_FAILED = 'failed'
+MY_DEBUG = 'my_debug'
 
 
 def retry_failure_handler(task):
@@ -273,11 +274,18 @@ class RemoteWorkflowTask(WorkflowTask):
         :return: a RemoteWorkflowTaskResult instance wrapping the
                  celery async result
         """
-        self._verify_task_registered()
-        self.workflow_context.internal.send_task_event(TASK_SENDING, self)
-        async_result = self.task.apply_async(task_id=self.id)
-        self.async_result = RemoteWorkflowTaskResult(self, async_result)
-        self.set_state(TASK_SENT)
+        try:
+            self._verify_task_registered()
+            self.workflow_context.internal.send_task_event(TASK_SENDING, self)
+            async_result = self.task.apply_async(task_id=self.id)
+            self.set_state(TASK_SENT)
+            self.async_result = RemoteWorkflowTaskResult(self, async_result)
+        except NonRecoverableError as e:
+            self.set_state(TASK_FAILED)
+            self.workflow_context.internal.send_task_event(TASK_FAILED, self, {'exception': e})
+            self.error = e
+            self.async_result = RemoteWorkflowNotExistTaskResult(self)
+
         return self.async_result
 
     def is_local(self):
@@ -310,6 +318,7 @@ class RemoteWorkflowTask(WorkflowTask):
 
     def _verify_task_registered(self):
         verify_task_registered(self.name, self.target, self._get_registered)
+
 
     def _get_registered(self):
         # import here because this only applies in remote execution
@@ -523,6 +532,19 @@ class WorkflowTaskResult(object):
         raise NotImplementedError('Implemented by subclasses')
 
 
+class RemoteWorkflowNotExistTaskResult(WorkflowTaskResult):
+    def __init__(self, task):
+        super(RemoteWorkflowNotExistTaskResult, self).__init__(task)
+        self.task = task
+
+    def _get(self):
+        raise self.task.error
+
+    @property
+    def result(self):
+        return self.task.error
+
+
 class RemoteWorkflowTaskResult(WorkflowTaskResult):
     """A wrapper for celery's AsyncResult"""
 
@@ -621,6 +643,6 @@ def verify_task_registered(name, target, get_registered):
         cache[target] = registered
 
     if name not in registered:
-        raise RuntimeError('Missing task: {0} in worker celery.{1} \n'
+        raise NonRecoverableError('Missing task: {0} in worker celery.{1} \n'
                            'Registered tasks are: {2}'
                            .format(name, target, registered))
