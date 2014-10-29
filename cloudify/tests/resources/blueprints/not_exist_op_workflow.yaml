@@ -5,7 +5,7 @@ imports:
 
 node_templates:
     node1:
-        type: cloudify.types.base
+        type: cloudify.nodes.Root
 
 workflows:
     not_exist_op_workflow:
