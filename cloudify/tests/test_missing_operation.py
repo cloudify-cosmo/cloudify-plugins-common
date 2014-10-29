@@ -19,6 +19,7 @@ import testtools
 from cloudify.decorators import workflow
 from cloudify.workflows import local
 
+
 @workflow
 def not_exist_op_workflow(ctx, **kwargs):
     for node in ctx.nodes:
@@ -34,12 +35,14 @@ def not_exist_interface_workflow(ctx, **kwargs):
             instance.execute_operation(
                 'cloudify.interfaces.interfaces_not_exist.create')
 
+
 @workflow
 def stop_workflow(ctx, **kwargs):
     for node in ctx.nodes:
         for instance in node.instances:
             instance.execute_operation(
                 'cloudify.interfaces.lifecycle.stop')
+
 
 class TestExecuteNotExistOperationWorkflow(testtools.TestCase):
 
@@ -56,7 +59,8 @@ class TestExecuteNotExistOperationWorkflow(testtools.TestCase):
             self.env.execute('not_exist_op_workflow')
             self.fail('Expected exception due to operation not exist')
         except Exception as e:
-            self.assertTrue('operation of node instance {0} does not exist'.format(node_id) in e.message)
+            self.assertTrue('operation of node instance {0} does not exist'
+                            .format(node_id) in e.message)
 
     def test_execute_not_exist_interface(self):
         node_id = self.env.plan.get('node_instances')[0].get('id')
@@ -64,8 +68,10 @@ class TestExecuteNotExistOperationWorkflow(testtools.TestCase):
             self.env.execute('not_exist_interface_workflow')
             self.fail('Expected exception due to operation not exist')
         except Exception as e:
-            self.assertTrue('operation of node instance {0} does not exist'.format(node_id) in e.message)
+            self.assertTrue('operation of node instance {0} does not exist'
+                            .format(node_id) in e.message)
 
     def test_execute_stop_operation(self):
-        node_id = self.env.plan.get('node_instances')[0].get('id')
+        # check that an operation that exists in a builtin interface
+        # does not raise an exception if it is not declared in the blueprint
         self.env.execute('stop_workflow')
