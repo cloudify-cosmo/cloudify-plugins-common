@@ -72,6 +72,6 @@ class TestExecuteNotExistOperationWorkflow(testtools.TestCase):
                             .format(node_id) in e.message)
 
     def test_execute_stop_operation(self):
-        # check that an operation that exists in a builtin interface
+        # checks that an operation that exists in a builtin interface
         # does not raise an exception if it is not declared in the blueprint
         self.env.execute('stop_workflow')
