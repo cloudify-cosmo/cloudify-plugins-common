@@ -62,12 +62,7 @@ def get_local_ip():
     machine
     """
 
-    if LOCAL_IP_KEY in os.environ:
-        return os.environ[LOCAL_IP_KEY]
-    # Fall back to be used outside of
-    # cloudify agents
-    import socket
-    return socket.gethostbyname(socket.gethostname())
+    return os.environ[LOCAL_IP_KEY]
 
 
 def get_manager_ip():
@@ -189,7 +184,7 @@ class LocalCommandRunner(object):
 
 
 class CommandExecutionResponse(object):
-    
+
     """
     Wrapper object for info returned when running commands.
 
