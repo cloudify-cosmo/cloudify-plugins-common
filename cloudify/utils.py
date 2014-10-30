@@ -56,10 +56,12 @@ def setup_default_logger(logger_name, level=logging.DEBUG):
 
 
 def get_local_ip():
+
     """
     Return the IP address used to connect to this machine by the management.
     machine
     """
+
     return os.environ[LOCAL_IP_KEY]
 
 
@@ -126,30 +128,45 @@ def find_type_in_kwargs(cls, all_args):
 
 
 class LocalCommandRunner(object):
-    """
-    Runs local commands.
 
-    :param logger: This logger will be used for
-                   printing the output and the command.
-    """
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, host='localhost'):
+
+        """
+        :param logger: This logger will be used for
+                       printing the output and the command.
+        """
+
         logger = logger or setup_default_logger('LocalCommandRunner')
         self.logger = logger
+        self.host = host
 
-    def run(self, command, exit_on_failure=True):
+    def run(self, command,
+            exit_on_failure=True,
+            stdout_pipe=True,
+            stderr_pipe=True):
+
         """
+        Runs local commands.
+
         :param command: The command to execute.
         :param exit_on_failure: False to ignore failures.
+        :param stdout_pipe: False to not pipe the standard output.
+        :param stderr_pipe: False to not pipe the standard error.
+
         :return: A wrapper object for all valuable info from the execution.
         :rtype: CommandExecutionResponse
         """
-        self.logger.info('[{0}] run: {1}'.format(get_local_ip(), command))
+
+        self.logger.info('[{0}] run: {1}'.format(self.host, command))
         shlex_split = shlex.split(command)
-        p = subprocess.Popen(shlex_split, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+        stdout = subprocess.PIPE if stdout_pipe else None
+        stderr = subprocess.PIPE if stderr_pipe else None
+        p = subprocess.Popen(shlex_split, stdout=stdout,
+                             stderr=stderr)
         out, err = p.communicate()
         if p.returncode == 0:
-            self.logger.info('[{0}] out: {1}'.format(get_local_ip(), out))
+            if out:
+                self.logger.info('[{0}] out: {1}'.format(self.host, out))
         else:
             error = CommandExecutionException(
                 command=command,
@@ -167,6 +184,7 @@ class LocalCommandRunner(object):
 
 
 class CommandExecutionResponse(object):
+
     """
     Wrapper object for info returned when running commands.
 
