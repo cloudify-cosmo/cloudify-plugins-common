@@ -133,15 +133,17 @@ def find_type_in_kwargs(cls, all_args):
 
 
 class LocalCommandRunner(object):
-    """
-    Runs local commands.
 
-    :param logger: This logger will be used for
-                   printing the output and the command.
-    """
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, host='localhost'):
+
+        """
+        :param logger: This logger will be used for
+                       printing the output and the command.
+        """
+
         logger = logger or setup_default_logger('LocalCommandRunner')
         self.logger = logger
+        self.host = host
 
     def run(self, command,
             exit_on_failure=True,
@@ -149,13 +151,18 @@ class LocalCommandRunner(object):
             stderr_pipe=True):
 
         """
+        Runs local commands.
+
         :param command: The command to execute.
         :param exit_on_failure: False to ignore failures.
+        :param stdout_pipe: False to not pipe the standard output.
+        :param stderr_pipe: False to not pipe the standard error.
+
         :return: A wrapper object for all valuable info from the execution.
         :rtype: CommandExecutionResponse
         """
-        local_ip = get_local_ip()
-        self.logger.info('[{0}] run: {1}'.format(local_ip, command))
+
+        self.logger.info('[{0}] run: {1}'.format(self.host, command))
         shlex_split = shlex.split(command)
         stdout = subprocess.PIPE if stdout_pipe else None
         stderr = subprocess.PIPE if stderr_pipe else None
@@ -164,7 +171,7 @@ class LocalCommandRunner(object):
         out, err = p.communicate()
         if p.returncode == 0:
             if out:
-                self.logger.info('[{0}] out: {1}'.format(local_ip, out))
+                self.logger.info('[{0}] out: {1}'.format(self.host, out))
         else:
             error = CommandExecutionException(
                 command=command,
@@ -182,6 +189,7 @@ class LocalCommandRunner(object):
 
 
 class CommandExecutionResponse(object):
+    
     """
     Wrapper object for info returned when running commands.
 
