@@ -29,14 +29,18 @@ from os import path
 
 from celery import Celery
 
-from cloudify.constants import CELERY_WORK_DIR_PATH_KEY
+from cloudify import constants
 
 
 celery = Celery('cloudify.celery',
                 broker='amqp://',
                 backend='amqp://')
 
-celery_work_folder = os.environ.get(CELERY_WORK_DIR_PATH_KEY)
+if constants.CELERYD_MAX_TASKS_PER_CHILD in os.environ:
+    max_tasks = os.environ[constants.CELERYD_MAX_TASKS_PER_CHILD]
+    celery.conf.update(CELERYD_MAX_TASKS_PER_CHILD=max_tasks)
+
+celery_work_folder = os.environ.get(constants.CELERY_WORK_DIR_PATH_KEY)
 
 if celery_work_folder:
     current_excepthook = sys.excepthook

@@ -13,17 +13,13 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'elip'
 
 VIRTUALENV_PATH_KEY = 'VIRTUALENV'
 CELERY_WORK_DIR_PATH_KEY = "CELERY_WORK_DIR"
 COSMO_APP_NAME = "cloudify"
 
 PLUGIN_INSTALLER_PLUGIN_PATH = "plugin_installer.tasks"
-KV_STORE_PLUGIN_PATH = "kv_store.tasks"
 AGENT_INSTALLER_PLUGIN_PATH = "worker_installer.tasks"
-OPENSTACK_PROVISIONER_PLUGIN_PATH = "openstack_host_provisioner.tasks"
-VAGRANT_PROVISIONER_PLUGIN_PATH = "vagrant_host_provisioner.tasks"
 
 MANAGEMENT_NODE_ID = "cloudify.management"
 
@@ -35,8 +31,9 @@ MANAGER_REST_PORT_KEY = "MANAGER_REST_PORT"
 MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY = \
     "MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL"
 
-BUILT_IN_AGENT_PLUGINS = [PLUGIN_INSTALLER_PLUGIN_PATH, KV_STORE_PLUGIN_PATH]
+BUILT_IN_AGENT_PLUGINS = [PLUGIN_INSTALLER_PLUGIN_PATH]
 
 BUILT_IN_MANAGEMENT_PLUGINS = [PLUGIN_INSTALLER_PLUGIN_PATH,
-                               KV_STORE_PLUGIN_PATH,
                                AGENT_INSTALLER_PLUGIN_PATH]
+
+CELERYD_MAX_TASKS_PER_CHILD = 'CELERYD_MAX_TASKS_PER_CHILD'
