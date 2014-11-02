@@ -6,13 +6,18 @@ env:
     - TOX_ENV=flake8
     - TOX_ENV=py27
     - TOX_ENV=py26
-# TODO: add coveralls support
 install:
     - pip install tox
-    # - pip install coveralls
 script:
     - tox -e $TOX_ENV
-# after_success:
-#     coveralls
+deploy:
+  provider: pypi
+  server: https://testpypi.python.org/pypi
+  on:
+    branch: pypi-release
+    condition: $TOX_ENV = py27
+after_deploy:
+  - git clone https://github.com/cloudify-cosmo/travis-utils.git
+  - python travis-utils/validate_pypi.py -v || exit 1
 notifications:
     flowdock: 1f4ec6febcf1ac9b35ae6c1f0049471f
