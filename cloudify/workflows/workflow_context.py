@@ -262,6 +262,7 @@ class CloudifyWorkflowNodeInstance(object):
 
     @property
     def modification(self):
+        """Modification enum (None, added, removed)"""
         return self._node_instance.get('modification')
 
     @property
@@ -1095,19 +1096,36 @@ class Modification(object):
             (instance.node_id, workflow_ctx.get_node(instance.node_id)._node)
             for instance in node_instances.added_and_related).values()
         added_raw_node_instances = node_instances.added_and_related
-        self.added = ModificationNodes(self,
-                                       added_raw_nodes,
-                                       added_raw_node_instances)
+        self._added = ModificationNodes(self,
+                                        added_raw_nodes,
+                                        added_raw_node_instances)
 
         removed_raw_nodes = dict(
             (instance.node_id, workflow_ctx.get_node(instance.node_id)._node)
             for instance in node_instances.removed_and_related).values()
         removed_raw_node_instances = node_instances.removed_and_related
-        self.removed = ModificationNodes(self,
-                                         removed_raw_nodes,
-                                         removed_raw_node_instances)
+        self._removed = ModificationNodes(self,
+                                          removed_raw_nodes,
+                                          removed_raw_node_instances)
+
+    @property
+    def added(self):
+        """
+        :return: Added and related nodes
+        :rtype: ModificationNodes
+        """
+        return self._added
+
+    @property
+    def removed(self):
+        """
+        :return: Removed and related nodes
+        :rtype: ModificationNodes
+        """
+        return self._removed
 
     def finish(self):
+        """Finish deployment modification process"""
         self.workflow_ctx.internal.handler.finish_deployment_modification(
             self._raw_modification)
 
@@ -1122,12 +1140,27 @@ class ModificationNodes(object):
 
     @property
     def nodes(self):
+        """Added/Removed and related node instances"""
         return self._nodes.itervalues()
 
     def get_node(self, node_id):
+        """
+        Get a node by its id
+
+        :param node_id: The node id
+        :return: a CloudifyWorkflowNode instance for the node or None if
+                 not found
+        """
         return self._nodes.get(node_id)
 
     def get_node_instance(self, node_instance_id):
+        """
+        Get a node instance by its id
+
+        :param node_instance_id: The node instance id
+        :return: a CloudifyWorkflowNode instance for the node or None if
+                 not found
+        """
         return self._node_instances.get(node_instance_id)
 
 
@@ -1138,6 +1171,12 @@ class WorkflowDeploymentContext(context.DeploymentContext):
         self.workflow_ctx = workflow_ctx
 
     def start_modification(self, nodes):
+        """Start deployment modification process
+
+        :param nodes: Modified nodes specification
+        :return: Workflow modification wrapper
+        :rtype: Modification
+        """
         handler = self.workflow_ctx.internal.handler
         return handler.start_deployment_modification(nodes)
 
