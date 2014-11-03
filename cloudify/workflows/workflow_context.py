@@ -376,7 +376,6 @@ class CloudifyWorkflowContext(object):
 
         nodes, nodes_instances = _build_workflow_nodes_and_node_instances(
             self, raw_nodes, raw_node_instances)
-        self._raw_nodes = raw_nodes
         self._nodes = nodes
         self._node_instances = nodes_instances
 
