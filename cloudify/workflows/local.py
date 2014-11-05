@@ -47,6 +47,7 @@ class _Environment(object):
                  load_existing=False,
                  ignored_modules=None):
         self.storage = storage
+        self.storage.env = self
 
         if load_existing:
             self.storage.load(name)
@@ -71,9 +72,17 @@ class _Environment(object):
         return self.storage.name
 
     def outputs(self):
-        return dsl_functions.evaluate_outputs(self.plan['outputs'],
-                                              self.storage.get_node_instances,
-                                              self.storage.get_node_instance)
+        return dsl_functions.evaluate_outputs(
+            outputs_def=self.plan['outputs'],
+            get_node_instances_method=self.storage.get_node_instances,
+            get_node_instance_method=self.storage.get_node_instance)
+
+    def process_attributes(self, payload, context):
+        return dsl_functions.process_attributes(
+            payload=payload,
+            context=context,
+            get_node_instances_method=self.storage.get_node_instances,
+            get_node_instance_method=self.storage.get_node_instance)
 
     def execute(self,
                 workflow,
@@ -247,6 +256,7 @@ class _Storage(object):
         self.plan = None
         self._nodes = None
         self._locks = None
+        self.env = None
 
     def init(self, name, plan, nodes, node_instances, resources_root):
         self.name = name

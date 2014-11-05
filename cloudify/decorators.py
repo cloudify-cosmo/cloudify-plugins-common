@@ -109,7 +109,7 @@ def operation(func=None, **arguments):
                     # clone kwarg
                     kwargs = copy.deepcopy(kwargs)
                 if raw_context.get('has_attributes') is True:
-                    kwargs = kwargs
+                    kwargs = ctx._endpoint.process_attributes(payload=kwargs)
                 kwargs['ctx'] = ctx
             try:
                 current_ctx.set(ctx, kwargs)
