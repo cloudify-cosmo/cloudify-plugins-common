@@ -72,7 +72,8 @@ class _Environment(object):
 
     def outputs(self):
         return dsl_functions.evaluate_outputs(self.plan['outputs'],
-                                              self.storage.get_node_instances)
+                                              self.storage.get_node_instances,
+                                              self.storage.get_node_instance)
 
     def execute(self,
                 workflow,
@@ -322,7 +323,7 @@ class _Storage(object):
     def _store_instance(self, node_instance):
         raise NotImplementedError()
 
-    def get_node_instances(self):
+    def get_node_instances(self, node_id=None):
         raise NotImplementedError()
 
     def _instance_ids(self):
@@ -354,8 +355,11 @@ class InMemoryStorage(_Storage):
     def _store_instance(self, node_instance):
         pass
 
-    def get_node_instances(self):
-        return copy.deepcopy(self._node_instances.values())
+    def get_node_instances(self, node_id=None):
+        instances = self._node_instances.values()
+        if node_id:
+            instances = [i for i in instances if i.node_id == node_id]
+        return copy.deepcopy(instances)
 
     def _instance_ids(self):
         return self._node_instances.keys()
@@ -421,9 +425,12 @@ class FileStorage(_Storage):
     def _instance_path(self, node_instance_id):
         return os.path.join(self._instances_dir, node_instance_id)
 
-    def get_node_instances(self):
-        return [self._get_node_instance(instance_id)
-                for instance_id in self._instance_ids()]
+    def get_node_instances(self, node_id=None):
+        instances = [self._get_node_instance(instance_id)
+                     for instance_id in self._instance_ids()]
+        if node_id:
+            instances = [i for i in instances if i.node_id == node_id]
+        return instances
 
     def _instance_ids(self):
         return os.listdir(self._instances_dir)
