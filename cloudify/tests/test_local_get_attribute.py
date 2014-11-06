@@ -78,11 +78,11 @@ def populate(**_):
 
 
 @operation
-def test_op(self_ref=None,
-            node_ref=None,
-            source_ref=None,
-            target_ref=None,
-            **_):
+def op(self_ref=None,
+       node_ref=None,
+       source_ref=None,
+       target_ref=None,
+       **_):
     if operation_ctx.type == context.NODE_INSTANCE:
         assert self_ref == 'self_ref_value', \
             'self: {0}'.format(self_ref)
