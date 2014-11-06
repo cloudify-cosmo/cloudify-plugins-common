@@ -15,6 +15,8 @@
 
 
 import os
+import shutil
+import tempfile
 
 import testtools
 
@@ -28,11 +30,22 @@ from cloudify.workflows import ctx as workflow_ctx
 
 class TestLocalWorkflowGetAttribute(testtools.TestCase):
 
-    def test(self):
+    def test_in_memory_storage(self):
+        self._test()
+
+    def test_file_storage(self):
+        tempdir = tempfile.mkdtemp()
+        storage = local.FileStorage(tempdir)
+        try:
+            self._test(storage)
+        finally:
+            shutil.rmtree(tempdir)
+
+    def _test(self, storage=None):
         blueprint_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             'resources/blueprints/get_attribute.yaml')
-        self.env = local.init_env(blueprint_path)
+        self.env = local.init_env(blueprint_path, storage=storage)
         self.env.execute('setup', task_retries=0)
         self.env.execute('run', task_retries=0)
 
