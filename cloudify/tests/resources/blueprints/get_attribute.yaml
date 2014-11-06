@@ -11,6 +11,7 @@ node_templates:
                     inputs:
                         self_ref: { get_attribute: [SELF, self_ref_property] }
                         node_ref: { get_attribute: [node2, node_ref_property] }
+                        static: { get_attribute: [node1, static_property ]}
         relationships:
             -   target: node2
                 type: cloudify.relationships.contained_in
@@ -38,7 +39,10 @@ relationships:
     cloudify.relationships.contained_in: {}
 
 node_types:
-    mock_type1: {}
+    mock_type1:
+        properties:
+            static_property:
+                default: static_property_value
 
 plugins:
     mock:

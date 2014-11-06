@@ -82,6 +82,7 @@ def op(self_ref=None,
        node_ref=None,
        source_ref=None,
        target_ref=None,
+       static=None,
        **_):
     if operation_ctx.type == context.NODE_INSTANCE:
         assert self_ref == 'self_ref_value', \
@@ -92,6 +93,8 @@ def op(self_ref=None,
             'source: {0}'.format(source_ref)
         assert source_ref is None, \
             'target: {0}'.format(target_ref)
+        assert static == 'static_property_value', \
+            'static: {0}'.format(static)
     else:
         assert self_ref is None, \
             'self: {0}'.format(self_ref)

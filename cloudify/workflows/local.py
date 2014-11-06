@@ -75,14 +75,16 @@ class _Environment(object):
         return dsl_functions.evaluate_outputs(
             outputs_def=self.plan['outputs'],
             get_node_instances_method=self.storage.get_node_instances,
-            get_node_instance_method=self.storage.get_node_instance)
+            get_node_instance_method=self.storage.get_node_instance,
+            get_node_method=self.storage.get_node)
 
     def process_attributes(self, payload, context):
         return dsl_functions.process_attributes(
             payload=payload,
             context=context,
             get_node_instances_method=self.storage.get_node_instances,
-            get_node_instance_method=self.storage.get_node_instance)
+            get_node_instance_method=self.storage.get_node_instance,
+            get_node_method=self.storage.get_node)
 
     def execute(self,
                 workflow,
