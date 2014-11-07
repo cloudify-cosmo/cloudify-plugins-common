@@ -273,6 +273,30 @@ class CloudifyWorkflowNodeInstance(object):
             self)
         return init_cloudify_logger(logging_handler, logger_name)
 
+    def get_children(self):
+        """
+        Returns nodes directly contained within this instance
+        """
+        # TODO: Ugly code just for now .. needs refactoring and improvements
+        # like relationships inheritance handling
+        children = []
+        for node in self.ctx.nodes:
+            for node_instance in node.instances:
+                for rel in node_instance.relationships:
+                    if rel.relationship._relationship['type'] == "cloudify.relationships.contained_in" and rel.target_id == self.id:
+                        children.append(rel.node_instance)
+        return children
+
+    def getAllContainedNodeInstances(self):
+        """
+        Returns a set containing this instance and all nodes that are
+        contained directly and transitively within it
+        """
+        result = set([self])
+        for child in self.get_children():
+            result.update(child.getAllContainedNodeInstances())
+        return result
+
 
 class CloudifyWorkflowNode(object):
     """

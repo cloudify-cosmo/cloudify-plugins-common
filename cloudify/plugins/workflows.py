@@ -22,10 +22,10 @@ from cloudify.workflows import tasks as workflow_tasks
 
 
 def _get_all_nodes_instances(ctx):
-    node_instances = []
+    node_instances = set()
     for node in ctx.nodes:
         for instance in node.instances:
-            node_instances.append(instance)
+            node_instances.add(instance)
     return node_instances
 
 
@@ -96,7 +96,57 @@ class NodeInstallationTasksSequenceCreator(object):
                 )))
 
 
-def _install_node_instances(ctx, node_instances, node_tasks_seq_creator):
+class InstallationTasksGraphFinisher(object):
+    def __init__(self, graph, node_instances, intact_nodes, tasks):
+        self.graph = graph
+        self.node_instances = node_instances
+        self.intact_nodes = intact_nodes
+        self.tasks = tasks
+
+    def _enforce_correct_src_trg_order(self, instance, rel):
+        """
+        make a dependency between the create tasks (event, state)
+        and the started state task of the target
+        """
+        target_set_started = self.tasks.set_state_started[rel.target_id]
+        node_set_creating = self.tasks.set_state_creating[instance.id]
+        node_event_creating = self.tasks.send_event_creating[instance.id]
+        self.graph.add_dependency(node_set_creating, target_set_started)
+        self.graph.add_dependency(node_event_creating, target_set_started)
+
+    def finish_creation(self):
+        # Create task dependencies based on node relationships
+        for instance in self.node_instances:
+            for rel in instance.relationships:
+                self._enforce_correct_src_trg_order(instance, rel)
+
+
+class AutohealInstallationTasksGraphFinisher(InstallationTasksGraphFinisher):
+    def _enforce_correct_src_trg_order(self, instance, rel):
+        # Handle only nodes within self.node_instances, others are running
+        if rel.target_node_instance in self.node_instances:
+            super(AutohealInstallationTasksGraphFinisher,
+                  self)._enforce_correct_src_trg_order(instance, rel)
+
+    def finish_creation(self):
+        super(AutohealInstallationTasksGraphFinisher, self).finish_creation()
+        # Add operations for intact nodes depending on a node instance
+        # belonging to node_instances (which are being reinstalled)
+        for instance in self.intact_nodes:
+            for rel in instance.relationships:
+                if rel.target_node_instance in self.node_instances:
+                    trg_started = self.tasks.set_state_started[rel.target_id]
+                    establish_operations = _relationship_operations(
+                        instance,
+                        'cloudify.interfaces.relationship_lifecycle.establish'
+                    )
+                    for establish_op in establish_operations:
+                        self.graph.add_task(establish_op)
+                        self.graph.add_dependency(establish_op, trg_started)
+
+
+def _install_node_instances(ctx, node_instances, intact_nodes,
+                            node_tasks_seq_creator, graph_finisher_cls):
     # switch to graph mode (operations on the context return tasks instead of
     # result instances)
     graph = ctx.graph_mode()
@@ -117,16 +167,13 @@ def _install_node_instances(ctx, node_instances, node_tasks_seq_creator):
     # added to it will be executed in a sequential manner
     for instance in node_instances:
         node_tasks_seq_creator.create(instance, graph, tasks)
-    # Create task dependencies based on node relationships
-    # for each node, make a dependency between the create tasks (event, state)
-    # and the started state task of the target
-    for instance in node_instances:
-        for rel in instance.relationships:
-            node_set_creating = tasks.set_state_creating[instance.id]
-            node_event_creating = tasks.send_event_creating[instance.id]
-            target_set_started = tasks.set_state_started[rel.target_id]
-            graph.add_dependency(node_set_creating, target_set_started)
-            graph.add_dependency(node_event_creating, target_set_started)
+
+    graph_finisher_cls(
+        graph,
+        node_instances,
+        intact_nodes,
+        tasks
+    ).finish_creation()
 
     return graph.execute()
 
@@ -140,7 +187,7 @@ class UninstallationTasksReferences(object):
         self.delete_node = {}
 
 
-class NodeUninstallTasksSequenceCreator(object):
+class NodeUninstallationTasksSequenceCreator(object):
     def create(self, instance, graph, uninstallation_tasks):
         sequence = graph.sequence()
         sequence.add(
@@ -187,7 +234,55 @@ class NodeUninstallTasksSequenceCreator(object):
             "Error occurred while deleting node - ignoring...")
 
 
-def _uninstall_node_instances(ctx, node_instances, node_tasks_seq_creator):
+class UninstallationTasksGraphFinisher(object):
+    def __init__(self, graph, node_instances, intact_nodes, tasks):
+        self.graph = graph
+        self.node_instances = node_instances
+        self.intact_nodes = intact_nodes
+        self.tasks = tasks
+
+    def _enforce_correct_src_trg_order(self, instance, rel):
+        """
+        make a dependency between the target's stopping task
+        and the deleted state task of the current node
+        """
+        self.graph.add_dependency(
+            self.tasks.set_state_stopping[rel.target_id],
+            self.tasks.set_state_deleted[instance.id]
+        )
+
+    def finish_creation(self):
+        # Create task dependencies based on node relationships
+        for instance in self.node_instances:
+            for rel in instance.relationships:
+                self._enforce_correct_src_trg_order(instance, rel)
+
+
+class AutohealUninstallationTasksGraphFinisher(
+    UninstallationTasksGraphFinisher
+):
+    def _enforce_correct_src_trg_order(self, instance, rel):
+        if rel.target_node_instance in self.node_instances:
+            super(AutohealUninstallationTasksGraphFinisher,
+                  self)._enforce_correct_src_trg_order(instance, rel)
+
+    def finish_creation(self):
+        super(AutohealUninstallationTasksGraphFinisher, self).finish_creation()
+        for instance in self.intact_nodes:
+            for rel in instance.relationships:
+                if rel.target_node_instance in self.node_instances:
+                    target_stopped = self.tasks.stop_node[rel.target_id]
+                    unlink_operations = _relationship_operations(
+                        instance,
+                        'cloudify.interfaces.relationship_lifecycle.unlink'
+                    )
+                    for unlink_op in unlink_operations:
+                        self.graph.add_task(unlink_op)
+                        self.graph.add_dependency(unlink_op, target_stopped)
+
+
+def _uninstall_node_instances(ctx, node_instances, intact_nodes,
+                              node_tasks_seq_creator, graph_finisher_cls):
     # switch to graph mode (operations on the context return tasks instead of
     # result instances)
     graph = ctx.graph_mode()
@@ -219,15 +314,12 @@ def _uninstall_node_instances(ctx, node_instances, node_tasks_seq_creator):
     for instance in node_instances:
         node_tasks_seq_creator.create(instance, graph, tasks_refs)
 
-    # Create task dependencies based on node relationships
-    # for each node, make a dependency between the target's stopping task
-    # and the deleted state task of the current node
-    for instance in node_instances:
-        for rel in instance.relationships:
-            graph.add_dependency(
-                tasks_refs.set_state_stopping[rel.target_id],
-                tasks_refs.set_state_deleted[instance.id]
-            )
+    graph_finisher_cls(
+        graph,
+        node_instances,
+        intact_nodes,
+        tasks_refs
+    ).finish_creation()
 
     return graph.execute()
 
@@ -422,7 +514,9 @@ def install(ctx, **kwargs):
     _install_node_instances(
         ctx,
         _get_all_nodes_instances(ctx),
-        NodeInstallationTasksSequenceCreator()
+        set(),
+        NodeInstallationTasksSequenceCreator(),
+        InstallationTasksGraphFinisher
     )
 
 
@@ -433,7 +527,9 @@ def uninstall(ctx, **kwargs):
     _uninstall_node_instances(
         ctx,
         _get_all_nodes_instances(ctx),
-        NodeUninstallTasksSequenceCreator()
+        set(),
+        NodeUninstallationTasksSequenceCreator(),
+        UninstallationTasksGraphFinisher
     )
 
 
@@ -478,15 +574,19 @@ def auto_heal_reinstall_node_subgraph(
     failing_node_host = ctx.get_node_instance(
         failing_node._node_instance.host_id
     )
-    # TODO: failing_node_host + all the nodes contained in it
-    node_instances = []
+    subgraph_node_instances = failing_node_host.getAllContainedNodeInstances()
+    intact_nodes = _get_all_nodes_instances(ctx) - subgraph_node_instances
     _uninstall_node_instances(
         ctx,
-        node_instances,
-        NodeUninstallTasksSequenceCreator()
+        subgraph_node_instances,
+        intact_nodes,
+        NodeUninstallationTasksSequenceCreator(),
+        AutohealUninstallationTasksGraphFinisher
     )
     _install_node_instances(
         ctx,
-        node_instances,
-        NodeInstallationTasksSequenceCreator()
+        subgraph_node_instances,
+        intact_nodes,
+        NodeInstallationTasksSequenceCreator(),
+        AutohealInstallationTasksGraphFinisher
     )
