@@ -45,8 +45,8 @@ class NodeInstallationTasksSequenceCreator(object):
 
     def create(self, instance, graph, installation_tasks):
         """
-        installation_tasks is an object of InstallationTasksReferences class.
-        instance is the node instance to generate the installation tasks for
+        :param installation_tasks: instance of InstallationTasksReferences
+        :param instance: node instance to generate the installation tasks for
         """
 
         sequence = graph.sequence()
@@ -300,7 +300,7 @@ def _uninstall_node_instances(ctx, node_instances, intact_nodes,
 
         # We need reference to the stop node tasks, stop monitor tasks and
         # delete node tasks as we augment them with on_failure error
-        # handlers # later on
+        # handlers later on
         tasks_refs.stop_node[instance.id] = instance.execute_operation(
             'cloudify.interfaces.lifecycle.stop')
         tasks_refs.stop_monitor[instance.id] = instance.execute_operation(
@@ -557,7 +557,6 @@ def auto_heal(
         for op_name, op_args in operation.iteritems():
             for arg in op_args:
                 args[arg] = kwargs.get(arg)
-
             node_instance.execute_operation(op_name, args)
 
 
@@ -574,7 +573,7 @@ def auto_heal_reinstall_node_subgraph(
     failing_node_host = ctx.get_node_instance(
         failing_node._node_instance.host_id
     )
-    subgraph_node_instances = failing_node_host.getAllContainedNodeInstances()
+    subgraph_node_instances = failing_node_host.get_contained_node_instances()
     intact_nodes = _get_all_nodes_instances(ctx) - subgraph_node_instances
     _uninstall_node_instances(
         ctx,

@@ -155,6 +155,13 @@ class CloudifyWorkflowRelationship(object):
         """The relationship target operations"""
         return self._relationship.get('target_operations', {})
 
+    def is_derived_from(self, other_relationship):
+        """
+        :param other_relationship: a string like
+               cloudify.relationships.contained_in
+        """
+        return other_relationship in self._relationship["type_hierarchy"]
+
 
 class CloudifyWorkflowNodeInstance(object):
     """
@@ -278,23 +285,28 @@ class CloudifyWorkflowNodeInstance(object):
         Returns nodes directly contained within this instance
         """
         # TODO: Ugly code just for now .. needs refactoring and improvements
-        # like relationships inheritance handling
         children = []
         for node in self.ctx.nodes:
             for node_instance in node.instances:
                 for rel in node_instance.relationships:
-                    if rel.relationship._relationship['type'] == "cloudify.relationships.contained_in" and rel.target_id == self.id:
+                    if (
+                        rel.relationship.is_derived_from(
+                            "cloudify.relationships.contained_in"
+                        )
+                        and
+                        rel.target_id == self.id
+                    ):
                         children.append(rel.node_instance)
         return children
 
-    def getAllContainedNodeInstances(self):
+    def get_contained_node_instances(self):
         """
         Returns a set containing this instance and all nodes that are
         contained directly and transitively within it
         """
         result = set([self])
         for child in self.get_children():
-            result.update(child.getAllContainedNodeInstances())
+            result.update(child.get_contained_node_instances())
         return result
 
 

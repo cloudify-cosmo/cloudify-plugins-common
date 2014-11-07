@@ -447,9 +447,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
             ctx.local_task(task2, kwargs=invocation_kwargs).get()
 
             @task_config(kwargs=task_config_kwargs)
-            def task2(**kwargs):
+            def task3(**kwargs):
                 self.assertDictEqual(kwargs, invocation_kwargs)
-            ctx.local_task(task2,
+            ctx.local_task(task3,
                            kwargs=invocation_kwargs,
                            override_task_config=True).get()
         self._execute_workflow(flow)
@@ -533,6 +533,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertIs(node2, instance2.node)
 
             self.assertEqual(node2.id, relationship.target_id)
+            self.assertTrue(relationship.is_derived_from(
+                "cloudify.relationships.contained_in"
+            ))
             self.assertEqual(node2, relationship.target_node)
             self.assertListEqual(sorted_ops,
                                  sorted(relationship.source_operations.keys()))
