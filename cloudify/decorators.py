@@ -108,8 +108,8 @@ def operation(func=None, **arguments):
                     # task is local (not through celery) so we need to
                     # clone kwarg
                     kwargs = copy.deepcopy(kwargs)
-                if raw_context.get('has_attributes') is True:
-                    kwargs = ctx._endpoint.process_attributes(payload=kwargs)
+                if raw_context.get('has_intrinsic_functions') is True:
+                    kwargs = ctx._endpoint.evaluate_functions(payload=kwargs)
                 kwargs['ctx'] = ctx
             try:
                 current_ctx.set(ctx, kwargs)

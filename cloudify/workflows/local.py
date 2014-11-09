@@ -78,8 +78,8 @@ class _Environment(object):
             get_node_instance_method=self.storage.get_node_instance,
             get_node_method=self.storage.get_node)
 
-    def process_attributes(self, payload, context):
-        return dsl_functions.process_attributes(
+    def evaluate_functions(self, payload, context):
+        return dsl_functions.evaluate_functions(
             payload=payload,
             context=context,
             get_node_instances_method=self.storage.get_node_instances,

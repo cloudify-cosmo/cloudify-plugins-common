@@ -87,23 +87,23 @@ class Endpoint(object):
         raise NonRecoverableError('could not find ip for host node instance: '
                                   '{0}'.format(host_id))
 
-    def process_attributes(self, payload):
+    def evaluate_functions(self, payload):
         raise NotImplementedError('Implemented by subclasses')
 
-    def _process_attributes_impl(self,
+    def _evaluate_functions_impl(self,
                                  payload,
-                                 process_attributes_method):
+                                 evaluate_functions_method):
         from cloudify import context
-        process_context = {}
+        evaluation_context = {}
         if self.ctx.type == context.NODE_INSTANCE:
-            process_context['self'] = self.ctx.instance.id
+            evaluation_context['self'] = self.ctx.instance.id
         elif self.ctx.type == context.RELATIONSHIP_INSTANCE:
-            process_context.update({
+            evaluation_context.update({
                 'source': self.ctx.source.instance.id,
                 'target': self.ctx.target.instance.id
             })
-        return process_attributes_method(deployment_id=self.ctx.deployment.id,
-                                         context=process_context,
+        return evaluate_functions_method(deployment_id=self.ctx.deployment.id,
+                                         context=evaluation_context,
                                          payload=payload)
 
 
@@ -155,15 +155,15 @@ class ManagerEndpoint(Endpoint):
                                additional_context,
                                out_func=logs.amqp_event_out)
 
-    def process_attributes(self, payload):
+    def evaluate_functions(self, payload):
         client = manager.get_rest_client()
 
-        def process_attributes_method(deployment_id, context, payload):
-            return client.attributes.process(deployment_id,
+        def evaluate_functions_method(deployment_id, context, payload):
+            return client.evaluate.functions(deployment_id,
                                              context,
                                              payload)['payload']
-        return self._process_attributes_impl(payload,
-                                             process_attributes_method)
+        return self._evaluate_functions_impl(payload,
+                                             evaluate_functions_method)
 
 
 class LocalEndpoint(Endpoint):
@@ -225,9 +225,9 @@ class LocalEndpoint(Endpoint):
                                additional_context,
                                out_func=logs.stdout_event_out)
 
-    def process_attributes(self, payload):
-        def process_attributes_method(deployment_id, context, payload):
-            return self.storage.env.process_attributes(payload=payload,
+    def evaluate_functions(self, payload):
+        def evaluate_functions_method(deployment_id, context, payload):
+            return self.storage.env.evaluate_functions(payload=payload,
                                                        context=context)
-        return self._process_attributes_impl(
-            payload, process_attributes_method)
+        return self._evaluate_functions_impl(
+            payload, evaluate_functions_method)
