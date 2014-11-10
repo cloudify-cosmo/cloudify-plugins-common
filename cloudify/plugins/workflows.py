@@ -579,7 +579,7 @@ def auto_heal_reinstall_node_subgraph(
     failing_node_host = ctx.get_node_instance(
         failing_node._node_instance.host_id
     )
-    subgraph_node_instances = failing_node_host.get_contained_node_instances()
+    subgraph_node_instances = failing_node_host.get_contained_subgraph()
     intact_nodes = _get_all_nodes_instances(ctx) - subgraph_node_instances
     _uninstall_node_instances(
         ctx,

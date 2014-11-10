@@ -71,7 +71,9 @@ class CloudifyWorkflowRelationshipInstance(object):
 
     @property
     def target_node_instance(self):
-        """The relationship target node WorkflowContextNodeInstance instance"""
+        """
+        The relationship's target node CloudifyWorkflowNodeInstance instance
+        """
         return self.ctx.get_node_instance(self.target_id)
 
     @property
@@ -176,6 +178,7 @@ class CloudifyWorkflowNodeInstance(object):
         self.ctx = ctx
         self._node = node
         self._node_instance = node_instance
+        self._contained_instances = []  # Filled in the context's __init__()
         self._relationship_instances = dict(
             (relationship_instance['target_id'],
                 CloudifyWorkflowRelationshipInstance(
@@ -280,33 +283,24 @@ class CloudifyWorkflowNodeInstance(object):
             self)
         return init_cloudify_logger(logging_handler, logger_name)
 
-    def get_children(self):
+    @property
+    def contained_instances(self):
         """
-        Returns nodes directly contained within this instance
+        Returns directly contained nodes (children) of this instance
         """
-        # TODO: Ugly code just for now .. needs refactoring and improvements
-        children = []
-        for node in self.ctx.nodes:
-            for node_instance in node.instances:
-                for rel in node_instance.relationships:
-                    if (
-                        rel.relationship.is_derived_from(
-                            "cloudify.relationships.contained_in"
-                        )
-                        and
-                        rel.target_id == self.id
-                    ):
-                        children.append(rel.node_instance)
-        return children
+        return self._contained_instances
 
-    def get_contained_node_instances(self):
+    def add_contained_node_instance(self, node_instance):
+        self._contained_instances.append(node_instance)
+
+    def get_contained_subgraph(self):
         """
         Returns a set containing this instance and all nodes that are
         contained directly and transitively within it
         """
         result = set([self])
-        for child in self.get_children():
-            result.update(child.get_contained_node_instances())
+        for child in self.contained_instances:
+            result.update(child.get_contained_subgraph())
         return result
 
 
@@ -415,8 +409,13 @@ class CloudifyWorkflowContext(object):
                 self, self._nodes[instance.node_id], instance))
             for instance in node_instances)
 
-        self._logger = None
+        for inst in self._node_instances.values():
+            for rel in inst.relationships:
+                if rel.relationship.is_derived_from(
+                        "cloudify.relationships.contained_in"):
+                    rel.target_node_instance.add_contained_node_instance(inst)
 
+        self._logger = None
         self._internal = CloudifyWorkflowContextInternal(self, handler)
 
     def graph_mode(self):
