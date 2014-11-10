@@ -857,7 +857,8 @@ class CloudifyWorkflowContextHandler(object):
                                      additional_context=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    def get_operation_task_queue(self, workflow_node_instance, operation_executor):
+    def get_operation_task_queue(self, workflow_node_instance,
+                                 operation_executor):
         raise NotImplementedError('Implemented by subclasses')
 
     @property
@@ -936,7 +937,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 out_func=logs.amqp_event_out)
         return send_event_task
 
-    def get_operation_task_queue(self, workflow_node_instance, operation_executor):
+    def get_operation_task_queue(self, workflow_node_instance,
+                                 operation_executor):
         rest_node_instance = workflow_node_instance._node_instance
         if operation_executor == 'host_agent':
             return rest_node_instance.host_id
@@ -1045,7 +1047,8 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 out_func=logs.stdout_event_out)
         return send_event_task
 
-    def get_operation_task_queue(self, workflow_node_instance, operation_executor):
+    def get_operation_task_queue(self, workflow_node_instance,
+                                 operation_executor):
         return None
 
     @property
