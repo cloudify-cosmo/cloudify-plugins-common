@@ -564,6 +564,16 @@ def auto_heal_reinstall_node_subgraph(
         node_id,
         diagnose_value=None,
         **kwargs):
+    """Reinstalls the whole subgraph of the system topology
+
+    The subgraph consists of all the nodes that are hosted in the
+    failing node's compute and the compute itself.
+    Additionally it unlinks and establishes appropriate relationships
+
+    :param ctx: cloudify context
+    :param node_id: failing node's id
+    :param diagnose_value: diagnosed reason of failure
+    """
 
     failing_node = ctx.get_node_instance(node_id)
     failing_node_host = ctx.get_node_instance(
