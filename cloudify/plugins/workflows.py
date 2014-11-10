@@ -535,13 +535,11 @@ def uninstall(ctx, **kwargs):
 
 @workflow
 def auto_heal(
-    ctx,
-    key,
-    value,
-    diagnose_key=None,
-    diagnose_value=None,
-    execution_plans=[],
-    **kwargs):
+        ctx,
+        node_id,
+        diagnose_value=None,
+        execution_plans=None,
+        **kwargs):
     """Auto heal workflow"""
 
     operations_seq = []
@@ -550,7 +548,7 @@ def auto_heal(
             operations_seq = plan[diagnose_value]
             break
 
-    node_instance = ctx.get_node_instance(value)
+    node_instance = ctx.get_node_instance(node_id)
     for operation in operations_seq:
         args = {}
         for op_name, op_args in operation.iteritems():
@@ -561,14 +559,12 @@ def auto_heal(
 
 @workflow
 def auto_heal_reinstall_node_subgraph(
-    ctx,
-    key,
-    value,
-    diagnose_key=None,
-    diagnose_value=None,
-    **kwargs):
+        ctx,
+        node_id,
+        diagnose_value=None,
+        **kwargs):
 
-    failing_node = ctx.get_node_instance(value)
+    failing_node = ctx.get_node_instance(node_id)
     failing_node_host = ctx.get_node_instance(
         failing_node._node_instance.host_id
     )
