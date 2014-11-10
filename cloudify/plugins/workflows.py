@@ -259,7 +259,7 @@ class UninstallationTasksGraphFinisher(object):
 
 
 class AutohealUninstallationTasksGraphFinisher(
-    UninstallationTasksGraphFinisher):
+        UninstallationTasksGraphFinisher):
 
     def _enforce_correct_src_trg_order(self, instance, rel):
         if rel.target_node_instance in self.node_instances:
@@ -543,10 +543,11 @@ def auto_heal(
     """Auto heal workflow"""
 
     operations_seq = []
-    for plan in execution_plans:
-        if diagnose_value in plan:
-            operations_seq = plan[diagnose_value]
-            break
+    if execution_plans is not None:
+        for plan in execution_plans:
+            if diagnose_value in plan:
+                operations_seq = plan[diagnose_value]
+                break
 
     node_instance = ctx.get_node_instance(node_id)
     for operation in operations_seq:
