@@ -259,8 +259,8 @@ class UninstallationTasksGraphFinisher(object):
 
 
 class AutohealUninstallationTasksGraphFinisher(
-    UninstallationTasksGraphFinisher
-):
+    UninstallationTasksGraphFinisher):
+
     def _enforce_correct_src_trg_order(self, instance, rel):
         if rel.target_node_instance in self.node_instances:
             super(AutohealUninstallationTasksGraphFinisher,
@@ -535,14 +535,13 @@ def uninstall(ctx, **kwargs):
 
 @workflow
 def auto_heal(
-        ctx,
-        key,
-        value,
-        diagnose_key=None,
-        diagnose_value=None,
-        execution_plans=[],
-        **kwargs
-):
+    ctx,
+    key,
+    value,
+    diagnose_key=None,
+    diagnose_value=None,
+    execution_plans=[],
+    **kwargs):
     """Auto heal workflow"""
 
     operations_seq = []
@@ -562,13 +561,13 @@ def auto_heal(
 
 @workflow
 def auto_heal_reinstall_node_subgraph(
-        ctx,
-        key,
-        value,
-        diagnose_key=None,
-        diagnose_value=None,
-        **kwargs
-):
+    ctx,
+    key,
+    value,
+    diagnose_key=None,
+    diagnose_value=None,
+    **kwargs):
+
     failing_node = ctx.get_node_instance(value)
     failing_node_host = ctx.get_node_instance(
         failing_node._node_instance.host_id
