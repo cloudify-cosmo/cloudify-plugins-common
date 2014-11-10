@@ -493,8 +493,9 @@ class CloudifyWorkflowContext(object):
         operation_mapping = op_struct['operation']
         has_intrinsic_functions = op_struct['has_intrinsic_functions']
         operation_properties = op_struct.get('inputs', {})
+        operation_executor = op_struct['executor']
         task_queue = self.internal.handler.get_operation_task_queue(
-            node_instance, plugin_name)
+            node_instance, operation_executor)
         task_name = operation_mapping
 
         node_context = {
@@ -856,7 +857,7 @@ class CloudifyWorkflowContextHandler(object):
                                      additional_context=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    def get_operation_task_queue(self, workflow_node_instance, plugin_name):
+    def get_operation_task_queue(self, workflow_node_instance, operation_executor):
         raise NotImplementedError('Implemented by subclasses')
 
     @property
@@ -935,14 +936,11 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 out_func=logs.amqp_event_out)
         return send_event_task
 
-    def get_operation_task_queue(self, workflow_node_instance, plugin_name):
-        workflow_node = workflow_node_instance.node
-        rest_node = workflow_node._node
-        executor = rest_node.plugins[plugin_name]['executor']
+    def get_operation_task_queue(self, workflow_node_instance, operation_executor):
         rest_node_instance = workflow_node_instance._node_instance
-        if executor == 'host_agent':
+        if operation_executor == 'host_agent':
             return rest_node_instance.host_id
-        if executor == 'central_deployment_agent':
+        if operation_executor == 'central_deployment_agent':
             return self.workflow_ctx.deployment.id
 
     @property
@@ -1047,7 +1045,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 out_func=logs.stdout_event_out)
         return send_event_task
 
-    def get_operation_task_queue(self, workflow_node_instance, plugin_name):
+    def get_operation_task_queue(self, workflow_node_instance, operation_executor):
         return None
 
     @property
