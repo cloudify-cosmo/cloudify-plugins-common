@@ -178,7 +178,8 @@ class CloudifyWorkflowNodeInstance(object):
         self.ctx = ctx
         self._node = node
         self._node_instance = node_instance
-        self._contained_instances = []  # Filled in the context's __init__()
+        # Directly contained node instances. Filled in the context's __init__()
+        self._contained_instances = []
         self._relationship_instances = dict(
             (relationship_instance['target_id'],
                 CloudifyWorkflowRelationshipInstance(
@@ -286,7 +287,7 @@ class CloudifyWorkflowNodeInstance(object):
     @property
     def contained_instances(self):
         """
-        Returns directly contained nodes (children) of this instance
+        Returns node instances directly contained in this instance (children)
         """
         return self._contained_instances
 
@@ -298,7 +299,7 @@ class CloudifyWorkflowNodeInstance(object):
         Returns a set containing this instance and all nodes that are
         contained directly and transitively within it
         """
-        result = set([self])
+        result = {self}
         for child in self.contained_instances:
             result.update(child.get_contained_subgraph())
         return result

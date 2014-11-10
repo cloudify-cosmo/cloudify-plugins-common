@@ -540,7 +540,13 @@ def auto_heal(
         diagnose_value=None,
         execution_plans=None,
         **kwargs):
-    """Auto heal workflow"""
+    """
+    This workflow executes arbitrary operations on the specified node
+    according to execution_plans defined in the blueprint. Depending on the
+    diagnose, different operations get executed. It is also possible to pass
+    custom parameters to those operations, which is also configured in the
+    blueprint (see customized_auto_heal_policy.yaml).
+    """
 
     operations_seq = []
     if execution_plans is not None:
