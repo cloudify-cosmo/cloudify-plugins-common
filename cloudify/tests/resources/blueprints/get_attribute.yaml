@@ -1,0 +1,54 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+node_templates:
+    node1:
+        type: mock_type1
+        interfaces:
+            test:
+                setup: mock.cloudify.tests.test_local_get_attribute.populate
+                op:
+                    implementation: mock.cloudify.tests.test_local_get_attribute.op
+                    inputs:
+                        self_ref: { get_attribute: [SELF, self_ref_property] }
+                        node_ref: { get_attribute: [node2, node_ref_property] }
+                        static: { get_attribute: [node1, static_property ]}
+        relationships:
+            -   target: node2
+                type: cloudify.relationships.contained_in
+                source_interfaces:
+                    test:
+                        op:
+                            implementation: mock.cloudify.tests.test_local_get_attribute.op
+                            inputs:
+                                source_ref: { get_attribute: [SOURCE, source_ref_property] }
+                                target_ref: { get_attribute: [TARGET, target_ref_property] }
+                target_interfaces:
+                    test:
+                        op:
+                            implementation: mock.cloudify.tests.test_local_get_attribute.op
+                            inputs:
+                                source_ref: { get_attribute: [SOURCE, source_ref_property] }
+                                target_ref: { get_attribute: [TARGET, target_ref_property] }
+    node2:
+        type: mock_type1
+        interfaces:
+            test:
+                setup: mock.cloudify.tests.test_local_get_attribute.populate
+
+relationships:
+    cloudify.relationships.contained_in: {}
+
+node_types:
+    mock_type1:
+        properties:
+            static_property:
+                default: static_property_value
+
+plugins:
+    mock:
+        executor: central_deployment_agent
+        install: false
+
+workflows:
+    setup: mock.cloudify.tests.test_local_get_attribute.populate_runtime_properties
+    run: mock.cloudify.tests.test_local_get_attribute.run_all_operations

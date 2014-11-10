@@ -218,7 +218,10 @@ class BaseWorkflowTest(testtools.TestCase):
             },
             'outputs': {
                 'some_output': {
-                    'value': {'get_attribute': ['node', 'some_output']}
+                    'value': {'get_attribute': ['node', 'some_output']},
+                },
+                'static': {
+                    'value': {'get_attribute': ['node', 'property']}
                 }
             },
             'plugins': {
@@ -896,14 +899,14 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         self._execute_workflow(operation_methods=[op],
                                use_existing_env=False)
         self.assertEqual(self.env.outputs(),
-                         {'some_output': None})
+                         {'some_output': None, 'static': 'value'})
 
         def op(ctx, **_):
             ctx.instance.runtime_properties['some_output'] = 'value'
         self._execute_workflow(operation_methods=[op],
                                use_existing_env=False)
         self.assertEqual(self.env.outputs(),
-                         {'some_output': 'value'})
+                         {'some_output': 'value', 'static': 'value'})
 
     def test_workflow_return_value(self):
         def flow(ctx, **_):

@@ -280,3 +280,20 @@ class DirtyTrackingDict(dict):
     def __delitem__(self, key):
         super(DirtyTrackingDict, self).__delitem__(key)
         self.dirty = True
+
+    def update(self, E=None, **F):
+        super(DirtyTrackingDict, self).update(E, **F)
+        self.dirty = True
+
+    def clear(self):
+        had_keys = len(self) > 0
+        super(DirtyTrackingDict, self).clear()
+        self.dirty = had_keys
+
+    def pop(self, k, d=None):
+        super(DirtyTrackingDict, self).pop(k, d)
+        self.dirty = True
+
+    def popitem(self):
+        super(DirtyTrackingDict, self).popitem()
+        self.dirty = True
