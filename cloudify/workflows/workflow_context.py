@@ -481,7 +481,6 @@ class CloudifyWorkflowContext(object):
                            allow_kwargs_override=False,
                            send_task_events=DEFAULT_SEND_TASK_EVENTS):
         kwargs = kwargs or {}
-        node = node_instance.node
         op_struct = operations.get(operation)
         if op_struct is None:
             raise RuntimeError('{0} operation of node instance {1} does '
@@ -500,19 +499,17 @@ class CloudifyWorkflowContext(object):
         node_context = {
             'node_id': node_instance.id,
             'node_name': node_instance.node_id,
-            'node_properties': copy.copy(node.properties),
             'plugin': plugin_name,
             'operation': operation,
             'has_intrinsic_functions': has_intrinsic_functions,
-            'relationships': [rel.target_id
-                              for rel in node_instance.relationships]
         }
         if related_node_instance is not None:
+            relationships = [rel.target_id
+                             for rel in node_instance.relationships]
             node_context['related'] = {
                 'node_id': related_node_instance.id,
                 'node_name': related_node_instance.node_id,
-                'node_properties': copy.copy(
-                    related_node_instance.node.properties)
+                'is_target': related_node_instance.id in relationships
             }
 
         final_kwargs = self._merge_dicts(merged_from=kwargs,

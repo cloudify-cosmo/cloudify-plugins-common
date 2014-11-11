@@ -35,7 +35,8 @@ class NodeInstance(object):
                  runtime_properties=None,
                  state=None,
                  version=None,
-                 host_id=None):
+                 host_id=None,
+                 relationships=None):
         self.id = node_instance_id
         self._node_id = node_id
         self._runtime_properties = \
@@ -43,6 +44,7 @@ class NodeInstance(object):
         self._state = state
         self._version = version
         self._host_id = host_id
+        self._relationships = relationships
 
     def get(self, key):
         return self._runtime_properties.get(key)
@@ -101,6 +103,10 @@ class NodeInstance(object):
     @property
     def node_id(self):
         return self._node_id
+
+    @property
+    def relationships(self):
+        return self._relationships
 
 
 def get_rest_client():
@@ -201,7 +207,8 @@ def get_node_instance(node_instance_id):
                         runtime_properties=instance.runtime_properties,
                         state=instance.state,
                         version=instance.version,
-                        host_id=instance.host_id)
+                        host_id=instance.host_id,
+                        relationships=instance.relationships)
 
 
 def update_node_instance(node_instance):
@@ -271,29 +278,35 @@ class DirtyTrackingDict(dict):
 
     def __init__(self, *args, **kwargs):
         super(DirtyTrackingDict, self).__init__(*args, **kwargs)
+        self.modifiable = True
         self.dirty = False
 
     def __setitem__(self, key, value):
         super(DirtyTrackingDict, self).__setitem__(key, value)
-        self.dirty = True
+        self._set_changed()
 
     def __delitem__(self, key):
         super(DirtyTrackingDict, self).__delitem__(key)
-        self.dirty = True
+        self._set_changed()
 
     def update(self, E=None, **F):
         super(DirtyTrackingDict, self).update(E, **F)
-        self.dirty = True
+        self._set_changed()
 
     def clear(self):
-        had_keys = len(self) > 0
         super(DirtyTrackingDict, self).clear()
-        self.dirty = had_keys
+        self._set_changed()
 
     def pop(self, k, d=None):
         super(DirtyTrackingDict, self).pop(k, d)
-        self.dirty = True
+        self._set_changed()
 
     def popitem(self):
         super(DirtyTrackingDict, self).popitem()
+        self._set_changed()
+
+    def _set_changed(self):
+        if not self.modifiable:
+            raise NonRecoverableError('Cannot modify runtime properties of'
+                                      ' relationship node instances')
         self.dirty = True

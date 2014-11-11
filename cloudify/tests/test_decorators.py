@@ -136,14 +136,6 @@ class OperationTest(testtools.TestCase):
         self.assertRaises(NonRecoverableError, ctx.capabilities.__contains__,
                           'k')
 
-    def test_invalid_properties_update(self):
-        kwargs = {'__cloudify_context': {
-            'node_id': '5678'
-        }}
-        ctx = acquire_context(0, 0, **kwargs)
-        self.assertRaises(NonRecoverableError, ctx.node.properties.__setitem__,
-                          'k', 'v')
-
     def test_workflow_error_delegation(self):
         try:
             workflow_context.get_rest_client = \
@@ -190,7 +182,8 @@ class OperationTest(testtools.TestCase):
                 'node_id': '5678',
                 'relationships': ['1111'],
                 'related': {
-                    'node_id': '1111'
+                    'node_id': '1111',
+                    'is_target': True
                 }
             }}
             some_operation(**kwargs)

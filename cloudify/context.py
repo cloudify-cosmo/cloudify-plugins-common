@@ -50,9 +50,9 @@ class ContextCapabilities(object):
     Where the returned value is a dict of node ids as keys and their
     runtime properties as values.
     """
-    def __init__(self, endpoint, relationships=None):
+    def __init__(self, endpoint, instance):
         self._endpoint = endpoint
-        self._relationships = relationships or []
+        self.instance = instance
         self._relationship_runtimes = None
 
     def _find_item(self, key):
@@ -92,10 +92,12 @@ class ContextCapabilities(object):
     @property
     def _capabilities(self):
         if self._relationship_runtimes is None:
-            self._relationship_runtimes = dict(
-                (rel_id, self._endpoint.get_node_instance(
-                    rel_id).runtime_properties)
-                for rel_id in self._relationships)
+            self._relationship_runtimes = {}
+            for relationship in self.instance.relationships:
+                self._relationship_runtimes.update({
+                    relationship.target.instance.id:
+                    relationship.target.instance.runtime_properties
+                })
         return self._relationship_runtimes
 
 
@@ -237,8 +239,12 @@ class NodeContext(EntityContext):
 
     def __init__(self, *args, **kwargs):
         super(NodeContext, self).__init__(*args, **kwargs)
-        self._properties = ImmutableProperties(
-            self._context.get('node_properties') or {})
+        self._endpoint = kwargs['endpoint']
+        self._node = None
+
+    def _get_node_if_needed(self):
+        if self._node is None:
+            self._node = self._endpoint.get_node(self.id)
 
     @property
     def id(self):
@@ -255,7 +261,8 @@ class NodeContext(EntityContext):
         """The node properties as dict (read-only).
         These properties are the properties specified in the blueprint.
         """
-        return self._properties
+        self._get_node_if_needed()
+        return self._node.properties
 
 
 class NodeInstanceContext(EntityContext):
@@ -264,12 +271,16 @@ class NodeInstanceContext(EntityContext):
         super(NodeInstanceContext, self).__init__(*args, **kwargs)
         self._endpoint = kwargs['endpoint']
         self._node = kwargs['node']
+        self._modifiable = kwargs['modifiable']
         self._node_instance = None
         self._host_ip = None
+        self._relationships = None
 
     def _get_node_instance_if_needed(self):
         if self._node_instance is None:
             self._node_instance = self._endpoint.get_node_instance(self.id)
+            self._node_instance.runtime_properties.modifiable = \
+                self._modifiable
 
     @property
     def id(self):
@@ -325,18 +336,62 @@ class NodeInstanceContext(EntityContext):
         self._get_node_instance_ip_if_needed()
         return self._host_ip
 
+    @property
+    def relationships(self):
+        self._get_node_instance_if_needed()
+        if self._relationships is None:
+            self._relationships = [
+                RelationshipContext(relationship, self._endpoint)
+                for relationship in self._node_instance.relationships]
+        return self._relationships
 
-class RelationshipContext(object):
-    """In relationship operations, an instance of this class will be returned
-    for ctx.source and ctx.target.
+
+class RelationshipContext(EntityContext):
+    """Holds relationship instance data"""
+
+    def __init__(self, relationship_context, endpoint):
+        super(RelationshipContext, self).__init__(relationship_context)
+        target_context = {
+            'node_name': relationship_context['target_name'],
+            'node_id': relationship_context['target_id']
+        }
+        self._target = FindMeABetterNameContext(target_context, endpoint,
+                                                modifiable=False)
+        self._type_hierarchy = None
+
+    @property
+    def target(self):
+        return self._target
+
+    @property
+    def type(self):
+        return self._context.get('type')
+
+    @property
+    def type_hierarchy(self):
+        if self._type_hierarchy is None:
+            node_relationships = self.target.node._node.relationships
+            self._type_hierarchy = [r for r in node_relationships if
+                                    r.type == self.type][0]['type_hierarchy']
+        return self._type_hierarchy
+
+
+class FindMeABetterNameContext(object):
+    """Holds reference to node and node instance.
+
+    Obtained in relationship operations by `ctx.source` and `ctx.target`, and
+    by iterating instance relationships and for each relationship, reading
+    `relationship.target`
     """
 
-    def __init__(self, context, endpoint):
+    def __init__(self, context, endpoint, modifiable):
         self._context = context
-        self.node = NodeContext(context)
+        self.node = NodeContext(context,
+                                endpoint=endpoint)
         self.instance = NodeInstanceContext(context,
                                             endpoint=endpoint,
-                                            node=self.node)
+                                            node=self.node,
+                                            modifiable=modifiable)
 
 
 class CloudifyContext(CommonContext):
@@ -357,11 +412,8 @@ class CloudifyContext(CommonContext):
     """
     def __init__(self, ctx=None):
         super(CloudifyContext, self).__init__(ctx=ctx)
-        context_capabilities = self._context.get('relationships')
-        self._capabilities = ContextCapabilities(self._endpoint,
-                                                 context_capabilities)
+
         self._logger = None
-        self._node_instance = None
         self._provider_context = None
         self._bootstrap_context = None
         self._host_ip = None
@@ -370,23 +422,36 @@ class CloudifyContext(CommonContext):
         self._source = None
         self._target = None
 
+        capabilities_node_instance = None
         if 'related' in self._context:
-            related_instance_id = self._context['related']['node_id']
-            if related_instance_id in context_capabilities:
+            if self._context['related']['is_target']:
                 source_context = self._context
                 target_context = self._context['related']
             else:
                 source_context = self._context['related']
                 target_context = self._context
-
-            self._source = RelationshipContext(source_context, self._endpoint)
-            self._target = RelationshipContext(target_context, self._endpoint)
+            self._source = FindMeABetterNameContext(source_context,
+                                                    self._endpoint,
+                                                    modifiable=True)
+            self._target = FindMeABetterNameContext(target_context,
+                                                    self._endpoint,
+                                                    modifiable=True)
+            if self._context['related']['is_target']:
+                capabilities_node_instance = self._source.instance
+            else:
+                capabilities_node_instance = self._target.instance
 
         elif self._context.get('node_id'):
-            self._node = NodeContext(self._context)
+            self._node = NodeContext(self._context,
+                                     endpoint=self._endpoint)
             self._instance = NodeInstanceContext(self._context,
                                                  endpoint=self._endpoint,
-                                                 node=self._node)
+                                                 node=self._node,
+                                                 modifiable=True)
+            capabilities_node_instance = self._instance
+
+        self._capabilities = ContextCapabilities(self._endpoint,
+                                                 capabilities_node_instance)
 
     def _verify_in_node_context(self):
         if self.type != NODE_INSTANCE:
@@ -399,6 +464,14 @@ class CloudifyContext(CommonContext):
             raise NonRecoverableError(
                 'ctx.source/ctx.target can only be used in a {0} context but '
                 'used in a {1} context.'.format(RELATIONSHIP_INSTANCE,
+                                                self.type))
+
+    def _verify_in_node_or_relationship_context(self):
+        if self.type not in [NODE_INSTANCE, RELATIONSHIP_INSTANCE]:
+            raise NonRecoverableError(
+                'capabilities can only be used in a {0}/{1} context but '
+                'used in a {2} context.'.format(NODE_INSTANCE,
+                                                RELATIONSHIP_INSTANCE,
                                                 self.type))
 
     @property
@@ -523,6 +596,7 @@ class CloudifyContext(CommonContext):
         The result is a dict of node ids as keys and the values are
         the dependency node's runtime properties.
         """
+        self._verify_in_node_or_relationship_context()
         return self._capabilities
 
     @property
@@ -563,51 +637,6 @@ class CloudifyContext(CommonContext):
         if self._provider_context is None:
             self._provider_context = self._endpoint.get_provider_context()
         return self._provider_context
-
-    def _verify_node_in_context(self):
-        if self.node_id is None:
-            raise NonRecoverableError('Invocation requires a node in context')
-
-    def __getitem__(self, key):
-        """
-        Gets node in context's static/runtime property.
-
-        If key is not found in node's static properties, an attempt to
-        get the property from the node's runtime properties will be made
-         (a call to Cloudify's storage).
-        """
-        if self.properties is not None and key in self.properties:
-            return self.properties[key]
-        self._get_node_instance_if_needed()
-        return self._node_instance[key]
-
-    def __setitem__(self, key, value):
-        """
-        Sets a runtime property for the node in context.
-
-        New or updated properties will be saved to Cloudify's storage as soon
-        as the task execution is over or if ctx.update() was
-        explicitly invoked.
-        """
-        self._get_node_instance_if_needed()
-        self._node_instance[key] = value
-
-    def __delitem__(self, key):
-        """
-        deletes a runtime property for the node in context.
-
-        Deleted properties will be removed from Cloudify's storage as soon
-        as the task execution is over or if ctx.update() was
-        explicitly invoked.
-        """
-        self._get_node_instance_if_needed()
-        del(self._node_instance[key])
-
-    def __contains__(self, key):
-        if self.properties is not None and key in self.properties:
-            return True
-        self._get_node_instance_if_needed()
-        return key in self._node_instance
 
     def get_resource(self, resource_path):
         """
@@ -656,17 +685,3 @@ class CloudifyContext(CommonContext):
             else 'cloudify_plugin'
         handler = self._endpoint.get_logging_handler()
         return init_cloudify_logger(handler, logger_name)
-
-
-class ImmutableProperties(dict):
-    """
-    Of course this is not actually immutable, but it is good enough to provide
-    an API that will tell you you're doing something wrong if you try updating
-    the static node properties in the normal way.
-    """
-
-    def __setitem__(self, key, value):
-        raise NonRecoverableError('Cannot override read only properties')
-
-    def __delitem__(self, key):
-        raise NonRecoverableError('Cannot override read only properties')
