@@ -306,7 +306,8 @@ class DirtyTrackingDict(dict):
         self._set_changed()
 
     def _set_changed(self):
-        if not self.modifiable:
+        # python 2.6 doesn't have modifiable during copy.deepcopy
+        if hasattr(self, 'modifiable') and not self.modifiable:
             raise NonRecoverableError('Cannot modify runtime properties of'
                                       ' relationship node instances')
         self.dirty = True
