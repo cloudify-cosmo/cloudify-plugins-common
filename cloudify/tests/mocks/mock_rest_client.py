@@ -24,12 +24,14 @@ node_instances = {}
 
 def put_node_instance(node_instance_id,
                       state='started',
-                      runtime_properties=None):
+                      runtime_properties=None,
+                      relationships=None):
     node_instances[node_instance_id] = NodeInstance({
         'id': node_instance_id,
         'state': state,
         'version': 0,
-        'runtime_properties': runtime_properties
+        'runtime_properties': runtime_properties,
+        'relationships': relationships
     })
 
 
