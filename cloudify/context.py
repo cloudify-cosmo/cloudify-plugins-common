@@ -245,6 +245,8 @@ class NodeContext(EntityContext):
     def _get_node_if_needed(self):
         if self._node is None:
             self._node = self._endpoint.get_node(self.id)
+            props = self._node.get('properties', {})
+            self._node['properties'] = ImmutableProperties(props)
 
     @property
     def id(self):
@@ -685,3 +687,33 @@ class CloudifyContext(CommonContext):
             else 'cloudify_plugin'
         handler = self._endpoint.get_logging_handler()
         return init_cloudify_logger(handler, logger_name)
+
+
+class ImmutableProperties(dict):
+    """
+    Of course this is not actually immutable, but it is good enough to provide
+    an API that will tell you you're doing something wrong if you try updating
+    the static node properties in the normal way.
+    """
+
+    @staticmethod
+    def _raise():
+        raise NonRecoverableError('Cannot override read only properties')
+
+    def __setitem__(self, key, value):
+        self._raise()
+
+    def __delitem__(self, key):
+        self._raise()
+
+    def update(self, E=None, **F):
+        self._raise()
+
+    def clear(self):
+        self._raise()
+
+    def pop(self, k, d=None):
+        self._raise()
+
+    def popitem(self):
+        self._raise()
