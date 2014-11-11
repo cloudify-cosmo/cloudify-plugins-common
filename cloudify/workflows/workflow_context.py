@@ -802,25 +802,14 @@ class LocalTasksProcessing(object):
         self._local_tasks_queue.put(task)
 
     def _process_local_task(self):
-        try:
-            while not self.stopped:
-                try:
-                    task = self._local_tasks_queue.get(timeout=1)
-                    task()
-                except Queue.Empty:
-                    pass
-        except Exception:
-            if self.stopped:
-                # see CFY-1442 (see comments)
-                # Generally, all the tasks exceptions are handled in the `task`
-                # wrapper implementation.
-                # During the interpreter shutdown on system.exit, daemon
-                # threads continue executing while globals are being set
-                # to "None" on some python versions.
-                # This can cause Queue.Empty to raise AttributeError on
-                # reference to Queue being None.
+        # see CFY-1442
+        queue_empty = Queue.Empty
+        while not self.stopped:
+            try:
+                task = self._local_tasks_queue.get(timeout=1)
+                task()
+            except queue_empty:
                 pass
-            raise
 
 # Local/Remote Handlers
 
