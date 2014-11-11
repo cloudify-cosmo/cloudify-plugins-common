@@ -38,6 +38,25 @@ class MockNodeInstanceContext(object):
         pass
 
 
+class MockNodeContext(object):
+
+    def __init__(self, id=None, properties=None):
+        self._id = id
+        self._properties = properties
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def name(self):
+        return self._id
+
+    @property
+    def properties(self):
+        return self._properties
+
+
 class MockContext(dict):
 
     def __init__(self, values=None):
@@ -99,6 +118,7 @@ class MockCloudifyContext(CloudifyContext):
                 runtime_properties=self._runtime_properties)
             self._capabilities = capabilities or ContextCapabilities(
                 self._endpoint, self._instance)
+            self._node = MockNodeContext(node_name, properties)
         if self._source is None and self._target:
             self._source = MockContext({
                 'instance': None,
