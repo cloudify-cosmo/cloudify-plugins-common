@@ -451,9 +451,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
             ctx.local_task(task2, kwargs=invocation_kwargs).get()
 
             @task_config(kwargs=task_config_kwargs)
-            def task2(**kwargs):
+            def task3(**kwargs):
                 self.assertEqual(kwargs, invocation_kwargs)
-            ctx.local_task(task2,
+                ctx.local_task(task3,
                            kwargs=invocation_kwargs,
                            override_task_config=True).get()
         self._execute_workflow(flow)
@@ -537,6 +537,9 @@ class LocalWorkflowTest(BaseWorkflowTest):
             self.assertIs(node2, instance2.node)
 
             self.assertEqual(node2.id, relationship.target_id)
+            self.assertTrue(relationship.is_derived_from(
+                "cloudify.relationships.contained_in"
+            ))
             self.assertEqual(node2, relationship.target_node)
             self.assertEqual(sorted_ops,
                              sorted(relationship.source_operations.keys()))
@@ -1115,6 +1118,54 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         except ValueError, e:
             self.assertIn("['workflow0']", e.message)
 
+    def test_getting_contained_elements(self):
+        def check_subgraph(ctx, **_):
+            node_host = _instance(ctx, 'node_host')
+            node = _instance(ctx, 'node')
+            node2 = _instance(ctx, 'node2')
+            node3 = _instance(ctx, 'node3')
+            node4 = _instance(ctx, 'node4')
+
+            full_contained_subgraph = {
+                node_host,
+                node,
+                node2,
+                node3,
+                node4
+            }
+            self.assertEqual(
+                full_contained_subgraph,
+                node_host.get_contained_subgraph()
+            )
+
+            half_subgraph = {
+                node,
+                node2
+            }
+            self.assertEqual(
+                half_subgraph,
+                node2.get_contained_subgraph()
+            )
+
+            host_contained_instances = {
+                node2,
+                node3
+            }
+            self.assertEqual(
+                host_contained_instances,
+                set(node_host.contained_instances)
+            )
+
+            self.assertEqual(
+                [],
+                node.contained_instances
+            )
+
+        self._execute_workflow(
+            check_subgraph,
+            create_blueprint_func=self._blueprint_3
+        )
+
     def _no_module_or_attribute_test(self, is_missing_module, test_type):
         try:
             self._execute_workflow(
@@ -1192,6 +1243,100 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
 
             return blueprint
         return func
+
+    def _blueprint_3(self, workflow_methods, operation_methods,
+                     workflow_parameters_schema, ignored_modules):
+        interfaces = {
+            'test': [
+                {'op{}'.format(index):
+                    'p.{}.{}'.format(self._testMethodName,
+                                     op_method.__name__)}
+                for index, op_method in
+                enumerate(operation_methods)
+            ]
+        }
+
+        workflows = dict((
+            ('workflow{}'.format(index), {
+                'mapping': 'p.{}.{}'.format(self._testMethodName,
+                                            w_method.__name__),
+                'parameters': workflow_parameters_schema or {}
+            }) for index, w_method in enumerate(workflow_methods)
+        ))
+
+        blueprint = {
+            'tosca_definitions_version': 'cloudify_dsl_1_0',
+            'imports': ['inner/imported.yaml'],
+            'inputs': {
+                'from_input': {
+                    'default': 'from_input_default_value'
+                }
+            },
+            'outputs': {
+                'some_output': {
+                    'value': {'get_attribute': ['node', 'some_output']}
+                }
+            },
+            'plugins': {
+                'p': {
+                    'executor': 'central_deployment_agent',
+                    'install': False
+                }
+            },
+            'node_types': {
+                'type': {},
+                'cloudify.types.host': {
+                    'derived_from': 'type',
+                    'properties': {
+                        'ip': {
+                            'default': ''
+                        }
+                    }
+                }
+            },
+            'relationships': {
+                'cloudify.relationships.contained_in': {}
+            },
+            'node_templates': {
+                'node_host': {
+                    'type': 'cloudify.types.host'
+                },
+                'node4': {
+                    'type': 'type',
+                    'relationships': [{
+                        'target': 'node3',
+                        'type': 'cloudify.relationships.contained_in',
+                    }]
+                },
+                'node3': {
+                    'type': 'cloudify.types.host',
+                    'relationships': [{
+                        'target': 'node_host',
+                        'type': 'cloudify.relationships.contained_in',
+                    }]
+                },
+                'node2': {
+                    'type': 'cloudify.types.host',
+                    'interfaces': interfaces,
+                    'relationships': [{
+                        'target': 'node_host',
+                        'type': 'cloudify.relationships.contained_in',
+                    }]
+                },
+                'node': {
+                    'type': 'type',
+                    'relationships': [{
+                        'target': 'node2',
+                        'type': 'cloudify.relationships.contained_in',
+                    }]
+                },
+                'outside_node': {
+                    'type': 'type'
+                }
+            },
+            'workflows': workflows
+        }
+        return blueprint
 
 
 def _instance(ctx, node_name):
