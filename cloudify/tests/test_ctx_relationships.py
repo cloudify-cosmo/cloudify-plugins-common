@@ -75,9 +75,11 @@ class TestContextRelationship(testtools.TestCase):
             self.assertIn('node2_', rel1['target_instance']['id'])
             self.assertEqual(rel1['target_instance']['runtime_properties'],
                              {'node2_prop': 'node2_value'})
+        self._assert_node2_rel(node2)
 
-        self.assertEqual(len(node2), 1)
-        rel2 = node2[0]
+    def _assert_node2_rel(self, relationships):
+        self.assertEqual(len(relationships), 1)
+        rel2 = relationships[0]
         self.assertEqual(rel2['type'], 'cloudify.relationships.contained_in3')
         self.assertEqual(rel2['type_hierarchy'],
                          ['cloudify.relationships.contained_in',
@@ -201,6 +203,13 @@ class TestContextRelationship(testtools.TestCase):
                     'task': '{0}.{1}'.format(__name__, 'assert_capabilities')
                 })
 
+    def test_2_hops(self):
+        self._update_runtime_properties()
+        self._run('asset_2_hops', '')
+        node_instances = self.env.storage.get_node_instances()
+        instance = [i for i in node_instances if i.node_id == 'node1'][0]
+        self._assert_node2_rel(instance.runtime_properties['result'])
+
     def _run(self, op, rel, node='node1', kwargs=None):
         kwargs = kwargs or {}
         self.env.execute('execute_operation',
@@ -268,24 +277,27 @@ def assert_relationships(rel, **_):
         raise RuntimeError('not handled')
     result = []
     for relationship in instance.relationships:
-        result.append({
-            'type': relationship.type,
-            'type_hierarchy': relationship.type_hierarchy,
-            'target_node': {
-                'id': relationship.target.node.id,
-                'prop':
-                copy.deepcopy(relationship.target.node.properties['prop'])
-            },
-            'target_instance': {
-                'id': relationship.target.instance.id,
-                'runtime_properties':
-                copy.deepcopy(
-                    relationship.target.instance.runtime_properties['prop'])
-            }
-        })
+        result.append(_extract_relationship(relationship))
     rel = rel or 'self'
     instance.runtime_properties[rel] = result
 
+
+def _extract_relationship(relationship):
+    return {
+        'type': relationship.type,
+        'type_hierarchy': relationship.type_hierarchy,
+        'target_node': {
+            'id': relationship.target.node.id,
+            'prop':
+                copy.deepcopy(relationship.target.node.properties['prop'])
+        },
+        'target_instance': {
+            'id': relationship.target.instance.id,
+            'runtime_properties':
+                copy.deepcopy(
+                    relationship.target.instance.runtime_properties['prop'])
+        }
+    }
 
 @operation
 def assert_capabilities(rel=None, **_):
@@ -345,3 +357,12 @@ def assert_not_modifiable(rel=None, **_):
 @operation
 def assert_immutable_properties(**_):
     operation_ctx.node.properties['should_not'] = 'work'
+
+
+@operation
+def asset_2_hops(**_):
+    result = []
+    for relationship in operation_ctx.instance.relationships:
+        for relationship2 in relationship.target.instance.relationships:
+            result.append(_extract_relationship(relationship2))
+    operation_ctx.instance.runtime_properties['result'] = result

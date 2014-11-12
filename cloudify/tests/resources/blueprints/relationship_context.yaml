@@ -66,6 +66,8 @@ node_types:
                     implementation: mock.cloudify.tests.test_ctx_relationships.assert_immutable_properties
                 assert_capabilities:
                     implementation: mock.cloudify.tests.test_ctx_relationships.assert_capabilities
+                asset_2_hops:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.asset_2_hops
         properties:
             prop: {}
 
