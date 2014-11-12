@@ -343,7 +343,7 @@ class NodeInstanceContext(EntityContext):
         self._get_node_instance_if_needed()
         if self._relationships is None:
             self._relationships = [
-                RelationshipContext(relationship, self._endpoint)
+                RelationshipContext(relationship, self._endpoint, self._node)
                 for relationship in self._node_instance.relationships]
         return self._relationships
 
@@ -351,14 +351,15 @@ class NodeInstanceContext(EntityContext):
 class RelationshipContext(EntityContext):
     """Holds relationship instance data"""
 
-    def __init__(self, relationship_context, endpoint):
+    def __init__(self, relationship_context, endpoint, node):
         super(RelationshipContext, self).__init__(relationship_context)
+        self._node = node
         target_context = {
             'node_name': relationship_context['target_name'],
             'node_id': relationship_context['target_id']
         }
-        self._target = FindMeABetterNameContext(target_context, endpoint,
-                                                modifiable=False)
+        self._target = RelationshipSubjectContext(target_context, endpoint,
+                                                  modifiable=False)
         self._type_hierarchy = None
 
     @property
@@ -372,13 +373,15 @@ class RelationshipContext(EntityContext):
     @property
     def type_hierarchy(self):
         if self._type_hierarchy is None:
-            node_relationships = self.target.node._node.relationships
-            self._type_hierarchy = [r for r in node_relationships if
-                                    r.type == self.type][0]['type_hierarchy']
+            self._node._get_node_if_needed()
+            node_relationships = self._node._node.relationships
+            self._type_hierarchy = [
+                r for r in node_relationships if
+                r['type'] == self.type][0]['type_hierarchy']
         return self._type_hierarchy
 
 
-class FindMeABetterNameContext(object):
+class RelationshipSubjectContext(object):
     """Holds reference to node and node instance.
 
     Obtained in relationship operations by `ctx.source` and `ctx.target`, and
@@ -432,12 +435,12 @@ class CloudifyContext(CommonContext):
             else:
                 source_context = self._context['related']
                 target_context = self._context
-            self._source = FindMeABetterNameContext(source_context,
-                                                    self._endpoint,
-                                                    modifiable=True)
-            self._target = FindMeABetterNameContext(target_context,
-                                                    self._endpoint,
-                                                    modifiable=True)
+            self._source = RelationshipSubjectContext(source_context,
+                                                      self._endpoint,
+                                                      modifiable=True)
+            self._target = RelationshipSubjectContext(target_context,
+                                                      self._endpoint,
+                                                      modifiable=True)
             if self._context['related']['is_target']:
                 capabilities_node_instance = self._source.instance
             else:

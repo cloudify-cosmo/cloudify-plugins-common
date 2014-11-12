@@ -1,0 +1,92 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+node_templates:
+    node1:
+        type: mock_type
+        relationships:
+            -   target: node2
+                type: cloudify.relationships.contained_in2
+        properties:
+            prop: node1_static_prop_value
+    node2:
+        type: mock_type
+        relationships:
+            -   target: node3
+                type: cloudify.relationships.contained_in3
+        properties:
+            prop: node2_static_prop_value
+    node3:
+        type: mock_type
+        properties:
+            prop: node3_static_prop_value
+
+relationships:
+    cloudify.relationships.contained_in:
+        source_interfaces:
+            test:
+                assert_not_modifiable:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_not_modifiable
+                assert_modifiable:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_modifiable
+                assert_relationships:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_relationships
+                assert_capabilities:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_capabilities
+
+        target_interfaces:
+            test:
+                assert_not_modifiable:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_not_modifiable
+                assert_modifiable:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_modifiable
+                assert_relationships:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_relationships
+                assert_capabilities:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_capabilities
+
+    cloudify.relationships.contained_in2:
+        derived_from: cloudify.relationships.contained_in
+
+    cloudify.relationships.contained_in3:
+        derived_from: cloudify.relationships.contained_in2
+
+node_types:
+    mock_type:
+        interfaces:
+            test:
+                assert_not_modifiable:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_not_modifiable
+                assert_modifiable:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_modifiable
+                assert_relationships:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_relationships
+                update_runtime_properties:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.update_runtime_properties
+                assert_immutable_properties:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_immutable_properties
+                assert_capabilities:
+                    implementation: mock.cloudify.tests.test_ctx_relationships.assert_capabilities
+        properties:
+            prop: {}
+
+plugins:
+    mock:
+        executor: central_deployment_agent
+        install: false
+
+workflows:
+    execute_operation:
+        mapping: mock.cloudify.tests.test_ctx_relationships.execute_operation
+        parameters:
+            op: {}
+            rel:
+                default: ''
+            node:
+                default: node1
+            kwargs:
+                default: {}
+    execute_task:
+        mapping: mock.cloudify.tests.test_ctx_relationships.execute_task
+        parameters:
+            task: {}
+
