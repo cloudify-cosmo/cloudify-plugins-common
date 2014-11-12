@@ -299,6 +299,7 @@ def _extract_relationship(relationship):
         }
     }
 
+
 @operation
 def assert_capabilities(rel=None, **_):
     if rel == 'source':
