@@ -83,7 +83,8 @@ class CloudifyContextTest(testtools.TestCase):
         ctx = context.CloudifyContext({
             'node_id': 'node-instance-id',
             'related': {
-                'node_id': 'related-instance-id'
+                'node_id': 'related-instance-id',
+                'is_target': True
             },
             'relationships': ['related-instance-id']
         })
@@ -121,7 +122,8 @@ class CloudifyContextTest(testtools.TestCase):
         ctx = context.CloudifyContext({
             'node_id': 'node-instance-id',
             'related': {
-                'node_id': 'related-instance-id'
+                'node_id': 'related-instance-id',
+                'is_target': True
             },
             'relationships': ['related-instance-id']
         })

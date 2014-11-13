@@ -481,7 +481,6 @@ class CloudifyWorkflowContext(object):
                            allow_kwargs_override=False,
                            send_task_events=DEFAULT_SEND_TASK_EVENTS):
         kwargs = kwargs or {}
-        node = node_instance.node
         op_struct = operations.get(operation)
         if op_struct is None:
             raise RuntimeError('{0} operation of node instance {1} does '
@@ -501,19 +500,17 @@ class CloudifyWorkflowContext(object):
         node_context = {
             'node_id': node_instance.id,
             'node_name': node_instance.node_id,
-            'node_properties': copy.copy(node.properties),
             'plugin': plugin_name,
             'operation': operation,
             'has_intrinsic_functions': has_intrinsic_functions,
-            'relationships': [rel.target_id
-                              for rel in node_instance.relationships]
         }
         if related_node_instance is not None:
+            relationships = [rel.target_id
+                             for rel in node_instance.relationships]
             node_context['related'] = {
                 'node_id': related_node_instance.id,
                 'node_name': related_node_instance.node_id,
-                'node_properties': copy.copy(
-                    related_node_instance.node.properties)
+                'is_target': related_node_instance.id in relationships
             }
 
         final_kwargs = self._merge_dicts(merged_from=kwargs,
@@ -805,25 +802,14 @@ class LocalTasksProcessing(object):
         self._local_tasks_queue.put(task)
 
     def _process_local_task(self):
-        try:
-            while not self.stopped:
-                try:
-                    task = self._local_tasks_queue.get(timeout=1)
-                    task()
-                except Queue.Empty:
-                    pass
-        except Exception:
-            if self.stopped:
-                # see CFY-1442 (see comments)
-                # Generally, all the tasks exceptions are handled in the `task`
-                # wrapper implementation.
-                # During the interpreter shutdown on system.exit, daemon
-                # threads continue executing while globals are being set
-                # to "None" on some python versions.
-                # This can cause Queue.Empty to raise AttributeError on
-                # reference to Queue being None.
+        # see CFY-1442
+        queue_empty = Queue.Empty
+        while not self.stopped:
+            try:
+                task = self._local_tasks_queue.get(timeout=1)
+                task()
+            except queue_empty:
                 pass
-            raise
 
 # Local/Remote Handlers
 

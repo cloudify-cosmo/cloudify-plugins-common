@@ -183,7 +183,8 @@ class LocalEndpoint(Endpoint):
             runtime_properties=instance.runtime_properties,
             state=instance.state,
             version=instance.version,
-            host_id=instance.host_id)
+            host_id=instance.host_id,
+            relationships=instance.relationships)
 
     def update_node_instance(self, node_instance):
         return self.storage.update_node_instance(

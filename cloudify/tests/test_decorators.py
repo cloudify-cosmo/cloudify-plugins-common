@@ -92,17 +92,16 @@ class OperationTest(testtools.TestCase):
     def test_provided_capabilities(self):
         ctx = {
             'node_id': '5678',
-            'relationships': {
-                'some_node': {
-                    'k': 'v'
-                }
-            }
         }
 
         # using a mock rest client
         manager.get_rest_client = \
             lambda: rest_client_mock.MockRestclient()
 
+        rest_client_mock.put_node_instance(
+            '5678',
+            relationships=[{'target_id': 'some_node',
+                            'target_name': 'some_node'}])
         rest_client_mock.put_node_instance('some_node',
                                            runtime_properties={'k': 'v'})
 
@@ -112,19 +111,20 @@ class OperationTest(testtools.TestCase):
         self.assertEquals('v', ctx.capabilities['k'])
 
     def test_capabilities_clash(self):
-        capabilities = {
-            'node1': {'k': 'v1'},
-            'node2': {'k': 'v2'},
-        }
-
         ctx = {
             'node_id': '5678',
-            'relationships': capabilities
         }
 
         # using a mock rest client
         manager.get_rest_client = \
             lambda: rest_client_mock.MockRestclient()
+
+        rest_client_mock.put_node_instance(
+            '5678',
+            relationships=[{'target_id': 'node1',
+                            'target_name': 'node1'},
+                           {'target_id': 'node2',
+                            'target_name': 'node2'}])
 
         rest_client_mock.put_node_instance('node1',
                                            runtime_properties={'k': 'v1'})
@@ -135,14 +135,6 @@ class OperationTest(testtools.TestCase):
         ctx = acquire_context(0, 0, **kwargs)
         self.assertRaises(NonRecoverableError, ctx.capabilities.__contains__,
                           'k')
-
-    def test_invalid_properties_update(self):
-        kwargs = {'__cloudify_context': {
-            'node_id': '5678'
-        }}
-        ctx = acquire_context(0, 0, **kwargs)
-        self.assertRaises(NonRecoverableError, ctx.node.properties.__setitem__,
-                          'k', 'v')
 
     def test_workflow_error_delegation(self):
         try:
@@ -190,7 +182,8 @@ class OperationTest(testtools.TestCase):
                 'node_id': '5678',
                 'relationships': ['1111'],
                 'related': {
-                    'node_id': '1111'
+                    'node_id': '1111',
+                    'is_target': True
                 }
             }}
             some_operation(**kwargs)
