@@ -19,10 +19,132 @@ from cloudify.workflows.tasks_graph import forkjoin
 from cloudify.workflows import tasks as workflow_tasks
 
 
-@workflow
-def install(ctx, **kwargs):
-    """Default install workflow"""
+def _get_all_nodes_instances(ctx):
+    node_instances = set()
+    for node in ctx.nodes:
+        for instance in node.instances:
+            node_instances.add(instance)
+    return node_instances
 
+
+class InstallationTasksReferences(object):
+    def __init__(self):
+        self.send_event_creating = {}
+        self.set_state_creating = {}
+        self.set_state_started = {}
+
+
+class NodeInstallationTasksSequenceCreator(object):
+    """
+    This class is used to create a tasks sequence installing one node instance.
+    Considering the order of tasks executions, it enforces the proper
+    dependencies only in context of this particular node instance.
+    """
+
+    def create(self, instance, graph, installation_tasks):
+        """
+        :param installation_tasks: instance of InstallationTasksReferences
+        :param instance: node instance to generate the installation tasks for
+        """
+
+        sequence = graph.sequence()
+        sequence.add(
+            instance.set_state('initializing'),
+            forkjoin(
+                installation_tasks.set_state_creating[instance.id],
+                installation_tasks.send_event_creating[instance.id]
+            ),
+            instance.execute_operation('cloudify.interfaces.lifecycle.create'),
+            instance.set_state('created'),
+            forkjoin(*_relationship_operations(
+                instance,
+                'cloudify.interfaces.relationship_lifecycle.preconfigure'
+            )),
+            forkjoin(
+                instance.set_state('configuring'),
+                instance.send_event('Configuring node')
+            ),
+            instance.execute_operation(
+                'cloudify.interfaces.lifecycle.configure'),
+            instance.set_state('configured'),
+            forkjoin(*_relationship_operations(
+                instance,
+                'cloudify.interfaces.relationship_lifecycle.postconfigure'
+            )),
+            forkjoin(
+                instance.set_state('starting'),
+                instance.send_event('Starting node')
+            ),
+            instance.execute_operation('cloudify.interfaces.lifecycle.start'))
+
+        # If this is a host node, we need to add specific host start
+        # tasks such as waiting for it to start and installing the agent
+        # worker (if necessary)
+        if _is_host_node(instance):
+            sequence.add(*_host_post_start(instance))
+
+        sequence.add(
+            installation_tasks.set_state_started[instance.id],
+            forkjoin(
+                instance.execute_operation(
+                    'cloudify.interfaces.monitoring.start'),
+                *_relationship_operations(
+                    instance,
+                    'cloudify.interfaces.relationship_lifecycle.establish'
+                )))
+
+
+class InstallationTasksGraphFinisher(object):
+    def __init__(self, graph, node_instances, intact_nodes, tasks):
+        self.graph = graph
+        self.node_instances = node_instances
+        self.intact_nodes = intact_nodes
+        self.tasks = tasks
+
+    def _enforce_correct_src_trg_order(self, instance, rel):
+        """
+        make a dependency between the create tasks (event, state)
+        and the started state task of the target
+        """
+        target_set_started = self.tasks.set_state_started[rel.target_id]
+        node_set_creating = self.tasks.set_state_creating[instance.id]
+        node_event_creating = self.tasks.send_event_creating[instance.id]
+        self.graph.add_dependency(node_set_creating, target_set_started)
+        self.graph.add_dependency(node_event_creating, target_set_started)
+
+    def finish_creation(self):
+        # Create task dependencies based on node relationships
+        for instance in self.node_instances:
+            for rel in instance.relationships:
+                self._enforce_correct_src_trg_order(instance, rel)
+
+
+class AutohealInstallationTasksGraphFinisher(InstallationTasksGraphFinisher):
+    def _enforce_correct_src_trg_order(self, instance, rel):
+        # Handle only nodes within self.node_instances, others are running
+        if rel.target_node_instance in self.node_instances:
+            super(AutohealInstallationTasksGraphFinisher,
+                  self)._enforce_correct_src_trg_order(instance, rel)
+
+    def finish_creation(self):
+        super(AutohealInstallationTasksGraphFinisher, self).finish_creation()
+        # Add operations for intact nodes depending on a node instance
+        # belonging to node_instances (which are being reinstalled)
+        for instance in self.intact_nodes:
+            for rel in instance.relationships:
+                if rel.target_node_instance in self.node_instances:
+                    trg_started = self.tasks.set_state_started[rel.target_id]
+                    establish_operations = _relationship_operations(
+                        instance,
+                        'cloudify.interfaces.relationship_lifecycle.establish'
+                    )
+                    for establish_op in establish_operations:
+                        self.graph.add_task(establish_op)
+                        self.graph.add_dependency(establish_op, trg_started)
+
+
+def _install_node_instances(ctx, node_instances, intact_nodes,
+                            node_tasks_seq_creator, graph_finisher_cls):
     # switch to graph mode (operations on the context return tasks instead of
     # result instances)
     graph = ctx.graph_mode()
@@ -31,180 +153,178 @@ def install(ctx, **kwargs):
     # task so we can later create a proper dependency between nodes and
     # their relationships. We use the below tasks as part of a single node
     # workflow, and to create the dependency (at the bottom)
-    send_event_creating_tasks = {}
-    set_state_creating_tasks = {}
-    set_state_started_tasks = {}
-    for node in ctx.nodes:
-        for instance in node.instances:
-            send_event_creating_tasks[instance.id] = instance.send_event(
-                'Creating node')
-            set_state_creating_tasks[instance.id] = instance.set_state(
-                'creating')
-            set_state_started_tasks[instance.id] = instance.set_state(
-                'started')
+    tasks = InstallationTasksReferences()
+    for instance in node_instances:
+        tasks.send_event_creating[instance.id] = instance.send_event(
+            'Creating node')
+        tasks.set_state_creating[instance.id] = instance.set_state('creating')
+        tasks.set_state_started[instance.id] = instance.set_state('started')
 
     # Create node linear task sequences
     # For each node, we create a "task sequence" in which all tasks
     # added to it will be executed in a sequential manner
-    for node in ctx.nodes:
-        for instance in node.instances:
-            sequence = graph.sequence()
+    for instance in node_instances:
+        node_tasks_seq_creator.create(instance, graph, tasks)
 
-            sequence.add(
-                instance.set_state('initializing'),
-                forkjoin(
-                    set_state_creating_tasks[instance.id],
-                    send_event_creating_tasks[instance.id]
-                ),
-                instance.execute_operation(
-                    'cloudify.interfaces.lifecycle.create'),
-                instance.set_state('created'),
-                forkjoin(*_relationship_operations(
-                    instance,
-                    'cloudify.interfaces.relationship_lifecycle.preconfigure'
-                )),
-                forkjoin(
-                    instance.set_state('configuring'),
-                    instance.send_event('Configuring node')),
-                instance.execute_operation(
-                    'cloudify.interfaces.lifecycle.configure'),
-                instance.set_state('configured'),
-                forkjoin(*_relationship_operations(
-                    instance,
-                    'cloudify.interfaces.relationship_lifecycle.postconfigure'
-                )),
-                forkjoin(
-                    instance.set_state('starting'),
-                    instance.send_event('Starting node')),
-                instance.execute_operation(
-                    'cloudify.interfaces.lifecycle.start'))
-
-            # If this is a host node, we need to add specific host start
-            # tasks such as waiting for it to start and installing the agent
-            # worker (if necessary)
-            if _is_host_node(instance):
-                sequence.add(*_host_post_start(instance))
-
-            sequence.add(
-                set_state_started_tasks[instance.id],
-                forkjoin(
-                    instance.execute_operation(
-                        'cloudify.interfaces.monitoring.start'),
-                    *_relationship_operations(
-                        instance,
-                        'cloudify.interfaces.relationship_lifecycle.establish'
-                    )))
-
-    # Create task dependencies based on node relationships
-    # for each node, make a dependency between the create tasks (event, state)
-    # and the started state task of the target
-    for node in ctx.nodes:
-        for instance in node.instances:
-            for rel in instance.relationships:
-                node_set_creating = set_state_creating_tasks[instance.id]
-                node_event_creating = send_event_creating_tasks[instance.id]
-                target_set_started = set_state_started_tasks[rel.target_id]
-                graph.add_dependency(node_set_creating, target_set_started)
-                graph.add_dependency(node_event_creating, target_set_started)
+    graph_finisher_cls(
+        graph,
+        node_instances,
+        intact_nodes,
+        tasks
+    ).finish_creation()
 
     return graph.execute()
 
 
-@workflow
-def uninstall(ctx, **kwargs):
-    """Default uninstall workflow"""
+class UninstallationTasksReferences(object):
+    def __init__(self):
+        self.set_state_stopping = {}
+        self.set_state_deleted = {}
+        self.stop_node = {}
+        self.stop_monitor = {}
+        self.delete_node = {}
 
+
+class NodeUninstallationTasksSequenceCreator(object):
+    def create(self, instance, graph, uninstallation_tasks):
+        unlink_tasks = _relationship_operations_with_targets(
+            instance, 'cloudify.interfaces.relationship_lifecycle.unlink')
+        
+        sequence = graph.sequence()
+        sequence.add(
+            uninstallation_tasks.set_state_stopping[instance.id],
+            instance.send_event('Stopping node')
+        )
+        if _is_host_node(instance):
+            sequence.add(*_host_pre_stop(instance))
+        sequence.add(
+            uninstallation_tasks.stop_node[instance.id],
+            instance.set_state('stopped'),
+            forkjoin(*[task for task, _ in unlink_tasks]),
+            instance.set_state('deleting'),
+            instance.send_event('Deleting node'),
+            uninstallation_tasks.delete_node[instance.id],
+            uninstallation_tasks.set_state_deleted[instance.id]
+        )
+
+        # adding the stop monitor task not as a part of the sequence,
+        # as it can happen in parallel with any other task, and is only
+        # dependent on the set node state 'stopping' task
+        graph.add_task(uninstallation_tasks.stop_monitor[instance.id])
+        graph.add_dependency(
+            uninstallation_tasks.stop_monitor[instance.id],
+            uninstallation_tasks.set_state_stopping[instance.id]
+        )
+
+        # augmenting the stop node, stop monitor and delete node tasks with
+        # error handlers
+        _set_send_node_event_on_error_handler(
+            uninstallation_tasks.stop_node[instance.id],
+            instance,
+            "Error occurred while stopping node - ignoring...")
+        _set_send_node_event_on_error_handler(
+            uninstallation_tasks.stop_monitor[instance.id],
+            instance,
+            "Error occurred while stopping monitor - ignoring...")
+        _set_send_node_event_on_error_handler(
+            uninstallation_tasks.delete_node[instance.id],
+            instance,
+            "Error occurred while deleting node - ignoring...")
+
+        for unlink_task, target_id in unlink_tasks:
+            _set_send_node_event_on_error_handler(
+                unlink_task,
+                instance,
+                "Error occurred while unlinking node from node {0} - "
+                "ignoring...".format(target_id))
+
+
+class UninstallationTasksGraphFinisher(object):
+    def __init__(self, graph, node_instances, intact_nodes, tasks):
+        self.graph = graph
+        self.node_instances = node_instances
+        self.intact_nodes = intact_nodes
+        self.tasks = tasks
+
+    def _enforce_correct_src_trg_order(self, instance, rel):
+        """
+        make a dependency between the target's stopping task
+        and the deleted state task of the current node
+        """
+        self.graph.add_dependency(
+            self.tasks.set_state_stopping[rel.target_id],
+            self.tasks.set_state_deleted[instance.id]
+        )
+
+    def finish_creation(self):
+        # Create task dependencies based on node relationships
+        for instance in self.node_instances:
+            for rel in instance.relationships:
+                self._enforce_correct_src_trg_order(instance, rel)
+
+
+class AutohealUninstallationTasksGraphFinisher(
+        UninstallationTasksGraphFinisher):
+
+    def _enforce_correct_src_trg_order(self, instance, rel):
+        if rel.target_node_instance in self.node_instances:
+            super(AutohealUninstallationTasksGraphFinisher,
+                  self)._enforce_correct_src_trg_order(instance, rel)
+
+    def finish_creation(self):
+        super(AutohealUninstallationTasksGraphFinisher, self).finish_creation()
+        for instance in self.intact_nodes:
+            for rel in instance.relationships:
+                if rel.target_node_instance in self.node_instances:
+                    target_stopped = self.tasks.stop_node[rel.target_id]
+                    unlink_operations = _relationship_operations(
+                        instance,
+                        'cloudify.interfaces.relationship_lifecycle.unlink'
+                    )
+                    for unlink_op in unlink_operations:
+                        self.graph.add_task(unlink_op)
+                        self.graph.add_dependency(unlink_op, target_stopped)
+
+
+def _uninstall_node_instances(ctx, node_instances, intact_nodes,
+                              node_tasks_seq_creator, graph_finisher_cls):
     # switch to graph mode (operations on the context return tasks instead of
     # result instances)
     graph = ctx.graph_mode()
+    tasks_refs = UninstallationTasksReferences()
+    for instance in node_instances:
+        # We need reference to the set deleted state tasks and the set
+        # stopping state tasks so we can later create a proper dependency
+        # between nodes and their relationships. We use the below tasks as
+        # part of a single node workflow, and to create the dependency
+        # (at the bottom)
+        tasks_refs.set_state_stopping[instance.id] = instance.set_state(
+            'stopping')
+        tasks_refs.set_state_deleted[instance.id] = instance.set_state(
+            'deleted')
 
-    set_state_stopping_tasks = {}
-    set_state_deleted_tasks = {}
-    stop_node_tasks = {}
-    stop_monitor_tasks = {}
-    delete_node_tasks = {}
-    for node in ctx.nodes:
-        for instance in node.instances:
-            # We need reference to the set deleted state tasks and the set
-            # stopping state tasks so we can later create a proper dependency
-            # between nodes and their relationships. We use the below tasks as
-            # part of a single node workflow, and to create the dependency
-            # (at the bottom)
-            set_state_stopping_tasks[instance.id] = instance.set_state(
-                'stopping')
-            set_state_deleted_tasks[instance.id] = instance.set_state(
-                'deleted')
-
-            # We need reference to the stop node tasks, stop monitor tasks and
-            # delete node tasks as we augment them with on_failure error
-            # handlers # later on
-            stop_node_tasks[instance.id] = instance.execute_operation(
-                'cloudify.interfaces.lifecycle.stop')
-            stop_monitor_tasks[instance.id] = instance.execute_operation(
-                'cloudify.interfaces.monitoring.stop')
-            delete_node_tasks[instance.id] = instance.execute_operation(
-                'cloudify.interfaces.lifecycle.delete')
+        # We need reference to the stop node tasks, stop monitor tasks and
+        # delete node tasks as we augment them with on_failure error
+        # handlers later on
+        tasks_refs.stop_node[instance.id] = instance.execute_operation(
+            'cloudify.interfaces.lifecycle.stop')
+        tasks_refs.stop_monitor[instance.id] = instance.execute_operation(
+            'cloudify.interfaces.monitoring.stop')
+        tasks_refs.delete_node[instance.id] = instance.execute_operation(
+            'cloudify.interfaces.lifecycle.delete')
 
     # Create node linear task sequences
     # For each node, we create a "task sequence" in which all tasks
     # added to it will be executed in a sequential manner
-    for node in ctx.nodes:
-        for instance in node.instances:
-            unlink_tasks = _relationship_operations_with_targets(
-                instance, 'cloudify.interfaces.relationship_lifecycle.unlink')
+    for instance in node_instances:
+        node_tasks_seq_creator.create(instance, graph, tasks_refs)
 
-            sequence = graph.sequence()
-
-            sequence.add(set_state_stopping_tasks[instance.id],
-                         instance.send_event('Stopping node'))
-            if _is_host_node(instance):
-                sequence.add(*_host_pre_stop(instance))
-            sequence.add(stop_node_tasks[instance.id],
-                         instance.set_state('stopped'),
-                         forkjoin(*[task for task, _ in unlink_tasks]),
-                         instance.set_state('deleting'),
-                         instance.send_event('Deleting node'),
-                         delete_node_tasks[instance.id],
-                         set_state_deleted_tasks[instance.id])
-
-            # adding the stop monitor task not as a part of the sequence,
-            # as it can happen in parallel with any other task, and is only
-            # dependent on the set node state 'stopping' task
-            graph.add_task(stop_monitor_tasks[instance.id])
-            graph.add_dependency(stop_monitor_tasks[instance.id],
-                                 set_state_stopping_tasks[instance.id])
-
-            # augmenting the stop node, stop monitor and delete node tasks with
-            # error handlers
-            _set_send_node_event_on_error_handler(
-                stop_node_tasks[instance.id],
-                instance,
-                "Error occurred while stopping node - ignoring...")
-            _set_send_node_event_on_error_handler(
-                stop_monitor_tasks[instance.id],
-                instance,
-                "Error occurred while stopping monitor - ignoring...")
-            _set_send_node_event_on_error_handler(
-                delete_node_tasks[instance.id],
-                instance,
-                "Error occurred while deleting node - ignoring...")
-
-            for unlink_task, target_id in unlink_tasks:
-                _set_send_node_event_on_error_handler(
-                    unlink_task,
-                    instance,
-                    "Error occurred while unlinking node from node {0} - "
-                    "ignoring...".format(target_id))
-
-    # Create task dependencies based on node relationships
-    # for each node, make a dependency between the target's stopping task
-    # and the deleted state task of the current node
-    for node in ctx.nodes:
-        for instance in node.instances:
-            for rel in instance.relationships:
-                target_set_stopping = set_state_stopping_tasks[rel.target_id]
-                node_set_deleted = set_state_deleted_tasks[instance.id]
-                graph.add_dependency(target_set_stopping, node_set_deleted)
+    graph_finisher_cls(
+        graph,
+        node_instances,
+        intact_nodes,
+        tasks_refs
+    ).finish_creation()
 
     return graph.execute()
 
@@ -400,3 +520,99 @@ def execute_operation(ctx, operation, operation_kwargs,
                                          target_done_task)
 
     return graph.execute()
+
+
+@workflow
+def install(ctx, **kwargs):
+    """Default install workflow"""
+
+    _install_node_instances(
+        ctx,
+        _get_all_nodes_instances(ctx),
+        set(),
+        NodeInstallationTasksSequenceCreator(),
+        InstallationTasksGraphFinisher
+    )
+
+
+@workflow
+def uninstall(ctx, **kwargs):
+    """Default uninstall workflow"""
+
+    _uninstall_node_instances(
+        ctx,
+        _get_all_nodes_instances(ctx),
+        set(),
+        NodeUninstallationTasksSequenceCreator(),
+        UninstallationTasksGraphFinisher
+    )
+
+
+@workflow
+def auto_heal(
+        ctx,
+        node_id,
+        diagnose_value=None,
+        execution_plans=None,
+        **kwargs):
+    """
+    This workflow executes arbitrary operations on the specified node
+    according to execution_plans defined in the blueprint. Depending on the
+    diagnose, different operations get executed. It is also possible to pass
+    custom parameters to those operations, which is also configured in the
+    blueprint (see customized_auto_heal_policy.yaml).
+    """
+
+    operations_seq = []
+    if execution_plans is not None:
+        for plan in execution_plans:
+            if diagnose_value in plan:
+                operations_seq = plan[diagnose_value]
+                break
+
+    node_instance = ctx.get_node_instance(node_id)
+    for operation in operations_seq:
+        args = {}
+        for op_name, op_args in operation.iteritems():
+            for arg in op_args:
+                args[arg] = kwargs.get(arg)
+            node_instance.execute_operation(op_name, args)
+
+
+@workflow
+def auto_heal_reinstall_node_subgraph(
+        ctx,
+        node_id,
+        diagnose_value=None,
+        **kwargs):
+    """Reinstalls the whole subgraph of the system topology
+
+    The subgraph consists of all the nodes that are hosted in the
+    failing node's compute and the compute itself.
+    Additionally it unlinks and establishes appropriate relationships
+
+    :param ctx: cloudify context
+    :param node_id: failing node's id
+    :param diagnose_value: diagnosed reason of failure
+    """
+
+    failing_node = ctx.get_node_instance(node_id)
+    failing_node_host = ctx.get_node_instance(
+        failing_node._node_instance.host_id
+    )
+    subgraph_node_instances = failing_node_host.get_contained_subgraph()
+    intact_nodes = _get_all_nodes_instances(ctx) - subgraph_node_instances
+    _uninstall_node_instances(
+        ctx,
+        subgraph_node_instances,
+        intact_nodes,
+        NodeUninstallationTasksSequenceCreator(),
+        AutohealUninstallationTasksGraphFinisher
+    )
+    _install_node_instances(
+        ctx,
+        subgraph_node_instances,
+        intact_nodes,
+        NodeInstallationTasksSequenceCreator(),
+        AutohealInstallationTasksGraphFinisher
+    )
