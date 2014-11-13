@@ -13,6 +13,7 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import warnings
 
 from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
 from cloudify.logs import init_cloudify_logger
@@ -25,30 +26,8 @@ RELATIONSHIP_INSTANCE = 'relationship-instance'
 
 
 class ContextCapabilities(object):
-    """
-    Represents dependency nodes capabilities.
-
-    Capabilities are actually dependency nodes runtime properties.
-    For example:
-
-    In a case where a ``db`` node is contained in a ``vm`` node,
-    The ``vm`` node can publish its ip address using::
-
-        ctx.runtime_properties['ip'] = ip_addr
-
-    in its plugins invocations.
-    In order for the ``db`` node to consume the ``vm`` node's ip, capabilities
-    would be used on ``db`` node plugins invocations::
-
-        ip_addr = ctx.capabilities['ip']
-
-    In a case where it is needed to iterate through all available
-    capabilities, the following method should be used::
-
-        all_caps = ctx.capabilities.get_all()
-
-    Where the returned value is a dict of node ids as keys and their
-    runtime properties as values.
+    """Maps from instance relationship target ids to their respective
+    runtime properties
     """
     def __init__(self, endpoint, instance):
         self._endpoint = endpoint
@@ -581,27 +560,14 @@ class CloudifyContext(CommonContext):
 
     @property
     def capabilities(self):
-        """
-        Capabilities of nodes this node depends.
-        The capabilities are actually dependency nodes runtime properties.
+        """Maps from instance relationship target ids to their respective
+        runtime properties
 
-        For example:
-
-        Getting a specific capability::
-
-            conn_str = ctx.capabilities['connection_string']
-
-        This actually attempts to locate the provided key in
-        ``ctx.capabilities.get_all()`` (described below).
-
-        Getting all capabilities::
-
-            all_caps = ctx.capabilities.get_all()
-
-        The result is a dict of node ids as keys and the values are
-        the dependency node's runtime properties.
+        NOTE: This feature is deprecated, use 'instance.relationships' instead.
         """
         self._verify_in_node_or_relationship_context()
+        warnings.warn('capabilities is deprecated, use instance.relationships'
+                      'instead', DeprecationWarning)
         return self._capabilities
 
     @property
