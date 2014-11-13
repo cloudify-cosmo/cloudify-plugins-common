@@ -319,6 +319,11 @@ class NodeInstanceContext(EntityContext):
 
     @property
     def relationships(self):
+        """Returns a list of this instance relationships
+
+        :return: list of RelationshipContext
+        :rtype: list
+        """
         self._get_node_instance_if_needed()
         if self._relationships is None:
             self._relationships = [
@@ -343,14 +348,20 @@ class RelationshipContext(EntityContext):
 
     @property
     def target(self):
+        """Returns a holder for target node and target instance
+
+        :rtype: RelationshipSubjectContext
+        """
         return self._target
 
     @property
     def type(self):
+        """The relationship type"""
         return self._context.get('type')
 
     @property
     def type_hierarchy(self):
+        """The relationship type hierarchy"""
         if self._type_hierarchy is None:
             self._node._get_node_if_needed()
             node_relationships = self._node._node.relationships
