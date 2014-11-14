@@ -454,8 +454,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
             def task3(**kwargs):
                 self.assertEqual(kwargs, invocation_kwargs)
                 ctx.local_task(task3,
-                           kwargs=invocation_kwargs,
-                           override_task_config=True).get()
+                               kwargs=invocation_kwargs,
+                               override_task_config=True).get()
         self._execute_workflow(flow)
 
     def test_workflow_bootstrap_context(self):
