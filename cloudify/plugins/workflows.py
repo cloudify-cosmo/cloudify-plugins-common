@@ -549,37 +549,6 @@ def uninstall(ctx, **kwargs):
 
 
 @workflow
-def auto_heal(
-        ctx,
-        node_id,
-        diagnose_value=None,
-        execution_plans=None,
-        **kwargs):
-    """
-    This workflow executes arbitrary operations on the specified node
-    according to execution_plans defined in the blueprint. Depending on the
-    diagnose, different operations get executed. It is also possible to pass
-    custom parameters to those operations, which is also configured in the
-    blueprint (see customized_auto_heal_policy.yaml).
-    """
-
-    operations_seq = []
-    if execution_plans is not None:
-        for plan in execution_plans:
-            if diagnose_value in plan:
-                operations_seq = plan[diagnose_value]
-                break
-
-    node_instance = ctx.get_node_instance(node_id)
-    for operation in operations_seq:
-        args = {}
-        for op_name, op_args in operation.iteritems():
-            for arg in op_args:
-                args[arg] = kwargs.get(arg)
-            node_instance.execute_operation(op_name, args)
-
-
-@workflow
 def auto_heal_reinstall_node_subgraph(
         ctx,
         node_id,
