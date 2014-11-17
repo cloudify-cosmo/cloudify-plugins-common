@@ -183,10 +183,12 @@ class WorkflowTask(object):
             try:
                 exception = self.async_result.result
             except Exception as e:
-                self.workflow_context.logger.debug(str(e))
-                exception = NonRecoverableError('Could not de-serialize task '
-                                                '{0} exception'
-                                                .format(self.name))
+                exception = NonRecoverableError(
+                    'Could not de-serialize '
+                    'exception of task {0} --> {1}: {2}'
+                    .format(self.name,
+                            type(e),
+                            str(e)))
 
             if isinstance(exception, NonRecoverableError):
                 handler_result = HandlerResult.fail()
