@@ -187,7 +187,7 @@ class UninstallationTasksReferences(object):
 
 class NodeUninstallationTasksSequenceCreator(object):
     def create(self, instance, graph, uninstallation_tasks):
-        unlink_tasks = _relationship_operations_with_targets(
+        unlink_tasks_with_target_ids = _relationship_operations_with_targets(
             instance, 'cloudify.interfaces.relationship_lifecycle.unlink')
 
         sequence = graph.sequence()
@@ -200,7 +200,7 @@ class NodeUninstallationTasksSequenceCreator(object):
         sequence.add(
             uninstallation_tasks.stop_node[instance.id],
             instance.set_state('stopped'),
-            forkjoin(*[task for task, _ in unlink_tasks]),
+            forkjoin(*[task for task, _ in unlink_tasks_with_target_ids]),
             instance.set_state('deleting'),
             instance.send_event('Deleting node'),
             uninstallation_tasks.delete_node[instance.id],
@@ -230,13 +230,9 @@ class NodeUninstallationTasksSequenceCreator(object):
             uninstallation_tasks.delete_node[instance.id],
             instance,
             "Error occurred while deleting node - ignoring...")
-
-        for unlink_task, target_id in unlink_tasks:
-            _set_send_node_event_on_error_handler(
-                unlink_task,
-                instance,
-                "Error occurred while unlinking node from node {0} - "
-                "ignoring...".format(target_id))
+        _set_send_node_evt_on_failed_unlink_handlers(
+            instance,
+            unlink_tasks_with_target_ids)
 
 
 class UninstallationTasksGraphFinisher(object):
@@ -277,13 +273,15 @@ class AutohealUninstallationTasksGraphFinisher(
             for rel in instance.relationships:
                 if rel.target_node_instance in self.node_instances:
                     target_stopped = self.tasks.stop_node[rel.target_id]
-                    unlink_operations = _relationship_operations(
+                    unlink_tasks = _relationship_operations_with_targets(
                         instance,
                         'cloudify.interfaces.relationship_lifecycle.unlink'
                     )
-                    for unlink_op in unlink_operations:
-                        self.graph.add_task(unlink_op)
-                        self.graph.add_dependency(unlink_op, target_stopped)
+                    for unlink_task, _ in unlink_tasks:
+                        self.graph.add_task(unlink_task)
+                        self.graph.add_dependency(unlink_task, target_stopped)
+                    _set_send_node_evt_on_failed_unlink_handlers(
+                        instance, unlink_tasks)
 
 
 def _uninstall_node_instances(ctx, node_instances, intact_nodes,
@@ -334,6 +332,16 @@ def _set_send_node_event_on_error_handler(task, node_instance, error_message):
         node_instance.send_event(error_message)
         return workflow_tasks.HandlerResult.ignore()
     task.on_failure = send_node_event_error_handler
+
+
+def _set_send_node_evt_on_failed_unlink_handlers(instance, tasks_with_targets):
+    for unlink_task, target_id in tasks_with_targets:
+        _set_send_node_event_on_error_handler(
+            unlink_task,
+            instance,
+            "Error occurred while unlinking node from node {0} - "
+            "ignoring...".format(target_id)
+        )
 
 
 def _relationship_operations(node_instance, operation):
