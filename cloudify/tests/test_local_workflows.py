@@ -1126,31 +1126,31 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             node3 = _instance(ctx, 'node3')
             node4 = _instance(ctx, 'node4')
 
-            full_contained_subgraph = {
+            full_contained_subgraph = set([
                 node_host,
                 node,
                 node2,
                 node3,
                 node4
-            }
+            ])
             self.assertEqual(
                 full_contained_subgraph,
                 node_host.get_contained_subgraph()
             )
 
-            half_subgraph = {
+            half_subgraph = set([
                 node,
                 node2
-            }
+            ])
             self.assertEqual(
                 half_subgraph,
                 node2.get_contained_subgraph()
             )
 
-            host_contained_instances = {
+            host_contained_instances = set([
                 node2,
                 node3
-            }
+            ])
             self.assertEqual(
                 host_contained_instances,
                 set(node_host.contained_instances)

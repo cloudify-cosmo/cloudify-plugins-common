@@ -304,7 +304,7 @@ class CloudifyWorkflowNodeInstance(object):
         Returns a set containing this instance and all nodes that are
         contained directly and transitively within it
         """
-        result = {self}
+        result = set([self])
         for child in self.contained_instances:
             result.update(child.get_contained_subgraph())
         return result
