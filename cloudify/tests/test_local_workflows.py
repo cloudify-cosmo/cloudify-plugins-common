@@ -1244,7 +1244,8 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             return blueprint
         return func
 
-    def _blueprint_3(self, workflow_methods, _, workflow_parameters_schema, __):
+    def _blueprint_3(self, workflow_methods, _,
+                     workflow_parameters_schema, __):
         workflows = dict((
             ('workflow{0}'.format(index), {
                 'mapping': 'p.{0}.{1}'.format(self._testMethodName,
