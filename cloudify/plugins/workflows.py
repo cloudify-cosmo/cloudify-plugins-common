@@ -189,7 +189,7 @@ class NodeUninstallationTasksSequenceCreator(object):
     def create(self, instance, graph, uninstallation_tasks):
         unlink_tasks = _relationship_operations_with_targets(
             instance, 'cloudify.interfaces.relationship_lifecycle.unlink')
-        
+
         sequence = graph.sequence()
         sequence.add(
             uninstallation_tasks.set_state_stopping[instance.id],
