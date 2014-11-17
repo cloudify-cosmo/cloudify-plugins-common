@@ -1244,39 +1244,17 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             return blueprint
         return func
 
-    def _blueprint_3(self, workflow_methods, operation_methods,
-                     workflow_parameters_schema, ignored_modules):
-        interfaces = {
-            'test': [
-                {'op{}'.format(index):
-                    'p.{}.{}'.format(self._testMethodName,
-                                     op_method.__name__)}
-                for index, op_method in
-                enumerate(operation_methods)
-            ]
-        }
-
+    def _blueprint_3(self, workflow_methods, _, workflow_parameters_schema, __):
         workflows = dict((
-            ('workflow{}'.format(index), {
-                'mapping': 'p.{}.{}'.format(self._testMethodName,
-                                            w_method.__name__),
+            ('workflow{0}'.format(index), {
+                'mapping': 'p.{0}.{1}'.format(self._testMethodName,
+                                              w_method.__name__),
                 'parameters': workflow_parameters_schema or {}
             }) for index, w_method in enumerate(workflow_methods)
         ))
 
         blueprint = {
             'tosca_definitions_version': 'cloudify_dsl_1_0',
-            'imports': ['inner/imported.yaml'],
-            'inputs': {
-                'from_input': {
-                    'default': 'from_input_default_value'
-                }
-            },
-            'outputs': {
-                'some_output': {
-                    'value': {'get_attribute': ['node', 'some_output']}
-                }
-            },
             'plugins': {
                 'p': {
                     'executor': 'central_deployment_agent',
@@ -1285,21 +1263,13 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             },
             'node_types': {
                 'type': {},
-                'cloudify.types.host': {
-                    'derived_from': 'type',
-                    'properties': {
-                        'ip': {
-                            'default': ''
-                        }
-                    }
-                }
             },
             'relationships': {
                 'cloudify.relationships.contained_in': {}
             },
             'node_templates': {
                 'node_host': {
-                    'type': 'cloudify.types.host'
+                    'type': 'type'
                 },
                 'node4': {
                     'type': 'type',
@@ -1309,15 +1279,14 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                     }]
                 },
                 'node3': {
-                    'type': 'cloudify.types.host',
+                    'type': 'type',
                     'relationships': [{
                         'target': 'node_host',
                         'type': 'cloudify.relationships.contained_in',
                     }]
                 },
                 'node2': {
-                    'type': 'cloudify.types.host',
-                    'interfaces': interfaces,
+                    'type': 'type',
                     'relationships': [{
                         'target': 'node_host',
                         'type': 'cloudify.relationships.contained_in',
