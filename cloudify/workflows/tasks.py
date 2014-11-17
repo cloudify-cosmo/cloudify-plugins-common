@@ -187,7 +187,7 @@ class WorkflowTask(object):
                     'Could not de-serialize '
                     'exception of task {0} --> {1}: {2}'
                     .format(self.name,
-                            type(e),
+                            type(e).__name__,
                             str(e)))
 
             if isinstance(exception, NonRecoverableError):
