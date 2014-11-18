@@ -71,7 +71,9 @@ class CloudifyWorkflowRelationshipInstance(object):
 
     @property
     def target_node_instance(self):
-        """The relationship target node WorkflowContextNodeInstance instance"""
+        """
+        The relationship's target node CloudifyWorkflowNodeInstance instance
+        """
         return self.ctx.get_node_instance(self.target_id)
 
     @property
@@ -155,6 +157,13 @@ class CloudifyWorkflowRelationship(object):
         """The relationship target operations"""
         return self._relationship.get('target_operations', {})
 
+    def is_derived_from(self, other_relationship):
+        """
+        :param other_relationship: a string like
+               cloudify.relationships.contained_in
+        """
+        return other_relationship in self._relationship["type_hierarchy"]
+
 
 class CloudifyWorkflowNodeInstance(object):
     """
@@ -169,6 +178,8 @@ class CloudifyWorkflowNodeInstance(object):
         self.ctx = ctx
         self._node = node
         self._node_instance = node_instance
+        # Directly contained node instances. Filled in the context's __init__()
+        self._contained_instances = []
         self._relationship_instances = dict(
             (relationship_instance['target_id'],
                 CloudifyWorkflowRelationshipInstance(
@@ -278,6 +289,26 @@ class CloudifyWorkflowNodeInstance(object):
             self)
         return init_cloudify_logger(logging_handler, logger_name)
 
+    @property
+    def contained_instances(self):
+        """
+        Returns node instances directly contained in this instance (children)
+        """
+        return self._contained_instances
+
+    def _add_contained_node_instance(self, node_instance):
+        self._contained_instances.append(node_instance)
+
+    def get_contained_subgraph(self):
+        """
+        Returns a set containing this instance and all nodes that are
+        contained directly and transitively within it
+        """
+        result = set([self])
+        for child in self.contained_instances:
+            result.update(child.get_contained_subgraph())
+        return result
+
 
 class CloudifyWorkflowNode(object):
     """
@@ -343,7 +374,54 @@ class CloudifyWorkflowNode(object):
         return self._relationships.get(target_id)
 
 
-class CloudifyWorkflowContext(object):
+class WorkflowNodesAndInstancesContainer(object):
+
+    def __init__(self, workflow_context, raw_nodes, raw_node_instances):
+        self._nodes = dict(
+            (node.id, CloudifyWorkflowNode(workflow_context, node))
+            for node in raw_nodes)
+
+        self._node_instances = dict(
+            (instance.id, CloudifyWorkflowNodeInstance(
+                workflow_context, self._nodes[instance.node_id], instance))
+            for instance in raw_node_instances)
+
+        for inst in self._node_instances.itervalues():
+            for rel in inst.relationships:
+                if rel.relationship.is_derived_from(
+                        "cloudify.relationships.contained_in"):
+                    if rel.target_node_instance is None:
+                        #  TODO: context doesn't contain new nodes when we
+                        #  the use Modification class
+                        continue
+                    rel.target_node_instance._add_contained_node_instance(inst)
+
+    @property
+    def nodes(self):
+        return self._nodes.itervalues()
+
+    def get_node(self, node_id):
+        """
+        Get a node by its id
+
+        :param node_id: The node id
+        :return: a CloudifyWorkflowNode instance for the node or None if
+                 not found
+        """
+        return self._nodes.get(node_id)
+
+    def get_node_instance(self, node_instance_id):
+        """
+        Get a node instance by its id
+
+        :param node_instance_id: The node instance id
+        :return: a CloudifyWorkflowNode instance for the node or None if
+                 not found
+        """
+        return self._node_instances.get(node_instance_id)
+
+
+class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
     """
     A context used in workflow operations
 
@@ -360,6 +438,7 @@ class CloudifyWorkflowContext(object):
                                             DEFAULT_RETRY_INTERVAL)
         self._task_retries = ctx.get('task_retries',
                                      DEFAULT_TOTAL_RETRIES)
+        self._logger = None
 
         self.blueprint = context.BlueprintContext(self._context)
         self.deployment = WorkflowDeploymentContext(self._context, self)
@@ -375,12 +454,8 @@ class CloudifyWorkflowContext(object):
             raw_node_instances = rest.node_instances.list(self.deployment.id)
             handler = RemoteCloudifyWorkflowContextHandler(self)
 
-        nodes, nodes_instances = _build_workflow_nodes_and_node_instances(
+        super(CloudifyWorkflowContext, self).__init__(
             self, raw_nodes, raw_node_instances)
-        self._nodes = nodes
-        self._node_instances = nodes_instances
-
-        self._logger = None
 
         self._internal = CloudifyWorkflowContextInternal(self, handler)
 
@@ -400,11 +475,6 @@ class CloudifyWorkflowContext(object):
     @property
     def internal(self):
         return self._internal
-
-    @property
-    def nodes(self):
-        """The plan node instances"""
-        return self._nodes.itervalues()
 
     @property
     def execution_id(self):
@@ -451,26 +521,6 @@ class CloudifyWorkflowContext(object):
         return self.local_task(
             local_task=send_event_task,
             info=event)
-
-    def get_node(self, node_id):
-        """
-        Get a node by its id
-
-        :param node_id: The node id
-        :return: a CloudifyWorkflowNode instance for the node or None if
-                 not found
-        """
-        return self._nodes.get(node_id)
-
-    def get_node_instance(self, node_instance_id):
-        """
-        Get a node by its id
-
-        :param node_instance_id: The node instance id
-        :return: a CloudifyWorkflowNode instance for the node or None if
-                 not found
-        """
-        return self._node_instances.get(node_instance_id)
 
     def _execute_operation(self,
                            operation,
@@ -1119,38 +1169,13 @@ class Modification(object):
             self._raw_modification)
 
 
-class ModificationNodes(object):
-
+class ModificationNodes(WorkflowNodesAndInstancesContainer):
     def __init__(self, modification, raw_nodes, raw_node_instances):
-        nodes, node_instances = _build_workflow_nodes_and_node_instances(
-            modification.workflow_ctx, raw_nodes, raw_node_instances)
-        self._nodes = nodes
-        self._node_instances = node_instances
-
-    @property
-    def nodes(self):
-        """Added/Removed and related node instances"""
-        return self._nodes.itervalues()
-
-    def get_node(self, node_id):
-        """
-        Get a node by its id
-
-        :param node_id: The node id
-        :return: a CloudifyWorkflowNode instance for the node or None if
-                 not found
-        """
-        return self._nodes.get(node_id)
-
-    def get_node_instance(self, node_instance_id):
-        """
-        Get a node instance by its id
-
-        :param node_instance_id: The node instance id
-        :return: a CloudifyWorkflowNode instance for the node or None if
-                 not found
-        """
-        return self._node_instances.get(node_instance_id)
+        super(ModificationNodes, self).__init__(
+            modification.workflow_ctx,
+            raw_nodes,
+            raw_node_instances
+        )
 
 
 class WorkflowDeploymentContext(context.DeploymentContext):
@@ -1181,17 +1206,3 @@ def task_config(fn=None, **arguments):
         def partial_wrapper(func):
             return task_config(func, **arguments)
         return partial_wrapper
-
-
-def _build_workflow_nodes_and_node_instances(
-        workflow_context, raw_nodes, raw_node_instances):
-    nodes = dict(
-        (node.id, CloudifyWorkflowNode(workflow_context, node))
-        for node in raw_nodes)
-
-    node_instances = dict(
-        (instance.id, CloudifyWorkflowNodeInstance(
-            workflow_context, nodes[instance.node_id], instance))
-        for instance in raw_node_instances)
-
-    return nodes, node_instances
