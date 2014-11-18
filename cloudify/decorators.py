@@ -20,6 +20,7 @@ from multiprocessing import Process
 from multiprocessing import Pipe
 from StringIO import StringIO
 from functools import wraps
+import sys
 
 from cloudify import context
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
@@ -27,6 +28,8 @@ from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
 from cloudify.exceptions import ProcessExecutionError
+from cloudify.exceptions import RecoverableError
+from cloudify.exceptions import NonRecoverableError
 from cloudify.state import current_ctx, current_workflow_ctx
 
 _stub_task = lambda fn: fn
@@ -114,11 +117,40 @@ def operation(func=None, **arguments):
             try:
                 current_ctx.set(ctx, kwargs)
                 result = func(*args, **kwargs)
-            except BaseException:
+            except BaseException as e:
                 ctx.logger.error(
                     'Exception raised on operation [%s] invocation',
                     ctx.task_name, exc_info=True)
-                raise
+
+                if ctx.task_target is None:
+                    # local task execution
+                    # no serialization issues
+                    raise
+
+                # extract exception details
+                # type, value, traceback
+                tpe, value, tb = sys.exc_info()
+
+                # we re-create the exception here
+                # since it will be sent
+                # over the wire. And the original exception
+                # may cause de-serialization issues
+                # on the other side.
+
+                # preserve original type in the message
+                message = '{0}: {1}'.format(tpe.__name__, str(e))
+
+                if isinstance(e, NonRecoverableError):
+                    value = NonRecoverableError(message)
+                elif isinstance(e, RecoverableError):
+                    value = RecoverableError(message, e.retry_after)
+                else:
+                    # convert pure user exceptions
+                    # to a RecoverableError
+                    value = RecoverableError(message)
+
+                raise type(value), value, tb
+
             finally:
                 current_ctx.clear()
                 if ctx.type == context.NODE_INSTANCE:
