@@ -227,7 +227,7 @@ class TaskSequence(object):
         """
         Add tasks to the sequence.
 
-        :param tasks: Each task migh be:
+        :param tasks: Each task might be:
 
                       * A WorkflowTask instance, in which case, it will be
                         added to the graph with a dependency between it and
