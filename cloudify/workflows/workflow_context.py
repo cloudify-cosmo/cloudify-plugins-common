@@ -53,13 +53,16 @@ class CloudifyWorkflowRelationshipInstance(object):
 
     :param ctx: a CloudifyWorkflowContext instance
     :param node_instance: a CloudifyWorkflowNodeInstance instance
+    :param nodes_and_instances: a WorkflowNodesAndInstancesContainer instance
     :param relationship_instance: A relationship dict from a NodeInstance
            instance (of the rest client model)
     """
 
-    def __init__(self, ctx, node_instance, relationship_instance):
+    def __init__(self, ctx, node_instance, nodes_and_instances,
+                 relationship_instance):
         self.ctx = ctx
         self.node_instance = node_instance
+        self._nodes_and_instances = nodes_and_instances
         self._relationship_instance = relationship_instance
         self._relationship = node_instance.node.get_relationship(
             relationship_instance['target_name'])
@@ -74,7 +77,7 @@ class CloudifyWorkflowRelationshipInstance(object):
         """
         The relationship's target node CloudifyWorkflowNodeInstance instance
         """
-        return self.ctx.get_node_instance(self.target_id)
+        return self._nodes_and_instances.get_node_instance(self.target_id)
 
     @property
     def relationship(self):
@@ -128,13 +131,15 @@ class CloudifyWorkflowRelationship(object):
 
     :param ctx: a CloudifyWorkflowContext instance
     :param node: a CloudifyWorkflowNode instance
+    :param nodes_and_instances: a WorkflowNodesAndInstancesContainer instance
     :param relationship: a relationship dict from a Node instance (of the
            rest client mode)
     """
 
-    def __init__(self, ctx, node, relationship):
+    def __init__(self, ctx, node, nodes_and_instances, relationship):
         self.ctx = ctx
         self.node = node
+        self._nodes_and_instances = nodes_and_instances
         self._relationship = relationship
 
     @property
@@ -145,7 +150,7 @@ class CloudifyWorkflowRelationship(object):
     @property
     def target_node(self):
         """The relationship target node WorkflowContextNode instance"""
-        return self.ctx.get_node(self.target_id)
+        return self._nodes_and_instances.get_node(self.target_id)
 
     @property
     def source_operations(self):
@@ -172,9 +177,10 @@ class CloudifyWorkflowNodeInstance(object):
     :param ctx: a CloudifyWorkflowContext instance
     :param node: a CloudifyWorkflowContextNode instance
     :param node_instance: a NodeInstance (rest client response model)
+    :param nodes_and_instances: a WorkflowNodesAndInstancesContainer instance
     """
 
-    def __init__(self, ctx, node, node_instance):
+    def __init__(self, ctx, node, node_instance, nodes_and_instances):
         self.ctx = ctx
         self._node = node
         self._node_instance = node_instance
@@ -183,7 +189,8 @@ class CloudifyWorkflowNodeInstance(object):
         self._relationship_instances = dict(
             (relationship_instance['target_id'],
                 CloudifyWorkflowRelationshipInstance(
-                    self.ctx, self, relationship_instance))
+                    self.ctx, self, nodes_and_instances,
+                    relationship_instance))
             for relationship_instance in node_instance.relationships)
 
         # adding the node instance to the node instances map
@@ -316,14 +323,15 @@ class CloudifyWorkflowNode(object):
 
     :param ctx: a CloudifyWorkflowContext instance
     :param node: a Node instance (rest client response model)
+    :param nodes_and_instances: a WorkflowNodesAndInstancesContainer instance
     """
 
-    def __init__(self, ctx, node):
+    def __init__(self, ctx, node, nodes_and_instances):
         self.ctx = ctx
         self._node = node
         self._relationships = dict(
             (relationship['target_id'], CloudifyWorkflowRelationship(
-                self.ctx, self, relationship))
+                self.ctx, self, nodes_and_instances, relationship))
             for relationship in node.relationships)
         self._node_instances = {}
 
@@ -378,22 +386,19 @@ class WorkflowNodesAndInstancesContainer(object):
 
     def __init__(self, workflow_context, raw_nodes, raw_node_instances):
         self._nodes = dict(
-            (node.id, CloudifyWorkflowNode(workflow_context, node))
+            (node.id, CloudifyWorkflowNode(workflow_context, node, self))
             for node in raw_nodes)
 
         self._node_instances = dict(
             (instance.id, CloudifyWorkflowNodeInstance(
-                workflow_context, self._nodes[instance.node_id], instance))
+                workflow_context, self._nodes[instance.node_id], instance,
+                self))
             for instance in raw_node_instances)
 
         for inst in self._node_instances.itervalues():
             for rel in inst.relationships:
                 if rel.relationship.is_derived_from(
                         "cloudify.relationships.contained_in"):
-                    if rel.target_node_instance is None:
-                        #  TODO: context doesn't contain new nodes when we
-                        #  the use Modification class
-                        continue
                     rel.target_node_instance._add_contained_node_instance(inst)
 
     @property
