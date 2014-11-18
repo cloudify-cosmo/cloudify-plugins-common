@@ -122,6 +122,11 @@ def operation(func=None, **arguments):
                     'Exception raised on operation [%s] invocation',
                     ctx.task_name, exc_info=True)
 
+                if ctx.task_target is None:
+                    # local task execution
+                    # no serialization issues
+                    raise
+
                 # extract exception details
                 # type, value, traceback
                 tpe, value, tb = sys.exc_info()
