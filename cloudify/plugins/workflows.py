@@ -84,14 +84,14 @@ class NodeInstallationTasksSequenceCreator(object):
             sequence.add(*_host_post_start(instance))
 
         sequence.add(
-            installation_tasks.set_state_started[instance.id],
             forkjoin(
                 instance.execute_operation(
                     'cloudify.interfaces.monitoring.start'),
                 *_relationship_operations(
                     instance,
                     'cloudify.interfaces.relationship_lifecycle.establish'
-                )))
+                )),
+            installation_tasks.set_state_started[instance.id])
 
 
 class InstallationTasksGraphFinisher(object):
