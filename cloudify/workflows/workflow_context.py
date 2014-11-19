@@ -399,10 +399,6 @@ class WorkflowNodesAndInstancesContainer(object):
             for rel in inst.relationships:
                 if rel.relationship.is_derived_from(
                         "cloudify.relationships.contained_in"):
-                    if rel.target_node_instance is None:
-                        raise RuntimeError('rel instance {0} is missing for'
-                                           ' node instance {1}'
-                                           .format(rel.target_id, inst.id))
                     rel.target_node_instance._add_contained_node_instance(inst)
 
     @property
