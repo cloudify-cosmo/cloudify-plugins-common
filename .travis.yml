@@ -12,7 +12,7 @@ script:
 - tox -e $TOX_ENV
 deploy:
   provider: pypi
-  server: https://testpypi.python.org/pypi
+  server: https://pypi.python.org/pypi
   on:
     branch: pypi-release
     condition: $TOX_ENV = py27
