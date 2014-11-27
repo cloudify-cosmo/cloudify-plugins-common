@@ -91,10 +91,16 @@ def operation(func=None, **arguments):
     The ``ctx`` injected to the function arguments is of type
     ``cloudify.context.CloudifyContext``
 
+    The ``ctx`` object can also be accessed by importing
+    ``cloudify.ctx``
+
+
     Example::
 
+        from cloudify import ctx
+
         @operations
-        def start(ctx, **kwargs):
+        def start(**kwargs):
             pass
     """
     if func is not None:
@@ -175,11 +181,15 @@ def workflow(func=None, **arguments):
     The ``ctx`` injected to the function arguments is of type
     ``cloudify.workflows.workflow_context.CloudifyWorkflowContext``
 
+    The ``ctx`` object can also be accessed by importing
+    ``cloudify.workflows.ctx``
 
     Example::
 
+        from cloudify.workflows import ctx
+
         @workflow
-        def reinstall(ctx, **kwargs):
+        def reinstall(**kwargs):
             pass
     """
     if func is not None:
