@@ -49,6 +49,9 @@ class AMQPClient(object):
     def publish_event(self, event):
         self._publish(event, self.events_queue_name)
 
+    def close(self):
+        self.connection.close()
+
     def _publish(self, item, queue):
         self.events_queue.basic_publish(exchange='',
                                         routing_key=queue,
