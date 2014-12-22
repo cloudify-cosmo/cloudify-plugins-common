@@ -34,10 +34,16 @@ setup(
     author_email='cosmo-admin@gigaspaces.com',
     packages=['cloudify',
               'cloudify.workflows',
-              'cloudify.plugins'],
+              'cloudify.plugins',
+              'cloudify.proxy'],
     license='LICENSE',
     description='Contains necessary decorators and utility methods for '
                 'writing Cloudify plugins',
     zip_safe=False,
-    install_requires=install_requires
+    install_requires=install_requires,
+    entry_points={
+        'console_scripts': [
+            'ctx = cloudify.proxy.client:main',
+        ]
+    }
 )
