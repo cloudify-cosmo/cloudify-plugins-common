@@ -19,6 +19,8 @@ import threading
 import logging
 import json
 import datetime
+from time import strftime
+from time import gmtime
 
 from cloudify.amqp_client import create_client
 
@@ -250,7 +252,8 @@ def _send_event(ctx, context_type, event_type,
 
 
 def populate_base_item(item, message_type):
-    timestamp = str(datetime.datetime.now())[0:-3]
+    timezone = strftime("%z", gmtime())
+    timestamp = str(datetime.datetime.now())[0:-3] + timezone
     item['timestamp'] = timestamp
     item['message_code'] = None
     item['type'] = message_type
