@@ -19,13 +19,20 @@ install_requires = [
     'cloudify-rest-client==3.2a1',
     'pika==0.9.13',
     'networkx==1.8.1',
-    'proxy_tools==0.1.0'
+    'proxy_tools==0.1.0',
+    'bottle==0.12.7'
 ]
 
 try:
     import importlib    # noqa
 except ImportError:
     install_requires.append('importlib')
+
+try:
+    import argparse  # NOQA
+except ImportError, e:
+    install_requires.append('argparse==1.2.2')
+
 
 setup(
     name='cloudify-plugins-common',
@@ -34,10 +41,16 @@ setup(
     author_email='cosmo-admin@gigaspaces.com',
     packages=['cloudify',
               'cloudify.workflows',
-              'cloudify.plugins'],
+              'cloudify.plugins',
+              'cloudify.proxy'],
     license='LICENSE',
     description='Contains necessary decorators and utility methods for '
                 'writing Cloudify plugins',
     zip_safe=False,
-    install_requires=install_requires
+    install_requires=install_requires,
+    entry_points={
+        'console_scripts': [
+            'ctx = cloudify.proxy.client:main',
+        ]
+    }
 )
