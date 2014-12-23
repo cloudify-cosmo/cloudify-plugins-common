@@ -296,7 +296,8 @@ def _remote_workflow(ctx, func, args, kwargs):
                 # send a 'cancel' message to the child process. It
                 # is up to the workflow implementation to check for
                 # this message and act accordingly (by stopping and
-                # returning a api.EXECUTION_CANCELLED_RESULT result).
+                # returning a api.EXECUTION_CANCELLED_RESULT result or
+                # raising an api.ExecutionCancelled error).
                 # parent process then goes back to polling for
                 # messages from child process or possibly
                 # 'force-cancelling' requests

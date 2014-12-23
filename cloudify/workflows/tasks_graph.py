@@ -99,17 +99,21 @@ class TaskDependencyGraph(object):
             3. an unhandled exception is raised
             4. the execution is cancelled
 
-        Note: This method will return None unless the execution has been
-        cancelled, in which case the return value will be
-        ``api.EXECUTION_CANCELLED_RESULT``. Callers of this method should
-        check the return value and propagate the result in the latter case.
+        Note: This method will raise an api.ExecutionCancelled error if the
+        execution has been cancelled. When catching errors raised from this
+        method, make sure to re-raise the error if it's
+        api.ExecutionsCancelled in order to allow the execution to be set in
+        cancelled mode properly.
 
         Also note that for the time being, if such a cancelling event
         occurs, the method might return even while there's some operations
         still being executed.
         """
 
-        while not self._is_execution_cancelled():
+        while True:
+
+            if self._is_execution_cancelled():
+                raise api.ExecutionCancelled()
 
             # handle all terminated tasks
             # it is important this happens before handling
@@ -129,8 +133,6 @@ class TaskDependencyGraph(object):
             # sleep some and do it all over again
             else:
                 time.sleep(0.1)
-
-        return api.EXECUTION_CANCELLED_RESULT
 
     def _is_execution_cancelled(self):
         return api.has_cancel_request()
