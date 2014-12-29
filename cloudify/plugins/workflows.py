@@ -173,7 +173,7 @@ def _install_node_instances(ctx, node_instances, intact_nodes,
         tasks
     ).finish_creation()
 
-    return graph.execute()
+    graph.execute()
 
 
 class UninstallationTasksReferences(object):
@@ -324,7 +324,7 @@ def _uninstall_node_instances(ctx, node_instances, intact_nodes,
         tasks_refs
     ).finish_creation()
 
-    return graph.execute()
+    graph.execute()
 
 
 def _set_send_node_event_on_error_handler(task, node_instance, error_message):
@@ -527,7 +527,7 @@ def execute_operation(ctx, operation, operation_kwargs,
                     graph.add_dependency(instance_starting_task,
                                          target_done_task)
 
-    return graph.execute()
+    graph.execute()
 
 
 @workflow

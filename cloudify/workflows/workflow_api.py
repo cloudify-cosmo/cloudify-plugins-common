@@ -30,8 +30,11 @@ def has_cancel_request():
     request for the execution will have no effect - 'force-cancel' will have
     to be used to abruptly terminate the execution instead.
 
-    Note: When using this method, the workflow must return
-    ``EXECUTION_CANCELLED_RESULT`` if indeed the execution gets cancelled.
+    Note: When this method returns True, the workflow should make the
+    appropriate cleanups and then it must raise an ExecutionCancelled error
+    if the execution indeed gets cancelled (i.e. if it's too late to cancel
+    there is no need to raise this exception and the workflow should end
+    normally).
 
     :return: whether there was a request to cancel the workflow execution
     """
@@ -43,7 +46,7 @@ def has_cancel_request():
 
 class ExecutionCancelled(Exception):
     """
-    Raised by the workflow engine when the workflow was cancelled during
-    a blocking call to some workflow task's ``task.get()``
+    This exception should be raised when a workflow has been cancelled,
+    once appropriate cleanups have taken place.
     """
     pass
