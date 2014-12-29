@@ -16,7 +16,7 @@ deploy:
   server: https://pypi.python.org/pypi
   on:
     branch: pypi-release
-  condition: $TOX_ENV = py27
+    condition: $TOX_ENV = py27
   user: cosmo-maint
   password:
     secure: "dBC9HuH9geZJIDAPcqGtzgJlWKdiAkruYI2jkx5MemQZ4ylfoPuDvS7PSf8n/CCse9hrKdZHIzBaCSGpI+Jv0je+WYz2GKK0cSvte0XUWdvezurECqyMQgYo1jqXn1QWBZ6UhbzOhPmcKJj/doZ55Tc98HwSW1tW4GscfdUUGIA="
@@ -24,7 +24,7 @@ deploy:
   server: https://pypitest.python.org/pypi
   on:
     branch: pypi-test
-  condition: $TOX_ENV = py27
+    condition: $TOX_ENV = py27
   user: cosmo-maint
   password:
     secure: "dyA0m7fcL+hktvU1a5/AIwJhJ0locRqnjMt3N2McoNjyQwG1v5dGaFWhsLwlO9eHlB+vgn9qdP7LtRCfNwxmCwAD6PfU2Ks2bP0ejzOWGYOMiSv9YBp2HnA8ucCO48ghVv0UuNRL2qIg/6UNOqHvcxUYVEV9IuFg93eRWW1MyJ0="
