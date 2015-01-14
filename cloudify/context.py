@@ -17,7 +17,7 @@ import warnings
 
 from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
 from cloudify.logs import init_cloudify_logger
-from cloudify.exceptions import NonRecoverableError
+from cloudify import exceptions
 
 
 DEPLOYMENT = 'deployment'
@@ -43,7 +43,7 @@ class ContextCapabilities(object):
         if len(ls) == 0:
             return False, None
         if len(ls) > 1:
-            raise NonRecoverableError(
+            raise exceptions.NonRecoverableError(
                 "'{0}' capability ambiguity [capabilities={1}]".format(
                     key, self._capabilities))
         return True, ls[0][key]
@@ -51,7 +51,7 @@ class ContextCapabilities(object):
     def __getitem__(self, key):
         found, value = self._find_item(key)
         if not found:
-            raise NonRecoverableError(
+            raise exceptions.NonRecoverableError(
                 "capability '{0}' not found [capabilities={1}]".format(
                     key, self._capabilities))
         return value
@@ -416,6 +416,7 @@ class CloudifyContext(CommonContext):
         self._instance = None
         self._source = None
         self._target = None
+        self._operation = OperationContext(self._context.get('operation', {}))
 
         capabilities_node_instance = None
         if 'related' in self._context:
@@ -450,20 +451,20 @@ class CloudifyContext(CommonContext):
 
     def _verify_in_node_context(self):
         if self.type != NODE_INSTANCE:
-            raise NonRecoverableError(
+            raise exceptions.NonRecoverableError(
                 'ctx.node/ctx.instance can only be used in a {0} context but '
                 'used in a {1} context.'.format(NODE_INSTANCE, self.type))
 
     def _verify_in_relationship_context(self):
         if self.type != RELATIONSHIP_INSTANCE:
-            raise NonRecoverableError(
+            raise exceptions.NonRecoverableError(
                 'ctx.source/ctx.target can only be used in a {0} context but '
                 'used in a {1} context.'.format(RELATIONSHIP_INSTANCE,
                                                 self.type))
 
     def _verify_in_node_or_relationship_context(self):
         if self.type not in [NODE_INSTANCE, RELATIONSHIP_INSTANCE]:
-            raise NonRecoverableError(
+            raise exceptions.NonRecoverableError(
                 'capabilities can only be used in a {0}/{1} context but '
                 'used in a {2} context.'.format(NODE_INSTANCE,
                                                 RELATIONSHIP_INSTANCE,
@@ -564,10 +565,9 @@ class CloudifyContext(CommonContext):
     @property
     def operation(self):
         """
-        The node operation name which is mapped to this task invocation.
-        For example: ``cloudify.interfaces.lifecycle.start``
+        The current operation context.
         """
-        return self._context.get('operation')
+        return self._operation
 
     @property
     def capabilities(self):
@@ -669,6 +669,47 @@ class CloudifyContext(CommonContext):
         return init_cloudify_logger(handler, logger_name)
 
 
+class OperationContext(object):
+
+    def __init__(self, operation_context):
+        self._operation_context = operation_context or {}
+        if not isinstance(self._operation_context, dict):
+            raise exceptions.NonRecoverableError(
+                'operation_context is expected to be a dict but is:'
+                '{0}'.format(self._operation_context))
+        self._operation_retry = None
+
+    @property
+    def name(self):
+        """The name of the operation."""
+        return self._operation_context.get('name')
+
+    @property
+    def retry_number(self):
+        """The retry number (relevant for retries and recoverable errors)."""
+        return self._operation_context.get('retry_number')
+
+    @property
+    def max_retries(self):
+        """The maximum number of retries the operation can have."""
+        return self._operation_context.get('max_retries')
+
+    def retry(self, message=None, retry_after=None):
+        """Specifies that this operation should be retried.
+
+        Usage:
+          return ctx.operation.retry(message='...', retry_after=1000)
+
+        :param message A text message containing information about the reason
+                       for retrying the operation.
+        :param retry_after How many seconds should the workflow engine wait
+                           before re-executing the operation.
+        """
+        self._operation_retry = exceptions.OperationRetry(
+            message=message,
+            retry_after=retry_after)
+
+
 class ImmutableProperties(dict):
     """
     Of course this is not actually immutable, but it is good enough to provide
@@ -678,7 +719,8 @@ class ImmutableProperties(dict):
 
     @staticmethod
     def _raise():
-        raise NonRecoverableError('Cannot override read only properties')
+        raise exceptions.NonRecoverableError(
+            'Cannot override read only properties')
 
     def __setitem__(self, key, value):
         self._raise()

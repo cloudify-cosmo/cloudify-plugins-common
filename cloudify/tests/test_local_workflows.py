@@ -660,7 +660,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
                              ctx.task_name)
             self.assertIsNone(ctx.task_target)
             self.assertEqual('p', ctx.plugin)
-            self.assertEqual('test.op0', ctx.operation)
+            self.assertEqual('test.op0', ctx.operation.name)
             self.assertThat(ctx.node.properties.items(),
                             ContainsAll({'property': 'value'}.items()))
             self.assertEqual('content', ctx.get_resource('resource'))
