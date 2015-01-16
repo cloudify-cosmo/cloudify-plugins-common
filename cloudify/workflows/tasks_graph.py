@@ -115,6 +115,8 @@ class TaskDependencyGraph(object):
             if self._is_execution_cancelled():
                 raise api.ExecutionCancelled()
 
+            self.dump_if_needed()
+
             # handle all terminated tasks
             # it is important this happens before handling
             # executable tasks so we get to make tasks executable
@@ -200,6 +202,26 @@ class TaskDependencyGraph(object):
             added_edges = [(dependent, new_task.id)
                            for dependent in dependents]
             self.graph.add_edges_from(added_edges)
+
+    def dump_if_needed(self):
+        import os
+        import json
+        task_dump = os.environ.get('WORKFLOW_TASK_DUMP')
+        if not task_dump:
+            return
+        if not os.path.exists(task_dump):
+            return
+        os.remove(task_dump)
+        task_dump_path = '{0}.{1}'.format(task_dump, time.time())
+        tasks_dump = []
+        edges = []
+        for task in self.tasks_iter():
+            tasks_dump.append(task.dump())
+        for s, t in self.graph.edges_iter():
+            edges.append([s, t])
+        with open(task_dump_path, 'w') as f:
+            f.write(json.dumps({'tasks': tasks_dump,
+                                'edges': edges}))
 
 
 class forkjoin(object):

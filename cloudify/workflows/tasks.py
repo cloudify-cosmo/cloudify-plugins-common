@@ -95,6 +95,16 @@ class WorkflowTask(object):
         # graph during retries
         self.execute_after = time.time()
 
+    def dump(self):
+        return {
+            'id': self.id,
+            'state': self._state,
+            'info': self.info,
+            'error': self.error,
+            'current_retries': self.current_retries,
+            'cloudify_context': self.cloudify_context
+        }
+
     def is_remote(self):
         """
         :return: Is this a remote task
@@ -389,6 +399,13 @@ class LocalWorkflowTask(WorkflowTask):
         self.node = node
         self.kwargs = kwargs or {}
         self._name = name or local_task.__name__
+
+    def dump(self):
+        super_dump = super(LocalWorkflowTask, self).dump()
+        super_dump.update({
+            'name': self._name
+        })
+        return super_dump
 
     def apply_async(self):
         """
