@@ -27,9 +27,7 @@ from cloudify.workflows.workflow_context import CloudifyWorkflowContext
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
-from cloudify.exceptions import ProcessExecutionError
-from cloudify.exceptions import RecoverableError
-from cloudify.exceptions import NonRecoverableError
+from cloudify import exceptions
 from cloudify.state import current_ctx, current_workflow_ctx
 
 _stub_task = lambda fn: fn
@@ -146,14 +144,14 @@ def operation(func=None, **arguments):
                 # preserve original type in the message
                 message = '{0}: {1}'.format(tpe.__name__, str(e))
 
-                if isinstance(e, NonRecoverableError):
-                    value = NonRecoverableError(message)
-                elif isinstance(e, RecoverableError):
-                    value = RecoverableError(message, e.retry_after)
+                if isinstance(e, exceptions.NonRecoverableError):
+                    value = exceptions.NonRecoverableError(message)
+                elif isinstance(e, exceptions.RecoverableError):
+                    value = exceptions.RecoverableError(message, e.retry_after)
                 else:
                     # convert pure user exceptions
                     # to a RecoverableError
-                    value = RecoverableError(message)
+                    value = exceptions.RecoverableError(message)
 
                 raise type(value), value, tb
 
@@ -164,6 +162,8 @@ def operation(func=None, **arguments):
                 elif ctx.type == context.RELATIONSHIP_INSTANCE:
                     ctx.source.instance.update()
                     ctx.target.instance.update()
+            if ctx.operation._operation_retry:
+                raise ctx.operation._operation_retry
             return result
         return _process_wrapper(wrapper, arguments)
     else:
@@ -281,9 +281,9 @@ def _remote_workflow(ctx, func, args, kwargs):
                 else:
                     # error occurred in child process
                     error = data['error']
-                    raise ProcessExecutionError(error['message'],
-                                                error['type'],
-                                                error['traceback'])
+                    raise exceptions.ProcessExecutionError(error['message'],
+                                                           error['type'],
+                                                           error['traceback'])
             # check for 'cancel' requests
             execution = rest.executions.get(ctx.execution_id)
             if execution.status == Execution.FORCE_CANCELLING:
@@ -313,7 +313,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             _send_workflow_succeeded_event(ctx)
         return result
     except BaseException as e:
-        if isinstance(e, ProcessExecutionError):
+        if isinstance(e, exceptions.ProcessExecutionError):
             error_traceback = e.traceback
         else:
             error = StringIO()

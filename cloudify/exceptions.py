@@ -13,8 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-__author__ = 'elip'
-
 
 class NonRecoverableError(Exception):
     """
@@ -44,6 +42,15 @@ class RecoverableError(Exception):
             message = '{0} [retry_after={1}]'.format(message, retry_after)
         super(RecoverableError, self).__init__(message)
         self.retry_after = retry_after
+
+
+class OperationRetry(RecoverableError):
+    """
+    An error raised internally when an operation uses the ctx.operation.retry
+    API for specifying that an operation should be retried.
+    """
+    def __init__(self, message=None, retry_after=None):
+        super(OperationRetry, self).__init__(message, retry_after)
 
 
 class HttpException(NonRecoverableError):
