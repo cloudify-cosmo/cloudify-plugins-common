@@ -551,12 +551,17 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         task_queue = self.internal.handler.get_operation_task_queue(
             node_instance, operation_executor)
         task_name = operation_mapping
+        total_retries = self.internal.get_task_configuration()['total_retries']
 
         node_context = {
             'node_id': node_instance.id,
             'node_name': node_instance.node_id,
             'plugin': plugin_name,
-            'operation': operation,
+            'operation': {
+                'name': operation,
+                'retry_number': 0,
+                'max_retries': total_retries
+            },
             'has_intrinsic_functions': has_intrinsic_functions,
         }
         if related_node_instance is not None:

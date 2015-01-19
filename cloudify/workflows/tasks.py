@@ -167,10 +167,8 @@ class WorkflowTask(object):
                     handler_result.ignore_total_retries]):
                 if handler_result.retry_after is None:
                     handler_result.retry_after = self.retry_interval
-                new_task = self.duplicate()
-                new_task.current_retries += 1
-                new_task.execute_after = time.time() +\
-                    handler_result.retry_after
+                new_task = self.duplicate_for_retry(
+                    time.time() + handler_result.retry_after)
                 handler_result.retried_task = new_task
             else:
                 handler_result.action = HandlerResult.HANDLER_FAIL
@@ -210,11 +208,23 @@ class WorkflowTask(object):
         suffix = self.info if self.info is not None else ''
         return '{0}({1})'.format(self.name, suffix)
 
-    def duplicate(self):
+    def duplicate_for_retry(self, execute_after):
         """
         :return: A new instance of this task with a new task id
         """
+        dup = self._duplicate()
+        dup.execute_after = execute_after
+        dup.current_retries = self.current_retries + 1
+        if dup.cloudify_context:
+            op_ctx = dup.cloudify_context['operation']
+            op_ctx['retry_number'] = dup.current_retries
+        return dup
 
+    def _duplicate(self):
+        raise NotImplementedError('Implemented by subclasses')
+
+    @property
+    def cloudify_context(self):
         raise NotImplementedError('Implemented by subclasses')
 
     @property
@@ -277,7 +287,7 @@ class RemoteWorkflowTask(WorkflowTask):
             retry_interval=retry_interval,
             send_task_events=send_task_events)
         self.task = task
-        self.cloudify_context = cloudify_context
+        self._cloudify_context = cloudify_context
 
     def apply_async(self):
         """
@@ -305,7 +315,7 @@ class RemoteWorkflowTask(WorkflowTask):
     def is_local(self):
         return False
 
-    def duplicate(self):
+    def _duplicate(self):
         dup = RemoteWorkflowTask(task=self.task,
                                  cloudify_context=self.cloudify_context,
                                  workflow_context=self.workflow_context,
@@ -317,13 +327,16 @@ class RemoteWorkflowTask(WorkflowTask):
                                  retry_interval=self.retry_interval,
                                  send_task_events=self.send_task_events)
         dup.cloudify_context['task_id'] = dup.id
-        dup.current_retries = self.current_retries
         return dup
 
     @property
     def name(self):
         """The task name"""
         return self.cloudify_context['task_name']
+
+    @property
+    def cloudify_context(self):
+        return self._cloudify_context
 
     @property
     def target(self):
@@ -440,7 +453,7 @@ class LocalWorkflowTask(WorkflowTask):
     def is_local(self):
         return True
 
-    def duplicate(self):
+    def _duplicate(self):
         dup = LocalWorkflowTask(local_task=self.local_task,
                                 workflow_context=self.workflow_context,
                                 node=self.node,
@@ -452,7 +465,6 @@ class LocalWorkflowTask(WorkflowTask):
                                 send_task_events=self.send_task_events,
                                 kwargs=self.kwargs,
                                 name=self.name)
-        dup.current_retries = self.current_retries
         return dup
 
     @property
@@ -462,7 +474,6 @@ class LocalWorkflowTask(WorkflowTask):
 
     @property
     def cloudify_context(self):
-        """The task cloudify context (may be None for simple local tasks)"""
         return self.kwargs.get('__cloudify_context')
 
 

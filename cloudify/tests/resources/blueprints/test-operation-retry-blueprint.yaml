@@ -1,0 +1,20 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+plugins:
+  mock:
+    source: source
+    executor: central_deployment_agent
+    install: false
+
+node_types:
+  custom_type:
+    interfaces:
+      lifecycle:
+        start: mock.cloudify.tests.test_operation_retry.node_operation_retry
+
+node_templates:
+  node:
+    type: custom_type
+
+workflows:
+  execute_operation: mock.cloudify.tests.test_operation_retry.execute_operation
