@@ -263,10 +263,6 @@ def _remote_workflow(ctx, func, args, kwargs):
 
         # starting workflow execution on child process
         p = Process(target=child_wrapper)
-        try:
-            Process._current_process._daemonic = False
-        except:
-            pass
         p.start()
 
         # while the child process is executing the workflow,
