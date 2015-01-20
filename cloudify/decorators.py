@@ -16,11 +16,11 @@
 
 import traceback
 import copy
-from multiprocessing import Process
-from multiprocessing import Pipe
+import sys
+import Queue
+from threading import Thread
 from StringIO import StringIO
 from functools import wraps
-import sys
 
 from cloudify import context
 from cloudify.workflows.workflow_context import CloudifyWorkflowContext
@@ -221,7 +221,7 @@ def _remote_workflow(ctx, func, args, kwargs):
         _send_workflow_cancelled_event(ctx)
 
     rest = get_rest_client()
-    parent_conn, child_conn = Pipe()
+    parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:
         if rest.executions.get(ctx.execution_id).status in \
                 (Execution.CANCELLING, Execution.FORCE_CANCELLING):
@@ -242,9 +242,9 @@ def _remote_workflow(ctx, func, args, kwargs):
                 ctx.internal.start_event_monitor()
                 workflow_result = _execute_workflow_function(
                     ctx, func, args, kwargs)
-                child_conn.send({'result': workflow_result})
+                child_queue.put({'result': workflow_result})
             except api.ExecutionCancelled:
-                child_conn.send({
+                child_queue.put({
                     'result': api.EXECUTION_CANCELLED_RESULT})
             except BaseException as workflow_ex:
                 tb = StringIO()
@@ -254,15 +254,12 @@ def _remote_workflow(ctx, func, args, kwargs):
                     'message': str(workflow_ex),
                     'traceback': tb.getvalue()
                 }
-                child_conn.send({'error': err})
-            finally:
-                child_conn.close()
+                child_queue.put({'error': err})
 
-        api.ctx = ctx
-        api.pipe = child_conn
+        api.queue = parent_queue
 
         # starting workflow execution on child process
-        p = Process(target=child_wrapper)
+        p = Thread(target=child_wrapper)
         p.start()
 
         # while the child process is executing the workflow,
@@ -272,8 +269,8 @@ def _remote_workflow(ctx, func, args, kwargs):
         result = None
         while True:
             # check if child process sent a message
-            if parent_conn.poll(5):
-                data = parent_conn.recv()
+            try:
+                data = child_queue.get(timeout=5)
                 if 'result' in data:
                     # child process has terminated
                     result = data['result']
@@ -284,6 +281,8 @@ def _remote_workflow(ctx, func, args, kwargs):
                     raise exceptions.ProcessExecutionError(error['message'],
                                                            error['type'],
                                                            error['traceback'])
+            except Queue.Empty:
+                pass
             # check for 'cancel' requests
             execution = rest.executions.get(ctx.execution_id)
             if execution.status == Execution.FORCE_CANCELLING:
@@ -301,7 +300,7 @@ def _remote_workflow(ctx, func, args, kwargs):
                 # parent process then goes back to polling for
                 # messages from child process or possibly
                 # 'force-cancelling' requests
-                parent_conn.send({'action': 'cancel'})
+                parent_queue.put({'action': 'cancel'})
                 has_sent_cancelling_action = True
 
         # updating execution status and sending events according to
@@ -323,9 +322,6 @@ def _remote_workflow(ctx, func, args, kwargs):
                                 error_traceback)
         _send_workflow_failed_event(ctx, e, error_traceback)
         raise
-    finally:
-        parent_conn.close()
-        child_conn.close()  # probably unneeded but cleanup anyway
 
 
 def _local_workflow(ctx, func, args, kwargs):
