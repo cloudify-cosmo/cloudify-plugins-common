@@ -19,7 +19,6 @@ import time
 import uuid
 import Queue
 
-
 from cloudify.exceptions import NonRecoverableError, RecoverableError
 from cloudify.workflows import api
 
@@ -140,7 +139,6 @@ class WorkflowTask(object):
         :param state: The state to set [pending, sending, sent, started,
                                            succeeded, failed]
         """
-
         if state not in [TASK_PENDING, TASK_SENDING, TASK_SENT, TASK_STARTED,
                          TASK_SUCCEEDED, TASK_FAILED]:
             raise RuntimeError('Illegal state set on task: {0} '
