@@ -311,8 +311,8 @@ class RemoteWorkflowTask(WorkflowTask):
         try:
             self._verify_task_registered()
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
-            async_result = self.task.apply_async(task_id=self.id)
             self.set_state(TASK_SENT)
+            async_result = self.task.apply_async(task_id=self.id)
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except NonRecoverableError as e:
             self.set_state(TASK_FAILED)
@@ -456,8 +456,8 @@ class LocalWorkflowTask(WorkflowTask):
         self.async_result = LocalWorkflowTaskResult(self)
 
         self.workflow_context.internal.send_task_event(TASK_SENDING, self)
-        self.workflow_context.internal.add_local_task(local_task_wrapper)
         self.set_state(TASK_SENT)
+        self.workflow_context.internal.add_local_task(local_task_wrapper)
 
         return self.async_result
 
