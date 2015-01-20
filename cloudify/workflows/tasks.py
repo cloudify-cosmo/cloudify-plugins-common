@@ -18,6 +18,8 @@ import sys
 import time
 import uuid
 import Queue
+import threading
+
 
 from cloudify.exceptions import NonRecoverableError, RecoverableError
 from cloudify.workflows import api
@@ -76,6 +78,7 @@ class WorkflowTask(object):
         :param workflow_context: the CloudifyWorkflowContext instance
         """
         self.id = task_id or str(uuid.uuid4())
+        self._state_lock = threading.Lock()
         self._state = TASK_PENDING
         self.async_result = None
         self.on_success = on_success
@@ -98,7 +101,7 @@ class WorkflowTask(object):
     def dump(self):
         return {
             'id': self.id,
-            'state': self._state,
+            'state': self.get_state(),
             'info': self.info,
             'error': self.error,
             'current_retries': self.current_retries,
@@ -130,7 +133,8 @@ class WorkflowTask(object):
         :return: The task state [pending, sending, sent, started, succeeded,
                                  failed]
         """
-        return self._state
+        with self._state_lock:
+            return self._state
 
     def set_state(self, state):
         """
@@ -144,11 +148,11 @@ class WorkflowTask(object):
                          TASK_SUCCEEDED, TASK_FAILED]:
             raise RuntimeError('Illegal state set on task: {0} '
                                '[task={1}]'.format(state, str(self)))
-
-        self._state = state
-        if state in [TASK_SUCCEEDED, TASK_FAILED]:
-            self.is_terminated = True
-            self.terminated.put_nowait(True)
+        with self._state_lock:
+            self._state = state
+            if state in [TASK_SUCCEEDED, TASK_FAILED]:
+                self.is_terminated = True
+                self.terminated.put_nowait(True)
 
     def wait_for_terminated(self, timeout=None):
         if self.is_terminated:
