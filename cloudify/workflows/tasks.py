@@ -80,6 +80,7 @@ class WorkflowTask(object):
         self.id = task_id or str(uuid.uuid4())
         self._state_lock = threading.Lock()
         self._state = TASK_PENDING
+        self._states = [self.get_state()]
         self.async_result = None
         self.on_success = on_success
         self.on_failure = on_failure
@@ -102,6 +103,7 @@ class WorkflowTask(object):
         return {
             'id': self.id,
             'state': self.get_state(),
+            'states': self.get_states(),
             'info': self.info,
             'error': self.error,
             'current_retries': self.current_retries,
@@ -136,6 +138,10 @@ class WorkflowTask(object):
         with self._state_lock:
             return self._state
 
+    def get_states(self):
+        with self._state_lock:
+            return self._states
+
     def set_state(self, state):
         """
         Set the task state
@@ -150,6 +156,7 @@ class WorkflowTask(object):
                                '[task={1}]'.format(state, str(self)))
         with self._state_lock:
             self._state = state
+            self._states.append(state)
             if state in [TASK_SUCCEEDED, TASK_FAILED]:
                 self.is_terminated = True
                 self.terminated.put_nowait(True)
