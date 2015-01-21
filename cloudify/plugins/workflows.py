@@ -573,10 +573,9 @@ def auto_heal_reinstall_node_subgraph(
     :param diagnose_value: diagnosed reason of failure
     """
 
+    ctx.logger.info("Starting 'heal' workflow on {0}, Diagnosis: {0}"
+                    .format(node_id, diagnose_value))
     failing_node = ctx.get_node_instance(node_id)
-    # TODO: this is a workaround until a better fix is introduced
-    if failing_node.get_state().get() != "started":
-        return
     failing_node_host = ctx.get_node_instance(
         failing_node._node_instance.host_id
     )
