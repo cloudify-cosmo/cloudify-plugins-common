@@ -95,6 +95,16 @@ class WorkflowTask(object):
         # graph during retries
         self.execute_after = time.time()
 
+    def dump(self):
+        return {
+            'id': self.id,
+            'state': self.get_state(),
+            'info': self.info,
+            'error': self.error,
+            'current_retries': self.current_retries,
+            'cloudify_context': self.cloudify_context
+        }
+
     def is_remote(self):
         """
         :return: Is this a remote task
@@ -129,12 +139,10 @@ class WorkflowTask(object):
         :param state: The state to set [pending, sending, sent, started,
                                            succeeded, failed]
         """
-
         if state not in [TASK_PENDING, TASK_SENDING, TASK_SENT, TASK_STARTED,
                          TASK_SUCCEEDED, TASK_FAILED]:
             raise RuntimeError('Illegal state set on task: {0} '
                                '[task={1}]'.format(state, str(self)))
-
         self._state = state
         if state in [TASK_SUCCEEDED, TASK_FAILED]:
             self.is_terminated = True
@@ -290,8 +298,8 @@ class RemoteWorkflowTask(WorkflowTask):
         try:
             self._verify_task_registered()
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
-            async_result = self.task.apply_async(task_id=self.id)
             self.set_state(TASK_SENT)
+            async_result = self.task.apply_async(task_id=self.id)
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except NonRecoverableError as e:
             self.set_state(TASK_FAILED)
@@ -403,6 +411,13 @@ class LocalWorkflowTask(WorkflowTask):
         self.kwargs = kwargs or {}
         self._name = name or local_task.__name__
 
+    def dump(self):
+        super_dump = super(LocalWorkflowTask, self).dump()
+        super_dump.update({
+            'name': self._name
+        })
+        return super_dump
+
     def apply_async(self):
         """
         Execute the task in the local task thread pool
@@ -428,8 +443,8 @@ class LocalWorkflowTask(WorkflowTask):
         self.async_result = LocalWorkflowTaskResult(self)
 
         self.workflow_context.internal.send_task_event(TASK_SENDING, self)
-        self.workflow_context.internal.add_local_task(local_task_wrapper)
         self.set_state(TASK_SENT)
+        self.workflow_context.internal.add_local_task(local_task_wrapper)
 
         return self.async_result
 

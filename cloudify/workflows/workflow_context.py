@@ -787,7 +787,9 @@ class CloudifyWorkflowContextInternal(object):
                     retry_interval=retry_interval)
 
     def _get_bootstrap_context(self):
-        return self.handler.bootstrap_context
+        if self._bootstrap_context is None:
+            self._bootstrap_context = self.handler.bootstrap_context
+        return self._bootstrap_context
 
     @property
     def task_graph(self):
