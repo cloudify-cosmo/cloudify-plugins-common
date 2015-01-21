@@ -560,7 +560,7 @@ def uninstall(ctx, **kwargs):
 def auto_heal_reinstall_node_subgraph(
         ctx,
         node_id,
-        diagnose_value=None,
+        diagnose_value='Not provided',
         **kwargs):
     """Reinstalls the whole subgraph of the system topology
 
