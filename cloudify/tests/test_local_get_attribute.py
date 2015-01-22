@@ -49,11 +49,13 @@ class TestLocalWorkflowGetAttribute(testtools.TestCase):
 
             # update payload
             with storage.payload() as payload:
-                payload['payload_key'] = 'payload_key'
+                payload['payload_key'] = 'payload_key_value'
 
             # read payload
-            with storage.payload() as payload:
-                self.assertEqual(payload['payload_key'], 'payload_key')
+            storage2 = local.FileStorage(tempdir)
+            self.env = local.load_env(self.env.name, storage=storage2)
+            with storage2.payload() as payload:
+                self.assertEqual(payload['payload_key'], 'payload_key_value')
         finally:
             shutil.rmtree(tempdir)
 
