@@ -234,9 +234,9 @@ def _remote_workflow(ctx, func, args, kwargs):
         _send_workflow_started_event(ctx)
 
         # the actual execution of the workflow will run in another
-        # process - this wrapper is the entry point for that
-        # process, and takes care of forwarding the result or error
-        # back to the parent process
+        # thread - this wrapper is the entry point for that
+        # thread, and takes care of forwarding the result or error
+        # back to the parent thread
         def child_wrapper():
             try:
                 ctx.internal.start_event_monitor()
@@ -255,28 +255,30 @@ def _remote_workflow(ctx, func, args, kwargs):
                     'traceback': tb.getvalue()
                 }
                 child_queue.put({'error': err})
+            finally:
+                ctx.internal.stop_event_monitor()
 
         api.queue = parent_queue
 
-        # starting workflow execution on child process
-        p = Thread(target=child_wrapper)
-        p.start()
+        # starting workflow execution on child thread
+        t = Thread(target=child_wrapper)
+        t.start()
 
-        # while the child process is executing the workflow,
-        # the parent process is polling for 'cancel' requests while
-        # also waiting for messages from the child process
+        # while the child thread is executing the workflow,
+        # the parent thread is polling for 'cancel' requests while
+        # also waiting for messages from the child thread
         has_sent_cancelling_action = False
         result = None
         while True:
-            # check if child process sent a message
+            # check if child thread sent a message
             try:
                 data = child_queue.get(timeout=5)
                 if 'result' in data:
-                    # child process has terminated
+                    # child thread has terminated
                     result = data['result']
                     break
                 else:
-                    # error occurred in child process
+                    # error occurred in child thread
                     error = data['error']
                     raise exceptions.ProcessExecutionError(error['message'],
                                                            error['type'],
@@ -286,18 +288,16 @@ def _remote_workflow(ctx, func, args, kwargs):
             # check for 'cancel' requests
             execution = rest.executions.get(ctx.execution_id)
             if execution.status == Execution.FORCE_CANCELLING:
-                # terminate the child process immediately
-                p.terminate()
                 result = api.EXECUTION_CANCELLED_RESULT
                 break
             elif not has_sent_cancelling_action and \
                     execution.status == Execution.CANCELLING:
-                # send a 'cancel' message to the child process. It
+                # send a 'cancel' message to the child thread. It
                 # is up to the workflow implementation to check for
                 # this message and act accordingly (by stopping and
                 # raising an api.ExecutionCancelled error, or by returning
                 # the deprecated api.EXECUTION_CANCELLED_RESULT as result).
-                # parent process then goes back to polling for
+                # parent thread then goes back to polling for
                 # messages from child process or possibly
                 # 'force-cancelling' requests
                 parent_queue.put({'action': 'cancel'})

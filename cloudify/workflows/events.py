@@ -27,6 +27,8 @@ class Monitor(object):
                             events task id.
         """
         self.tasks_graph = tasks_graph
+        self._receiver = None
+        self._should_stop = False
 
     def task_sent(self, event):
         pass
@@ -61,7 +63,7 @@ class Monitor(object):
         # Only called when celery is used so we import it here
         from cloudify.celery import celery
         with celery.connection() as connection:
-            receive = celery.events.Receiver(connection, handlers={
+            self._receiver = celery.events.Receiver(connection, handlers={
                 'task-sent': self.task_sent,
                 'task-received': self.task_received,
                 'task-started': self.task_started,
@@ -70,7 +72,15 @@ class Monitor(object):
                 'task-revoked': self.task_revoked,
                 'task-retried': self.task_retried
             })
-            receive.capture(limit=None, timeout=None, wakeup=True)
+            for _ in self._receiver.itercapture(limit=None,
+                                                timeout=None,
+                                                wakeup=True):
+                if self._should_stop:
+                    return
+
+    def stop(self):
+        self._should_stop = True
+        self._receiver.should_stop = True
 
 
 def send_task_event_func_remote(task, event_type, message):

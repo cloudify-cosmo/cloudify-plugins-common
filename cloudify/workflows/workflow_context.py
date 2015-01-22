@@ -768,6 +768,7 @@ class CloudifyWorkflowContextInternal(object):
 
         # events related
         self._event_monitor = None
+        self._event_monitor_thread = None
 
         # local task processing
         thread_pool_size = self.workflow_context._local_task_thread_pool_size
@@ -803,14 +804,6 @@ class CloudifyWorkflowContextInternal(object):
     def graph_mode(self, graph_mode):
         self._graph_mode = graph_mode
 
-    @property
-    def event_monitor(self):
-        return self._event_monitor
-
-    @event_monitor.setter
-    def event_monitor(self, value):
-        self._event_monitor = value
-
     def start_event_monitor(self):
         """
         Start an event monitor in its own thread for handling task events
@@ -821,7 +814,11 @@ class CloudifyWorkflowContextInternal(object):
         thread = threading.Thread(target=monitor.capture)
         thread.daemon = True
         thread.start()
-        self.event_monitor = thread
+        self._event_monitor = monitor
+        self._event_monitor_thread = thread
+
+    def stop_event_monitor(self):
+        self._event_monitor.stop()
 
     def send_task_event(self, state, task, event=None):
         send_task_event_func = self.handler.get_send_task_event_func(task)
