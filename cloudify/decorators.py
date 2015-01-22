@@ -215,6 +215,10 @@ def workflow(func=None, **arguments):
         return partial_wrapper
 
 
+class RequestSystemExit(SystemExit):
+    pass
+
+
 def _remote_workflow(ctx, func, args, kwargs):
     def update_execution_cancelled():
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
@@ -269,6 +273,7 @@ def _remote_workflow(ctx, func, args, kwargs):
         # also waiting for messages from the child thread
         has_sent_cancelling_action = False
         result = None
+        execution = None
         while True:
             # check if child thread sent a message
             try:
@@ -307,10 +312,15 @@ def _remote_workflow(ctx, func, args, kwargs):
         # how the execution ended
         if result == api.EXECUTION_CANCELLED_RESULT:
             update_execution_cancelled()
+            if execution and execution.status == Execution.FORCE_CANCELLING:
+                # TODO: kill worker externally
+                raise RequestSystemExit()
         else:
             update_execution_status(ctx.execution_id, Execution.TERMINATED)
             _send_workflow_succeeded_event(ctx)
         return result
+    except RequestSystemExit:
+        raise
     except BaseException as e:
         if isinstance(e, exceptions.ProcessExecutionError):
             error_traceback = e.traceback
