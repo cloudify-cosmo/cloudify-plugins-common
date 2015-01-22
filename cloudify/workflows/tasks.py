@@ -349,7 +349,7 @@ class RemoteWorkflowTask(WorkflowTask):
         # environments
         from cloudify.celery import celery
 
-        worker_name = 'celery@celery.{0}'.format(self.target)
+        worker_name = 'celery@{0}'.format(self.target)
         inspect = celery.control.inspect(destination=[worker_name])
         registered = inspect.registered() or {}
         result = registered.get(worker_name, set())
