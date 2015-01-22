@@ -41,6 +41,24 @@ class TestLocalWorkflowGetAttribute(testtools.TestCase):
         finally:
             shutil.rmtree(tempdir)
 
+    def test_file_storage_payload(self):
+        tempdir = tempfile.mkdtemp()
+        storage = local.FileStorage(tempdir)
+        try:
+            self._test(storage)
+
+            # update payload
+            with storage.payload() as payload:
+                payload['payload_key'] = 'payload_key_value'
+
+            # read payload
+            storage2 = local.FileStorage(tempdir)
+            local.load_env(self.env.name, storage=storage2)
+            with storage2.payload() as payload:
+                self.assertEqual(payload['payload_key'], 'payload_key_value')
+        finally:
+            shutil.rmtree(tempdir)
+
     def _test(self, storage=None):
         blueprint_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),

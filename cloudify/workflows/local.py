@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
 import os
 import tempfile
 import copy
@@ -21,6 +20,7 @@ import importlib
 import uuid
 import json
 import threading
+from contextlib import contextmanager
 
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
@@ -385,13 +385,17 @@ class FileStorage(_Storage):
         self._storage_dir = None
         self._instances_dir = None
         self._data_path = None
+        self._payload_path = None
 
     def init(self, name, plan, nodes, node_instances, resources_root):
         storage_dir = os.path.join(self._root_storage_dir, name)
         instances_dir = os.path.join(storage_dir, 'node-instances')
         data_path = os.path.join(storage_dir, 'data')
+        payload_path = os.path.join(storage_dir, 'payload')
         os.makedirs(storage_dir)
         os.mkdir(instances_dir)
+        with open(payload_path, 'w') as f:
+            f.write(json.dumps({}))
         with open(data_path, 'w') as f:
             f.write(json.dumps({
                 'plan': plan,
@@ -407,6 +411,7 @@ class FileStorage(_Storage):
         self.name = name
         self._storage_dir = os.path.join(self._root_storage_dir, name)
         self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
+        self._payload_path = os.path.join(self._storage_dir, 'payload')
         self._data_path = os.path.join(self._storage_dir, 'data')
         with open(self._data_path) as f:
             data = json.loads(f.read())
@@ -414,6 +419,15 @@ class FileStorage(_Storage):
         self.resources_root = data['resources_root']
         nodes = [Node(node) for node in data['nodes']]
         self._init_locks_and_nodes(nodes)
+
+    @contextmanager
+    def payload(self):
+        with open(self._payload_path, 'r') as f:
+            payload = json.load(f)
+            yield payload
+        with open(self._payload_path, 'w') as f:
+            json.dump(payload, f, indent=2)
+            f.write(os.linesep)
 
     def get_node_instance(self, node_instance_id):
         return self._get_node_instance(node_instance_id)
@@ -424,6 +438,7 @@ class FileStorage(_Storage):
                 return NodeInstance(json.loads(f.read()))
 
     def _store_instance(self, node_instance, lock=True):
+        instance_lock = None
         if lock:
             instance_lock = self._lock(node_instance.id)
             instance_lock.acquire()
@@ -431,7 +446,7 @@ class FileStorage(_Storage):
             with open(self._instance_path(node_instance.id), 'w') as f:
                 f.write(json.dumps(node_instance))
         finally:
-            if lock:
+            if lock and instance_lock:
                 instance_lock.release()
 
     def _instance_path(self, node_instance_id):
