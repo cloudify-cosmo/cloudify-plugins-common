@@ -446,7 +446,7 @@ def _host_pre_stop(host_node_instance):
 
 
 @workflow
-def execute_operation(ctx, operation, operation_kwargs,
+def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
                       run_by_dependency_order, type_names, node_ids,
                       node_instance_ids, **kwargs):
     """ A generic workflow for executing arbitrary operations on nodes """
@@ -506,12 +506,19 @@ def execute_operation(ctx, operation, operation_kwargs,
                     send_event_done_tasks[instance.id] = nop_task
                     graph.add_task(nop_task)
 
+    # preparing the parameters to the execute_operation call
+    exec_op_params = dict()
+    exec_op_params['kwargs'] = operation_kwargs
+    exec_op_params['operation'] = operation
+    if allow_kwargs_override is not None:
+        exec_op_params['allow_kwargs_override'] = allow_kwargs_override
+
     # registering actual tasks to sequences
     for instance in filtered_node_instances:
         sequence = graph.sequence()
         sequence.add(
             send_event_starting_tasks[instance.id],
-            instance.execute_operation(operation, kwargs=operation_kwargs),
+            instance.execute_operation(**exec_op_params),
             send_event_done_tasks[instance.id])
 
     # adding tasks dependencies if required

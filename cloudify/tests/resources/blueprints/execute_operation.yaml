@@ -1,7 +1,8 @@
 tosca_definitions_version: cloudify_dsl_1_0
 
 imports:
-    - http://www.getcloudify.org/spec/cloudify/3.2m3/types.yaml
+#    - http://www.getcloudify.org/spec/cloudify/3.2m3/types.yaml
+    - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-manager/CFY-2026-execute_operation-kwargs-override/resources/rest-service/cloudify/types/types.yaml
 
 node_templates:
     node1:
@@ -25,10 +26,18 @@ node_types:
         interfaces:
             cloudify.interfaces.lifecycle:
                 create:
+                    # basic operation for most of the tests
                     implementation: mock.cloudify.tests.test_builtin_workflows.exec_op_test_operation
                     inputs: {}
-                start:
-                    implementation: mock.cloudify.tests.test_builtin_workflows.exec_op_dependency_order_test_operation
+#                configure:
+                    # same basic operation, but with inputs defined
+#                    implementation: mock.cloudify.tests.test_builtin_workflows.exec_op_test_operation
+#                    inputs:
+#                        operation_param_key:
+#                            default: operation_param_static_value
+                starties:
+                    # operation for testing dependencies order
+                    implementation: mock.cloudify.test.test_builtin_workflows.exec_op_dependency_order_test_operation
                     inputs: {}
     mock_type2:
         derived_from: mock_type1
