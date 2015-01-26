@@ -152,9 +152,9 @@ def operation(func=None, **arguments):
                                exceptions.NonRecoverableError]:
                     raise
 
-                # if the exception inherits from our base exceptions, there still
-                # might be a de-serialization problem caused by one of the types in the
-                # inheritance tree.
+                # if the exception inherits from our base exceptions, there
+                # still might be a de-serialization problem caused by one of
+                # the types in the inheritance tree.
                 if isinstance(e, exceptions.NonRecoverableError):
                     value = exceptions.NonRecoverableError(message)
                 elif isinstance(e, exceptions.OperationRetry):
