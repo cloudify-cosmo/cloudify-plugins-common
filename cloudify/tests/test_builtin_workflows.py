@@ -204,6 +204,22 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
         }
 
 
+class TestUninstallWorkflow(testtools.TestCase):
+
+    def setUp(self):
+        super(TestUninstallWorkflow, self).setUp()
+        blueprint_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "resources/blueprints/uninstall.yaml")
+        self.env = local.init_env(blueprint_path)
+
+    def test_retry(self):
+        self.env.execute('install')
+        self.env.execute('uninstall')
+        instance = self.env.storage.get_node_instances()[0]
+        self.assertEqual(instance['runtime_properties']['retry_number'], 1)
+
+
 @nottest
 @operation
 def exec_op_test_operation(ctx, **kwargs):
@@ -217,3 +233,13 @@ def exec_op_test_operation(ctx, **kwargs):
 def exec_op_dependency_order_test_operation(ctx, **kwargs):
     ctx.instance.runtime_properties['visit_time'] = time.time()
     time.sleep(1)
+
+
+@nottest
+@operation
+def exec_op_retry(ctx, **kwargs):
+    ctx.instance.runtime_properties[
+        'retry_number'] = ctx.operation.retry_number
+    if ctx.operation.retry_number == 0:
+        return ctx.operation.retry(message='Not ready...',
+                                   retry_after=1)

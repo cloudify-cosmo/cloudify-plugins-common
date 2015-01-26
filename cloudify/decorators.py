@@ -146,6 +146,8 @@ def operation(func=None, **arguments):
 
                 if isinstance(e, exceptions.NonRecoverableError):
                     value = exceptions.NonRecoverableError(message)
+                elif isinstance(e, exceptions.OperationRetry):
+                    value = exceptions.OperationRetry(message, e.retry_after)
                 elif isinstance(e, exceptions.RecoverableError):
                     value = exceptions.RecoverableError(message, e.retry_after)
                 else:

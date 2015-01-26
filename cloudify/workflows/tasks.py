@@ -19,7 +19,7 @@ import time
 import uuid
 import Queue
 
-from cloudify.exceptions import NonRecoverableError, RecoverableError
+from cloudify import exceptions
 from cloudify.workflows import api
 
 INFINITE_TOTAL_RETRIES = -1
@@ -180,8 +180,22 @@ class WorkflowTask(object):
             return HandlerResult.cont()
 
     def _handle_task_failed(self):
-        """Call handler for task failure"""
-        if self.on_failure:
+
+        """
+        Call handler for task failure
+
+        """
+
+        exception = self.async_result.result
+
+        if isinstance(exception,exceptions.OperationRetry):
+
+            # operation explicitly requested a retry, so we ignore
+            # the handler set on the task.
+            
+            handler_result = HandlerResult.retry()
+
+        elif self.on_failure:
             handler_result = self.on_failure(self)
         else:
             handler_result = HandlerResult.retry()
@@ -189,16 +203,16 @@ class WorkflowTask(object):
             try:
                 exception = self.async_result.result
             except Exception as e:
-                exception = NonRecoverableError(
+                exception = exceptions.NonRecoverableError(
                     'Could not de-serialize '
                     'exception of task {0} --> {1}: {2}'
                     .format(self.name,
                             type(e).__name__,
                             str(e)))
 
-            if isinstance(exception, NonRecoverableError):
+            if isinstance(exception, exceptions.NonRecoverableError):
                 handler_result = HandlerResult.fail()
-            elif isinstance(exception, RecoverableError):
+            elif isinstance(exception, exceptions.RecoverableError):
                 handler_result.retry_after = exception.retry_after
         return handler_result
 
@@ -301,7 +315,7 @@ class RemoteWorkflowTask(WorkflowTask):
             self.set_state(TASK_SENT)
             async_result = self.task.apply_async(task_id=self.id)
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
-        except NonRecoverableError as e:
+        except exceptions.NonRecoverableError as e:
             self.set_state(TASK_FAILED)
             self.workflow_context.internal\
                 .send_task_event(TASK_FAILED, self, {'exception': e})
@@ -672,6 +686,7 @@ def verify_task_registered(name, target, get_registered):
         cache[target] = registered
 
     if name not in registered:
-        raise NonRecoverableError('Missing task: {0} in worker celery.{1} \n'
-                                  'Registered tasks are: {2}'
-                                  .format(name, target, registered))
+        raise exceptions.NonRecoverableError(
+            'Missing task: {0} in worker celery.{1} \n'
+            'Registered tasks are: {2}'
+            .format(name, target, registered))

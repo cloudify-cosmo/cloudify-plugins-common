@@ -1,0 +1,22 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.2m3/types.yaml
+
+node_templates:
+    node1:
+        type: mock_type1
+
+node_types:
+    mock_type1:
+        derived_from: cloudify.nodes.Root
+        interfaces:
+            cloudify.interfaces.lifecycle:
+                stop:
+                    implementation: mock.cloudify.tests.test_builtin_workflows.exec_op_retry
+                    inputs: {}
+
+plugins:
+    mock:
+        executor: central_deployment_agent
+        install: false
