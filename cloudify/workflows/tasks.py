@@ -192,10 +192,9 @@ class WorkflowTask(object):
         try:
             exception = self.async_result.result
             if isinstance(exception, exceptions.OperationRetry):
-
+                
                 # operation explicitly requested a retry, so we ignore
                 # the handler set on the task.
-
                 handler_result = HandlerResult.retry()
 
         except Exception as e:
