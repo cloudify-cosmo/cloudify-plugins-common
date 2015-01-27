@@ -45,11 +45,41 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
         self._make_filter_assertions(4)
 
     def test_execute_operation_with_operation_parameters(self):
+        self._test_execute_operation_with_op_params(
+            'cloudify.interfaces.lifecycle.create')
+
+    def test_execute_operation_with_op_params_and_kwargs_override_allowed(
+            self):
+        self._test_execute_operation_with_op_params(
+            'cloudify.interfaces.lifecycle.configure', True)
+
+    def test_execute_operation_with_op_params_and_kwargs_override_disallowed(
+            self):
+        self._test_exec_op_with_params_and_no_kwargs_override(False)
+
+    def test_execute_operation_with_op_params_and_default_kwargs_override(
+            self):
+        # testing kwargs override with the default value for the
+        # 'allow_kwargs_override' parameter (null/None)
+        self._test_exec_op_with_params_and_no_kwargs_override(None)
+
+    def _test_exec_op_with_params_and_no_kwargs_override(self, kw_over_val):
+        try:
+            self._test_execute_operation_with_op_params(
+                'cloudify.interfaces.lifecycle.configure', kw_over_val)
+            self.fail('expected kwargs override to be disallowed')
+        except RuntimeError, e:
+            self.assertIn(
+                'To allow redefinition, pass "allow_kwargs_override"', str(e))
+
+    def _test_execute_operation_with_op_params(self, op,
+                                               allow_kw_override=None):
         operation_param_key = 'operation_param_key'
         operation_param_value = 'operation_param_value'
         op_params = {operation_param_key: operation_param_value}
 
-        params = self._get_params(op_params=op_params)
+        params = self._get_params(op=op, op_params=op_params,
+                                  allow_kw_override=allow_kw_override)
         self.env.execute('execute_operation', params)
         self._make_filter_assertions(4)
 
@@ -192,12 +222,14 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
             assert_time_difference(index1, index2)
 
     def _get_params(self, op='cloudify.interfaces.lifecycle.create',
-                    op_params=None, run_by_dep=False, node_ids=None,
+                    op_params=None, run_by_dep=False,
+                    allow_kw_override=None, node_ids=None,
                     node_instance_ids=None, type_names=None):
         return {
             'operation': op,
             'operation_kwargs': op_params or {},
             'run_by_dependency_order': run_by_dep,
+            'allow_kwargs_override': allow_kw_override,
             'node_ids': node_ids or [],
             'node_instance_ids': node_instance_ids or [],
             'type_names': type_names or []
