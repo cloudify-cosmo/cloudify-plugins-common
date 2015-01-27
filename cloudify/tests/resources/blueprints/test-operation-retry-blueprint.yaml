@@ -11,10 +11,15 @@ node_types:
     interfaces:
       lifecycle:
         start: mock.cloudify.tests.test_operation_retry.node_operation_retry
+        stop: mock.cloudify.tests.test_operation_retry.node_operation_retry
 
 node_templates:
   node:
     type: custom_type
 
 workflows:
-  execute_operation: mock.cloudify.tests.test_operation_retry.execute_operation
+  execute_operation:
+    mapping: mock.cloudify.tests.test_operation_retry.execute_operation
+    parameters:
+      operation:
+        description: The operation full name.

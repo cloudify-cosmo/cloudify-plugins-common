@@ -144,8 +144,22 @@ def operation(func=None, **arguments):
                 # preserve original type in the message
                 message = '{0}: {1}'.format(tpe.__name__, str(e))
 
+                # if the exception type is directly one of our exception
+                # than there is no need for conversion and we can just
+                # raise the original exception
+                if type(e) in [exceptions.OperationRetry,
+                               exceptions.RecoverableError,
+                               exceptions.NonRecoverableError,
+                               exceptions.HttpException]:
+                    raise
+
+                # if the exception inherits from our base exceptions, there
+                # still might be a de-serialization problem caused by one of
+                # the types in the inheritance tree.
                 if isinstance(e, exceptions.NonRecoverableError):
                     value = exceptions.NonRecoverableError(message)
+                elif isinstance(e, exceptions.OperationRetry):
+                    value = exceptions.OperationRetry(message, e.retry_after)
                 elif isinstance(e, exceptions.RecoverableError):
                     value = exceptions.RecoverableError(message, e.retry_after)
                 else:
