@@ -22,6 +22,7 @@ from cloudify import context
 from cloudify import decorators
 from cloudify import exceptions
 from cloudify.workflows import local
+from cloudify.workflows import tasks as workflow_tasks
 
 
 RETRY_MESSAGE = 'operation will be retried'
@@ -78,10 +79,18 @@ def node_operation_retry(ctx, **kwargs):
 
 
 @decorators.workflow
-def execute_operation(ctx, **kwargs):
+def execute_operation(ctx, operation, **kwargs):
+
+    ignore_operations = ['lifecycle.stop']
+
     graph = ctx.graph_mode()
     for instance in next(ctx.nodes).instances:
-        graph.add_task(instance.execute_operation('lifecycle.start'))
+        task = instance.execute_operation(operation)
+        if operation in ignore_operations:
+            def ignore(tsk):
+                return workflow_tasks.HandlerResult.ignore()
+            task.on_failure = ignore
+        graph.add_task(task)
     graph.execute()
 
 
@@ -97,6 +106,19 @@ class OperationRetryWorkflowTests(testtools.TestCase):
     def test_operation_retry(self):
         self.env.execute('execute_operation',
                          task_retries=3,
-                         task_retry_interval=1)
+                         task_retry_interval=1,
+                         parameters={
+                             'operation': 'lifecycle.start'
+                         })
         instance = self.env.storage.get_node_instances()[0]
-        self.assertEqual(1, len(instance['runtime_properties']))
+        self.assertEqual(4, instance['runtime_properties']['counter'])
+
+    def test_ignore_operation_retry(self):
+        self.env.execute('execute_operation',
+                         task_retries=3,
+                         task_retry_interval=1,
+                         parameters={
+                             'operation': 'lifecycle.stop'
+                         })
+        instance = self.env.storage.get_node_instances()[0]
+        self.assertEqual(4, instance['runtime_properties']['counter'])

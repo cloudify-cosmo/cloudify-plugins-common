@@ -149,13 +149,16 @@ def operation(func=None, **arguments):
                 # raise the original exception
                 if type(e) in [exceptions.OperationRetry,
                                exceptions.RecoverableError,
-                               exceptions.NonRecoverableError]:
+                               exceptions.NonRecoverableError,
+                               exceptions.HttpException]:
                     raise
 
                 # if the exception inherits from our base exceptions, there
                 # still might be a de-serialization problem caused by one of
                 # the types in the inheritance tree.
                 if isinstance(e, exceptions.NonRecoverableError):
+                    value = exceptions.NonRecoverableError(message)
+                elif isinstance(e, exceptions.HttpException):
                     value = exceptions.NonRecoverableError(message)
                 elif isinstance(e, exceptions.OperationRetry):
                     value = exceptions.OperationRetry(message, e.retry_after)
