@@ -185,8 +185,10 @@ class WorkflowTask(object):
         Call handler for task failure
 
         """
-
-        handler_result = self.on_failure(self) or HandlerResult.retry()
+        if self.on_failure:
+            handler_result = self.on_failure(self)
+        else:
+            handler_result = HandlerResult.retry()
         try:
             exception = self.async_result.result
             if isinstance(exception, exceptions.OperationRetry):
