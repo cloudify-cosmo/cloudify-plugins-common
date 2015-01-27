@@ -185,18 +185,9 @@ class WorkflowTask(object):
         Call handler for task failure
 
         """
-        if self.on_failure:
-            handler_result = self.on_failure(self)
-        else:
-            handler_result = HandlerResult.retry()
+
         try:
             exception = self.async_result.result
-            if isinstance(exception, exceptions.OperationRetry):
-
-                # operation explicitly requested a retry, so we ignore
-                # the handler set on the task.
-                handler_result = HandlerResult.retry()
-
         except Exception as e:
             exception = exceptions.NonRecoverableError(
                 'Could not de-serialize '
@@ -204,6 +195,15 @@ class WorkflowTask(object):
                 .format(self.name,
                         type(e).__name__,
                         str(e)))
+
+        if isinstance(exception, exceptions.OperationRetry):
+            # operation explicitly requested a retry, so we ignore
+            # the handler set on the task.
+            handler_result = HandlerResult.retry()
+        elif self.on_failure:
+            handler_result = self.on_failure(self)
+        else:
+            handler_result = HandlerResult.retry()
 
         if handler_result.action == HandlerResult.HANDLER_RETRY:
             if isinstance(exception, exceptions.NonRecoverableError):

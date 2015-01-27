@@ -158,8 +158,6 @@ def operation(func=None, **arguments):
                 # the types in the inheritance tree.
                 if isinstance(e, exceptions.NonRecoverableError):
                     value = exceptions.NonRecoverableError(message)
-                elif isinstance(e, exceptions.HttpException):
-                    value = exceptions.NonRecoverableError(message)
                 elif isinstance(e, exceptions.OperationRetry):
                     value = exceptions.OperationRetry(message, e.retry_after)
                 elif isinstance(e, exceptions.RecoverableError):
