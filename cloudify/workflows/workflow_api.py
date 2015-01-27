@@ -14,11 +14,12 @@
 #    * limitations under the License.
 
 
+import Queue
+
 EXECUTION_CANCELLED_RESULT = 'execution_cancelled'
 
 
-ctx = None
-pipe = None
+queue = None
 
 
 def has_cancel_request():
@@ -38,10 +39,12 @@ def has_cancel_request():
 
     :return: whether there was a request to cancel the workflow execution
     """
-    if pipe and pipe.poll():
-        data = pipe.recv()
-        return data['action'] == 'cancel'
-    return False
+    if not queue:
+        return False
+    try:
+        return queue.get_nowait()['action'] == 'cancel'
+    except Queue.Empty:
+        return False
 
 
 class ExecutionCancelled(Exception):
