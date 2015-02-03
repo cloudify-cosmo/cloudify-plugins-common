@@ -283,7 +283,7 @@ class _Storage(object):
             suffix = '-{0}'.format(os.path.basename(resource_path))
             target_path = tempfile.mktemp(suffix=suffix)
         resource = self.get_resource(resource_path)
-        with open(target_path, 'w') as f:
+        with open(target_path, 'wb') as f:
             f.write(resource)
         return target_path
 
