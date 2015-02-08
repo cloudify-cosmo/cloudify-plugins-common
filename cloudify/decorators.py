@@ -30,7 +30,9 @@ from cloudify_rest_client.executions import Execution
 from cloudify import exceptions
 from cloudify.state import current_ctx, current_workflow_ctx
 
-_stub_task = lambda fn: fn
+
+def _stub_task(fn):
+    return fn
 try:
     from cloudify.celery import celery as _celery
     _task = _celery.task

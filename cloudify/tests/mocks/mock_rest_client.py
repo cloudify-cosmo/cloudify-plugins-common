@@ -11,9 +11,6 @@
 # limitations under the License.
 ############
 
-__author__ = 'ran'
-
-
 from cloudify_rest_client import CloudifyClient
 from cloudify_rest_client.node_instances import NodeInstance
 from cloudify_rest_client.executions import Execution
