@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
 from cloudify.decorators import workflow
 from cloudify.workflows.tasks_graph import forkjoin
 from cloudify.workflows import tasks as workflow_tasks
@@ -602,3 +601,23 @@ def auto_heal_reinstall_node_subgraph(
         NodeInstallationTasksSequenceCreator(),
         AutohealInstallationTasksGraphFinisher
     )
+
+
+@workflow
+def scale(ctx, node_id, **kwargs):
+    node = ctx.get_node(node_id)
+    host_node = node.host_node
+    curr_num_instances = len(list(host_node.instances))
+    modification = ctx.deployment.start_modification({
+        host_node.id: {'instances': curr_num_instances + 1}
+    })
+    added_and_related = _get_all_nodes_instances(modification.added)
+    added = set(i for i in added_and_related if i.modification == 'added')
+    related = added_and_related - added
+    _install_node_instances(
+        ctx,
+        node_instances=added,
+        intact_nodes=related,
+        node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
+        graph_finisher_cls=AutohealInstallationTasksGraphFinisher)
+    modification.finish()
