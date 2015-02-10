@@ -604,20 +604,46 @@ def auto_heal_reinstall_node_subgraph(
 
 
 @workflow
-def scale(ctx, node_id, **kwargs):
+def scale(ctx, node_id, delta, operate_on_compute, **kwargs):
     node = ctx.get_node(node_id)
+    if not node:
+        raise ValueError("Node {0} doesn't exist".format(node_id))
+    if delta == 0:
+        # nothing to do
+        return
     host_node = node.host_node
-    curr_num_instances = len(list(host_node.instances))
+    scaled_node = host_node if (operate_on_compute and host_node) else node
+    curr_num_instances = len(list(scaled_node.instances))
+    planned_num_instances = curr_num_instances + delta
+    if planned_num_instances < 1:
+        raise ValueError('Provided delta: {0} is illegal. current number of'
+                         'instances of node {1} is {2}'
+                         .format(delta, node_id, curr_num_instances))
+
     modification = ctx.deployment.start_modification({
-        host_node.id: {'instances': curr_num_instances + 1}
+        scaled_node.id: {'instances': planned_num_instances}
     })
-    added_and_related = _get_all_nodes_instances(modification.added)
-    added = set(i for i in added_and_related if i.modification == 'added')
-    related = added_and_related - added
-    _install_node_instances(
-        ctx,
-        node_instances=added,
-        intact_nodes=related,
-        node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
-        graph_finisher_cls=AutohealInstallationTasksGraphFinisher)
+
+    if delta > 0:
+        added_and_related = _get_all_nodes_instances(modification.added)
+        added = set(i for i in added_and_related if i.modification == 'added')
+        related = added_and_related - added
+        _install_node_instances(
+            ctx,
+            node_instances=added,
+            intact_nodes=related,
+            node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
+            graph_finisher_cls=AutohealInstallationTasksGraphFinisher)
+    else:
+        removed_and_related = _get_all_nodes_instances(modification.removed)
+        removed = set(i for i in removed_and_related
+                      if i.modification == 'removed')
+        related = removed_and_related - removed
+        _uninstall_node_instances(
+            ctx,
+            node_instances=removed,
+            intact_nodes=related,
+            node_tasks_seq_creator=NodeUninstallationTasksSequenceCreator(),
+            graph_finisher_cls=AutohealUninstallationTasksGraphFinisher)
+
     modification.finish()
