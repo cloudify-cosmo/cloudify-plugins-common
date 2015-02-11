@@ -118,15 +118,15 @@ class InstallationTasksGraphFinisher(object):
                 self._enforce_correct_src_trg_order(instance, rel)
 
 
-class AutohealInstallationTasksGraphFinisher(InstallationTasksGraphFinisher):
+class RuntimeInstallationTasksGraphFinisher(InstallationTasksGraphFinisher):
     def _enforce_correct_src_trg_order(self, instance, rel):
         # Handle only nodes within self.node_instances, others are running
         if rel.target_node_instance in self.node_instances:
-            super(AutohealInstallationTasksGraphFinisher,
+            super(RuntimeInstallationTasksGraphFinisher,
                   self)._enforce_correct_src_trg_order(instance, rel)
 
     def finish_creation(self):
-        super(AutohealInstallationTasksGraphFinisher, self).finish_creation()
+        super(RuntimeInstallationTasksGraphFinisher, self).finish_creation()
         # Add operations for intact nodes depending on a node instance
         # belonging to node_instances (which are being reinstalled)
         for instance in self.intact_nodes:
@@ -258,16 +258,16 @@ class UninstallationTasksGraphFinisher(object):
                 self._enforce_correct_src_trg_order(instance, rel)
 
 
-class AutohealUninstallationTasksGraphFinisher(
+class RuntimeUninstallationTasksGraphFinisher(
         UninstallationTasksGraphFinisher):
 
     def _enforce_correct_src_trg_order(self, instance, rel):
         if rel.target_node_instance in self.node_instances:
-            super(AutohealUninstallationTasksGraphFinisher,
+            super(RuntimeUninstallationTasksGraphFinisher,
                   self)._enforce_correct_src_trg_order(instance, rel)
 
     def finish_creation(self):
-        super(AutohealUninstallationTasksGraphFinisher, self).finish_creation()
+        super(RuntimeUninstallationTasksGraphFinisher, self).finish_creation()
         for instance in self.intact_nodes:
             for rel in instance.relationships:
                 if rel.target_node_instance in self.node_instances:
@@ -592,14 +592,14 @@ def auto_heal_reinstall_node_subgraph(
         subgraph_node_instances,
         intact_nodes,
         NodeUninstallationTasksSequenceCreator(),
-        AutohealUninstallationTasksGraphFinisher
+        RuntimeUninstallationTasksGraphFinisher
     )
     _install_node_instances(
         ctx,
         subgraph_node_instances,
         intact_nodes,
         NodeInstallationTasksSequenceCreator(),
-        AutohealInstallationTasksGraphFinisher
+        RuntimeInstallationTasksGraphFinisher
     )
 
 
@@ -633,7 +633,7 @@ def scale(ctx, node_id, delta, operate_on_compute, **kwargs):
             node_instances=added,
             intact_nodes=related,
             node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
-            graph_finisher_cls=AutohealInstallationTasksGraphFinisher)
+            graph_finisher_cls=RuntimeInstallationTasksGraphFinisher)
     else:
         removed_and_related = _get_all_nodes_instances(modification.removed)
         removed = set(i for i in removed_and_related
@@ -644,6 +644,6 @@ def scale(ctx, node_id, delta, operate_on_compute, **kwargs):
             node_instances=removed,
             intact_nodes=related,
             node_tasks_seq_creator=NodeUninstallationTasksSequenceCreator(),
-            graph_finisher_cls=AutohealUninstallationTasksGraphFinisher)
+            graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
 
     modification.finish()
