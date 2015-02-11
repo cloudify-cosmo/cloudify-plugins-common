@@ -33,8 +33,8 @@ from cloudify.constants import CELERY_WORK_DIR_PATH_KEY
 
 
 celery = Celery('cloudify.celery',
-                broker='amqp://',
-                backend='amqp://')
+                broker=os.environ.get('BROKER_URL', 'amqp://'),
+                backend=os.environ.get('BROKER_URL', 'amqp://'))
 
 celery_work_folder = os.environ.get(CELERY_WORK_DIR_PATH_KEY)
 
