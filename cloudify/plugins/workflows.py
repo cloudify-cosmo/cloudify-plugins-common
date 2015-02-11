@@ -613,7 +613,7 @@ def scale(ctx, node_id, delta, operate_on_compute, **kwargs):
         return
     host_node = node.host_node
     scaled_node = host_node if (operate_on_compute and host_node) else node
-    curr_num_instances = len(list(scaled_node.instances))
+    curr_num_instances = scaled_node.number_of_instances
     planned_num_instances = curr_num_instances + delta
     if planned_num_instances < 1:
         raise ValueError('Provided delta: {0} is illegal. current number of'
