@@ -19,5 +19,5 @@ workflows:
       node_id: {}
       delta:
         default: 1
-      operate_on_compute:
+      scale_compute:
         default: true

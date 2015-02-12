@@ -604,7 +604,7 @@ def auto_heal_reinstall_node_subgraph(
 
 
 @workflow
-def scale(ctx, node_id, delta, operate_on_compute, **kwargs):
+def scale(ctx, node_id, delta, scale_compute, **kwargs):
     node = ctx.get_node(node_id)
     if not node:
         raise ValueError("Node {0} doesn't exist".format(node_id))
@@ -612,7 +612,7 @@ def scale(ctx, node_id, delta, operate_on_compute, **kwargs):
         # nothing to do
         return
     host_node = node.host_node
-    scaled_node = host_node if (operate_on_compute and host_node) else node
+    scaled_node = host_node if (scale_compute and host_node) else node
     curr_num_instances = scaled_node.number_of_instances
     planned_num_instances = curr_num_instances + delta
     if planned_num_instances < 1:
