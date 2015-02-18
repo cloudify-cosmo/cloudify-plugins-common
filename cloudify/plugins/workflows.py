@@ -605,6 +605,29 @@ def auto_heal_reinstall_node_subgraph(
 
 @workflow
 def scale(ctx, node_id, delta, scale_compute, **kwargs):
+    """Scales in/out the subgraph of node_id.
+
+    If `scale_compute` is set to false, the subgraph will consist of all
+    the nodes that are contained in `node_id` and `node_id` itself.
+    If `scale_compute` is set to true, the subgraph will consist of all
+    nodes that are contained in the compute node that contains `node_id`
+    and the compute node itself.
+    If `node_id` is not contained in a compute node and is not a compute node,
+    this property is ignored.
+
+    `delta` is used to specify the scale factor.
+    For `delta > 0`: If current number of instances is `N`, scale out to
+    `N + delta`.
+    For `delta < 0`: If current number of instances is `N`, scale in to
+    `N - |delta|`.
+
+    :param ctx: cloudify context
+    :param node_id: the node_id to scale
+    :param delta: scale in/out factor
+    :param scale_compute: should scale apply on compute node containing
+                          'node_id'
+    """
+
     node = ctx.get_node(node_id)
     if not node:
         raise ValueError("Node {0} doesn't exist".format(node_id))
