@@ -151,9 +151,9 @@ class TaskDependencyGraph(object):
         """
         now = time.time()
         return (task for task in self.tasks_iter()
-                if task.get_state() == tasks.TASK_PENDING
-                and task.execute_after <= now
-                and not self._task_has_dependencies(task.id))
+                if task.get_state() == tasks.TASK_PENDING and
+                task.execute_after <= now and
+                not self._task_has_dependencies(task.id))
 
     def _terminated_tasks(self):
         """
