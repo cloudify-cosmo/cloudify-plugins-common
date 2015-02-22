@@ -513,6 +513,8 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
             sorted_ops = ['op0', 'test.op0']
 
+            self.assertEqual(1, node1.number_of_instances)
+            self.assertEqual(1, node2.number_of_instances)
             self.assertEqual('node', node1.id)
             self.assertEqual('node2', node2.id)
             self.assertEqual('type', node1.type)

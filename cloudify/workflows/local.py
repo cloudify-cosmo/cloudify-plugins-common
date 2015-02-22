@@ -171,6 +171,9 @@ def _prepare_nodes_and_instances(nodes, node_instances, ignored_modules):
                                ignored_modules=ignored_modules)
 
     for node in nodes:
+        number_of_instances = node['instances']['deploy']
+        node['number_of_instances'] = number_of_instances
+        node['deploy_number_of_instances'] = number_of_instances
         if 'relationships' not in node:
             node['relationships'] = []
         scan(node, 'operations', node)

@@ -236,6 +236,30 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
         }
 
 
+class TestScale(testtools.TestCase):
+
+    def setUp(self):
+        super(TestScale, self).setUp()
+        blueprint_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "resources/blueprints/test-scale-blueprint.yaml")
+        self.env = local.init_env(blueprint_path)
+
+    def test_no_node(self):
+        with testtools.ExpectedException(ValueError, ".*mock doesn't exist.*"):
+            self.env.execute('scale', parameters={'node_id': 'mock'})
+
+    def test_zero_delta(self):
+        # should simply work
+        self.env.execute('scale', parameters={'node_id': 'node',
+                                              'delta': 0})
+
+    def test_illegal_delta(self):
+        with testtools.ExpectedException(ValueError, ".*-1 is illegal.*"):
+            self.env.execute('scale', parameters={'node_id': 'node',
+                                                  'delta': -1})
+
+
 @nottest
 @operation
 def exec_op_test_operation(ctx, **kwargs):

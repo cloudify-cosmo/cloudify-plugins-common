@@ -363,6 +363,18 @@ class CloudifyWorkflowNode(object):
         return self._node.get('plugins_to_install', [])
 
     @property
+    def host_id(self):
+        return self._node.host_id
+
+    @property
+    def host_node(self):
+        return self.ctx.get_node(self.host_id)
+
+    @property
+    def number_of_instances(self):
+        return self._node.number_of_instances
+
+    @property
     def relationships(self):
         """The node relationships"""
         return self._relationships.itervalues()

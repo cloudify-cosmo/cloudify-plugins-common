@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
 from cloudify.decorators import workflow
 from cloudify.workflows.tasks_graph import forkjoin
 from cloudify.workflows import tasks as workflow_tasks
@@ -119,15 +118,15 @@ class InstallationTasksGraphFinisher(object):
                 self._enforce_correct_src_trg_order(instance, rel)
 
 
-class AutohealInstallationTasksGraphFinisher(InstallationTasksGraphFinisher):
+class RuntimeInstallationTasksGraphFinisher(InstallationTasksGraphFinisher):
     def _enforce_correct_src_trg_order(self, instance, rel):
         # Handle only nodes within self.node_instances, others are running
         if rel.target_node_instance in self.node_instances:
-            super(AutohealInstallationTasksGraphFinisher,
+            super(RuntimeInstallationTasksGraphFinisher,
                   self)._enforce_correct_src_trg_order(instance, rel)
 
     def finish_creation(self):
-        super(AutohealInstallationTasksGraphFinisher, self).finish_creation()
+        super(RuntimeInstallationTasksGraphFinisher, self).finish_creation()
         # Add operations for intact nodes depending on a node instance
         # belonging to node_instances (which are being reinstalled)
         for instance in self.intact_nodes:
@@ -259,16 +258,16 @@ class UninstallationTasksGraphFinisher(object):
                 self._enforce_correct_src_trg_order(instance, rel)
 
 
-class AutohealUninstallationTasksGraphFinisher(
+class RuntimeUninstallationTasksGraphFinisher(
         UninstallationTasksGraphFinisher):
 
     def _enforce_correct_src_trg_order(self, instance, rel):
         if rel.target_node_instance in self.node_instances:
-            super(AutohealUninstallationTasksGraphFinisher,
+            super(RuntimeUninstallationTasksGraphFinisher,
                   self)._enforce_correct_src_trg_order(instance, rel)
 
     def finish_creation(self):
-        super(AutohealUninstallationTasksGraphFinisher, self).finish_creation()
+        super(RuntimeUninstallationTasksGraphFinisher, self).finish_creation()
         for instance in self.intact_nodes:
             for rel in instance.relationships:
                 if rel.target_node_instance in self.node_instances:
@@ -593,12 +592,86 @@ def auto_heal_reinstall_node_subgraph(
         subgraph_node_instances,
         intact_nodes,
         NodeUninstallationTasksSequenceCreator(),
-        AutohealUninstallationTasksGraphFinisher
+        RuntimeUninstallationTasksGraphFinisher
     )
     _install_node_instances(
         ctx,
         subgraph_node_instances,
         intact_nodes,
         NodeInstallationTasksSequenceCreator(),
-        AutohealInstallationTasksGraphFinisher
+        RuntimeInstallationTasksGraphFinisher
     )
+
+
+@workflow
+def scale(ctx, node_id, delta, scale_compute, **kwargs):
+    """Scales in/out the subgraph of node_id.
+
+    If `scale_compute` is set to false, the subgraph will consist of all
+    the nodes that are contained in `node_id` and `node_id` itself.
+    If `scale_compute` is set to true, the subgraph will consist of all
+    nodes that are contained in the compute node that contains `node_id`
+    and the compute node itself.
+    If `node_id` is not contained in a compute node and is not a compute node,
+    this property is ignored.
+
+    `delta` is used to specify the scale factor.
+    For `delta > 0`: If current number of instances is `N`, scale out to
+    `N + delta`.
+    For `delta < 0`: If current number of instances is `N`, scale in to
+    `N - |delta|`.
+
+    :param ctx: cloudify context
+    :param node_id: the node_id to scale
+    :param delta: scale in/out factor
+    :param scale_compute: should scale apply on compute node containing
+                          'node_id'
+    """
+
+    node = ctx.get_node(node_id)
+    if not node:
+        raise ValueError("Node {0} doesn't exist".format(node_id))
+    if delta == 0:
+        # nothing to do
+        return
+    host_node = node.host_node
+    scaled_node = host_node if (scale_compute and host_node) else node
+    curr_num_instances = scaled_node.number_of_instances
+    planned_num_instances = curr_num_instances + delta
+    if planned_num_instances < 1:
+        raise ValueError('Provided delta: {0} is illegal. current number of'
+                         'instances of node {1} is {2}'
+                         .format(delta, node_id, curr_num_instances))
+
+    modification = ctx.deployment.start_modification({
+        scaled_node.id: {'instances': planned_num_instances}
+    })
+
+    if delta > 0:
+        added_and_related = _get_all_nodes_instances(modification.added)
+        added = set(i for i in added_and_related if i.modification == 'added')
+        related = added_and_related - added
+        _install_node_instances(
+            ctx,
+            node_instances=added,
+            intact_nodes=related,
+            node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
+            graph_finisher_cls=RuntimeInstallationTasksGraphFinisher)
+    else:
+        removed_and_related = _get_all_nodes_instances(modification.removed)
+        removed = set(i for i in removed_and_related
+                      if i.modification == 'removed')
+        related = removed_and_related - removed
+        _uninstall_node_instances(
+            ctx,
+            node_instances=removed,
+            intact_nodes=related,
+            node_tasks_seq_creator=NodeUninstallationTasksSequenceCreator(),
+            graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
+
+    # Currently, no rollback mechanism is implemented whatsoever.
+    # So, if stuff went wrong during the scale-in phase, failed tasks
+    # will be ignored, similar to what happens with the uninstall workflow
+    # and this call will remove all scaled-in node instances.
+    # This is a known issue that will be resolved.
+    modification.finish()
