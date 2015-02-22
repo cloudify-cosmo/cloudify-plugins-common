@@ -669,4 +669,9 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
             node_tasks_seq_creator=NodeUninstallationTasksSequenceCreator(),
             graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
 
+    # Currently, no rollback mechanism is implemented whatsoever.
+    # So, if stuff went wrong during the scale-in phase, failed tasks
+    # will be ignored, similar to what happens with the uninstall workflow
+    # and this call will remove all scaled-in node instances.
+    # This is a known issue that will be resolved.
     modification.finish()
