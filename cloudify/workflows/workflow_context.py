@@ -874,12 +874,13 @@ class LocalTasksProcessing(object):
 
     def _process_local_task(self):
         # see CFY-1442
-        queue_empty = Queue.Empty
         while not self.stopped:
             try:
                 task = self._local_tasks_queue.get(timeout=1)
                 task()
-            except queue_empty:
+            # may seem to general, but daemon threads are just great.
+            # anyway, this is properly unit tested, so we should be good.
+            except:
                 pass
 
 # Local/Remote Handlers
