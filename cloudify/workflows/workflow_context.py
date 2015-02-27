@@ -560,10 +560,16 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         has_intrinsic_functions = op_struct['has_intrinsic_functions']
         operation_properties = op_struct.get('inputs', {})
         operation_executor = op_struct['executor']
+        operation_total_retries = op_struct['retries']
+        operation_retry_interval = op_struct['retry_interval']
         task_queue = self.internal.handler.get_operation_task_queue(
             node_instance, operation_executor)
         task_name = operation_mapping
-        total_retries = self.internal.get_task_configuration()['total_retries']
+        if operation_total_retries is None:
+            total_retries = self.internal.get_task_configuration()[
+                'total_retries']
+        else:
+            total_retries = operation_total_retries
 
         node_context = {
             'node_id': node_instance.id,
@@ -593,7 +599,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                                  task_queue=task_queue,
                                  kwargs=final_kwargs,
                                  node_context=node_context,
-                                 send_task_events=send_task_events)
+                                 send_task_events=send_task_events,
+                                 total_retries=total_retries,
+                                 retry_interval=operation_retry_interval)
 
     @staticmethod
     def _merge_dicts(merged_from, merged_into, allow_override=False):
@@ -646,7 +654,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                      task_queue=None,
                      kwargs=None,
                      node_context=None,
-                     send_task_events=DEFAULT_SEND_TASK_EVENTS):
+                     send_task_events=DEFAULT_SEND_TASK_EVENTS,
+                     total_retries=None,
+                     retry_interval=None):
         """
         Execute a task
 
@@ -676,7 +686,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                                    name=task_name,
                                    kwargs=kwargs,
                                    task_id=task_id,
-                                   send_task_events=send_task_events)
+                                   send_task_events=send_task_events,
+                                   total_retries=total_retries,
+                                   retry_interval=retry_interval)
         else:
             # Remote task
             # Import here because this only applies to remote tasks execution
@@ -690,7 +702,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             return self.remote_task(task=task,
                                     cloudify_context=cloudify_context,
                                     task_id=task_id,
-                                    send_task_events=send_task_events)
+                                    send_task_events=send_task_events,
+                                    total_retries=total_retries,
+                                    retry_interval=retry_interval)
 
     def local_task(self,
                    local_task,
@@ -700,7 +714,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                    task_id=None,
                    name=None,
                    send_task_events=DEFAULT_SEND_TASK_EVENTS,
-                   override_task_config=False):
+                   override_task_config=False,
+                   total_retries=None,
+                   retry_interval=None):
         """
         Create a local workflow task
 
@@ -724,6 +740,10 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             send_task_events=send_task_events,
             task_id=task_id,
             name=name)
+        if total_retries is not None:
+            invocation_task_config['total_retries'] = total_retries
+        if retry_interval is not None:
+            invocation_task_config['retry_interval'] = retry_interval
 
         final_task_config = {}
         final_task_config.update(global_task_config)
@@ -742,7 +762,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                     task,
                     cloudify_context,
                     task_id,
-                    send_task_events=DEFAULT_SEND_TASK_EVENTS):
+                    send_task_events=DEFAULT_SEND_TASK_EVENTS,
+                    total_retries=None,
+                    retry_interval=None):
         """
         Create a remote workflow task
 
@@ -751,13 +773,18 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                                  used by the called task
         :param task_id: The task id
         """
+        task_configuration = self.internal.get_task_configuration()
+        if total_retries is not None:
+            task_configuration['total_retries'] = total_retries
+        if retry_interval is not None:
+            task_configuration['retry_interval'] = retry_interval
         return self._process_task(
             RemoteWorkflowTask(task=task,
                                cloudify_context=cloudify_context,
                                workflow_context=self,
                                task_id=task_id,
                                send_task_events=send_task_events,
-                               **self.internal.get_task_configuration()))
+                               **task_configuration))
 
     def _process_task(self, task):
         if self.internal.graph_mode:
