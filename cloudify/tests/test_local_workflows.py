@@ -220,7 +220,7 @@ class BaseWorkflowTest(testtools.TestCase):
         ))
 
         blueprint = {
-            'tosca_definitions_version': 'cloudify_dsl_1_0',
+            'tosca_definitions_version': 'cloudify_dsl_1_1',
             'imports': ['inner/imported.yaml'],
             'inputs': {
                 'from_input': {
