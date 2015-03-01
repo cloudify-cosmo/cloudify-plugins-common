@@ -560,7 +560,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         has_intrinsic_functions = op_struct['has_intrinsic_functions']
         operation_properties = op_struct.get('inputs', {})
         operation_executor = op_struct['executor']
-        operation_total_retries = op_struct['retries']
+        operation_total_retries = op_struct['max_retries']
         operation_retry_interval = op_struct['retry_interval']
         task_queue = self.internal.handler.get_operation_task_queue(
             node_instance, operation_executor)

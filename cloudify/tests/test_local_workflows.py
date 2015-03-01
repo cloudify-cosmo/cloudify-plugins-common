@@ -200,7 +200,7 @@ class BaseWorkflowTest(testtools.TestCase):
                 ('op{0}'.format(index),
                  {'implementation': 'p.{0}.{1}'.format(self._testMethodName,
                                                        op_method.__name__),
-                  'retries': operation_retries,
+                  'max_retries': operation_retries,
                   'retry_interval': operation_retry_interval})
                 for index, op_method in
                 enumerate(operation_methods)
