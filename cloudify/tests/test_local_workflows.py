@@ -87,8 +87,7 @@ class BaseWorkflowTest(testtools.TestCase):
                    workflow_parameters_schema=None,
                    load_env=False,
                    ignored_modules=None,
-                   operation_retries=None,
-                   operation_retry_interval=None):
+                   operation_on_error=None):
         if create_blueprint_func is None:
             create_blueprint_func = self._blueprint_1
 
@@ -127,8 +126,7 @@ class BaseWorkflowTest(testtools.TestCase):
                                           operation_methods,
                                           workflow_parameters_schema,
                                           ignored_modules,
-                                          operation_retries,
-                                          operation_retry_interval)
+                                          operation_on_error)
 
         blueprint_dir = os.path.join(self.work_dir, 'blueprint')
         inner_dir = os.path.join(blueprint_dir, 'inner')
@@ -165,8 +163,7 @@ class BaseWorkflowTest(testtools.TestCase):
                           load_env=False,
                           setup_env=True,
                           ignored_modules=None,
-                          operation_retries=None,
-                          operation_retry_interval=None):
+                          operation_on_error=None):
         if setup_env:
             self._setup_env(
                 workflow_methods=[workflow_method],
@@ -178,8 +175,7 @@ class BaseWorkflowTest(testtools.TestCase):
                 workflow_parameters_schema=workflow_parameters_schema,
                 load_env=load_env,
                 ignored_modules=ignored_modules,
-                operation_retries=operation_retries,
-                operation_retry_interval=operation_retry_interval)
+                operation_on_error=operation_on_error)
         elif load_env:
             self.env = self._load_env(name)
 
@@ -194,14 +190,14 @@ class BaseWorkflowTest(testtools.TestCase):
 
     def _blueprint_1(self, workflow_methods, operation_methods,
                      workflow_parameters_schema, ignored_modules,
-                     operation_retries, operation_retry_interval):
+                     operation_on_error):
+        operation_on_error = operation_on_error or {}
         interfaces = {
             'test': dict(
                 ('op{0}'.format(index),
                  {'implementation': 'p.{0}.{1}'.format(self._testMethodName,
                                                        op_method.__name__),
-                  'retries': operation_retries,
-                  'retry_interval': operation_retry_interval})
+                  'on_error': operation_on_error})
                 for index, op_method in
                 enumerate(operation_methods)
             )
@@ -384,8 +380,10 @@ class BaseWorkflowTest(testtools.TestCase):
         self._execute_workflow(
             flow,
             operation_methods=[op0, op1],
-            operation_retries=operation_retries,
-            operation_retry_interval=operation_retry_interval,
+            operation_on_error={
+                'max_retries': operation_retries,
+                'retry_interval': operation_retry_interval
+            },
             execute_kwargs={
                 'task_retry_interval': global_retry_interval,
                 'task_retries': global_retries})
