@@ -632,7 +632,7 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
     if not node:
         raise ValueError("Node {0} doesn't exist".format(node_id))
     if delta == 0:
-        # nothing to do
+        ctx.logger.info('delta parameter is 0, so no scaling will take place.')
         return
     host_node = node.host_node
     scaled_node = host_node if (scale_compute and host_node) else node
