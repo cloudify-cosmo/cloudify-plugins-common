@@ -945,6 +945,9 @@ class CloudifyWorkflowContextHandler(object):
     def finish_deployment_modification(self, modification):
         raise NotImplementedError('Implemented by subclasses')
 
+    def rollback_deployment_modification(self, modification):
+        raise NotImplementedError('Implemented by subclasses')
+
 
 class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
@@ -1058,6 +1061,10 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
     def finish_deployment_modification(self, modification):
         client = get_rest_client()
         client.deployment_modifications.finish(modification.id)
+
+    def rollback_deployment_modification(self, modification):
+        client = get_rest_client()
+        client.deployment_modifications.rollback(modification.id)
 
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
@@ -1198,6 +1205,11 @@ class Modification(object):
     def finish(self):
         """Finish deployment modification process"""
         self.workflow_ctx.internal.handler.finish_deployment_modification(
+            self._raw_modification)
+
+    def rollback(self):
+        """Rollback deployment modification process"""
+        self.workflow_ctx.internal.handler.rollback_deployment_modification(
             self._raw_modification)
 
 
