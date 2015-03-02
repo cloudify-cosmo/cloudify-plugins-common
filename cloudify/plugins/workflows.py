@@ -644,7 +644,27 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
                          .format(delta, node_id, curr_num_instances))
 
     modification = ctx.deployment.start_modification({
-        scaled_node.id: {'instances': planned_num_instances}
+        scaled_node.id: {
+            'instances': planned_num_instances
+
+            # These following parameters are not exposed at the moment,
+            # but should be used to control which node instances get scaled in
+            # (when scaling in).
+            # They are mentioned here, because currently, the modification API
+            # is not very documented.
+            # Special care should be taken because if `scale_compute == True`
+            # (which is the default), then these ids should be the compute node
+            # instance ids which are not necessarily instances of the node
+            # specified by `node_id`.
+
+            # Node instances denoted by these instance ids should be *kept* if
+            # possible.
+            # 'removed_ids_exclude_hint': [],
+
+            # Node instances denoted by these instance ids should be *removed*
+            # if possible.
+            # 'removed_ids_include_hint': []
+        }
     })
     ctx.logger.info('Deployment modification started. [modification_id={0}]'
                     .format(modification.id))
