@@ -1044,8 +1044,15 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
     def start_deployment_modification(self, nodes):
         deployment_id = self.workflow_ctx.deployment.id
         client = get_rest_client()
-        modification = client.deployment_modifications.start(deployment_id,
-                                                             nodes)
+        modification = client.deployment_modifications.start(
+            deployment_id=deployment_id,
+            nodes=nodes,
+            context={
+                'blueprint_id': self.workflow_ctx.blueprint.id,
+                'deployment_id': self.workflow_ctx.deployment.id,
+                'execution_id': self.workflow_ctx.execution_id,
+                'workflow_id': self.workflow_ctx.workflow_id,
+            })
         return Modification(self.workflow_ctx, modification)
 
     def finish_deployment_modification(self, modification):
