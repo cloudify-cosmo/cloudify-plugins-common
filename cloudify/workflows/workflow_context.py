@@ -1191,6 +1191,10 @@ class Modification(object):
         """
         return self._removed
 
+    @property
+    def id(self):
+        return self._raw_modification.id
+
     def finish(self):
         """Finish deployment modification process"""
         self.workflow_ctx.internal.handler.finish_deployment_modification(

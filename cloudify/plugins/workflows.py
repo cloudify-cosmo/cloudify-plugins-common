@@ -646,6 +646,8 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
     modification = ctx.deployment.start_modification({
         scaled_node.id: {'instances': planned_num_instances}
     })
+    ctx.logger.info('Deployment modification started. [modification_id={0}]'
+                    .format(modification.id))
 
     if delta > 0:
         added_and_related = _get_all_nodes_instances(modification.added)
