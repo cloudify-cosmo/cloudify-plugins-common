@@ -24,7 +24,7 @@ import threading
 import Queue
 
 import testtools
-from testtools.matchers import MatchesAny, Equals, GreaterThan, ContainsAll
+from testtools.matchers import ContainsAll
 import nose.tools
 import cloudify.logs
 from cloudify.decorators import workflow, operation
@@ -86,7 +86,9 @@ class BaseWorkflowTest(testtools.TestCase):
                    create_blueprint_func=None,
                    workflow_parameters_schema=None,
                    load_env=False,
-                   ignored_modules=None):
+                   ignored_modules=None,
+                   operation_retries=None,
+                   operation_retry_interval=None):
         if create_blueprint_func is None:
             create_blueprint_func = self._blueprint_1
 
@@ -124,7 +126,9 @@ class BaseWorkflowTest(testtools.TestCase):
         blueprint = create_blueprint_func(workflow_methods,
                                           operation_methods,
                                           workflow_parameters_schema,
-                                          ignored_modules)
+                                          ignored_modules,
+                                          operation_retries,
+                                          operation_retry_interval)
 
         blueprint_dir = os.path.join(self.work_dir, 'blueprint')
         inner_dir = os.path.join(blueprint_dir, 'inner')
@@ -160,7 +164,9 @@ class BaseWorkflowTest(testtools.TestCase):
                           workflow_name='workflow0',
                           load_env=False,
                           setup_env=True,
-                          ignored_modules=None):
+                          ignored_modules=None,
+                          operation_retries=None,
+                          operation_retry_interval=None):
         if setup_env:
             self._setup_env(
                 workflow_methods=[workflow_method],
@@ -171,7 +177,9 @@ class BaseWorkflowTest(testtools.TestCase):
                 create_blueprint_func=create_blueprint_func,
                 workflow_parameters_schema=workflow_parameters_schema,
                 load_env=load_env,
-                ignored_modules=ignored_modules)
+                ignored_modules=ignored_modules,
+                operation_retries=operation_retries,
+                operation_retry_interval=operation_retry_interval)
         elif load_env:
             self.env = self._load_env(name)
 
@@ -185,12 +193,15 @@ class BaseWorkflowTest(testtools.TestCase):
         return self.env.execute(workflow_name, **final_execute_kwargs)
 
     def _blueprint_1(self, workflow_methods, operation_methods,
-                     workflow_parameters_schema, ignored_modules):
+                     workflow_parameters_schema, ignored_modules,
+                     operation_retries, operation_retry_interval):
         interfaces = {
             'test': dict(
                 ('op{0}'.format(index),
-                 'p.{0}.{1}'.format(self._testMethodName,
-                                    op_method.__name__))
+                 {'implementation': 'p.{0}.{1}'.format(self._testMethodName,
+                                                       op_method.__name__),
+                  'max_retries': operation_retries,
+                  'retry_interval': operation_retry_interval})
                 for index, op_method in
                 enumerate(operation_methods)
             )
@@ -209,7 +220,7 @@ class BaseWorkflowTest(testtools.TestCase):
         ))
 
         blueprint = {
-            'tosca_definitions_version': 'cloudify_dsl_1_0',
+            'tosca_definitions_version': 'cloudify_dsl_1_1',
             'imports': ['inner/imported.yaml'],
             'inputs': {
                 'from_input': {
@@ -326,6 +337,58 @@ class BaseWorkflowTest(testtools.TestCase):
         finally:
             cloudify.logs.stdout_event_out = o_stdout_log
             cloudify.logs.stdout_event_out = o_stdout_event
+
+    def _test_retry_configuration_impl(self,
+                                       global_retries,
+                                       global_retry_interval,
+                                       operation_retries,
+                                       operation_retry_interval):
+
+        expected_retries = global_retries
+        if operation_retries is not None:
+            expected_retries = operation_retries
+        expected_retry_interval = global_retry_interval
+        if operation_retry_interval is not None:
+            expected_retry_interval = operation_retry_interval
+
+        def flow(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.execute_operation('test.op0', kwargs={
+                'props': {'key': 'initial_value'}
+            }).get()
+            instance.execute_operation('test.op1').get()
+
+        def op0(ctx, props, **_):
+            self.assertIsNotNone(ctx.instance.id)
+            current_retry = ctx.instance.runtime_properties.get('retry', 0)
+            last_timestamp = ctx.instance.runtime_properties.get('timestamp')
+            current_timestamp = time.time()
+
+            ctx.instance.runtime_properties['retry'] = current_retry + 1
+            ctx.instance.runtime_properties['timestamp'] = current_timestamp
+
+            self.assertEqual('initial_value', props['key'])
+            props['key'] = 'new_value'
+
+            if current_retry > 0:
+                duration = current_timestamp - last_timestamp
+                self.assertTrue(expected_retry_interval <= duration <=
+                                expected_retry_interval + 0.5)
+            if current_retry < expected_retries:
+                self.fail()
+
+        def op1(ctx, **_):
+            self.assertEqual(
+                expected_retries + 1, ctx.instance.runtime_properties['retry'])
+
+        self._execute_workflow(
+            flow,
+            operation_methods=[op0, op1],
+            operation_retries=operation_retries,
+            operation_retry_interval=operation_retry_interval,
+            execute_kwargs={
+                'task_retry_interval': global_retry_interval,
+                'task_retries': global_retries})
 
 
 @nose.tools.nottest
@@ -827,6 +890,14 @@ class LocalWorkflowTest(BaseWorkflowTest):
                                                   ".*does not exist.*"):
             self._execute_workflow(flow)
 
+    def test_operation_retry_configuration(self):
+        self._test_retry_configuration_impl(
+            global_retries=100,
+            global_retry_interval=100,
+            operation_retries=1,
+            operation_retry_interval=1
+        )
+
 
 @nose.tools.istest
 class LocalWorkflowTestInMemoryStorage(LocalWorkflowTest):
@@ -1005,46 +1076,13 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             workflow_parameters_schema=valid_custom_schema,
             use_existing_env=False)
 
-    def test_retry_configuration(self):
-        retry_interval = 1
-        task_retries = 1
-
-        def flow(ctx, **_):
-            instance = _instance(ctx, 'node')
-            instance.execute_operation('test.op0', kwargs={
-                'props': {'key': 'initial_value'}
-            }).get()
-            instance.execute_operation('test.op1').get()
-
-        def op0(ctx, props, **_):
-            self.assertIsNotNone(ctx.instance.id)
-            current_retry = ctx.instance.runtime_properties.get('retry', 0)
-            last_timestamp = ctx.instance.runtime_properties.get('timestamp')
-            current_timestamp = time.time()
-
-            ctx.instance.runtime_properties['retry'] = current_retry + 1
-            ctx.instance.runtime_properties['timestamp'] = current_timestamp
-
-            self.assertEqual('initial_value', props['key'])
-            props['key'] = 'new_value'
-
-            if current_retry > 0:
-                timestamp = current_timestamp - last_timestamp
-                self.assertThat(timestamp, MatchesAny(Equals(1),
-                                                      GreaterThan(1)))
-            if current_retry < task_retries:
-                self.fail()
-
-        def op1(ctx, **_):
-            self.assertEqual(
-                task_retries + 1, ctx.instance.runtime_properties['retry'])
-
-        self._execute_workflow(
-            flow,
-            operation_methods=[op0, op1],
-            execute_kwargs={
-                'task_retry_interval': retry_interval,
-                'task_retries': task_retries})
+    def test_global_retry_configuration(self):
+        self._test_retry_configuration_impl(
+            global_retries=1,
+            global_retry_interval=1,
+            operation_retries=None,
+            operation_retry_interval=None
+        )
 
     def test_local_task_thread_pool_size(self):
         default_size = workflow_context.DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE
@@ -1247,7 +1285,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         return func
 
     def _blueprint_3(self, workflow_methods, _,
-                     workflow_parameters_schema, __):
+                     workflow_parameters_schema, __, *args):
         workflows = dict((
             ('workflow{0}'.format(index), {
                 'mapping': 'p.{0}.{1}'.format(self._testMethodName,
