@@ -878,7 +878,7 @@ class LocalTasksProcessing(object):
             try:
                 task = self._local_tasks_queue.get(timeout=1)
                 task()
-            # may seem to general, but daemon threads are just great.
+            # may seem too general, but daemon threads are just great.
             # anyway, this is properly unit tested, so we should be good.
             except:
                 pass
