@@ -666,34 +666,37 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
             # 'removed_ids_include_hint': []
         }
     })
-    ctx.logger.info('Deployment modification started. [modification_id={0}]'
-                    .format(modification.id))
-
-    if delta > 0:
-        added_and_related = _get_all_nodes_instances(modification.added)
-        added = set(i for i in added_and_related if i.modification == 'added')
-        related = added_and_related - added
-        _install_node_instances(
-            ctx,
-            node_instances=added,
-            intact_nodes=related,
-            node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
-            graph_finisher_cls=RuntimeInstallationTasksGraphFinisher)
+    try:
+        ctx.logger.info('Deployment modification started. '
+                        '[modification_id={0}]'.format(modification.id))
+        if delta > 0:
+            added_and_related = _get_all_nodes_instances(modification.added)
+            added = set(i for i in added_and_related
+                        if i.modification == 'added')
+            related = added_and_related - added
+            _install_node_instances(
+                ctx,
+                node_instances=added,
+                intact_nodes=related,
+                node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
+                graph_finisher_cls=RuntimeInstallationTasksGraphFinisher)
+        else:
+            removed_and_related = _get_all_nodes_instances(
+                modification.removed)
+            removed = set(i for i in removed_and_related
+                          if i.modification == 'removed')
+            related = removed_and_related - removed
+            _uninstall_node_instances(
+                ctx,
+                node_instances=removed,
+                intact_nodes=related,
+                node_tasks_seq_creator=
+                NodeUninstallationTasksSequenceCreator(),
+                graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
+    except:
+        ctx.logger.warn('Rolling back deployment modification. '
+                        '[modification_id={0}]'.format(modification.id))
+        modification.rollback()
+        raise
     else:
-        removed_and_related = _get_all_nodes_instances(modification.removed)
-        removed = set(i for i in removed_and_related
-                      if i.modification == 'removed')
-        related = removed_and_related - removed
-        _uninstall_node_instances(
-            ctx,
-            node_instances=removed,
-            intact_nodes=related,
-            node_tasks_seq_creator=NodeUninstallationTasksSequenceCreator(),
-            graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
-
-    # Currently, no rollback mechanism is implemented whatsoever.
-    # So, if stuff went wrong during the scale-in phase, failed tasks
-    # will be ignored, similar to what happens with the uninstall workflow
-    # and this call will remove all scaled-in node instances.
-    # This is a known issue that will be resolved.
-    modification.finish()
+        modification.finish()
