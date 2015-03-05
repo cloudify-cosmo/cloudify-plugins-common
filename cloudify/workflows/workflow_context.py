@@ -901,12 +901,13 @@ class LocalTasksProcessing(object):
 
     def _process_local_task(self):
         # see CFY-1442
-        queue_empty = Queue.Empty
         while not self.stopped:
             try:
                 task = self._local_tasks_queue.get(timeout=1)
                 task()
-            except queue_empty:
+            # may seem too general, but daemon threads are just great.
+            # anyway, this is properly unit tested, so we should be good.
+            except:
                 pass
 
 # Local/Remote Handlers
@@ -969,6 +970,9 @@ class CloudifyWorkflowContextHandler(object):
         raise NotImplementedError('Implemented by subclasses')
 
     def finish_deployment_modification(self, modification):
+        raise NotImplementedError('Implemented by subclasses')
+
+    def rollback_deployment_modification(self, modification):
         raise NotImplementedError('Implemented by subclasses')
 
 
@@ -1070,14 +1074,24 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
     def start_deployment_modification(self, nodes):
         deployment_id = self.workflow_ctx.deployment.id
         client = get_rest_client()
-        modification = client.deployments.modify.start(deployment_id, nodes)
+        modification = client.deployment_modifications.start(
+            deployment_id=deployment_id,
+            nodes=nodes,
+            context={
+                'blueprint_id': self.workflow_ctx.blueprint.id,
+                'deployment_id': self.workflow_ctx.deployment.id,
+                'execution_id': self.workflow_ctx.execution_id,
+                'workflow_id': self.workflow_ctx.workflow_id,
+            })
         return Modification(self.workflow_ctx, modification)
 
     def finish_deployment_modification(self, modification):
-        deployment_id = self.workflow_ctx.deployment.id
         client = get_rest_client()
-        client.deployments.modify.finish(deployment_id,
-                                         modification)
+        client.deployment_modifications.finish(modification.id)
+
+    def rollback_deployment_modification(self, modification):
+        client = get_rest_client()
+        client.deployment_modifications.rollback(modification.id)
 
 
 class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
@@ -1211,9 +1225,18 @@ class Modification(object):
         """
         return self._removed
 
+    @property
+    def id(self):
+        return self._raw_modification.id
+
     def finish(self):
         """Finish deployment modification process"""
         self.workflow_ctx.internal.handler.finish_deployment_modification(
+            self._raw_modification)
+
+    def rollback(self):
+        """Rollback deployment modification process"""
+        self.workflow_ctx.internal.handler.rollback_deployment_modification(
             self._raw_modification)
 
 

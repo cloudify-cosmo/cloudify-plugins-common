@@ -632,7 +632,7 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
     if not node:
         raise ValueError("Node {0} doesn't exist".format(node_id))
     if delta == 0:
-        # nothing to do
+        ctx.logger.info('delta parameter is 0, so no scaling will take place.')
         return
     host_node = node.host_node
     scaled_node = host_node if (scale_compute and host_node) else node
@@ -644,34 +644,73 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
                          .format(delta, node_id, curr_num_instances))
 
     modification = ctx.deployment.start_modification({
-        scaled_node.id: {'instances': planned_num_instances}
+        scaled_node.id: {
+            'instances': planned_num_instances
+
+            # These following parameters are not exposed at the moment,
+            # but should be used to control which node instances get scaled in
+            # (when scaling in).
+            # They are mentioned here, because currently, the modification API
+            # is not very documented.
+            # Special care should be taken because if `scale_compute == True`
+            # (which is the default), then these ids should be the compute node
+            # instance ids which are not necessarily instances of the node
+            # specified by `node_id`.
+
+            # Node instances denoted by these instance ids should be *kept* if
+            # possible.
+            # 'removed_ids_exclude_hint': [],
+
+            # Node instances denoted by these instance ids should be *removed*
+            # if possible.
+            # 'removed_ids_include_hint': []
+        }
     })
-
-    if delta > 0:
-        added_and_related = _get_all_nodes_instances(modification.added)
-        added = set(i for i in added_and_related if i.modification == 'added')
-        related = added_and_related - added
-        _install_node_instances(
-            ctx,
-            node_instances=added,
-            intact_nodes=related,
-            node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
-            graph_finisher_cls=RuntimeInstallationTasksGraphFinisher)
+    try:
+        ctx.logger.info('Deployment modification started. '
+                        '[modification_id={0}]'.format(modification.id))
+        if delta > 0:
+            added_and_related = _get_all_nodes_instances(modification.added)
+            added = set(i for i in added_and_related
+                        if i.modification == 'added')
+            related = added_and_related - added
+            _install_node_instances(
+                ctx,
+                node_instances=added,
+                intact_nodes=related,
+                node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
+                graph_finisher_cls=RuntimeInstallationTasksGraphFinisher)
+        else:
+            removed_and_related = _get_all_nodes_instances(
+                modification.removed)
+            removed = set(i for i in removed_and_related
+                          if i.modification == 'removed')
+            related = removed_and_related - removed
+            node_tasks_seq_creator = NodeUninstallationTasksSequenceCreator()
+            _uninstall_node_instances(
+                ctx,
+                node_instances=removed,
+                intact_nodes=related,
+                node_tasks_seq_creator=node_tasks_seq_creator,
+                graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
+    except:
+        ctx.logger.warn('Rolling back deployment modification. '
+                        '[modification_id={0}]'.format(modification.id))
+        try:
+            modification.rollback()
+        except:
+            ctx.logger.warn('Deployment modification rollback failed. The '
+                            'deployment model is most likely in some corrupted'
+                            ' state.'
+                            '[modification_id={0}]'.format(modification.id))
+            raise
+        raise
     else:
-        removed_and_related = _get_all_nodes_instances(modification.removed)
-        removed = set(i for i in removed_and_related
-                      if i.modification == 'removed')
-        related = removed_and_related - removed
-        _uninstall_node_instances(
-            ctx,
-            node_instances=removed,
-            intact_nodes=related,
-            node_tasks_seq_creator=NodeUninstallationTasksSequenceCreator(),
-            graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
-
-    # Currently, no rollback mechanism is implemented whatsoever.
-    # So, if stuff went wrong during the scale-in phase, failed tasks
-    # will be ignored, similar to what happens with the uninstall workflow
-    # and this call will remove all scaled-in node instances.
-    # This is a known issue that will be resolved.
-    modification.finish()
+        try:
+            modification.finish()
+        except:
+            ctx.logger.warn('Deployment modification finish failed. The '
+                            'deployment model is most likely in some corrupted'
+                            ' state.'
+                            '[modification_id={0}]'.format(modification.id))
+            raise
