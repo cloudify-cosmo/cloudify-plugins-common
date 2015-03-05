@@ -686,12 +686,12 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
             removed = set(i for i in removed_and_related
                           if i.modification == 'removed')
             related = removed_and_related - removed
+            node_tasks_seq_creator = NodeUninstallationTasksSequenceCreator()
             _uninstall_node_instances(
                 ctx,
                 node_instances=removed,
                 intact_nodes=related,
-                node_tasks_seq_creator=
-                NodeUninstallationTasksSequenceCreator(),
+                node_tasks_seq_creator=node_tasks_seq_creator,
                 graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
     except:
         ctx.logger.warn('Rolling back deployment modification. '
