@@ -696,7 +696,21 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
     except:
         ctx.logger.warn('Rolling back deployment modification. '
                         '[modification_id={0}]'.format(modification.id))
-        modification.rollback()
+        try:
+            modification.rollback()
+        except:
+            ctx.logger.warn('Deployment modification rollback failed. The '
+                            'deployment model is most likely in some corrupted'
+                            ' state.'
+                            '[modification_id={0}]'.format(modification.id))
+            raise
         raise
     else:
-        modification.finish()
+        try:
+            modification.finish()
+        except:
+            ctx.logger.warn('Deployment modification finish failed. The '
+                            'deployment model is most likely in some corrupted'
+                            ' state.'
+                            '[modification_id={0}]'.format(modification.id))
+            raise
