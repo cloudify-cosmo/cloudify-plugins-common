@@ -284,10 +284,12 @@ class RuntimeUninstallationTasksGraphFinisher(
 
 
 def _uninstall_node_instances(ctx, node_instances, intact_nodes,
-                              node_tasks_seq_creator, graph_finisher_cls):
-    # switch to graph mode (operations on the context return tasks instead of
-    # result instances)
-    graph = ctx.graph_mode()
+                              node_tasks_seq_creator, graph_finisher_cls,
+                              graph=None):
+    if not graph:
+        # switch to graph mode (operations on the context return tasks instead
+        # of result instances)
+        graph = ctx.graph_mode()
     tasks_refs = UninstallationTasksReferences()
     for instance in node_instances:
         # We need reference to the set deleted state tasks and the set
@@ -674,24 +676,40 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
             added = set(i for i in added_and_related
                         if i.modification == 'added')
             related = added_and_related - added
-            _install_node_instances(
-                ctx,
-                node_instances=added,
-                intact_nodes=related,
-                node_tasks_seq_creator=NodeInstallationTasksSequenceCreator(),
-                graph_finisher_cls=RuntimeInstallationTasksGraphFinisher)
+            try:
+                node_tasks_seq = NodeInstallationTasksSequenceCreator()
+                _install_node_instances(
+                    ctx,
+                    node_instances=added,
+                    intact_nodes=related,
+                    node_tasks_seq_creator=node_tasks_seq,
+                    graph_finisher_cls=RuntimeInstallationTasksGraphFinisher)
+            except:
+                ctx.logger.error('Scale out failed, scaling back in.')
+                graph = ctx.internal.task_graph
+                for task in graph.tasks_iter():
+                    graph.remove_task(task)
+                node_tasks_seq = NodeUninstallationTasksSequenceCreator()
+                _uninstall_node_instances(
+                    ctx,
+                    node_instances=added,
+                    intact_nodes=related,
+                    node_tasks_seq_creator=node_tasks_seq,
+                    graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher,
+                    graph=graph)
+                raise
         else:
             removed_and_related = _get_all_nodes_instances(
                 modification.removed)
             removed = set(i for i in removed_and_related
                           if i.modification == 'removed')
             related = removed_and_related - removed
-            node_tasks_seq_creator = NodeUninstallationTasksSequenceCreator()
+            node_tasks_seq = NodeUninstallationTasksSequenceCreator()
             _uninstall_node_instances(
                 ctx,
                 node_instances=removed,
                 intact_nodes=related,
-                node_tasks_seq_creator=node_tasks_seq_creator,
+                node_tasks_seq_creator=node_tasks_seq,
                 graph_finisher_cls=RuntimeUninstallationTasksGraphFinisher)
     except:
         ctx.logger.warn('Rolling back deployment modification. '
