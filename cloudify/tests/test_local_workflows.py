@@ -1351,4 +1351,3 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
 
 def _instance(ctx, node_name):
     return next(ctx.get_node(node_name).instances)
-
