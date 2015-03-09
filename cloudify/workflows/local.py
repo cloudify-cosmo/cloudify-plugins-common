@@ -27,6 +27,7 @@ from cloudify_rest_client.node_instances import NodeInstance
 
 from cloudify.workflows.workflow_context import (
     DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
+from dsl_parser.parser import HOST_TYPE
 
 try:
     from dsl_parser import parser as dsl_parser, tasks as dsl_tasks
@@ -159,6 +160,18 @@ def _parse_plan(blueprint_path, inputs, ignored_modules):
     return plan, nodes, node_instances
 
 
+def _validate_node(node):
+    if HOST_TYPE in node['type_hierarchy']:
+        install_agent_prop = node.properties.get('install_agent')
+        if install_agent_prop:
+            raise ValueError("'install_agent'=True is not supported "
+                             "(it is True by default) "
+                             "when executing local workflows. "
+                             "The 'install_agent' property "
+                             "must be set to False for each node of type {0}."
+                             .format(HOST_TYPE))
+
+
 def _prepare_nodes_and_instances(nodes, node_instances, ignored_modules):
 
     def scan(parent, name, node):
@@ -177,6 +190,7 @@ def _prepare_nodes_and_instances(nodes, node_instances, ignored_modules):
         if 'relationships' not in node:
             node['relationships'] = []
         scan(node, 'operations', node)
+        _validate_node(node)
         for relationship in node['relationships']:
             scan(relationship, 'source_operations', node)
             scan(relationship, 'target_operations', node)
