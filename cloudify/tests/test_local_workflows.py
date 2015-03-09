@@ -15,7 +15,6 @@
 
 import contextlib
 import time
-from dsl_parser.parser import HOST_TYPE
 import yaml
 import sys
 import tempfile
@@ -1353,19 +1352,3 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
 def _instance(ctx, node_name):
     return next(ctx.get_node(node_name).instances)
 
-
-class InstallAgentTest(testtools.TestCase):
-
-    def test_install_agent(self):
-        blueprint_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "resources/blueprints/test-install-agent-blueprint.yaml")
-        try:
-            self.env = local.init_env(blueprint_path)
-        except ValueError as e:
-            self.assertIn("'install_agent': true is not supported "
-                          "(it is True by default) "
-                          "when executing local workflows. "
-                          "The 'install_agent' property must be set to false "
-                          "for each node of type {0}.".format(HOST_TYPE),
-                          e.message)
