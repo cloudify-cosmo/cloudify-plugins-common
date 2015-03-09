@@ -164,11 +164,11 @@ def _validate_node(node):
     if HOST_TYPE in node['type_hierarchy']:
         install_agent_prop = node.properties.get('install_agent')
         if install_agent_prop:
-            raise ValueError("'install_agent'=True is not supported "
+            raise ValueError("'install_agent': true is not supported "
                              "(it is True by default) "
                              "when executing local workflows. "
                              "The 'install_agent' property "
-                             "must be set to False for each node of type {0}."
+                             "must be set to false for each node of type {0}."
                              .format(HOST_TYPE))
 
 
