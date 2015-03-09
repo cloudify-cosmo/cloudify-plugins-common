@@ -37,3 +37,4 @@ class InstallAgentTest(testtools.TestCase):
                           "The 'install_agent' property must be set to false "
                           "for each node of type {0}.".format(HOST_TYPE),
                           e.message)
+                          
