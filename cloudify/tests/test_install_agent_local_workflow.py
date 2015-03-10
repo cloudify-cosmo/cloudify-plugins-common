@@ -14,8 +14,8 @@
 #    * limitations under the License.
 
 import os
-import testtools
 
+import testtools
 from testtools.testcase import ExpectedException
 
 from cloudify.workflows import local
