@@ -15,12 +15,15 @@
 
 
 import os
+from StringIO import StringIO
 
 import testtools
+from mock import patch
 
 from cloudify import context
 from cloudify import decorators
 from cloudify import exceptions
+from cloudify import logs
 from cloudify.workflows import local
 from cloudify.workflows import tasks as workflow_tasks
 
@@ -112,6 +115,20 @@ class OperationRetryWorkflowTests(testtools.TestCase):
                          })
         instance = self.env.storage.get_node_instances()[0]
         self.assertEqual(4, instance['runtime_properties']['counter'])
+
+    def test_operation_retry_task_message(self):
+        output_buffer = StringIO()
+        original_event_out = logs.stdout_event_out
+
+        def event_output(log):
+            original_event_out(log)
+            output_buffer.write('{0}\n'.format(log['message']['text']))
+
+        with patch('cloudify.logs.stdout_event_out', event_output):
+            self.test_operation_retry()
+            self.assertIn('Task rescheduled', output_buffer.getvalue())
+            self.assertIn('Operation will be retried',
+                          output_buffer.getvalue())
 
     def test_ignore_operation_retry(self):
         self.env.execute('execute_operation',

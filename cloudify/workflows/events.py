@@ -15,6 +15,7 @@
 
 
 from cloudify import logs
+from cloudify.exceptions import OperationRetry
 from cloudify.workflows import tasks as tasks_api
 
 
@@ -43,7 +44,10 @@ class Monitor(object):
         self._handle(tasks_api.TASK_SUCCEEDED, event)
 
     def task_failed(self, event):
-        self._handle(tasks_api.TASK_FAILED, event)
+        if event.get('exception', '').startswith(OperationRetry.__name__):
+            self._handle(tasks_api.TASK_RESCHEDULED, event)
+        else:
+            self._handle(tasks_api.TASK_FAILED, event)
 
     def task_revoked(self, event):
         pass
@@ -116,8 +120,8 @@ def send_task_event(state, task, send_event_func, event):
     which will send events to RabbitMQ or use the workflow context logger
     in local context
 
-    :param state: the task state (valid: ['sending', 'started', 'succeeded',
-                  'failed'])
+    :param state: the task state (valid: ['sending', 'started', 'rescheduled',
+                  'succeeded', 'failed'])
     :param task: a WorkflowTask instance to send the event for
     :param send_event_func: function for actually sending the event somewhere
     :param event: a dict with either a result field or an exception fields
@@ -127,8 +131,8 @@ def send_task_event(state, task, send_event_func, event):
     if _filter_task(task, state):
         return
 
-    if state in [tasks_api.TASK_FAILED, tasks_api.TASK_SUCCEEDED] and \
-            event is None:
+    if state in (tasks_api.TASK_FAILED, tasks_api.TASK_RESCHEDULED,
+                 tasks_api.TASK_SUCCEEDED) and event is None:
         raise RuntimeError('Event for task {0} is None'.format(task.name))
 
     if state == tasks_api.TASK_SENDING:
@@ -143,6 +147,10 @@ def send_task_event(state, task, send_event_func, event):
                                                            'None') else ''
         message = "Task succeeded '{0}{1}'".format(task.name, suffix)
         event_type = 'task_succeeded'
+    elif state == tasks_api.TASK_RESCHEDULED:
+        message = "Task rescheduled '{0}' -> {1}".format(
+            task.name, event.get('exception'))
+        event_type = 'task_rescheduled'
     elif state == tasks_api.TASK_FAILED:
         message = "Task failed '{0}' -> {1}".format(task.name,
                                                     event.get('exception'))
@@ -151,7 +159,8 @@ def send_task_event(state, task, send_event_func, event):
     else:
         raise RuntimeError('unhandled event type: {0}'.format(state))
 
-    if task.current_retries > 0 or state == tasks_api.TASK_FAILED:
+    if task.current_retries > 0 or state in (tasks_api.TASK_FAILED,
+                                             tasks_api.TASK_RESCHEDULED):
         attempt = '[attempt {0}{1}]'.format(
             task.current_retries + 1,
             '/{0}'.format(task.total_retries + 1)
