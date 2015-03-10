@@ -31,4 +31,3 @@ class InstallAgentTest(testtools.TestCase):
         with ExpectedException(ValueError,
                                "'install_agent': true is not supported*"):
             self.env = local.init_env(blueprint_path)
-
