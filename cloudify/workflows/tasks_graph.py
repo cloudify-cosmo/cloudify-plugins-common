@@ -31,8 +31,6 @@ class TaskDependencyGraph(object):
     :param workflow_context: A WorkflowContext instance (used for logging)
     """
 
-    done_states = [tasks.TASK_FAILED, tasks.TASK_SUCCEEDED]
-
     def __init__(self, workflow_context):
         self.ctx = workflow_context
         self.graph = nx.DiGraph()
@@ -162,7 +160,7 @@ class TaskDependencyGraph(object):
         :return: An iterator for terminated tasks
         """
         return (task for task in self.tasks_iter()
-                if task.get_state() in self.done_states)
+                if task.get_state() in tasks.TERMINATED_STATES)
 
     def _task_has_dependencies(self, task_id):
         """

@@ -32,8 +32,11 @@ TASK_PENDING = 'pending'
 TASK_SENDING = 'sending'
 TASK_SENT = 'sent'
 TASK_STARTED = 'started'
+TASK_RESCHEDULED = 'rescheduled'
 TASK_SUCCEEDED = 'succeeded'
 TASK_FAILED = 'failed'
+
+TERMINATED_STATES = [TASK_RESCHEDULED, TASK_SUCCEEDED, TASK_FAILED]
 
 
 def retry_failure_handler(task):
@@ -127,8 +130,8 @@ class WorkflowTask(object):
         """
         Get the task state
 
-        :return: The task state [pending, sending, sent, started, succeeded,
-                                 failed]
+        :return: The task state [pending, sending, sent, started,
+                                 rescheduled, succeeded, failed]
         """
         return self._state
 
@@ -137,14 +140,14 @@ class WorkflowTask(object):
         Set the task state
 
         :param state: The state to set [pending, sending, sent, started,
-                                           succeeded, failed]
+                                        rescheduled, succeeded, failed]
         """
         if state not in [TASK_PENDING, TASK_SENDING, TASK_SENT, TASK_STARTED,
-                         TASK_SUCCEEDED, TASK_FAILED]:
+                         TASK_RESCHEDULED, TASK_SUCCEEDED, TASK_FAILED]:
             raise RuntimeError('Illegal state set on task: {0} '
                                '[task={1}]'.format(state, str(self)))
         self._state = state
-        if state in [TASK_SUCCEEDED, TASK_FAILED]:
+        if state in TERMINATED_STATES:
             self.is_terminated = True
             self.terminated.put_nowait(True)
 
@@ -154,8 +157,8 @@ class WorkflowTask(object):
         self.terminated.get(timeout=timeout)
 
     def handle_task_terminated(self):
-        if self.get_state() == TASK_FAILED:
-            handler_result = self._handle_task_failed()
+        if self.get_state() in (TASK_FAILED, TASK_RESCHEDULED):
+            handler_result = self._handle_task_not_succeeded()
         else:
             handler_result = self._handle_task_succeeded()
 
@@ -179,11 +182,11 @@ class WorkflowTask(object):
         else:
             return HandlerResult.cont()
 
-    def _handle_task_failed(self):
+    def _handle_task_not_succeeded(self):
 
         """
-        Call handler for task failure
-
+        Call handler for task which hasn't ended in 'succeeded' state
+        (i.e. has either failed or been rescheduled)
         """
 
         try:
@@ -443,12 +446,14 @@ class LocalWorkflowTask(WorkflowTask):
                     TASK_SUCCEEDED, self, event={'result': str(result)})
                 self.async_result._holder.result = result
                 self.set_state(TASK_SUCCEEDED)
-            except:
+            except BaseException as e:
+                new_task_state = TASK_RESCHEDULED if isinstance(
+                    e, exceptions.OperationRetry) else TASK_FAILED
                 exc_type, exception, tb = sys.exc_info()
                 self.workflow_context.internal.send_task_event(
-                    TASK_FAILED, self, event={'exception': str(exception)})
+                    new_task_state, self, event={'exception': str(exception)})
                 self.async_result._holder.error = (exception, tb)
-                self.set_state(TASK_FAILED)
+                self.set_state(new_task_state)
 
         self.async_result = LocalWorkflowTaskResult(self)
 
