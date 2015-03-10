@@ -14,10 +14,9 @@
 #    * limitations under the License.
 
 import os
-
 import testtools
 
-from dsl_parser.parser import HOST_TYPE
+from testtools.testcase import ExpectedException
 
 from cloudify.workflows import local
 
@@ -28,12 +27,8 @@ class InstallAgentTest(testtools.TestCase):
         blueprint_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             "resources/blueprints/test-install-agent-blueprint.yaml")
-        try:
+
+        with ExpectedException(ValueError,
+                               "'install_agent': true is not supported*"):
             self.env = local.init_env(blueprint_path)
-        except ValueError as e:
-            self.assertIn("'install_agent': true is not supported "
-                          "(it is True by default) "
-                          "when executing local workflows. "
-                          "The 'install_agent' property must be set to false "
-                          "for each node of type {0}.".format(HOST_TYPE),
-                          e.message)
+
