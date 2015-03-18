@@ -453,6 +453,7 @@ class LocalWorkflowTask(WorkflowTask):
                 self.workflow_context.internal.send_task_event(
                     new_task_state, self, event={'exception': str(exception)})
                 self.async_result._holder.error = (exception, tb)
+                self.error = e
                 self.set_state(new_task_state)
 
         self.async_result = LocalWorkflowTaskResult(self)
