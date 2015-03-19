@@ -151,6 +151,7 @@ def send_task_event(state, task, send_event_func, event):
         message = "Task rescheduled '{0}' -> {1}".format(
             task.name, event.get('exception'))
         event_type = 'task_rescheduled'
+        task.error = event.get('exception')
     elif state == tasks_api.TASK_FAILED:
         message = "Task failed '{0}' -> {1}".format(task.name,
                                                     event.get('exception'))
