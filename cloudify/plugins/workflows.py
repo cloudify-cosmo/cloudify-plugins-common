@@ -567,7 +567,7 @@ def uninstall(ctx, **kwargs):
 @workflow
 def auto_heal_reinstall_node_subgraph(
         ctx,
-        node_id,
+        node_instance_id,
         diagnose_value='Not provided',
         **kwargs):
     """Reinstalls the whole subgraph of the system topology
@@ -582,8 +582,8 @@ def auto_heal_reinstall_node_subgraph(
     """
 
     ctx.logger.info("Starting 'heal' workflow on {0}, Diagnosis: {1}"
-                    .format(node_id, diagnose_value))
-    failing_node = ctx.get_node_instance(node_id)
+                    .format(node_instance_id, diagnose_value))
+    failing_node = ctx.get_node_instance(node_instance_id)
     failing_node_host = ctx.get_node_instance(
         failing_node._node_instance.host_id
     )
