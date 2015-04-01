@@ -22,9 +22,11 @@ from cloudify import decorators
 from cloudify import exceptions
 from cloudify.workflows import local
 
+
 @decorators.operation
 def fail_operation(**_):
     raise ExpectedException('TEST_EXPECTED_FAIL')
+
 
 @decorators.workflow
 def fail_execute_task(ctx, **kwargs):
