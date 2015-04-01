@@ -17,6 +17,7 @@ import os
 import tempfile
 import copy
 import importlib
+import shutil
 import uuid
 import json
 import threading
@@ -416,9 +417,10 @@ class FileStorage(_Storage):
         with open(data_path, 'w') as f:
             f.write(json.dumps({
                 'plan': plan,
-                'resources_root': resources_root,
                 'nodes': nodes
             }))
+        self.resources_root = os.path.join(storage_dir, 'resources')
+        shutil.copytree(resources_root, self.resources_root)
         self._instances_dir = instances_dir
         for instance in node_instances:
             self._store_instance(instance, lock=False)
@@ -433,7 +435,7 @@ class FileStorage(_Storage):
         with open(self._data_path) as f:
             data = json.loads(f.read())
         self.plan = data['plan']
-        self.resources_root = data['resources_root']
+        self.resources_root = os.path.join(self._storage_dir, 'resources')
         nodes = [Node(node) for node in data['nodes']]
         self._init_locks_and_nodes(nodes)
 

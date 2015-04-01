@@ -40,6 +40,7 @@ class BaseWorkflowTest(testtools.TestCase):
     def setUp(self):
         super(BaseWorkflowTest, self).setUp()
         self.work_dir = tempfile.mkdtemp(prefix='cloudify-workflows-')
+        self.blueprint_dir = os.path.join(self.work_dir, 'blueprint')
         self.storage_dir = os.path.join(self.work_dir, 'storage')
         self.storage_kwargs = {}
         self.env = None
@@ -130,17 +131,16 @@ class BaseWorkflowTest(testtools.TestCase):
                                           operation_retries,
                                           operation_retry_interval)
 
-        blueprint_dir = os.path.join(self.work_dir, 'blueprint')
-        inner_dir = os.path.join(blueprint_dir, 'inner')
-        if not os.path.isdir(blueprint_dir):
-            os.mkdir(blueprint_dir)
+        inner_dir = os.path.join(self.blueprint_dir, 'inner')
+        if not os.path.isdir(self.blueprint_dir):
+            os.mkdir(self.blueprint_dir)
         if not os.path.isdir(inner_dir):
             os.mkdir(inner_dir)
         with open(os.path.join(inner_dir, 'imported.yaml'), 'w') as f:
             f.write('node_types: { imported_type: {} }')
-        with open(os.path.join(blueprint_dir, 'resource'), 'w') as f:
+        with open(os.path.join(self.blueprint_dir, 'resource'), 'w') as f:
             f.write('content')
-        blueprint_path = os.path.join(blueprint_dir, 'blueprint.yaml')
+        blueprint_path = os.path.join(self.blueprint_dir, 'blueprint.yaml')
         with open(blueprint_path, 'w') as f:
             f.write(yaml.safe_dump(blueprint))
         if not self.env or not use_existing_env:
@@ -953,6 +953,26 @@ class FileStorageTest(BaseWorkflowTest):
         self._execute_workflow(workflow_name='workflow0',
                                setup_env=False, load_env=True)
         self._execute_workflow(workflow_name='workflow1',
+                               setup_env=False, load_env=True)
+
+    def test_path_agnostic_persistency(self):
+        # tests file storage isn't dependent on the blueprint directory
+        # for resources (but stores its own copies instead)
+        def persistency(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.execute_operation('test.op0').get()
+
+        def op(ctx, **_):
+            self.assertEqual('new_input', ctx.node.properties['from_input'])
+            self.assertEqual('content', ctx.get_resource('resource'))
+
+        self._setup_env(workflow_methods=[persistency],
+                        operation_methods=[op],
+                        inputs={'from_input': 'new_input'})
+
+        shutil.rmtree(self.blueprint_dir)
+
+        self._execute_workflow(workflow_name='workflow0',
                                setup_env=False, load_env=True)
 
 
