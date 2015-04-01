@@ -17,7 +17,7 @@
 from cloudify.context import (CloudifyContext,
                               ContextCapabilities,
                               BootstrapContext)
-from cloudify.utils import setup_default_logger
+from cloudify.utils import setup_logger
 
 
 class MockNodeInstanceContext(object):
@@ -111,7 +111,7 @@ class MockCloudifyContext(CloudifyContext):
         self._related = related
         self._provider_context = provider_context or {}
         self._bootstrap_context = bootstrap_context or BootstrapContext({})
-        self._mock_context_logger = setup_default_logger('mock-context-logger')
+        self._mock_context_logger = setup_logger('mock-context-logger')
         if node_id:
             self._instance = MockNodeInstanceContext(
                 id=node_id,

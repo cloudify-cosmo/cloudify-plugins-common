@@ -28,28 +28,39 @@ from cloudify.constants import LOCAL_IP_KEY, MANAGER_IP_KEY, \
     MANAGER_FILE_SERVER_URL_KEY
 
 
-def setup_default_logger(logger_name, level=logging.DEBUG):
+def setup_logger(logger_name, logger_level=logging.DEBUG, handlers=None,
+                 remove_existing_handlers=True):
     """
     :param logger_name: Name of the logger.
+    :param logger_level: Level for the logger (not for specific handler).
+    :param handlers: An optional list of handlers (formatter will be
+                     overridden); If None, only a StreamHandler for
+                     sys.stdout will be used.
+    :param remove_existing_handlers: Determines whether to remove existing
+                                     handlers before adding new ones
     :return: A logger instance.
     :rtype: Logger
     """
 
-    # clear all other handlers
-
     logger = logging.getLogger(logger_name)
-    for handler in logger.handlers:
-        logger.removeHandler(handler)
 
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
+    if remove_existing_handlers:
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
+
+    if not handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG)
+        handlers = [handler]
+
     formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)s] '
                                       '[%(name)s] %(message)s',
                                   datefmt='%H:%M:%S')
-    handler.setFormatter(formatter)
-    logger.setLevel(level)
-    logger.addHandler(handler)
+    for handler in handlers:
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
+    logger.setLevel(logger_level)
     return logger
 
 
@@ -134,7 +145,7 @@ class LocalCommandRunner(object):
                        printing the output and the command.
         """
 
-        logger = logger or setup_default_logger('LocalCommandRunner')
+        logger = logger or setup_logger('LocalCommandRunner')
         self.logger = logger
         self.host = host
 
