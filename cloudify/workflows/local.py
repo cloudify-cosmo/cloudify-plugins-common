@@ -420,7 +420,11 @@ class FileStorage(_Storage):
                 'nodes': nodes
             }))
         self.resources_root = os.path.join(storage_dir, 'resources')
-        shutil.copytree(resources_root, self.resources_root)
+
+        def ignore(src, names):
+            return names if os.path.abspath(self.resources_root) == src \
+                else set()
+        shutil.copytree(resources_root, self.resources_root, ignore=ignore)
         self._instances_dir = instances_dir
         for instance in node_instances:
             self._store_instance(instance, lock=False)

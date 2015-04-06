@@ -60,7 +60,8 @@ class BaseWorkflowTest(testtools.TestCase):
 
         storage = self.storage_cls(**self.storage_kwargs)
 
-        if isinstance(storage, local.FileStorage):
+        if isinstance(storage, local.FileStorage) \
+                and (self.storage_dir != self.blueprint_dir):
             shutil.rmtree(self.storage_kwargs['storage_dir'])
 
         return local.init_env(blueprint_path,
@@ -974,6 +975,13 @@ class FileStorageTest(BaseWorkflowTest):
 
         self._execute_workflow(workflow_name='workflow0',
                                setup_env=False, load_env=True)
+
+    def test_local_init_in_blueprint_dir(self):
+        self.blueprint_dir = self.storage_dir
+
+        def flow(ctx, **_):
+            pass
+        self._setup_env(workflow_methods=[flow])
 
 
 @nose.tools.istest
