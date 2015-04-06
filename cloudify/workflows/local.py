@@ -403,6 +403,7 @@ class FileStorage(_Storage):
         self._instances_dir = None
         self._data_path = None
         self._payload_path = None
+        self._blueprint_path = None
 
     def init(self, name, plan, nodes, node_instances, blueprint_path):
         storage_dir = os.path.join(self._root_storage_dir, name)
@@ -443,6 +444,7 @@ class FileStorage(_Storage):
         self._data_path = os.path.join(self._storage_dir, 'data')
         with open(self._data_path) as f:
             data = json.loads(f.read())
+        self._blueprint_path = data['blueprint_path']
         self.plan = data['plan']
         self.resources_root = os.path.join(self._storage_dir, 'resources')
         nodes = [Node(node) for node in data['nodes']]
@@ -456,6 +458,9 @@ class FileStorage(_Storage):
         with open(self._payload_path, 'w') as f:
             json.dump(payload, f, indent=2)
             f.write(os.linesep)
+
+    def get_blueprint_path(self):
+        return self._blueprint_path
 
     def get_node_instance(self, node_instance_id):
         return self._get_node_instance(node_instance_id)
