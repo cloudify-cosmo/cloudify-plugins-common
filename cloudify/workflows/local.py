@@ -62,8 +62,7 @@ class _Environment(object):
                 plan=plan,
                 nodes=nodes,
                 node_instances=node_instances,
-                resources_root=os.path.dirname(
-                    os.path.abspath(blueprint_path)))
+                blueprint_path=blueprint_path)
 
     @property
     def plan(self):
@@ -278,9 +277,9 @@ class _Storage(object):
         self._locks = None
         self.env = None
 
-    def init(self, name, plan, nodes, node_instances, resources_root):
+    def init(self, name, plan, nodes, node_instances, blueprint_path):
         self.name = name
-        self.resources_root = resources_root
+        self.resources_root = os.path.dirname(os.path.abspath(blueprint_path))
         self.plan = plan
         self._init_locks_and_nodes(nodes)
 
@@ -369,12 +368,12 @@ class InMemoryStorage(_Storage):
         super(InMemoryStorage, self).__init__()
         self._node_instances = None
 
-    def init(self, name, plan, nodes, node_instances, resources_root):
+    def init(self, name, plan, nodes, node_instances, blueprint_path):
         self.plan = plan
         self._node_instances = dict((instance.id, instance)
                                     for instance in node_instances)
         super(InMemoryStorage, self).init(name, plan, nodes, node_instances,
-                                          resources_root)
+                                          blueprint_path)
 
     def load(self, name):
         raise NotImplementedError('load is not implemented by memory storage')
@@ -405,7 +404,7 @@ class FileStorage(_Storage):
         self._data_path = None
         self._payload_path = None
 
-    def init(self, name, plan, nodes, node_instances, resources_root):
+    def init(self, name, plan, nodes, node_instances, blueprint_path):
         storage_dir = os.path.join(self._root_storage_dir, name)
         instances_dir = os.path.join(storage_dir, 'node-instances')
         data_path = os.path.join(storage_dir, 'data')
@@ -414,12 +413,18 @@ class FileStorage(_Storage):
         os.mkdir(instances_dir)
         with open(payload_path, 'w') as f:
             f.write(json.dumps({}))
+
+        resources_root = os.path.dirname(os.path.abspath(blueprint_path))
+        blueprint_filename = os.path.basename(os.path.abspath(blueprint_path))
+        self.resources_root = os.path.join(storage_dir, 'resources')
+        blueprint_path_in_resources = os.path.join(self.resources_root,
+                                                   blueprint_filename)
         with open(data_path, 'w') as f:
             f.write(json.dumps({
                 'plan': plan,
+                'blueprint_path': blueprint_path_in_resources,
                 'nodes': nodes
             }))
-        self.resources_root = os.path.join(storage_dir, 'resources')
 
         def ignore(src, names):
             return names if os.path.abspath(self.resources_root) == src \
