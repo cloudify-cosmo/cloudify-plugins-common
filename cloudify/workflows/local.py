@@ -415,17 +415,15 @@ class FileStorage(_Storage):
         with open(payload_path, 'w') as f:
             f.write(json.dumps({}))
 
-        resources_root = os.path.dirname(os.path.abspath(blueprint_path))
         blueprint_filename = os.path.basename(os.path.abspath(blueprint_path))
-        self.resources_root = os.path.join(storage_dir, 'resources')
-        blueprint_path_in_resources = os.path.join(self.resources_root,
-                                                   blueprint_filename)
         with open(data_path, 'w') as f:
             f.write(json.dumps({
                 'plan': plan,
-                'blueprint_path': blueprint_path_in_resources,
+                'blueprint_filename': blueprint_filename,
                 'nodes': nodes
             }))
+        resources_root = os.path.dirname(os.path.abspath(blueprint_path))
+        self.resources_root = os.path.join(storage_dir, 'resources')
 
         def ignore(src, names):
             return names if os.path.abspath(self.resources_root) == src \
@@ -444,9 +442,10 @@ class FileStorage(_Storage):
         self._data_path = os.path.join(self._storage_dir, 'data')
         with open(self._data_path) as f:
             data = json.loads(f.read())
-        self._blueprint_path = data['blueprint_path']
         self.plan = data['plan']
         self.resources_root = os.path.join(self._storage_dir, 'resources')
+        self._blueprint_path = os.path.join(self.resources_root,
+                                            data['blueprint_filename'])
         nodes = [Node(node) for node in data['nodes']]
         self._init_locks_and_nodes(nodes)
 
