@@ -1,0 +1,23 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+plugins:
+  mock:
+    source: source
+    executor: central_deployment_agent
+    install: false
+
+node_types:
+  custom_type:
+    interfaces:
+      test:
+        op: mock.cloudify.tests.test_task_retry_event_context.op
+
+node_templates:
+  node:
+    type: custom_type
+
+workflows:
+  execute_operation:
+    mapping: mock.cloudify.tests.test_task_retry_event_context.execute_operation
+    parameters:
+      retry_type: {}
