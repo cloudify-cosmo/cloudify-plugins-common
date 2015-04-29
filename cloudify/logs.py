@@ -15,6 +15,7 @@
 
 
 import sys
+import time
 import threading
 import logging
 import json
@@ -250,7 +251,8 @@ def _send_event(ctx, context_type, event_type,
 
 
 def populate_base_item(item, message_type):
-    timestamp = str(datetime.datetime.now())[0:-3]
+    timezone = time.strftime("%z", time.gmtime())
+    timestamp = str(datetime.datetime.now())[0:-3] + timezone
     item['timestamp'] = timestamp
     item['message_code'] = None
     item['type'] = message_type
