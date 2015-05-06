@@ -167,7 +167,8 @@ class LocalCommandRunner(object):
         """
 
         self.logger.info('[{0}] run: {1}'.format(self.host, command))
-        shlex_split = shlex.split(command)
+        posix = True if os.name == 'posix' else False
+        shlex_split = shlex.split(command, posix=posix)
         stdout = subprocess.PIPE if stdout_pipe else None
         stderr = subprocess.PIPE if stderr_pipe else None
         p = subprocess.Popen(shlex_split, stdout=stdout,
