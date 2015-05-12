@@ -210,8 +210,8 @@ class CommandExecutionResponse(object):
         self.return_code = return_code
 
 
-def _shlex_split(command):
-    lex = shlex.shlex(command)
+def _shlex_split(command, posix=True):
+    lex = shlex.shlex(command, posix=posix)
     lex.whitespace_split = True
     lex.escape = ''
     return list(lex)
