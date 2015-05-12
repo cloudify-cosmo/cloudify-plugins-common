@@ -25,18 +25,19 @@ from contextlib import contextmanager
 
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
-from dsl_parser.parser import HOST_TYPE
 
 from cloudify.workflows.workflow_context import (
     DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
 
 try:
+    from dsl_parser.parser import HOST_TYPE
     from dsl_parser import parser as dsl_parser, tasks as dsl_tasks
     from dsl_parser import functions as dsl_functions
 except ImportError:
     dsl_parser = None
     dsl_tasks = None
     dsl_functions = None
+    HOST_TYPE = None
 
 
 class _Environment(object):
