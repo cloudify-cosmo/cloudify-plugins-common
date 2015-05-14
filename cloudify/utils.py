@@ -215,3 +215,6 @@ def _shlex_split(command):
     lex.whitespace_split = True
     lex.escape = ''
     return list(lex)
+
+
+setup_default_logger = setup_logger  # deprecated; for backwards compatibility
