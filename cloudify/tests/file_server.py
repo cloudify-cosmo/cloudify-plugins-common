@@ -14,7 +14,6 @@
 #  * limitations under the License.
 
 
-from multiprocessing import Process
 import subprocess
 import SimpleHTTPServer
 import SocketServer
@@ -22,14 +21,16 @@ import os
 import sys
 import socket
 import time
+from multiprocessing import Process
 
-from cloudify.tests import get_logger
+from cloudify.utils import setup_logger
+from cloudify import exceptions
 
 PORT = 53229
 FNULL = open(os.devnull, 'w')
 
 
-logger = get_logger('FileServer')
+logger = setup_logger('cloudify.plugin.tests.file_server')
 
 
 class FileServer(object):
@@ -41,7 +42,7 @@ class FileServer(object):
         self.timeout = timeout
 
     def start(self):
-        logger.info("Starting file server")
+        logger.info('Starting file server')
         if self.use_subprocess:
             subprocess.Popen(
                 [sys.executable, __file__, self.root_path],
@@ -55,24 +56,25 @@ class FileServer(object):
 
         while end_time > time.time():
             if self.is_alive():
-                logger.info("File server is up and serving from {0}"
+                logger.info('File server is up and serving from {0}'
                             .format(self.root_path))
                 return
-            logger.info("File server is not responding. waiting 10ms")
+            logger.info('File server is not responding. waiting 10ms')
             time.sleep(0.1)
-        raise TimeoutException("Failed starting file server in {0} seconds"
-                               .format(self.timeout))
+        raise exceptions.TimeoutException('Failed starting '
+                                          'file server in {0} seconds'
+                                          .format(self.timeout))
 
     def stop(self):
         try:
-            logger.info("Shutting down file server")
+            logger.info('Shutting down file server')
             self.process.terminate()
             while self.is_alive():
-                logger.info("File server is still up. waiting for 10ms")
+                logger.info('File server is still up. waiting for 10ms')
                 time.sleep(0.1)
-            logger.info("File server has shut down")
-        except BaseException:
-            pass
+            logger.info('File server has shut down')
+        except BaseException as e:
+            logger.warning(str(e))
 
     def start_impl(self):
         logger.info('Starting file server and serving files from: %s',
@@ -85,7 +87,8 @@ class FileServer(object):
                           SimpleHTTPServer.SimpleHTTPRequestHandler)
         httpd.serve_forever()
 
-    def is_alive(self):
+    @staticmethod
+    def is_alive():
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             s.connect(('localhost', PORT))
@@ -94,10 +97,6 @@ class FileServer(object):
         except socket.error:
             return False
 
-
-class TimeoutException(Exception):
-    def __init__(self, *args):
-        Exception.__init__(self, args)
 
 if __name__ == '__main__':
     FileServer(sys.argv[1]).start_impl()

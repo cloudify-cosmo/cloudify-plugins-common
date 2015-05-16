@@ -73,27 +73,44 @@ class HttpException(NonRecoverableError):
         return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
 
 
+class CommandExecutionError(RuntimeError):
+
+    def __init__(self, command, error=None):
+        self.command = command
+        self.error = error
+        super(RuntimeError, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Failed executing command: {0}." \
+               "\nerror: {1}".format(self.command, self.error)
+
+
 class CommandExecutionException(Exception):
+
     """
     Indicates a failure to execute a command.
 
     :param command: The command executed
+    :param code: process exit code
     :param error: process stderr output
     :param output: process stdout output
-    :param code: process exit code
     """
 
     def __init__(self, command, error, output, code):
         self.command = command
         self.error = error
-        self.code = code
         self.output = output
+        self.code = code
         Exception.__init__(self, self.__str__())
 
     def __str__(self):
-        return "Failed executing command: {0}\ncode: " \
-               "{1}\nerror: {2}\nmessage: {3}"\
-               .format(self.command, self.code, self.error, self.output)
+        return "Command '{0}' executed with an error." \
+               "\ncode: {1}" \
+               "\nerror: {2}" \
+               "\noutput: {3}" \
+            .format(self.command, self.code,
+                    self.error or None,
+                    self.output or None)
 
 
 class TimeoutException(Exception):

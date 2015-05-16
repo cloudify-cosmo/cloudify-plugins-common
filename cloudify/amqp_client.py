@@ -26,11 +26,15 @@ class AMQPClient(object):
     events_queue_name = 'cloudify-events'
     logs_queue_name = 'cloudify-logs'
 
-    def __init__(self):
+    def __init__(self, amqp_host=None):
+
+        if amqp_host is None:
+            amqp_host = get_manager_ip()
+
         self.events_queue = None
         self.logs_queue = None
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=get_manager_ip()))
+            pika.ConnectionParameters(host=amqp_host))
         settings = {
             'auto_delete': True,
             'durable': True,
@@ -56,5 +60,7 @@ class AMQPClient(object):
                                         body=json.dumps(item))
 
 
-def create_client():
-    return AMQPClient()
+def create_client(amqp_host=None):
+    if amqp_host is None:
+        amqp_host = get_manager_ip()
+    return AMQPClient(amqp_host)

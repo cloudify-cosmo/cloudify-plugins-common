@@ -367,48 +367,33 @@ def _is_host_node(node_instance):
     return 'cloudify.nodes.Compute' in node_instance.node.type_hierarchy
 
 
-def _wait_for_host_to_start(host_node_instance):
-    task = host_node_instance.execute_operation(
-        'cloudify.interfaces.host.get_state')
-
-    # handler returns True if if get_state returns False,
-    # this means, that get_state will be re-executed until
-    # get_state returns True
-    def node_get_state_handler(tsk):
-        host_started = tsk.async_result.get()
-        if host_started:
-            return workflow_tasks.HandlerResult.cont()
-        else:
-            return workflow_tasks.HandlerResult.retry(
-                ignore_total_retries=True)
-    if not task.is_nop():
-        task.on_success = node_get_state_handler
-    return task
-
-
 def _host_post_start(host_node_instance):
 
     plugins_to_install = filter(lambda plugin: plugin['install'],
                                 host_node_instance.node.plugins_to_install)
 
-    tasks = [_wait_for_host_to_start(host_node_instance)]
+    tasks = []
     if host_node_instance.node.properties['install_agent'] is True:
         tasks += [
-            host_node_instance.send_event('Installing worker'),
+            host_node_instance.send_event('Creating Agent'),
             host_node_instance.execute_operation(
-                'cloudify.interfaces.worker_installer.install'),
+                'cloudify.interfaces.cloudify_agent.create'),
+            host_node_instance.send_event('Configuring Agent'),
             host_node_instance.execute_operation(
-                'cloudify.interfaces.worker_installer.start'),
+                'cloudify.interfaces.cloudify_agent.configure'),
+            host_node_instance.send_event('Starting Agent'),
+            host_node_instance.execute_operation(
+                'cloudify.interfaces.cloudify_agent.start')
         ]
         if plugins_to_install:
             tasks += [
-                host_node_instance.send_event('Installing host plugins'),
+                host_node_instance.send_event('Installing plugins'),
                 host_node_instance.execute_operation(
-                    'cloudify.interfaces.plugin_installer.install',
+                    'cloudify.interfaces.cloudify_agent.install_plugins',
                     kwargs={
                         'plugins': plugins_to_install}),
                 host_node_instance.execute_operation(
-                    'cloudify.interfaces.worker_installer.restart',
+                    'cloudify.interfaces.cloudify_agent.restart',
                     send_task_events=False)
             ]
     tasks += [
@@ -430,18 +415,19 @@ def _host_pre_stop(host_node_instance):
     ]
     if host_node_instance.node.properties['install_agent'] is True:
         tasks += [
-            host_node_instance.send_event('Uninstalling worker'),
+            host_node_instance.send_event('Stopping agent'),
             host_node_instance.execute_operation(
-                'cloudify.interfaces.worker_installer.stop'),
+                'cloudify.interfaces.cloudify_agent.stop'),
+            host_node_instance.send_event('Deleting agent'),
             host_node_instance.execute_operation(
-                'cloudify.interfaces.worker_installer.uninstall')
+                'cloudify.interfaces.cloudify_agent.delete')
         ]
 
     for task in tasks:
         if task.is_remote():
             _set_send_node_event_on_error_handler(
                 task, host_node_instance,
-                'Error occurred while uninstalling worker - ignoring...')
+                'Error occurred while uninstalling agent - ignoring...')
 
     return tasks
 

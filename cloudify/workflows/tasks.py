@@ -355,7 +355,10 @@ class RemoteWorkflowTask(WorkflowTask):
         return self.cloudify_context['task_target']
 
     def _verify_task_registered(self):
-        verify_task_registered(self.name, self.target, self._get_registered)
+        verify_task_registered(self.name,
+                               self.target,
+                               self._get_registered,
+                               self._get_stats)
 
     def _get_registered(self):
         # import here because this only applies in remote execution
@@ -367,6 +370,16 @@ class RemoteWorkflowTask(WorkflowTask):
         registered = inspect.registered() or {}
         result = registered.get(worker_name, set())
         return set(result)
+
+    def _get_stats(self):
+        # import here because this only applies in remote execution
+        # environments
+        from cloudify.celery import celery
+
+        destination = 'celery@{0}'.format(self.target)
+        inspect = celery.control.inspect(destination=[destination])
+        stats = (inspect.stats() or {}).get(destination)
+        return stats
 
 
 class LocalWorkflowTask(WorkflowTask):
@@ -678,8 +691,13 @@ class HandlerResult(object):
         return HandlerResult(cls.HANDLER_IGNORE)
 
 
-def verify_task_registered(name, target, get_registered):
+def verify_task_registered(name, target, get_registered, get_stats):
 
+    stats = get_stats()
+    if not stats:
+        raise exceptions.NonRecoverableError(
+            'Worker celery.{0} appears to be dead'.format(target)
+        )
     cache = RemoteWorkflowTask.cache
     registered = cache.get(target, set())
     if name not in registered:
