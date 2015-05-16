@@ -296,7 +296,8 @@ def _remote_workflow(ctx, func, args, kwargs):
         while True:
             # check if child thread sent a message
             try:
-                ctx.logger.debug('Polling workflow execution thread for status')
+                ctx.logger.debug('Polling workflow execution '
+                                 'thread for status')
                 data = child_queue.get(timeout=5)
                 if 'result' in data:
                     # child thread has terminated
