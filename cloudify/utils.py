@@ -102,8 +102,8 @@ def get_manager_rest_service_port():
     return int(os.environ[constants.MANAGER_REST_PORT_KEY])
 
 
-def get_agent_process_management():
-    return os.environ[constants.AGENT_PROCESS_MANAGEMENT_KEY]
+def get_agent_storage_directory():
+    return os.environ[constants.AGENT_STORAGE_DIRECTORY_KEY]
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
