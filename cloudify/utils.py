@@ -15,6 +15,7 @@
 
 import logging
 import random
+import getpass
 import shlex
 import string
 import subprocess
@@ -122,6 +123,38 @@ def create_temp_folder():
     return path_join
 
 
+def get_home_dir(username=None):
+
+    """
+    Retrieve the home directory of the given user. If no user was specified,
+    the currently logged user will be used.
+
+    Note: on windows this will always return the home directory of the
+    currently logged user.
+
+
+    :return: path to the home directory
+    :rtype: str
+
+    """
+
+    if os.name == 'nt':
+
+        # running on windows, we don't currently support retrieving
+        # home directories of users besides the currently logged one.
+        return os.path.expanduser('~')
+    else:
+        import pwd
+        if username is None:
+            if 'SUDO_USER' in os.environ:
+                # command was executed via sudo
+                # get the original user
+                username = os.environ['SUDO_USER']
+            else:
+                username = getpass.getuser()
+        return pwd.getpwnam(username).pw_dir
+
+
 class LocalCommandRunner(object):
 
     def __init__(self, logger=None, host='localhost'):
@@ -135,17 +168,6 @@ class LocalCommandRunner(object):
         logger = logger or setup_logger('LocalCommandRunner')
         self.logger = logger
         self.host = host
-
-    def sudo(self, command,
-             exit_on_failure=True,
-             stdout_pipe=True,
-             stderr_pipe=True,
-             cwd=None):
-        return self.run('sudo {0}'.format(command),
-                        exit_on_failure=exit_on_failure,
-                        stderr_pipe=stderr_pipe,
-                        stdout_pipe=stdout_pipe,
-                        cwd=cwd)
 
     def run(self, command,
             exit_on_failure=True,
@@ -163,10 +185,11 @@ class LocalCommandRunner(object):
         :param stderr_pipe: False to not pipe the standard error.
 
         :return: A wrapper object for all valuable info from the execution.
-        :rtype: CommandExecutionResponse
+        :rtype: cloudify.utils.CommandExecutionResponse
+        :raise: cloudify.exceptions.CommandExecutionException
         """
 
-        self.logger.debug('run: {0}'.format(command))
+        self.logger.debug('[0] run: {1}'.format(self.host, command))
         posix = os.name == 'posix'
         shlex_split = shlex.split(command, posix=posix)
         stdout = subprocess.PIPE if stdout_pipe else None

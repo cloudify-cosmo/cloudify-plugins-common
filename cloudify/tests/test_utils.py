@@ -13,25 +13,45 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
+import logging
+import os
 import unittest
 
-from cloudify.exceptions import CommandExecutionException
+from cloudify import tests
+from cloudify.utils import setup_logger
+from cloudify.utils import LocalCommandRunner
+from cloudify.tests.file_server import FileServer
 
 
-class LocalCommandRunnerTest(unittest.TestCase):
+class LocalRunnerTest(unittest.TestCase):
 
-    from cloudify.utils import LocalCommandRunner
-    runner = LocalCommandRunner()
+    fs = None
+    runner = None
 
-    def test_run_command_success(self):
-        command_execution_result = self.runner.run('echo Hello')
-        self.assertEqual('Hello', command_execution_result.output.strip())
-        self.assertEqual(0, command_execution_result.code)
+    @classmethod
+    def setUpClass(cls):
+        super(LocalRunnerTest, cls).setUpClass()
+        cls.logger = setup_logger(cls.__name__)
+        cls.logger.setLevel(logging.DEBUG)
+        cls.runner = LocalCommandRunner(
+            logger=cls.logger)
+        resources = os.path.join(
+            os.path.dirname(tests.__file__),
+            'resources'
+        )
+        cls.fs = FileServer(resources)
+        cls.fs.start()
 
-    def test_run_command_error(self):
-        try:
-            self.runner.run('/bin/sh -c bad')
-            self.fail('Expected CommandExecutionException due to Bad command')
-        except CommandExecutionException as e:
-            self.assertTrue(1, e.code)
+    @classmethod
+    def tearDownClass(cls):
+        super(LocalRunnerTest, cls).tearDownClass()
+        cls.fs.stop()
+
+    def test_run_command(self):
+        response = self.runner.run('echo hello')
+        self.assertIn('hello', response.output)
+
+    def test_run_command_with_env(self):
+        response = self.runner.run('env',
+                                   execution_env={'TEST_KEY': 'TEST_VALUE'})
+        self.assertIn('TEST_KEY=TEST_VALUE', response.output)
