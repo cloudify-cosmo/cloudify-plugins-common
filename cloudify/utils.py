@@ -189,7 +189,7 @@ class LocalCommandRunner(object):
         :raise: cloudify.exceptions.CommandExecutionException
         """
 
-        self.logger.debug('[0] run: {1}'.format(self.host, command))
+        self.logger.debug('[{0}] run: {1}'.format(self.host, command))
         posix = os.name == 'posix'
         shlex_split = shlex.split(command, posix=posix)
         stdout = subprocess.PIPE if stdout_pipe else None
