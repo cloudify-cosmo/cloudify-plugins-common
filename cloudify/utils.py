@@ -206,7 +206,7 @@ class LocalCommandRunner(object):
         if err:
             err = err.rstrip()
 
-        if p.returncode != 0:
+        if p.returncode != 0 or err:
             error = CommandExecutionException(
                 command=command,
                 error=err,
