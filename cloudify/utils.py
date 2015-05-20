@@ -31,7 +31,8 @@ def setup_logger(logger_name,
                  logger_level=logging.INFO,
                  handlers=None,
                  remove_existing_handlers=True,
-                 logger_format=None):
+                 logger_format=None,
+                 propagate=True):
     """
     :param logger_name: Name of the logger.
     :param logger_level: Level for the logger (not for specific handler).
@@ -41,7 +42,7 @@ def setup_logger(logger_name,
     :param remove_existing_handlers: Determines whether to remove existing
                                      handlers before adding new ones
     :return: A logger instance.
-    :rtype: `logging.Logger`
+    :rtype: logging.Logger
     """
 
     if logger_format is None:
@@ -54,7 +55,6 @@ def setup_logger(logger_name,
 
     if not handlers:
         handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.DEBUG)
         handlers = [handler]
 
     formatter = logging.Formatter(fmt=logger_format,
@@ -64,6 +64,8 @@ def setup_logger(logger_name,
         logger.addHandler(handler)
 
     logger.setLevel(logger_level)
+    if not propagate:
+        logger.propagate = False
     return logger
 
 
