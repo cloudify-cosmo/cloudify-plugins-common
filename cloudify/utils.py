@@ -173,6 +173,7 @@ class LocalCommandRunner(object):
 
     def run(self, command,
             exit_on_failure=True,
+            fail_on_stderr=False,
             stdout_pipe=True,
             stderr_pipe=True,
             cwd=None,
@@ -206,7 +207,8 @@ class LocalCommandRunner(object):
         if err:
             err = err.rstrip()
 
-        if p.returncode != 0 or err:
+        err_fail = err and fail_on_stderr
+        if p.returncode != 0 or err_fail:
             error = CommandExecutionException(
                 command=command,
                 error=err,
