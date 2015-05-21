@@ -177,7 +177,8 @@ class LocalCommandRunner(object):
             stdout_pipe=True,
             stderr_pipe=True,
             cwd=None,
-            execution_env=None):
+            execution_env=None,
+            shell=False):
 
         """
         Runs local commands.
@@ -200,7 +201,8 @@ class LocalCommandRunner(object):
         command_env = os.environ.copy()
         command_env.update(execution_env or {})
         p = subprocess.Popen(shlex_split, stdout=stdout,
-                             stderr=stderr, cwd=cwd, env=command_env)
+                             stderr=stderr, cwd=cwd, env=command_env,
+                             shell=shell)
         out, err = p.communicate()
         if out:
             out = out.rstrip()
