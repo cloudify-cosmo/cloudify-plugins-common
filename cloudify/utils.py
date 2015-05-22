@@ -133,7 +133,7 @@ def get_home_dir(username=None):
 
     :param username: the user.
     :type username: str
-    
+
     :return: path to the home directory
     :rtype: str
 
