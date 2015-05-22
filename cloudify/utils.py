@@ -131,17 +131,19 @@ def get_home_dir(username=None):
     Retrieve the home directory of the given user. If no user was specified,
     the currently logged user will be used.
 
-    Note: on windows this will always return the home directory of the
-    currently logged user.
-
-
+    :param username: the user.
+    :type username: str
+    
     :return: path to the home directory
     :rtype: str
 
     """
 
     if os.name == 'nt':
-        return os.path.expanduser('~{0}'.format(username))
+        if username is None:
+            return os.path.expanduser('~')
+        else:
+            return os.path.expanduser('~{0}'.format(username))
     else:
         import pwd
         if username is None:
