@@ -141,10 +141,7 @@ def get_home_dir(username=None):
     """
 
     if os.name == 'nt':
-
-        # running on windows, we don't currently support retrieving
-        # home directories of users besides the currently logged one.
-        return os.path.expanduser('~')
+        return os.path.expanduser('~{0}'.format(username))
     else:
         import pwd
         if username is None:
