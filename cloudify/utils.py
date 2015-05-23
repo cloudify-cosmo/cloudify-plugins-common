@@ -23,8 +23,8 @@ import tempfile
 import sys
 import os
 
-from cloudify.exceptions import CommandExecutionException
 from cloudify import constants
+from cloudify.exceptions import CommandExecutionException
 
 
 def setup_logger(logger_name,
@@ -76,14 +76,6 @@ def get_manager_ip():
     return os.environ[constants.MANAGER_IP_KEY]
 
 
-def get_agent_name():
-
-    """
-    Returns the name of the agent running the operation
-    """
-    return os.environ[constants.AGENT_NAME_KEY]
-
-
 def get_manager_file_server_blueprints_root_url():
     """
     Returns the blueprints root url in the file server.
@@ -105,8 +97,25 @@ def get_manager_rest_service_port():
     return int(os.environ[constants.MANAGER_REST_PORT_KEY])
 
 
-def get_agent_storage_directory():
-    return os.environ[constants.AGENT_STORAGE_DIRECTORY_KEY]
+def get_daemon_name():
+    """
+    Returns the name of the currently running daemon.
+    """
+    return os.environ[constants.CLOUDIFY_DAEMON_NAME_KEY]
+
+
+def get_daemon_storage_dir():
+    """
+    Returns the storage directory the current daemon is stored under.
+    """
+    return os.environ[constants.CLOUDIFY_DAEMON_STORAGE_DIRECTORY_KEY]
+
+
+def get_daemon_user():
+    """
+    Return the user the current daemon is running under
+    """
+    return os.environ[constants.CLOUDIFY_DAEMON_USER_KEY]
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
