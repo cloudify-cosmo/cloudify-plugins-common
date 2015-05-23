@@ -14,6 +14,6 @@
 #    * limitations under the License.
 
 #########################################
-# main backwards compatibility for < 3.3
+# maintain backwards compatibility for < 3.3
 #########################################
 from cloudify_agent.app import app as celery  # NOQA
