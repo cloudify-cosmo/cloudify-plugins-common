@@ -39,6 +39,7 @@ def message_context_from_cloudify_context(ctx):
         'task_id': ctx.task_id,
         'task_name': ctx.task_name,
         'task_target': ctx.task_target,
+        'task_queue': ctx.task_queue,
         'operation': ctx.operation.name,
         'plugin': ctx.plugin,
     }

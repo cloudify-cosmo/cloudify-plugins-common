@@ -21,6 +21,7 @@ import Queue
 
 from cloudify import exceptions
 from cloudify.workflows import api
+from cloudify.manager import get_node_instance
 
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
@@ -351,8 +352,8 @@ class RemoteWorkflowTask(WorkflowTask):
 
     @property
     def target(self):
-        """The task target (queue name)"""
-        return self.cloudify_context['task_target']
+        """The task target (worker name)"""
+        return self._cloudify_context['task_target']
 
     def _verify_task_registered(self):
         verify_task_registered(self.name,

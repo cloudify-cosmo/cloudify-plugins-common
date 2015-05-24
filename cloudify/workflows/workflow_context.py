@@ -564,6 +564,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         operation_retry_interval = op_struct['retry_interval']
         task_queue = self.internal.handler.get_operation_task_queue(
             node_instance, operation_executor)
+        task_target = self.internal.handler.get_operation_task_target(
+            node_instance, operation_executor)
         task_name = operation_mapping
         if operation_total_retries is None:
             total_retries = self.internal.get_task_configuration()[
@@ -597,6 +599,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
 
         return self.execute_task(task_name,
                                  task_queue=task_queue,
+                                 task_target=task_target,
                                  kwargs=final_kwargs,
                                  node_context=node_context,
                                  send_task_events=send_task_events,
@@ -633,13 +636,15 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                                 task_id,
                                 task_queue,
                                 task_name,
-                                node_context):
+                                node_context,
+                                task_target):
         node_context = node_context or {}
         context = {
             '__cloudify_context': '0.3',
             'task_id': task_id,
             'task_name': task_name,
-            'task_target': task_queue,
+            'task_target': task_target,
+            'task_queue': task_queue,
             'blueprint_id': self.blueprint.id,
             'deployment_id': self.deployment.id,
             'execution_id': self.execution_id,
@@ -652,6 +657,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
     def execute_task(self,
                      task_name,
                      task_queue=None,
+                     task_target=None,
                      kwargs=None,
                      node_context=None,
                      send_task_events=DEFAULT_SEND_TASK_EVENTS,
@@ -671,7 +677,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             task_id,
             task_queue,
             task_name,
-            node_context)
+            node_context,
+            task_target)
         kwargs['__cloudify_context'] = cloudify_context
 
         if task_queue is None:
@@ -946,6 +953,10 @@ class CloudifyWorkflowContextHandler(object):
                                  operation_executor):
         raise NotImplementedError('Implemented by subclasses')
 
+    def get_operation_task_target(self, workflow_node_instance,
+                                  operation_executor):
+        raise NotImplementedError('Implemented by subclasses')
+
     @property
     def operation_cloudify_context(self):
         raise NotImplementedError('Implemented by subclasses')
@@ -1029,7 +1040,23 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                  operation_executor):
         rest_node_instance = workflow_node_instance._node_instance
         if operation_executor == 'host_agent':
-            return rest_node_instance.host_id
+            host_id = rest_node_instance.host_id
+            host_node_instance = get_node_instance(host_id)
+            queue = host_node_instance.runtime_properties.get[
+                'cloudify_agent']['queue']
+            return queue
+        if operation_executor == 'central_deployment_agent':
+            return self.workflow_ctx.deployment.id
+
+    def get_operation_task_target(self, workflow_node_instance,
+                                  operation_executor):
+        rest_node_instance = workflow_node_instance._node_instance
+        if operation_executor == 'host_agent':
+            host_id = rest_node_instance.host_id
+            host_node_instance = get_node_instance(host_id)
+            queue = host_node_instance.runtime_properties.get[
+                'cloudify_agent']['name']
+            return queue
         if operation_executor == 'central_deployment_agent':
             return self.workflow_ctx.deployment.id
 
@@ -1147,6 +1174,10 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_operation_task_queue(self, workflow_node_instance,
                                  operation_executor):
+        return None
+
+    def get_operation_task_target(self, workflow_node_instance,
+                                  operation_executor):
         return None
 
     @property
