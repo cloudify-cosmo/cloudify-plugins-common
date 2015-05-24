@@ -21,7 +21,6 @@ import Queue
 
 from cloudify import exceptions
 from cloudify.workflows import api
-from cloudify.manager import get_node_instance
 
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
