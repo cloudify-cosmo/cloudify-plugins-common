@@ -448,7 +448,7 @@ def _host_pre_stop(host_node_instance):
             tasks += [
                 host_node_instance.send_event('Stopping agent'),
                 host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.stop_amqp'),
+                    'cloudify.interfaces.cloudify_agent.stop'),
                 host_node_instance.send_event('Deleting agent'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.delete')
