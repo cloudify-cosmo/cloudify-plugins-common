@@ -374,28 +374,50 @@ def _host_post_start(host_node_instance):
 
     tasks = []
     if host_node_instance.node.properties['install_agent'] is True:
-        tasks += [
-            host_node_instance.send_event('Creating Agent'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.cloudify_agent.create'),
-            host_node_instance.send_event('Configuring Agent'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.cloudify_agent.configure'),
-            host_node_instance.send_event('Starting Agent'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.cloudify_agent.start')
-        ]
+        if host_node_instance.node.properties['remote_execution'] is False:
+            # this is the use case where we cannot execute remote commands
+            # on the agent host. in this case, if install_agent is True it
+            # means that some other process is installing the agent (e.g
+            # userdata), so all we have to do here is simply wait for the
+            # agent to start, which the 'start' operation takes care of.
+            tasks += [
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.start')
+            ]
+        else:
+            # this is the default use case where we are connecting to the
+            # agent host and installing the agent on it.
+            tasks += [
+                host_node_instance.send_event('Creating Agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.create'),
+                host_node_instance.send_event('Configuring Agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.configure'),
+                host_node_instance.send_event('Starting Agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.start')
+            ]
         if plugins_to_install:
             tasks += [
                 host_node_instance.send_event('Installing plugins'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.install_plugins',
                     kwargs={
-                        'plugins': plugins_to_install}),
-                host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.restart',
-                    send_task_events=False)
-            ]
+                        'plugins': plugins_to_install})
+                ]
+            if host_node_instance.node.properties['remote_execution'] is False:
+                tasks += [
+                    host_node_instance.execute_operation(
+                        'cloudify.interfaces.cloudify_agent.restart_amqp',
+                        send_task_events=False)
+                ]
+            else:
+                tasks += [
+                    host_node_instance.execute_operation(
+                        'cloudify.interfaces.cloudify_agent.restart',
+                        send_task_events=False)
+                ]
     tasks += [
         host_node_instance.execute_operation(
             'cloudify.interfaces.monitoring_agent.install'),
@@ -414,14 +436,21 @@ def _host_pre_stop(host_node_instance):
             'cloudify.interfaces.monitoring_agent.uninstall'),
     ]
     if host_node_instance.node.properties['install_agent'] is True:
-        tasks += [
-            host_node_instance.send_event('Stopping agent'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.cloudify_agent.stop'),
-            host_node_instance.send_event('Deleting agent'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.cloudify_agent.delete')
-        ]
+        if host_node_instance.node.properties['remote_execution'] is False:
+            tasks += [
+                host_node_instance.send_event('Stopping agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.stop_amqp')
+            ]
+        else:
+            tasks += [
+                host_node_instance.send_event('Stopping agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.stop_amqp'),
+                host_node_instance.send_event('Deleting agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.delete')
+            ]
 
     for task in tasks:
         if task.is_remote():
