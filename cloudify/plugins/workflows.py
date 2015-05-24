@@ -381,7 +381,7 @@ def _host_post_start(host_node_instance):
         host_node_instance.send_event('Creating Agent')
         host_node_instance.execute_operation(
             'cloudify.interfaces.cloudify_agent.create'
-        ).apply_async.get()
+        ).apply_async().get()
         if host_node_instance.node.properties['remote_execution'] is False:
             # this is the use case where we cannot execute remote commands
             # on the agent host. in this case, if install_agent is True it
