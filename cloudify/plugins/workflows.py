@@ -378,9 +378,11 @@ def _host_post_start(host_node_instance):
             # this is the use case where we cannot execute remote commands
             # on the agent host. in this case, if install_agent is True it
             # means that some other process is installing the agent (e.g
-            # userdata), so all we have to do here is simply wait for the
-            # agent to start, which the 'start' operation takes care of.
+            # userdata), so all we have to do here is simply set the runtime
+            # properties and wait for the agent to start
             tasks += [
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.create'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.start')
             ]
