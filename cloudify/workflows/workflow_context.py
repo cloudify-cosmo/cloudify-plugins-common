@@ -1042,7 +1042,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         if operation_executor == 'host_agent':
             host_id = rest_node_instance.host_id
             host_node_instance = get_node_instance(host_id)
-            queue = host_node_instance.runtime_properties.get[
+            queue = host_node_instance.runtime_properties[
                 'cloudify_agent']['queue']
             return queue
         if operation_executor == 'central_deployment_agent':
@@ -1054,7 +1054,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         if operation_executor == 'host_agent':
             host_id = rest_node_instance.host_id
             host_node_instance = get_node_instance(host_id)
-            queue = host_node_instance.runtime_properties.get[
+            queue = host_node_instance.runtime_properties[
                 'cloudify_agent']['name']
             return queue
         if operation_executor == 'central_deployment_agent':

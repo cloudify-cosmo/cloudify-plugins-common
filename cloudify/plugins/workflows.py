@@ -374,15 +374,21 @@ def _host_post_start(host_node_instance):
 
     tasks = []
     if host_node_instance.node.properties['install_agent'] is True:
+
+        # the invocation to 'create' must not be in graph mode because
+        # subsequent calls to execute operation depend on runtime properties
+        # set at this stage.
+        host_node_instance.send_event('Creating Agent')
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.cloudify_agent.create'
+        ).apply_async.get()
         if host_node_instance.node.properties['remote_execution'] is False:
             # this is the use case where we cannot execute remote commands
             # on the agent host. in this case, if install_agent is True it
             # means that some other process is installing the agent (e.g
-            # userdata), so all we have to do here is simply set the runtime
-            # properties and wait for the agent to start
+            # userdata), so all we have to do here is simply wait for
+            # the agent to start
             tasks += [
-                host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.create'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.start')
             ]
@@ -390,9 +396,6 @@ def _host_post_start(host_node_instance):
             # this is the default use case where we are connecting to the
             # agent host and installing the agent on it.
             tasks += [
-                host_node_instance.send_event('Creating Agent'),
-                host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.create'),
                 host_node_instance.send_event('Configuring Agent'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.configure'),
