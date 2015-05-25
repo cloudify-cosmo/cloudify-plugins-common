@@ -25,6 +25,14 @@ from cloudify.workflows import local
 from cloudify.decorators import operation
 
 
+IGNORED_LOCAL_WORKFLOW_MODULES = (
+    'worker_installer.tasks',
+    'plugin_installer.tasks',
+    'windows_agent_installer.tasks',
+    'windows_plugin_installer.tasks'
+)
+
+
 class TestExecuteOperationWorkflow(testtools.TestCase):
 
     def setUp(self):
@@ -267,7 +275,9 @@ class TestSubgraphWorkflowLogic(testtools.TestCase):
         blueprint_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             "resources/blueprints/test-subgraph-blueprint.yaml")
-        self.env = local.init_env(blueprint_path)
+        self.env = local.init_env(
+            blueprint_path,
+            ignored_modules=IGNORED_LOCAL_WORKFLOW_MODULES)
 
     def test_heal_connected_to_relationship_operations_on_on_affected(self):
         # Tests CFY-2788 fix
