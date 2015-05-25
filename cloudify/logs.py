@@ -38,8 +38,8 @@ def message_context_from_cloudify_context(ctx):
         'workflow_id': ctx.workflow_id,
         'task_id': ctx.task_id,
         'task_name': ctx.task_name,
-        'task_target': ctx.task_target,
         'task_queue': ctx.task_queue,
+        'task_target': ctx.task_target,
         'operation': ctx.operation.name,
         'plugin': ctx.plugin,
     }

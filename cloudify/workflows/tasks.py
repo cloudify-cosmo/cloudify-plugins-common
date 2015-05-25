@@ -254,9 +254,11 @@ class RemoteWorkflowTask(WorkflowTask):
     cache = {}
 
     def __init__(self,
-                 task,
+                 kwargs,
                  cloudify_context,
                  workflow_context,
+                 task_queue=None,
+                 task_target=None,
                  task_id=None,
                  info=None,
                  on_success=None,
@@ -265,8 +267,10 @@ class RemoteWorkflowTask(WorkflowTask):
                  retry_interval=DEFAULT_RETRY_INTERVAL,
                  send_task_events=DEFAULT_SEND_TASK_EVENTS):
         """
-        :param task: The celery task
+        :param kwargs: The keyword argument this task will be invoked with
         :param cloudify_context: the cloudify context dict
+        :param task_queue: the cloudify context dict
+        :param task_target: the cloudify context dict
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
         :param on_success: A handler called when the task's execution
@@ -297,7 +301,9 @@ class RemoteWorkflowTask(WorkflowTask):
             total_retries=total_retries,
             retry_interval=retry_interval,
             send_task_events=send_task_events)
-        self.task = task
+        self._task_target = task_target
+        self._task_queue = task_queue
+        self._kwargs = kwargs
         self._cloudify_context = cloudify_context
 
     def apply_async(self):
@@ -308,11 +314,15 @@ class RemoteWorkflowTask(WorkflowTask):
         :return: a RemoteWorkflowTaskResult instance wrapping the
                  celery async result
         """
+
+        task, self._task_queue, self._task_target = \
+            self.workflow_context.internal.handler.get_task(self)
+
         try:
             self._verify_task_registered()
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
             self.set_state(TASK_SENT)
-            async_result = self.task.apply_async(task_id=self.id)
+            async_result = task.apply_async(task_id=self.id)
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except exceptions.NonRecoverableError as e:
             self.set_state(TASK_FAILED)
@@ -327,7 +337,9 @@ class RemoteWorkflowTask(WorkflowTask):
         return False
 
     def _duplicate(self):
-        dup = RemoteWorkflowTask(task=self.task,
+        dup = RemoteWorkflowTask(kwargs=self._kwargs,
+                                 task_queue=self.queue,
+                                 task_target=self.target,
                                  cloudify_context=self.cloudify_context,
                                  workflow_context=self.workflow_context,
                                  task_id=None,  # we want a new task id
@@ -352,7 +364,17 @@ class RemoteWorkflowTask(WorkflowTask):
     @property
     def target(self):
         """The task target (worker name)"""
-        return self._cloudify_context['task_target']
+        return self._task_target
+
+    @property
+    def queue(self):
+        """The task queue"""
+        return self._task_queue
+
+    @property
+    def kwargs(self):
+        """kwargs to pass when invoking the task"""
+        return self._kwargs
 
     def _verify_task_registered(self):
         verify_task_registered(self.name,
