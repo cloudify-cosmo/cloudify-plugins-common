@@ -304,7 +304,8 @@ class TestSubgraphWorkflowLogic(testtools.TestCase):
                 elif invocation['runs_on'] == 'target':
                     has_target_op = True
                 else:
-                    self.fail('???')
+                    self.fail('Unhandled runs_on: {0}'.format(
+                        invocation['runs_on']))
                 self.assertEqual(invocation['target_node'], 'node2')
                 self.assertEqual(invocation['operation'], expected_op)
             self.assertTrue(all([has_source_op, has_target_op]))
