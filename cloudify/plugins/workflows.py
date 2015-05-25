@@ -133,11 +133,13 @@ class RuntimeInstallationTasksGraphFinisher(InstallationTasksGraphFinisher):
             for rel in instance.relationships:
                 if rel.target_node_instance in self.node_instances:
                     trg_started = self.tasks.set_state_started[rel.target_id]
-                    establish_operations = _relationship_operations(
+                    establish_ops = _relationship_operations_with_targets(
                         instance,
                         'cloudify.interfaces.relationship_lifecycle.establish'
                     )
-                    for establish_op in establish_operations:
+                    for establish_op, target in establish_ops:
+                        if target != rel.target_id:
+                            continue
                         self.graph.add_task(establish_op)
                         self.graph.add_dependency(establish_op, trg_started)
 
@@ -276,7 +278,9 @@ class RuntimeUninstallationTasksGraphFinisher(
                         instance,
                         'cloudify.interfaces.relationship_lifecycle.unlink'
                     )
-                    for unlink_task, _ in unlink_tasks:
+                    for unlink_task, target in unlink_tasks:
+                        if target != rel.target_id:
+                            continue
                         self.graph.add_task(unlink_task)
                         self.graph.add_dependency(unlink_task, target_stopped)
                     _set_send_node_evt_on_failed_unlink_handlers(
