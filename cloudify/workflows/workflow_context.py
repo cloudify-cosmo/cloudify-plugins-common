@@ -1038,8 +1038,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                      "'queue' is not specified and "
                                      "'executor' is host_agent")
                 host_node_instance = get_node_instance(host_id)
-                task_queue = host_node_instance.runtime_properties[
-                    'cloudify_agent']['queue']
+                task_queue = host_node_instance.runtime_properties.get(
+                    'cloudify_agent', {}).get('queue')
             else:
                 task_queue = self.workflow_ctx.deployment.id
         else:
@@ -1056,8 +1056,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                      "'target' is not specified and "
                                      "'executor' is host_agent")
                 host_node_instance = get_node_instance(host_id)
-                task_target = host_node_instance.runtime_properties[
-                    'cloudify_agent']['name']
+                task_target = host_node_instance.runtime_properties.get(
+                    'cloudify_agent', {}).get('name')
             else:
                 task_target = self.workflow_ctx.deployment.id
         else:
