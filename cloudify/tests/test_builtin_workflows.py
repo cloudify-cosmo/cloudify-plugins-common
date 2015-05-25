@@ -25,6 +25,14 @@ from cloudify.workflows import local
 from cloudify.decorators import operation
 
 
+IGNORED_LOCAL_WORKFLOW_MODULES = (
+    'worker_installer.tasks',
+    'plugin_installer.tasks',
+    'windows_agent_installer.tasks',
+    'windows_plugin_installer.tasks'
+)
+
+
 class TestExecuteOperationWorkflow(testtools.TestCase):
 
     def setUp(self):
@@ -260,6 +268,54 @@ class TestScale(testtools.TestCase):
                                                   'delta': -1})
 
 
+class TestSubgraphWorkflowLogic(testtools.TestCase):
+
+    def setUp(self):
+        super(TestSubgraphWorkflowLogic, self).setUp()
+        blueprint_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "resources/blueprints/test-subgraph-blueprint.yaml")
+        self.env = local.init_env(
+            blueprint_path,
+            ignored_modules=IGNORED_LOCAL_WORKFLOW_MODULES)
+
+    def test_heal_connected_to_relationship_operations_on_on_affected(self):
+        # Tests CFY-2788 fix
+        # We run heal on node2 instance. node1 is connected to node2 and node3
+        # we expect that the establish/unlink operations will only be called
+        # for node1->node2
+        node2_instance_id = [i for i in self.env.storage.get_node_instances()
+                             if i.node_id == 'node2'][0].id
+        self.env.execute('heal', parameters={
+            'node_instance_id': node2_instance_id})
+        node1_instance = [i for i in self.env.storage.get_node_instances()
+                          if i.node_id == 'node1'][0]
+        invocations = node1_instance.runtime_properties['invocations']
+        self.assertEqual(4, len(invocations))
+        expected_unlink = invocations[:2]
+        expected_establish = invocations[2:]
+
+        def assertion(actual_invocations, expected_op):
+            has_source_op = False
+            has_target_op = False
+            for invocation in actual_invocations:
+                if invocation['runs_on'] == 'source':
+                    has_source_op = True
+                elif invocation['runs_on'] == 'target':
+                    has_target_op = True
+                else:
+                    self.fail('Unhandled runs_on: {0}'.format(
+                        invocation['runs_on']))
+                self.assertEqual(invocation['target_node'], 'node2')
+                self.assertEqual(invocation['operation'], expected_op)
+            self.assertTrue(all([has_source_op, has_target_op]))
+
+        assertion(expected_unlink,
+                  'cloudify.interfaces.relationship_lifecycle.unlink')
+        assertion(expected_establish,
+                  'cloudify.interfaces.relationship_lifecycle.establish')
+
+
 @nottest
 @operation
 def exec_op_test_operation(ctx, **kwargs):
@@ -273,3 +329,22 @@ def exec_op_test_operation(ctx, **kwargs):
 def exec_op_dependency_order_test_operation(ctx, **kwargs):
     ctx.instance.runtime_properties['visit_time'] = time.time()
     time.sleep(1)
+
+
+@operation
+def source_operation(ctx, **_):
+    _write_operation(ctx, runs_on='source')
+
+
+@operation
+def target_operation(ctx, **_):
+    _write_operation(ctx, runs_on='target')
+
+
+def _write_operation(ctx, runs_on):
+    invocations = ctx.source.instance.runtime_properties.get('invocations', [])
+    invocations.append({
+        'operation': ctx.operation.name,
+        'target_node': ctx.target.node.name,
+        'runs_on': runs_on})
+    ctx.source.instance.runtime_properties['invocations'] = invocations
