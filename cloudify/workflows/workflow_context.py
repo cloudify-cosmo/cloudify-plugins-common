@@ -1028,11 +1028,11 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         task_name = workflow_task.name
 
         if queue is None:
-            if executor is None:
+            if not executor:
                 raise ValueError("'executor' must be passed in context when "
                                  "'queue' is not specified")
             if executor == 'host_agent':
-                if host_id is None:
+                if not host_id:
                     raise ValueError("'host_id' must be passed "
                                      "in context when "
                                      "'queue' is not specified and "
@@ -1046,11 +1046,11 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             task_queue = queue
 
         if target is None:
-            if executor is None:
+            if not executor:
                 raise ValueError("'executor' must be passed in context when "
                                  "'target' is not specified")
             if executor == 'host_agent':
-                if host_id is None:
+                if not host_id:
                     raise ValueError("'host_id' must be passed "
                                      "in context when "
                                      "'target' is not specified and "
