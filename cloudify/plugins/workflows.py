@@ -396,12 +396,13 @@ def _host_post_start(host_node_instance):
                 ]
             if host_node_instance.node.properties['remote_execution'] is False:
                 tasks += [
+                    host_node_instance.send_event('Restarting Agent via AMQP'),
                     host_node_instance.execute_operation(
-                        'cloudify.interfaces.cloudify_agent.restart_amqp',
-                        send_task_events=False)
+                        'cloudify.interfaces.cloudify_agent.restart_amqp')
                 ]
             else:
                 tasks += [
+                    host_node_instance.send_event('Restarting Agent'),
                     host_node_instance.execute_operation(
                         'cloudify.interfaces.cloudify_agent.restart',
                         send_task_events=False)
