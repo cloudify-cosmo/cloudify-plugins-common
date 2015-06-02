@@ -316,7 +316,8 @@ class RemoteWorkflowTask(WorkflowTask):
         """
 
         task, self._task_queue, self._task_target = \
-            self.workflow_context.internal.handler.get_task(self)
+            self.workflow_context.internal.handler.get_task(
+                self, queue=self._task_queue, target=self._task_target)
 
         try:
             self._verify_task_registered()
@@ -720,6 +721,7 @@ def verify_task_registered(name, target, get_registered, get_stats):
         raise exceptions.NonRecoverableError(
             'Worker celery.{0} appears to be dead'.format(target)
         )
+
     cache = RemoteWorkflowTask.cache
     registered = cache.get(target, set())
     if name not in registered:

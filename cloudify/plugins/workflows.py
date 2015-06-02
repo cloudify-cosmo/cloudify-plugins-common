@@ -367,46 +367,103 @@ def _is_host_node(node_instance):
     return 'cloudify.nodes.Compute' in node_instance.node.type_hierarchy
 
 
+def _wait_for_host_to_start(host_node_instance):
+    task = host_node_instance.execute_operation(
+        'cloudify.interfaces.host.get_state')
+
+    # handler returns True if if get_state returns False,
+    # this means, that get_state will be re-executed until
+    # get_state returns True
+    def node_get_state_handler(tsk):
+        host_started = tsk.async_result.get()
+        if host_started:
+            return workflow_tasks.HandlerResult.cont()
+        else:
+            return workflow_tasks.HandlerResult.retry(
+                ignore_total_retries=True)
+    if not task.is_nop():
+        task.on_success = node_get_state_handler
+    return task
+
+
 def _host_post_start(host_node_instance):
 
     plugins_to_install = filter(lambda plugin: plugin['install'],
                                 host_node_instance.node.plugins_to_install)
 
-    tasks = []
+    tasks = [_wait_for_host_to_start(host_node_instance)]
     if host_node_instance.node.properties['install_agent'] is True:
-        tasks += [
-            host_node_instance.send_event('Creating Agent'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.cloudify_agent.create'),
-            host_node_instance.send_event('Configuring Agent'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.cloudify_agent.configure'),
-            host_node_instance.send_event('Starting Agent'),
-            host_node_instance.execute_operation(
-                'cloudify.interfaces.cloudify_agent.start')
 
-        ]
-        if plugins_to_install:
+        node_operations = host_node_instance.node.operations
+
+        if 'cloudify.interfaces.worker_installer.install' in node_operations:
+            # 3.2 Compute Node
             tasks += [
-                host_node_instance.send_event('Installing plugins'),
+                host_node_instance.send_event('Creating Agent'),
                 host_node_instance.execute_operation(
+                    'cloudify.interfaces.worker_installer.install'),
+                host_node_instance.send_event('Configuring Agent'),
+                host_node_instance.send_event('Starting Agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.worker_installer.start')
+
+            ]
+        else:
+            tasks += [
+                host_node_instance.send_event('Creating Agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.create'),
+                host_node_instance.send_event('Configuring Agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.configure'),
+                host_node_instance.send_event('Starting Agent'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.start')
+
+            ]
+
+        if plugins_to_install:
+
+            tasks += [host_node_instance.send_event('Installing plugins')]
+            if 'cloudify.interfaces.plugin_installer.install' in \
+                    node_operations:
+                # 3.2 Compute Node
+                tasks += [host_node_instance.execute_operation(
+                    'cloudify.interfaces.plugin_installer.install',
+                    kwargs={
+                        'plugins': plugins_to_install})
+                ]
+            else:
+                tasks += [host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.install_plugins',
                     kwargs={
                         'plugins': plugins_to_install})
                 ]
-            if host_node_instance.node.properties['remote_execution'] is False:
+
+            if host_node_instance.node.properties.get(
+                    'remote_execution') is False:
+                # this option is only available since 3.3 so no need to
+                # handle 3.2 version here.
                 tasks += [
                     host_node_instance.send_event('Restarting Agent via AMQP'),
                     host_node_instance.execute_operation(
-                        'cloudify.interfaces.cloudify_agent.restart_amqp')
-                ]
-            else:
-                tasks += [
-                    host_node_instance.send_event('Restarting Agent'),
-                    host_node_instance.execute_operation(
-                        'cloudify.interfaces.cloudify_agent.restart',
+                        'cloudify.interfaces.cloudify_agent.restart_amqp',
                         send_task_events=False)
                 ]
+            else:
+                tasks += [host_node_instance.send_event(
+                    'Restarting Agent')]
+                if 'cloudify.interfaces.worker_installer.restart' in \
+                        node_operations:
+                    # 3.2 Compute Node
+                    tasks += [host_node_instance.execute_operation(
+                        'cloudify.interfaces.worker_installer.restart',
+                        send_task_events=False)]
+                else:
+                    tasks += [host_node_instance.execute_operation(
+                        'cloudify.interfaces.cloudify_agent.restart',
+                        send_task_events=False)]
+
     tasks += [
         host_node_instance.execute_operation(
             'cloudify.interfaces.monitoring_agent.install'),
@@ -425,21 +482,37 @@ def _host_pre_stop(host_node_instance):
             'cloudify.interfaces.monitoring_agent.uninstall'),
     ]
     if host_node_instance.node.properties['install_agent'] is True:
-        if host_node_instance.node.properties['remote_execution'] is False:
+
+        if host_node_instance.node.properties.get('remote_execution') is False:
+            # this option is only available since 3.3 so no need to
+            # handle 3.2 version here.
             tasks += [
                 host_node_instance.send_event('Stopping agent'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.stop_amqp')
             ]
         else:
-            tasks += [
-                host_node_instance.send_event('Stopping agent'),
-                host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.stop'),
-                host_node_instance.send_event('Deleting agent'),
-                host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.delete')
-            ]
+
+            node_operations = host_node_instance.node.operations
+
+            if 'cloudify.interfaces.worker_installer.stop' in node_operations:
+                tasks += [
+                    host_node_instance.send_event('Stopping agent'),
+                    host_node_instance.execute_operation(
+                        'cloudify.interfaces.worker_installer.stop'),
+                    host_node_instance.send_event('Deleting agent'),
+                    host_node_instance.execute_operation(
+                        'cloudify.interfaces.worker_installer.uninstall')
+                ]
+            else:
+                tasks += [
+                    host_node_instance.send_event('Stopping agent'),
+                    host_node_instance.execute_operation(
+                        'cloudify.interfaces.cloudify_agent.stop'),
+                    host_node_instance.send_event('Deleting agent'),
+                    host_node_instance.execute_operation(
+                        'cloudify.interfaces.cloudify_agent.delete')
+                ]
 
     for task in tasks:
         if task.is_remote():

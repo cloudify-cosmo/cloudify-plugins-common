@@ -935,7 +935,7 @@ class CloudifyWorkflowContextHandler(object):
                                      additional_context=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    def get_task(self, workflow_task):
+    def get_task(self, workflow_task, queue=None, target=None):
         raise NotImplementedError('Implemented by subclasses')
 
     @property
@@ -1017,66 +1017,43 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 out_func=logs.amqp_event_out)
         return send_event_task
 
-    def get_task(self, workflow_task):
+    def get_task(self, workflow_task, queue=None, target=None):
 
-        queue = workflow_task.queue
-        target = workflow_task.target
-
-        executor = workflow_task.cloudify_context.get('executor')
-        host_id = workflow_task.cloudify_context.get('host_id')
-
-        task_name = workflow_task.name
+        def _extract_from_agent_runtime(property_name):
+            executor = workflow_task.cloudify_context['executor']
+            host_id = workflow_task.cloudify_context['host_id']
+            if executor == 'host_agent':
+                if not host_id:
+                    raise ValueError("'host_id' must be passed "
+                                     "in context when "
+                                     "'{0}' is not specified and "
+                                     "'executor' is host_agent"
+                                     .format(property_name))
+                host_node_instance = get_node_instance(host_id)
+                return host_node_instance.runtime_properties[
+                    'cloudify_agent'][property_name]
+            return self.workflow_ctx.deployment.id
 
         if queue is None:
-            if not executor:
-                raise ValueError("'executor' must be passed in context when "
-                                 "'queue' is not specified")
-            if executor == 'host_agent':
-                if not host_id:
-                    raise ValueError("'host_id' must be passed "
-                                     "in context when "
-                                     "'queue' is not specified and "
-                                     "'executor' is host_agent")
-                host_node_instance = get_node_instance(host_id)
-                task_queue = host_node_instance.runtime_properties.get(
-                    'cloudify_agent', {}).get('queue')
-            else:
-                task_queue = self.workflow_ctx.deployment.id
-        else:
-            task_queue = queue
+            queue = _extract_from_agent_runtime('queue')
 
         if target is None:
-            if not executor:
-                raise ValueError("'executor' must be passed in context when "
-                                 "'target' is not specified")
-            if executor == 'host_agent':
-                if not host_id:
-                    raise ValueError("'host_id' must be passed "
-                                     "in context when "
-                                     "'target' is not specified and "
-                                     "'executor' is host_agent")
-                host_node_instance = get_node_instance(host_id)
-                task_target = host_node_instance.runtime_properties.get(
-                    'cloudify_agent', {}).get('name')
-            else:
-                task_target = self.workflow_ctx.deployment.id
-        else:
-            task_target = target
+            target = _extract_from_agent_runtime('name')
 
         kwargs = workflow_task.kwargs
         # augment cloudify context with target and queue
-        kwargs['__cloudify_context']['task_queue'] = task_queue
-        kwargs['__cloudify_context']['task_target'] = task_target
+        kwargs['__cloudify_context']['task_queue'] = queue
+        kwargs['__cloudify_context']['task_target'] = target
 
         # Remote task
         # Import here because this only applies to remote tasks execution
         # environment
         import celery
 
-        return celery.subtask(task_name,
+        return celery.subtask(workflow_task.name,
                               kwargs=kwargs,
-                              queue=task_queue,
-                              immutable=True), task_queue, task_target
+                              queue=queue,
+                              immutable=True), queue, target
 
     @property
     def operation_cloudify_context(self):
@@ -1190,7 +1167,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 out_func=logs.stdout_event_out)
         return send_event_task
 
-    def get_task(self, workflow_task):
+    def get_task(self, workflow_task, queue=None, target=None):
         return None, None, None
 
     @property
