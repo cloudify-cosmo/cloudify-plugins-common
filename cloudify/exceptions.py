@@ -99,8 +99,8 @@ class CommandExecutionException(Exception):
     def __init__(self, command, error, output, code):
         self.command = command
         self.error = error
-        self.output = output
         self.code = code
+        self.output = output
         Exception.__init__(self, self.__str__())
 
     def __str__(self):

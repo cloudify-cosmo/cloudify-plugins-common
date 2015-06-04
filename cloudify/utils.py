@@ -168,13 +168,6 @@ def get_home_dir(username=None):
 class LocalCommandRunner(object):
 
     def __init__(self, logger=None, host='localhost'):
-
-        """
-        :param logger: This logger will be used for
-                       printing the output and the command.
-        :rtype: cloudify.utils.LocalCommandRunner
-        """
-
         logger = logger or setup_logger('LocalCommandRunner')
         self.logger = logger
         self.host = host
@@ -231,8 +224,9 @@ class LocalCommandRunner(object):
 
         return CommandExecutionResponse(
             command=command,
-            output=out,
-            code=p.returncode)
+            std_out=out,
+            std_err=err,
+            return_code=p.returncode)
 
 
 class CommandExecutionResponse(object):
@@ -241,11 +235,15 @@ class CommandExecutionResponse(object):
     Wrapper object for info returned when running commands.
 
     :param command: The command that was executed.
-    :param output: The output from the execution.
-    :param code: The return code from the execution.
+    :param std_out: The output from the execution.
+    :param std_err: The error message from the execution.
+    :param return_code: The return code from the execution.
     """
 
-    def __init__(self, command, output, code):
+    def __init__(self, command, std_out, std_err, return_code):
         self.command = command
-        self.output = output
-        self.code = code
+        self.std_out = std_out
+        self.std_err = std_err
+        self.return_code = return_code
+
+setup_default_logger = setup_logger  # deprecated; for backwards compatibility
