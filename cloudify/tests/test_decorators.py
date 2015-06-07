@@ -147,10 +147,12 @@ class OperationTest(testtools.TestCase):
                 lambda: rest_client_mock.MockRestclient()
 
             # Prevents from asking amqp for msgs.
-            workflow_context.events.Monitor = mock_events.MockMonitor
+            workflow_context.events.Monitor = \
+                mock_events.MockMonitor
 
             # Tries to direct all the out into stdout and not amqp
-            logs.CloudifyBaseLoggingHandler = mock_logger.MockCloudifyBaseLoggingHandler
+            logs.CloudifyBaseLoggingHandler = \
+                mock_logger.MockCloudifyBaseLoggingHandler
 
             kwargs = {'__cloudify_context': {}}
             try:
