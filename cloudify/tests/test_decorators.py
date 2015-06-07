@@ -16,7 +16,7 @@
 
 import testtools
 
-from mock import patch
+from mock import patch, MagicMock
 
 from cloudify import ctx as ctx_proxy
 from cloudify import manager
@@ -28,7 +28,6 @@ from cloudify.exceptions import NonRecoverableError, ProcessExecutionError
 from cloudify.workflows import workflow_context
 
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
-from cloudify.tests.mocks import mock_events
 
 
 class MockNotPicklableException(Exception):
@@ -137,6 +136,8 @@ class OperationTest(testtools.TestCase):
         self.assertRaises(NonRecoverableError, ctx.capabilities.__contains__,
                           'k')
 
+    @patch('cloudify.logs.amqp_log_out', logs.stdout_log_out)
+    @patch('cloudify.logs.amqp_event_out', logs.stdout_event_out)
     def test_workflow_error_delegation(self):
         try:
             workflow_context.get_rest_client = \
@@ -147,11 +148,7 @@ class OperationTest(testtools.TestCase):
                 lambda: rest_client_mock.MockRestclient()
 
             # Prevents from asking amqp for msgs.
-            workflow_context.events.Monitor = \
-                mock_events.MockMonitor
-
-            logs.amqp_log_out = logs.stdout_log_out
-            logs.amqp_event_out = logs.stdout_event_out
+            workflow_context.events.Monitor = MagicMock()
 
             kwargs = {'__cloudify_context': {}}
             try:
