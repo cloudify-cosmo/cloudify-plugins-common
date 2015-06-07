@@ -75,6 +75,16 @@ class HttpException(NonRecoverableError):
 
 class CommandExecutionError(RuntimeError):
 
+    """
+    Indicates a command failed to execute. note that this is different than
+    the CommandExecutionException in that in this case, the command
+    execution did not even start, and therefore there is not return code or
+    stdout output.
+
+    :param command: The command executed
+    :param error: the error preventing the command from executing
+    """
+
     def __init__(self, command, error=None):
         self.command = command
         self.error = error
@@ -88,7 +98,8 @@ class CommandExecutionError(RuntimeError):
 class CommandExecutionException(Exception):
 
     """
-    Indicates a failure to execute a command.
+    Indicates a command was executed, however some sort of error happened,
+    resulting in a non-zero return value of the process.
 
     :param command: The command executed
     :param code: process exit code

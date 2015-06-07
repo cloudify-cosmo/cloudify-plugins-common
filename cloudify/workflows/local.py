@@ -162,10 +162,6 @@ def _parse_plan(blueprint_path, inputs, ignored_modules):
 
 
 def _validate_node(node):
-    if dsl_parser is None:
-        raise ImportError('cloudify-dsl-parser must be installed to '
-                          'execute local workflows. '
-                          '(e.g. "pip install cloudify-dsl-parser")')
     if HOST_TYPE in node['type_hierarchy']:
         install_agent_prop = node.properties.get('install_agent')
         if install_agent_prop:

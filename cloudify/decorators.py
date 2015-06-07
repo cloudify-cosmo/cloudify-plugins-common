@@ -282,9 +282,6 @@ def _remote_workflow(ctx, func, args, kwargs):
 
         # starting workflow execution on child thread
         t = Thread(target=child_wrapper)
-        ctx.logger.debug('Starting dedicated thread for '
-                         'workflow execution: {0}'
-                         .format(t))
         t.start()
 
         # while the child thread is executing the workflow,
@@ -296,13 +293,9 @@ def _remote_workflow(ctx, func, args, kwargs):
         while True:
             # check if child thread sent a message
             try:
-                ctx.logger.debug('Polling workflow execution '
-                                 'thread for status')
                 data = child_queue.get(timeout=5)
                 if 'result' in data:
                     # child thread has terminated
-                    ctx.logger.debug('Workflow execution thread '
-                                     'terminated successfuly')
                     result = data['result']
                     break
                 else:
@@ -314,8 +307,6 @@ def _remote_workflow(ctx, func, args, kwargs):
             except Queue.Empty:
                 pass
             # check for 'cancel' requests
-            ctx.logger.debug('Checking for cancellation requests on '
-                             'execution: {0}'.format(ctx.execution_id))
             execution = rest.executions.get(ctx.execution_id)
             if execution.status == Execution.FORCE_CANCELLING:
                 result = api.EXECUTION_CANCELLED_RESULT
@@ -341,8 +332,6 @@ def _remote_workflow(ctx, func, args, kwargs):
                 # TODO: kill worker externally
                 raise RequestSystemExit()
         else:
-            ctx.logger.debug('Workflow execution terminated: {0}. Updating '
-                             'execution status.'.format(ctx.execution_id))
             update_execution_status(ctx.execution_id, Execution.TERMINATED)
             _send_workflow_succeeded_event(ctx)
         return result
@@ -378,21 +367,11 @@ def _execute_workflow_function(ctx, func, args, kwargs):
     try:
         ctx.internal.start_local_tasks_processing()
         current_workflow_ctx.set(ctx, kwargs)
-        ctx.logger.debug('Starting workflow function execution: {0}'
-                         .format(func.__name__))
         result = func(*args, **kwargs)
-        ctx.logger.debug('Finished workflow function execution: {0}'
-                         .format(func.__name__))
         if not ctx.internal.graph_mode:
-            ctx.logger.debug('Workflow in Graph mode. Waiting for tasks to '
-                             'finish')
             tasks = list(ctx.internal.task_graph.tasks_iter())
             for workflow_task in tasks:
-                ctx.logger.debug('Waiting for {0} to finish...'.format(
-                    workflow_task.name))
                 workflow_task.async_result.get()
-                ctx.logger.debug('{0} finished'.format(
-                    workflow_task.name))
         return result
     finally:
         ctx.internal.stop_local_tasks_processing()
