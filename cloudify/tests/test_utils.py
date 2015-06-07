@@ -48,4 +48,4 @@ class LocalCommandRunnerTest(unittest.TestCase):
     def test_run_command_with_env(self):
         response = self.runner.run('env',
                                    execution_env={'TEST_KEY': 'TEST_VALUE'})
-        self.assertIn('TEST_KEY=TEST_VALUE', response.std_out)
+        self.assertTrue('TEST_KEY=TEST_VALUE' in response.std_out)
