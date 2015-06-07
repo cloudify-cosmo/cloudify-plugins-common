@@ -168,18 +168,22 @@ def get_home_dir(username=None):
 class LocalCommandRunner(object):
 
     def __init__(self, logger=None, host='localhost'):
+
+        """
+        :param logger: This logger will be used for
+                       printing the output and the command.
+        """
+
         logger = logger or setup_logger('LocalCommandRunner')
         self.logger = logger
         self.host = host
 
     def run(self, command,
             exit_on_failure=True,
-            fail_on_stderr=False,
             stdout_pipe=True,
             stderr_pipe=True,
             cwd=None,
-            execution_env=None,
-            shell=False):
+            execution_env=None):
 
         """
         Runs local commands.
@@ -188,10 +192,12 @@ class LocalCommandRunner(object):
         :param exit_on_failure: False to ignore failures.
         :param stdout_pipe: False to not pipe the standard output.
         :param stderr_pipe: False to not pipe the standard error.
+        :param cwd: the working directory the command will run from.
+        :param execution_env: dictionary of environment variables that will
+                              be present in the command scope.
 
         :return: A wrapper object for all valuable info from the execution.
         :rtype: cloudify.utils.CommandExecutionResponse
-        :raise: cloudify.exceptions.CommandExecutionException
         """
 
         self.logger.debug('[{0}] run: {1}'.format(self.host, command))
@@ -202,16 +208,14 @@ class LocalCommandRunner(object):
         command_env = os.environ.copy()
         command_env.update(execution_env or {})
         p = subprocess.Popen(shlex_split, stdout=stdout,
-                             stderr=stderr, cwd=cwd, env=command_env,
-                             shell=shell)
+                             stderr=stderr, cwd=cwd, env=command_env)
         out, err = p.communicate()
         if out:
             out = out.rstrip()
         if err:
             err = err.rstrip()
 
-        err_fail = err and fail_on_stderr
-        if p.returncode != 0 or err_fail:
+        if p.returncode != 0:
             error = CommandExecutionException(
                 command=command,
                 error=err,
@@ -222,6 +226,8 @@ class LocalCommandRunner(object):
             else:
                 self.logger.error(error)
 
+        if out:
+            self.logger.debug('[{0}] out: {1}'.format(self.host, out))
         return CommandExecutionResponse(
             command=command,
             std_out=out,
