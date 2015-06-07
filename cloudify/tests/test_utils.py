@@ -27,7 +27,6 @@ class LocalCommandRunnerTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(LocalCommandRunnerTest, cls).setUpClass()
         cls.logger = setup_logger(cls.__name__)
         cls.logger.setLevel(logging.DEBUG)
         cls.runner = LocalCommandRunner(
