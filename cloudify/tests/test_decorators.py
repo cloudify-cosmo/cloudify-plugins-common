@@ -28,7 +28,7 @@ from cloudify.exceptions import NonRecoverableError, ProcessExecutionError
 from cloudify.workflows import workflow_context
 
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
-from cloudify.tests.mocks import mock_events, mock_logger
+from cloudify.tests.mocks import mock_events
 
 
 class MockNotPicklableException(Exception):
@@ -150,9 +150,8 @@ class OperationTest(testtools.TestCase):
             workflow_context.events.Monitor = \
                 mock_events.MockMonitor
 
-            # # Tries to direct all the out into stdout and not amqp
-            # logs.CloudifyBaseLoggingHandler = \
-            #     mock_logger.MockCloudifyBaseLoggingHandler
+            logs.amqp_log_out = logs.stdout_log_out
+            logs.amqp_event_out = logs.stdout_event_out
 
             kwargs = {'__cloudify_context': {}}
             try:
