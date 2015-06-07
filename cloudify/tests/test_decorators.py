@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,12 +21,14 @@ from mock import patch
 from cloudify import ctx as ctx_proxy
 from cloudify import manager
 from cloudify import decorators
+from cloudify import logs
 from cloudify.decorators import operation, workflow
 from cloudify import context
 from cloudify.exceptions import NonRecoverableError, ProcessExecutionError
 from cloudify.workflows import workflow_context
 
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
+from cloudify.tests.mocks import mock_events, mock_logger
 
 
 class MockNotPicklableException(Exception):
@@ -63,7 +65,6 @@ def error_workflow(ctx, picklable=False, **_):
 
 
 class OperationTest(testtools.TestCase):
-
     def test_empty_ctx(self):
         ctx = acquire_context(0, 0)
         self.assertIsInstance(ctx, context.CloudifyContext)
@@ -144,6 +145,13 @@ class OperationTest(testtools.TestCase):
                 lambda: rest_client_mock.MockRestclient()
             manager.get_rest_client = \
                 lambda: rest_client_mock.MockRestclient()
+
+            # Prevents from asking amqp for msgs.
+            workflow_context.events.Monitor = mock_events.MockMonitor
+
+            # Tries to direct all the out into stdout and not amqp
+            logs.CloudifyBaseLoggingHandler = mock_logger.MockCloudifyBaseLoggingHandler
+
             kwargs = {'__cloudify_context': {}}
             try:
                 error_workflow(picklable=False, **kwargs)
