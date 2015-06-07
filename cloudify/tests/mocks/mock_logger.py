@@ -3,6 +3,7 @@ from cloudify.logs import CloudifyBaseLoggingHandler
 
 __author__ = 'maxim'
 
+
 class MockCloudifyBaseLoggingHandler(CloudifyBaseLoggingHandler):
 
     def emit(self, record):

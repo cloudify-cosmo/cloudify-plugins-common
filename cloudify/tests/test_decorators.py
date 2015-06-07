@@ -30,6 +30,7 @@ from cloudify.workflows import workflow_context
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
 from cloudify.tests.mocks import mock_events, mock_logger
 
+
 class MockNotPicklableException(Exception):
     """Non-picklable exception"""
     def __init__(self, custom_error):
@@ -147,10 +148,12 @@ class OperationTest(testtools.TestCase):
                 lambda: rest_client_mock.MockRestclient()
 
             # Prevents from asking amqp for msgs.
-            workflow_context.events.Monitor = mock_events.MockMonitor
+            workflow_context.events.Monitor = \
+                mock_events.MockMonitor
 
             # Tries to direct all the out into stdout and not amqp
-            logs.CloudifyBaseLoggingHandler = mock_logger.MockCloudifyBaseLoggingHandler
+            logs.CloudifyBaseLoggingHandler = \
+                mock_logger.MockCloudifyBaseLoggingHandler
 
             kwargs = {'__cloudify_context': {}}
             try:

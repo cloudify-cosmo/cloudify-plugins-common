@@ -10,5 +10,3 @@ class MockMonitor(Monitor):
     # Stopping it should do nothing really. since it never really started.
     def stop(self):
         pass
-
-
