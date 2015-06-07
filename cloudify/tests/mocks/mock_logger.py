@@ -6,14 +6,8 @@ __author__ = 'maxim'
 
 class MockCloudifyBaseLoggingHandler(CloudifyBaseLoggingHandler):
 
-    def emit(self, record):
-        message = self.format(record)
-        log = {
-            'context': self.context,
-            'logger': record.name,
-            'level': record.levelname.lower(),
-            'message': {
-                'text': message
-            }
-        }
-        logs.stdout_log_out(log)
+    def __init__(self, ctx, out_func, message_context_builder):
+        super(MockCloudifyBaseLoggingHandler, self).__init__(ctx, logs.stdout_log_out, message_context_builder)
+        print "aaaaaaaaaa"
+
+

@@ -150,9 +150,9 @@ class OperationTest(testtools.TestCase):
             workflow_context.events.Monitor = \
                 mock_events.MockMonitor
 
-            # Tries to direct all the out into stdout and not amqp
-            logs.CloudifyBaseLoggingHandler = \
-                mock_logger.MockCloudifyBaseLoggingHandler
+            # # Tries to direct all the out into stdout and not amqp
+            # logs.CloudifyBaseLoggingHandler = \
+            #     mock_logger.MockCloudifyBaseLoggingHandler
 
             kwargs = {'__cloudify_context': {}}
             try:
