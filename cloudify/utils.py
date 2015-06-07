@@ -15,7 +15,6 @@
 
 import logging
 import random
-import getpass
 import shlex
 import string
 import subprocess
@@ -41,6 +40,9 @@ def setup_logger(logger_name,
                      sys.stdout will be used.
     :param remove_existing_handlers: Determines whether to remove existing
                                      handlers before adding new ones
+    :param logger_format: the format this logger will have.
+    :param propagate: propagate the message the parent logger.
+
     :return: A logger instance.
     :rtype: logging.Logger
     """
@@ -55,6 +57,7 @@ def setup_logger(logger_name,
 
     if not handlers:
         handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG)
         handlers = [handler]
 
     formatter = logging.Formatter(fmt=logger_format,
@@ -97,27 +100,6 @@ def get_manager_rest_service_port():
     return int(os.environ[constants.MANAGER_REST_PORT_KEY])
 
 
-def get_daemon_name():
-    """
-    Returns the name of the currently running daemon.
-    """
-    return os.environ[constants.CLOUDIFY_DAEMON_NAME_KEY]
-
-
-def get_daemon_storage_dir():
-    """
-    Returns the storage directory the current daemon is stored under.
-    """
-    return os.environ[constants.CLOUDIFY_DAEMON_STORAGE_DIRECTORY_KEY]
-
-
-def get_daemon_user():
-    """
-    Return the user the current daemon is running under
-    """
-    return os.environ[constants.CLOUDIFY_DAEMON_USER_KEY]
-
-
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     """
     Generate and return a random string using upper case letters and digits.
@@ -132,37 +114,6 @@ def create_temp_folder():
     path_join = os.path.join(tempfile.gettempdir(), id_generator(5))
     os.makedirs(path_join)
     return path_join
-
-
-def get_home_dir(username=None):
-
-    """
-    Retrieve the home directory of the given user. If no user was specified,
-    the currently logged user will be used.
-
-    :param username: the user.
-    :type username: str
-
-    :return: path to the home directory
-    :rtype: str
-
-    """
-
-    if os.name == 'nt':
-        if username is None:
-            return os.path.expanduser('~')
-        else:
-            return os.path.expanduser('~{0}'.format(username))
-    else:
-        import pwd
-        if username is None:
-            if 'SUDO_USER' in os.environ:
-                # command was executed via sudo
-                # get the original user
-                username = os.environ['SUDO_USER']
-            else:
-                username = getpass.getuser()
-        return pwd.getpwnam(username).pw_dir
 
 
 class LocalCommandRunner(object):
@@ -226,8 +177,6 @@ class LocalCommandRunner(object):
             else:
                 self.logger.error(error)
 
-        if out:
-            self.logger.debug('[{0}] out: {1}'.format(self.host, out))
         return CommandExecutionResponse(
             command=command,
             std_out=out,
