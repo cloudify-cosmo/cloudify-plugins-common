@@ -401,10 +401,9 @@ def _host_post_start(host_node_instance):
         if 'cloudify.interfaces.worker_installer.install' in node_operations:
             # 3.2 Compute Node
             tasks += [
-                host_node_instance.send_event('Creating Agent'),
+                host_node_instance.send_event('Installing Agent'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.worker_installer.install'),
-                host_node_instance.send_event('Configuring Agent'),
                 host_node_instance.send_event('Starting Agent'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.worker_installer.start')

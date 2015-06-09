@@ -1019,26 +1019,24 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     def get_task(self, workflow_task, queue=None, target=None):
 
-        def _extract_from_agent_runtime(property_name):
+        runtime_props = []
+
+        def _derive(property_name):
             executor = workflow_task.cloudify_context['executor']
             host_id = workflow_task.cloudify_context['host_id']
             if executor == 'host_agent':
-                if not host_id:
-                    raise ValueError("'host_id' must be passed "
-                                     "in context when "
-                                     "'{0}' is not specified and "
-                                     "'executor' is host_agent"
-                                     .format(property_name))
-                host_node_instance = get_node_instance(host_id)
-                return host_node_instance.runtime_properties[
-                    'cloudify_agent'][property_name]
+                if len(runtime_props) == 0:
+                    host_node_instance = get_node_instance(host_id)
+                    runtime_props.append(host_node_instance.runtime_properties[
+                        'cloudify_agent'])
+                return runtime_props[0][property_name]
             return self.workflow_ctx.deployment.id
 
         if queue is None:
-            queue = _extract_from_agent_runtime('queue')
+            queue = _derive('queue')
 
         if target is None:
-            target = _extract_from_agent_runtime('name')
+            target = _derive('name')
 
         kwargs = workflow_task.kwargs
         # augment cloudify context with target and queue
@@ -1054,7 +1052,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                               kwargs=kwargs,
                               queue=queue,
                               immutable=True), queue, target
-
+    
     @property
     def operation_cloudify_context(self):
         return {'local': False}
