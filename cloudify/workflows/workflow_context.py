@@ -1052,7 +1052,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                               kwargs=kwargs,
                               queue=queue,
                               immutable=True), queue, target
-    
+
     @property
     def operation_cloudify_context(self):
         return {'local': False}
