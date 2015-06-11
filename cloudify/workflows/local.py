@@ -30,7 +30,7 @@ from cloudify.workflows.workflow_context import (
     DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
 
 try:
-    from dsl_parser.parser import HOST_TYPE
+    from dsl_parser.constants import HOST_TYPE
     from dsl_parser import parser as dsl_parser, tasks as dsl_tasks
     from dsl_parser import functions as dsl_functions
 except ImportError:
