@@ -30,10 +30,12 @@ from cloudify.workflows.workflow_context import (
     DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
 
 try:
-    from dsl_parser.parser import HOST_TYPE
+    from dsl_parser.constants import HOST_TYPE
     from dsl_parser import parser as dsl_parser, tasks as dsl_tasks
     from dsl_parser import functions as dsl_functions
-except ImportError:
+    _import_error = None
+except ImportError as e:
+    _import_error = str(e)
     dsl_parser = None
     dsl_tasks = None
     dsl_functions = None
@@ -151,7 +153,8 @@ def _parse_plan(blueprint_path, inputs, ignored_modules):
     if dsl_parser is None:
         raise ImportError('cloudify-dsl-parser must be installed to '
                           'execute local workflows. '
-                          '(e.g. "pip install cloudify-dsl-parser")')
+                          '(e.g. "pip install cloudify-dsl-parser") [{0}]'
+                          .format(_import_error))
     plan = dsl_tasks.prepare_deployment_plan(
         dsl_parser.parse_from_path(blueprint_path), inputs=inputs)
     nodes = [Node(node) for node in plan['nodes']]
