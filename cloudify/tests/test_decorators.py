@@ -153,7 +153,6 @@ class OperationTest(testtools.TestCase):
             kwargs = {'__cloudify_context': {}}
             try:
                 error_workflow(picklable=False, **kwargs)
-                self.fail('Expected exception')
             except ProcessExecutionError as e:
                 self.assertTrue('hello world!' in e.message)
                 self.assertTrue('test_decorators.py' in e.traceback)
@@ -161,7 +160,6 @@ class OperationTest(testtools.TestCase):
                                 e.error_type)
             try:
                 error_workflow(picklable=True, **kwargs)
-                self.fail('Expected exception')
             except ProcessExecutionError as e:
                 self.assertTrue('hello world!' in e.message)
                 self.assertTrue('test_decorators.py' in e.traceback)

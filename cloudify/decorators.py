@@ -17,6 +17,7 @@
 import traceback
 import copy
 import sys
+import uuid
 import Queue
 from threading import Thread
 from StringIO import StringIO
@@ -33,12 +34,19 @@ from cloudify.state import current_ctx, current_workflow_ctx
 
 def _stub_task(fn):
     return fn
+
+
+def _stub_send_task(name, **kwargs):
+    pass
+
 try:
     from cloudify.celery import celery as _celery
     _task = _celery.task
+    _send_task = _celery.send_task
 except ImportError:
     _celery = None
     _task = _stub_task
+    _send_task = _stub_send_task
 
 
 CLOUDIFY_ID_PROPERTY = '__cloudify_id'
@@ -236,118 +244,144 @@ class RequestSystemExit(SystemExit):
 
 
 def _remote_workflow(ctx, func, args, kwargs):
-    def update_execution_cancelled():
-        update_execution_status(ctx.execution_id, Execution.CANCELLED)
-        _send_workflow_cancelled_event(ctx)
 
-    rest = get_rest_client()
-    parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
-    try:
-        if rest.executions.get(ctx.execution_id).status in \
-                (Execution.CANCELLING, Execution.FORCE_CANCELLING):
-            # execution has been requested to be cancelled before it
-            # was even started
-            update_execution_cancelled()
-            return api.EXECUTION_CANCELLED_RESULT
+    def _execute():
+        def update_execution_cancelled():
+            update_execution_status(ctx.execution_id, Execution.CANCELLED)
+            _send_workflow_cancelled_event(ctx)
 
-        update_execution_status(ctx.execution_id, Execution.STARTED)
-        _send_workflow_started_event(ctx)
+        rest = get_rest_client()
+        parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
+        try:
+            if rest.executions.get(ctx.execution_id).status in \
+                    (Execution.CANCELLING, Execution.FORCE_CANCELLING):
+                # execution has been requested to be cancelled before it
+                # was even started
+                update_execution_cancelled()
+                return api.EXECUTION_CANCELLED_RESULT
 
-        # the actual execution of the workflow will run in another
-        # thread - this wrapper is the entry point for that
-        # thread, and takes care of forwarding the result or error
-        # back to the parent thread
-        def child_wrapper():
-            try:
-                ctx.internal.start_event_monitor()
-                workflow_result = _execute_workflow_function(
-                    ctx, func, args, kwargs)
-                child_queue.put({'result': workflow_result})
-            except api.ExecutionCancelled:
-                child_queue.put({
-                    'result': api.EXECUTION_CANCELLED_RESULT})
-            except BaseException as workflow_ex:
-                tb = StringIO()
-                traceback.print_exc(file=tb)
-                err = {
-                    'type': type(workflow_ex).__name__,
-                    'message': str(workflow_ex),
-                    'traceback': tb.getvalue()
-                }
-                child_queue.put({'error': err})
-            finally:
-                ctx.internal.stop_event_monitor()
+            update_execution_status(ctx.execution_id, Execution.STARTED)
+            _send_workflow_started_event(ctx)
 
-        api.queue = parent_queue
+            # the actual execution of the workflow will run in another
+            # thread - this wrapper is the entry point for that
+            # thread, and takes care of forwarding the result or error
+            # back to the parent thread
+            def child_wrapper():
+                try:
+                    ctx.internal.start_event_monitor()
+                    workflow_result = _execute_workflow_function(
+                        ctx, func, args, kwargs)
+                    child_queue.put({'result': workflow_result})
+                except api.ExecutionCancelled:
+                    child_queue.put({
+                        'result': api.EXECUTION_CANCELLED_RESULT})
+                except BaseException as workflow_ex:
+                    tb = StringIO()
+                    traceback.print_exc(file=tb)
+                    err = {
+                        'type': type(workflow_ex).__name__,
+                        'message': str(workflow_ex),
+                        'traceback': tb.getvalue()
+                    }
+                    child_queue.put({'error': err})
+                finally:
+                    ctx.internal.stop_event_monitor()
 
-        # starting workflow execution on child thread
-        t = Thread(target=child_wrapper)
-        t.start()
+            api.queue = parent_queue
 
-        # while the child thread is executing the workflow,
-        # the parent thread is polling for 'cancel' requests while
-        # also waiting for messages from the child thread
-        has_sent_cancelling_action = False
-        result = None
-        execution = None
-        while True:
-            # check if child thread sent a message
-            try:
-                data = child_queue.get(timeout=5)
-                if 'result' in data:
-                    # child thread has terminated
-                    result = data['result']
+            # starting workflow execution on child thread
+            t = Thread(target=child_wrapper)
+            t.start()
+
+            # while the child thread is executing the workflow,
+            # the parent thread is polling for 'cancel' requests while
+            # also waiting for messages from the child thread
+            has_sent_cancelling_action = False
+            result = None
+            execution = None
+            while True:
+                # check if child thread sent a message
+                try:
+                    data = child_queue.get(timeout=5)
+                    if 'result' in data:
+                        # child thread has terminated
+                        result = data['result']
+                        break
+                    else:
+                        # error occurred in child thread
+                        error = data['error']
+                        raise exceptions.ProcessExecutionError(
+                            error['message'],
+                            error['type'],
+                            error['traceback'])
+                except Queue.Empty:
+                    pass
+                # check for 'cancel' requests
+                execution = rest.executions.get(ctx.execution_id)
+                if execution.status == Execution.FORCE_CANCELLING:
+                    result = api.EXECUTION_CANCELLED_RESULT
                     break
-                else:
-                    # error occurred in child thread
-                    error = data['error']
-                    raise exceptions.ProcessExecutionError(error['message'],
-                                                           error['type'],
-                                                           error['traceback'])
-            except Queue.Empty:
-                pass
-            # check for 'cancel' requests
-            execution = rest.executions.get(ctx.execution_id)
-            if execution.status == Execution.FORCE_CANCELLING:
-                result = api.EXECUTION_CANCELLED_RESULT
-                break
-            elif not has_sent_cancelling_action and \
-                    execution.status == Execution.CANCELLING:
-                # send a 'cancel' message to the child thread. It
-                # is up to the workflow implementation to check for
-                # this message and act accordingly (by stopping and
-                # raising an api.ExecutionCancelled error, or by returning
-                # the deprecated api.EXECUTION_CANCELLED_RESULT as result).
-                # parent thread then goes back to polling for
-                # messages from child process or possibly
-                # 'force-cancelling' requests
-                parent_queue.put({'action': 'cancel'})
-                has_sent_cancelling_action = True
+                elif not has_sent_cancelling_action and \
+                        execution.status == Execution.CANCELLING:
+                    # send a 'cancel' message to the child thread. It
+                    # is up to the workflow implementation to check for
+                    # this message and act accordingly (by stopping and
+                    # raising an api.ExecutionCancelled error, or by returning
+                    # the deprecated api.EXECUTION_CANCELLED_RESULT as result).
+                    # parent thread then goes back to polling for
+                    # messages from child process or possibly
+                    # 'force-cancelling' requests
+                    parent_queue.put({'action': 'cancel'})
+                    has_sent_cancelling_action = True
 
-        # updating execution status and sending events according to
-        # how the execution ended
-        if result == api.EXECUTION_CANCELLED_RESULT:
-            update_execution_cancelled()
-            if execution and execution.status == Execution.FORCE_CANCELLING:
-                # TODO: kill worker externally
-                raise RequestSystemExit()
+            # updating execution status and sending events according to
+            # how the execution ended
+            if result == api.EXECUTION_CANCELLED_RESULT:
+                update_execution_cancelled()
+                if (execution and
+                        execution.status == Execution.FORCE_CANCELLING):
+                    # TODO: kill worker externally
+                    raise RequestSystemExit()
+            else:
+                update_execution_status(ctx.execution_id, Execution.TERMINATED)
+                _send_workflow_succeeded_event(ctx)
+            return result
+        except RequestSystemExit:
+            raise
+        except BaseException as e:
+            if isinstance(e, exceptions.ProcessExecutionError):
+                error_traceback = e.traceback
+            else:
+                error = StringIO()
+                traceback.print_exc(file=error)
+                error_traceback = error.getvalue()
+            update_execution_status(ctx.execution_id, Execution.FAILED,
+                                    error_traceback)
+            _send_workflow_failed_event(ctx, e, error_traceback)
+            raise
+
+    result = None
+    e = None
+    try:
+        result = _execute()
+    except Execution as e:
+        pass
+    finally:
+        task_name = (
+            'cloudify_system_workflows.deployment_environment.stop'
+        )
+        queue = 'cloudify.management',
+        task_id = str(uuid.uuid4())
+        _send_task(
+            task_name,
+            queue=queue,
+            task_id=task_id,
+        )
+        if not result and e:
+            raise e
         else:
-            update_execution_status(ctx.execution_id, Execution.TERMINATED)
-            _send_workflow_succeeded_event(ctx)
-        return result
-    except RequestSystemExit:
-        raise
-    except BaseException as e:
-        if isinstance(e, exceptions.ProcessExecutionError):
-            error_traceback = e.traceback
-        else:
-            error = StringIO()
-            traceback.print_exc(file=error)
-            error_traceback = error.getvalue()
-        update_execution_status(ctx.execution_id, Execution.FAILED,
-                                error_traceback)
-        _send_workflow_failed_event(ctx, e, error_traceback)
-        raise
+            return result
 
 
 def _local_workflow(ctx, func, args, kwargs):
