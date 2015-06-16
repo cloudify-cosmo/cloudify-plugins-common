@@ -122,18 +122,29 @@ class ManagerEndpoint(Endpoint):
     def update_node_instance(self, node_instance):
         return manager.update_node_instance(node_instance)
 
-    def get_blueprint_resource(self, blueprint_id, resource_path):
-        return manager.get_blueprint_resource(blueprint_id, resource_path)
+    def get_blueprint_resource(self,
+                               blueprint_id,
+                               resource_path,
+                               use_template=False,
+                               template_variables=None):
+        return manager.get_blueprint_resource(blueprint_id,
+                                              resource_path,
+                                              use_template=use_template,
+                                              template_variables=template_variables)
 
     def download_blueprint_resource(self,
                                     blueprint_id,
                                     resource_path,
                                     logger,
-                                    target_path=None):
+                                    target_path=None,
+                                    use_template=False,
+                                    template_variables=None):
         return manager.download_blueprint_resource(blueprint_id,
                                                    resource_path,
                                                    logger,
-                                                   target_path)
+                                                   target_path,
+                                                   use_template=use_template,
+                                                   template_variables=template_variables)
 
     def get_provider_context(self):
         return manager.get_provider_context()

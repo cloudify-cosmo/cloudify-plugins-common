@@ -15,6 +15,7 @@
 
 import os
 import urllib2
+import jinja2
 
 import utils
 from cloudify_rest_client import CloudifyClient
@@ -142,7 +143,9 @@ def download_resource(resource_path, logger, target_path=None):
 def download_blueprint_resource(blueprint_id,
                                 resource_path,
                                 logger,
-                                target_path=None):
+                                target_path=None,
+                                use_template=False,
+                                template_variables=None):
     """
     Download resource from the manager file server with path relative to
     the blueprint denoted by ``blueprint_id``.
@@ -154,7 +157,10 @@ def download_blueprint_resource(blueprint_id,
     :param target_path: optional target path for the resource
     :returns: path to the downloaded resource
     """
-    resource = get_blueprint_resource(blueprint_id, resource_path)
+    resource = get_blueprint_resource(blueprint_id,
+                                      resource_path,
+                                      use_template=use_template,
+                                      template_variables=template_variables)
     return _save_resource(logger, resource, resource_path, target_path)
 
 
@@ -175,7 +181,10 @@ def get_resource(resource_path, base_url=None):
         raise HttpException(e.url, e.code, e.msg)
 
 
-def get_blueprint_resource(blueprint_id, resource_path):
+def get_blueprint_resource(blueprint_id,
+                           resource_path,
+                           use_template=False,
+                           template_variables=None):
     """
     Get resource from the manager file server with patch relative to
     the blueprint denoted by ``blueprint_id``.
@@ -188,7 +197,13 @@ def get_blueprint_resource(blueprint_id, resource_path):
     base_url = "{0}/{1}".format(utils
                                 .get_manager_file_server_blueprints_root_url(),
                                 blueprint_id)
-    return get_resource(resource_path, base_url=base_url)
+    resource = get_resource(resource_path, base_url=base_url)
+
+    if use_template:
+        template_env = jinja2.Environment(loader=jinja2.BaseLoader())
+        resource = template_env.from_string(resource).render(template_variables)
+
+    return resource
 
 
 def get_node_instance(node_instance_id):

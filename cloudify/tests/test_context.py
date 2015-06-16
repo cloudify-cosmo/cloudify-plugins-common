@@ -127,3 +127,35 @@ class CloudifyContextTest(testtools.TestCase):
             'relationships': ['related-instance-id']
         })
         self.assertEqual(context.RELATIONSHIP_INSTANCE, ctx.type)
+
+
+class CloudifyTemplateTest(testtools.TestCase):
+
+    file_server_process = None
+
+    @classmethod
+    def setUpClass(cls):
+
+        resources_path = os.path.join(dirname(tests_path.__file__),
+                                      "resources")
+
+        from cloudify.tests.file_server import FileServer
+        from cloudify.tests.file_server import PORT
+
+        cls.file_server_process = FileServer(resources_path)
+        cls.file_server_process.start()
+
+        os.environ[MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY] \
+            = "http://localhost:{0}".format(PORT)
+        os.environ[MANAGER_FILE_SERVER_URL_KEY] = \
+            "http://localhost:{0}".format(PORT)
+        cls.context = context.CloudifyContext({'blueprint_id': '',
+                                               'deployment_id': 'default_id'})
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.file_server_process.stop()
+
+    def test_get_resource_template(self):
+        resource = self.context.get_resource('for_template_rendering_tests.conf', use_template=True)
+        self.assertEqual('deployment_id: default_id', resource)
