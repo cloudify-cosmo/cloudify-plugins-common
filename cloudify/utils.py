@@ -152,8 +152,7 @@ class LocalCommandRunner(object):
         """
 
         self.logger.debug('[{0}] run: {1}'.format(self.host, command))
-        posix = os.name == 'posix'
-        shlex_split = shlex.split(command, posix=posix)
+        shlex_split = _shlex_split(command)
         stdout = subprocess.PIPE if stdout_pipe else None
         stderr = subprocess.PIPE if stderr_pipe else None
         command_env = os.environ.copy()
@@ -202,3 +201,10 @@ class CommandExecutionResponse(object):
         self.return_code = return_code
 
 setup_default_logger = setup_logger  # deprecated; for backwards compatibility
+
+
+def _shlex_split(command):
+    lex = shlex.shlex(command, posix=True)
+    lex.whitespace_split = True
+    lex.escape = ''
+    return list(lex)

@@ -1166,7 +1166,7 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         return send_event_task
 
     def get_task(self, workflow_task, queue=None, target=None):
-        return None, None, None
+        raise NotImplementedError('Not implemented by local workflow tasks')
 
     @property
     def operation_cloudify_context(self):

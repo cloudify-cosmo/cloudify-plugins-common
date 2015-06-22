@@ -27,7 +27,6 @@ class AMQPClient(object):
     logs_queue_name = 'cloudify-logs'
 
     def __init__(self, amqp_host=None):
-
         if amqp_host is None:
             amqp_host = get_manager_ip()
 
@@ -61,6 +60,4 @@ class AMQPClient(object):
 
 
 def create_client(amqp_host=None):
-    if amqp_host is None:
-        amqp_host = get_manager_ip()
     return AMQPClient(amqp_host)
