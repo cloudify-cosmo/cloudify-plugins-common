@@ -15,3 +15,7 @@
 
 
 from cloudify.state import ctx  # noqa
+
+import os
+IS_TRANSIENT_DEPLOYMENT_WORKERS =\
+    os.environ.get('TRANSIENT_DEPLOYMENT_WORKERS', 'false').lower() == 'true'
