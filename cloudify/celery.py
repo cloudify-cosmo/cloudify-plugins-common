@@ -32,6 +32,12 @@ from celery import Celery
 from cloudify.constants import CELERY_WORK_DIR_PATH_KEY
 
 
+TASK_STATE_PENDING = 'PENDING'
+TASK_STATE_STARTED = 'STARTED'
+TASK_STATE_SUCCESS = 'SUCCESS'
+TASK_STATE_RETRY = 'RETRY'
+TASK_STATE_FAILURE = 'FAILURE'
+
 celery = Celery('cloudify.celery',
                 broker=os.environ.get('BROKER_URL', 'amqp://'),
                 backend=os.environ.get('BROKER_URL', 'amqp://'))
