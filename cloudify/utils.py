@@ -136,6 +136,13 @@ def find_type_in_kwargs(cls, all_args):
     return result[0]
 
 
+def is_transient_deployment_workers_mode():
+    from cloudify.manager import get_rest_client
+    client = get_rest_client()
+    bootstrap_context = client.manager.get_context()['context']['cloudify']
+    return bootstrap_context.get('transient_deployment_workers', False)
+
+
 class LocalCommandRunner(object):
 
     def __init__(self, logger=None, host='localhost'):
