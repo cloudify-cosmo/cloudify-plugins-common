@@ -80,7 +80,9 @@ class CloudifyBaseLoggingHandler(logging.Handler):
     def __init__(self, ctx, out_func, message_context_builder):
         logging.Handler.__init__(self)
         self.context = message_context_builder(ctx)
-        if out_func is None:
+        if _is_system_workflow(ctx):
+            out_func = stdout_log_out
+        elif out_func is None:
             out_func = amqp_log_out
         self.out_func = out_func
 
@@ -222,7 +224,9 @@ def send_task_event(cloudify_context,
 def _send_event(ctx, context_type, event_type,
                 message, args, additional_context,
                 out_func):
-    if out_func is None:
+    if _is_system_workflow(ctx):
+        out_func = stdout_event_out
+    elif out_func is None:
         out_func = amqp_event_out
 
     if context_type in ['plugin', 'task']:
@@ -329,6 +333,17 @@ def create_event_message_prefix(event):
                                          deployment_id,
                                          info,
                                          message)
+
+
+def _is_system_workflow(ctx):
+    # using hardcoded names; could replace this by having this info on ctx or
+    # making a REST call and cache it somehow
+    # note: looking for workflow_id in either ctx or ctx.ctx - it varies
+    # depending on the context of the log/event
+    workflow_id = ctx.workflow_id if hasattr(ctx, 'workflow_id') \
+        else ctx.ctx.workflow_id
+    return workflow_id in (
+        '_start_deployment_environment', '_stop_deployment_environment')
 
 
 def _amqp_client():
