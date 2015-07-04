@@ -17,3 +17,11 @@
 # maintain backwards compatibility for < 3.3
 #########################################
 from cloudify_agent.app import app as celery  # NOQA
+
+
+# TODO: move to more appropriate place
+TASK_STATE_PENDING = 'PENDING'
+TASK_STATE_STARTED = 'STARTED'
+TASK_STATE_SUCCESS = 'SUCCESS'
+TASK_STATE_RETRY = 'RETRY'
+TASK_STATE_FAILURE = 'FAILURE'
