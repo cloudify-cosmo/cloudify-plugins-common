@@ -19,6 +19,7 @@ import json
 import pika
 
 from cloudify.utils import get_manager_ip
+from cloudify import ctx
 
 
 class AMQPClient(object):
@@ -29,8 +30,12 @@ class AMQPClient(object):
     def __init__(self):
         self.events_queue = None
         self.logs_queue = None
-        self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=get_manager_ip()))
+        self.credentials = pika.PlainCredentials(
+            ctx.node.properties.get('rabbitmq_user', 'guest'),
+            ctx.node.properties.get('rabbitmq_password', 'guest')
+        )
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+            host=get_manager_ip(), credentials=self.credentials))
         settings = {
             'auto_delete': True,
             'durable': True,
