@@ -31,8 +31,8 @@ class AMQPClient(object):
         self.events_queue = None
         self.logs_queue = None
         self.credentials = pika.PlainCredentials(
-            ctx.node.properties.get('rabbitmq_user', 'guest'),
-            ctx.node.properties.get('rabbitmq_password', 'guest')
+            ctx.node.properties.get('rabbitmq_user', 'cloudify'),
+            ctx.node.properties.get('rabbitmq_password', 'c10udify')
         )
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
             host=get_manager_ip(), credentials=self.credentials))
