@@ -22,6 +22,9 @@ import json
 import datetime
 
 from cloudify.amqp_client import create_client
+from cloudify.event import Event
+
+EVENT_CLASS = Event
 
 # A thread local for storing a separate amqp client for each thread
 clients = threading.local()
@@ -295,44 +298,7 @@ def stdout_log_out(log):
 
 
 def create_event_message_prefix(event):
-    context = event['context']
-    deployment_id = context['deployment_id']
-
-    node_id = context.get('node_id')
-    operation = context.get('operation')
-    group = context.get('group')
-    policy = context.get('policy')
-    trigger = context.get('trigger')
-    source_id = context.get('source_id')
-    target_id = context.get('target_id')
-
-    if operation is not None:
-        operation = operation.split('.')[-1]
-
-    if source_id is not None:
-        info = '{0}->{1}|{2}'.format(source_id, target_id, operation)
-    else:
-        info_elements = [
-            e for e in [node_id, operation, group, policy, trigger]
-            if e is not None]
-        info = '.'.join(info_elements)
-
-    if info:
-        info = '[{0}] '.format(info)
-
-    level = 'CFY'
-    message = event['message']['text'].encode('utf-8')
-    if 'cloudify_log' in event['type']:
-        level = 'LOG'
-        message = '{0}: {1}'.format(event['level'].upper(), message)
-    timestamp = event.get('@timestamp') or event['timestamp']
-    timestamp = timestamp.split('.')[0]
-
-    return '{0} {1} <{2}> {3}{4}'.format(timestamp,
-                                         level,
-                                         deployment_id,
-                                         info,
-                                         message)
+    return str(EVENT_CLASS(event))
 
 
 def _is_system_workflow(ctx):
