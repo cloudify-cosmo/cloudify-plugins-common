@@ -24,7 +24,10 @@ class Event(object):
         timestamp = self.timestamp
         event_type_indicator = self.event_type_indicator
         message = self.text
-        info = self.get_operation_info()
+        info = self.operation_info
+
+        if info:  # spacing in between of the info and the message
+            info += ' '
 
         return '{0} {1} {2} {3}{4}'.format(timestamp,
                                            event_type_indicator,
@@ -32,7 +35,8 @@ class Event(object):
                                            info,
                                            message)
 
-    def get_operation_info(self):
+    @property
+    def operation_info(self):
         operation = self.operation
         node_id = self.node_id
         source_id = self.source_id
@@ -51,7 +55,7 @@ class Event(object):
                 if e is not None]
             info = '.'.join(info_elements)
         if info:
-            info = '[{0}] '.format(info)
+            info = '[{0}]'.format(info)
         return info
 
     @property
@@ -62,13 +66,13 @@ class Event(object):
         return message
 
     @property
+    def log_level(self):
+        return self._event['level'].upper()
+
+    @property
     def timestamp(self):
         return (self._event.get('@timestamp') or self._event['timestamp'])\
             .split('.')[0]
-
-    @property
-    def log_level(self):
-        return self._event['level'].upper()
 
     @property
     def event_type_indicator(self):
