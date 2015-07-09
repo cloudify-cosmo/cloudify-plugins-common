@@ -40,6 +40,8 @@ TASK_STATE_SUCCESS = 'SUCCESS'
 TASK_STATE_RETRY = 'RETRY'
 TASK_STATE_FAILURE = 'FAILURE'
 
+DEFAULT_AMQP_URI = 'amqp://cloudify:c10udify@'
+
 LOGFILE_SIZE_BYTES = 5 * 1024 * 1024
 LOGFILE_BACKUP_COUNT = 5
 
@@ -64,8 +66,8 @@ if celery_work_folder:
 
 
 celery = Celery('cloudify.celery',
-                broker=os.environ.get('BROKER_URL', 'amqp://'),
-                backend=os.environ.get('BROKER_URL', 'amqp://'))
+                broker=os.environ.get('BROKER_URL', DEFAULT_AMQP_URI),
+                backend=os.environ.get('BROKER_URL', DEFAULT_AMQP_URI))
 
 
 if celery_work_folder:
