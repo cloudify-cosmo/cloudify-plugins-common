@@ -314,12 +314,10 @@ class RemoteWorkflowTask(WorkflowTask):
         :return: a RemoteWorkflowTaskResult instance wrapping the
                  celery async result
         """
-
-        task, self._task_queue, self._task_target = \
-            self.workflow_context.internal.handler.get_task(
-                self, queue=self._task_queue, target=self._task_target)
-
         try:
+            task, self._task_queue, self._task_target = \
+                self.workflow_context.internal.handler.get_task(
+                    self, queue=self._task_queue, target=self._task_target)
             self._verify_task_registered()
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
             self.set_state(TASK_SENT)

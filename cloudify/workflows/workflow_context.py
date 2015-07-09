@@ -34,6 +34,7 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
                                       DEFAULT_RETRY_INTERVAL,
                                       DEFAULT_SEND_TASK_EVENTS)
+from cloudify import exceptions
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify import logs
@@ -1027,8 +1028,14 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             if executor == 'host_agent':
                 if len(runtime_props) == 0:
                     host_node_instance = get_node_instance(host_id)
-                    runtime_props.append(host_node_instance.runtime_properties[
-                        'cloudify_agent'])
+                    cloudify_agent = host_node_instance.runtime_properties.get(
+                        'cloudify_agent')
+                    if not cloudify_agent:
+                        raise exceptions.NonRecoverableError(
+                            'Missing cloudify_agent runtime information. '
+                            'This most likely means that the Compute node '
+                            'never started successfully')
+                    runtime_props.append(cloudify_agent)
                 return runtime_props[0][property_name]
             return self.workflow_ctx.deployment.id
 
