@@ -627,7 +627,6 @@ class CloudifyContext(CommonContext):
 
     def get_resource(self,
                      resource_path,
-                     use_template=False,
                      template_variables=None):
         """
         Retrieves a resource bundled with the blueprint as a string.
@@ -637,18 +636,16 @@ class CloudifyContext(CommonContext):
                               uploaded.
         """
 
-        if use_template:
-            template_variables = self._add_context_to_template_variables(template_variables)
+        # if use_template:
+        #     template_variables = self._add_context_to_template_variables(template_variables)
 
         return self._endpoint.get_blueprint_resource(self.blueprint.id,
                                                      resource_path,
-                                                     use_template=use_template,
                                                      template_variables=template_variables)
 
     def download_resource(self,
                           resource_path,
                           target_path=None,
-                          use_template=False,
                           template_variables=None):
         """
         Retrieves a resource bundled with the blueprint and saves it under a
@@ -675,14 +672,13 @@ class CloudifyContext(CommonContext):
                  failed to be written to the local file system.
 
         """
-        if use_template:
-            template_variables = self._add_context_to_template_variables(template_variables)
+        # if use_template:
+        #     template_variables = self._add_context_to_template_variables(template_variables)
 
         return self._endpoint.download_blueprint_resource(self.blueprint.id,
                                                           resource_path,
                                                           self.logger,
                                                           target_path,
-                                                          use_template=use_template,
                                                           template_variables=template_variables)
 
     def _add_context_to_template_variables(self, template_variables):

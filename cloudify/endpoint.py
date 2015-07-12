@@ -13,6 +13,7 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import jinja2
 
 from cloudify import manager
 from cloudify import logs
@@ -34,7 +35,10 @@ class Endpoint(object):
     def update_node_instance(self, node_instance):
         raise NotImplementedError('Implemented by subclasses')
 
-    def get_blueprint_resource(self, blueprint_id, resource_path):
+    def get_blueprint_resource(self,
+                               blueprint_id,
+                               resource_path,
+                               template_variables=None):
         raise NotImplementedError('Implemented by subclasses')
 
     def download_blueprint_resource(self,
@@ -43,6 +47,23 @@ class Endpoint(object):
                                     logger,
                                     target_path=None):
         raise NotImplementedError('Implemented by subclasses')
+
+    def render_resource(self, resource, template_variables, is_file_path=False):
+
+        resource_path = resource
+        if is_file_path:
+            with open(resource_path, 'r') as f:
+                resource = f.read()
+
+        template_env = jinja2.Environment(loader=jinja2.BaseLoader())
+        resource = template_env.from_string(resource).render(template_variables)
+
+        if is_file_path:
+            with open(resource_path, 'w') as f:
+                f.write(resource)
+            return resource_path
+
+        return resource
 
     def get_provider_context(self):
         raise NotImplementedError('Implemented by subclasses')
@@ -125,26 +146,26 @@ class ManagerEndpoint(Endpoint):
     def get_blueprint_resource(self,
                                blueprint_id,
                                resource_path,
-                               use_template=False,
                                template_variables=None):
-        return manager.get_blueprint_resource(blueprint_id,
-                                              resource_path,
-                                              use_template=use_template,
-                                              template_variables=template_variables)
+        resource = manager.get_blueprint_resource(blueprint_id,
+                                                  resource_path)
+        if template_variables:
+            resource = super(ManagerEndpoint, self).render_resource(resource, template_variables)
+        return resource
 
     def download_blueprint_resource(self,
                                     blueprint_id,
                                     resource_path,
                                     logger,
                                     target_path=None,
-                                    use_template=False,
                                     template_variables=None):
-        return manager.download_blueprint_resource(blueprint_id,
-                                                   resource_path,
-                                                   logger,
-                                                   target_path,
-                                                   use_template=use_template,
-                                                   template_variables=template_variables)
+        resource = manager.download_blueprint_resource(blueprint_id,
+                                                       resource_path,
+                                                       logger,
+                                                       target_path)
+        if template_variables:
+            resource = super(ManagerEndpoint, self).render_resource(resource, template_variables, is_file_path=True)
+        return resource
 
     def get_provider_context(self):
         return manager.get_provider_context()
@@ -204,16 +225,26 @@ class LocalEndpoint(Endpoint):
             state=None,
             version=node_instance.version)
 
-    def get_blueprint_resource(self, blueprint_id, resource_path):
-        return self.storage.get_resource(resource_path)
+    def get_blueprint_resource(self,
+                               blueprint_id,
+                               resource_path,
+                               template_variables=None):
+        resource = self.storage.get_resource(resource_path)
+        if template_variables:
+            resource = super(LocalEndpoint, self).render_resource(resource, template_variables)
+        return resource
 
     def download_blueprint_resource(self,
                                     blueprint_id,
                                     resource_path,
                                     logger,
-                                    target_path=None):
-        return self.storage.download_resource(resource_path,
-                                              target_path)
+                                    target_path=None,
+                                    template_variables=None):
+        resource = self.storage.download_resource(resource_path,
+                                                  target_path)
+        if template_variables:
+            resource = super(LocalEndpoint, self).render_resource(resource, template_variables, is_file_path=True)
+        return resource
 
     def get_provider_context(self):
         # TODO
