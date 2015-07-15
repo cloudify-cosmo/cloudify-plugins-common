@@ -22,12 +22,14 @@ application root directory.
 from __future__ import absolute_import
 
 
+import logging
+import logging.handlers
 import sys
 import traceback
 import os
 from os import path
 
-from celery import Celery
+from celery import Celery, signals
 
 from cloudify.constants import CELERY_WORK_DIR_PATH_KEY
 
@@ -38,11 +40,33 @@ TASK_STATE_SUCCESS = 'SUCCESS'
 TASK_STATE_RETRY = 'RETRY'
 TASK_STATE_FAILURE = 'FAILURE'
 
+LOGFILE_SIZE_BYTES = 5 * 1024 * 1024
+LOGFILE_BACKUP_COUNT = 5
+
+
+celery_work_folder = os.environ.get(CELERY_WORK_DIR_PATH_KEY)
+
+if celery_work_folder:
+    @signals.setup_logging.connect
+    def setup_logging_handler(loglevel, logfile, format, **kwargs):
+        logger = logging.getLogger()
+        if os.name == 'nt':
+            logfile = logfile.format(os.getpid())
+        handler = logging.handlers.RotatingFileHandler(
+            logfile,
+            maxBytes=LOGFILE_SIZE_BYTES,
+            backupCount=LOGFILE_BACKUP_COUNT)
+        handler.setFormatter(logging.Formatter(fmt=format))
+        handler.setLevel(loglevel)
+        logger.handlers = []
+        logger.addHandler(handler)
+        logger.setLevel(loglevel)
+
+
 celery = Celery('cloudify.celery',
                 broker=os.environ.get('BROKER_URL', 'amqp://'),
                 backend=os.environ.get('BROKER_URL', 'amqp://'))
 
-celery_work_folder = os.environ.get(CELERY_WORK_DIR_PATH_KEY)
 
 if celery_work_folder:
     current_excepthook = sys.excepthook
