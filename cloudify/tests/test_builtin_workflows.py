@@ -26,6 +26,10 @@ from cloudify.decorators import operation
 
 
 IGNORED_LOCAL_WORKFLOW_MODULES = (
+    'cloudify_agent.operations',
+    'cloudify_agent.installer.operations',
+
+    # maintained for backward compatibily with < 3.3 blueprints
     'worker_installer.tasks',
     'plugin_installer.tasks',
     'windows_agent_installer.tasks',
