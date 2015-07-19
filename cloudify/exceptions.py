@@ -73,14 +73,38 @@ class HttpException(NonRecoverableError):
         return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
 
 
-class CommandExecutionException(Exception):
+class CommandExecutionError(RuntimeError):
+
     """
-    Indicates a failure to execute a command.
+    Indicates a command failed to execute. note that this is different than
+    the CommandExecutionException in that in this case, the command
+    execution did not even start, and therefore there is not return code or
+    stdout output.
 
     :param command: The command executed
+    :param error: the error preventing the command from executing
+    """
+
+    def __init__(self, command, error=None):
+        self.command = command
+        self.error = error
+        super(RuntimeError, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Failed executing command: {0}." \
+               "\nerror: {1}".format(self.command, self.error)
+
+
+class CommandExecutionException(Exception):
+
+    """
+    Indicates a command was executed, however some sort of error happened,
+    resulting in a non-zero return value of the process.
+
+    :param command: The command executed
+    :param code: process exit code
     :param error: process stderr output
     :param output: process stdout output
-    :param code: process exit code
     """
 
     def __init__(self, command, error, output, code):
@@ -91,9 +115,13 @@ class CommandExecutionException(Exception):
         Exception.__init__(self, self.__str__())
 
     def __str__(self):
-        return "Failed executing command: {0}\ncode: " \
-               "{1}\nerror: {2}\nmessage: {3}"\
-               .format(self.command, self.code, self.error, self.output)
+        return "Command '{0}' executed with an error." \
+               "\ncode: {1}" \
+               "\nerror: {2}" \
+               "\noutput: {3}" \
+            .format(self.command, self.code,
+                    self.error or None,
+                    self.output or None)
 
 
 class TimeoutException(Exception):

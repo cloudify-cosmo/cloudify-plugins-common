@@ -34,10 +34,10 @@ from cloudify.state import current_ctx, current_workflow_ctx
 def _stub_task(fn):
     return fn
 try:
-    from cloudify.celery import celery as _celery
-    _task = _celery.task
-except ImportError:
-    _celery = None
+    from cloudify_agent.app import app as _app
+    _task = _app.task
+except ImportError as e:
+    _app = None
     _task = _stub_task
 
 

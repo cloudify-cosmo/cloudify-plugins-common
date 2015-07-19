@@ -34,6 +34,7 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
                                       DEFAULT_RETRY_INTERVAL,
                                       DEFAULT_SEND_TASK_EVENTS)
+from cloudify import exceptions
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify import logs
@@ -562,8 +563,6 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         operation_executor = op_struct['executor']
         operation_total_retries = op_struct['max_retries']
         operation_retry_interval = op_struct['retry_interval']
-        task_queue = self.internal.handler.get_operation_task_queue(
-            node_instance, operation_executor)
         task_name = operation_mapping
         if operation_total_retries is None:
             total_retries = self.internal.get_task_configuration()[
@@ -581,6 +580,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                 'max_retries': total_retries
             },
             'has_intrinsic_functions': has_intrinsic_functions,
+            'host_id': node_instance._node_instance.host_id,
+            'executor': operation_executor
         }
         if related_node_instance is not None:
             relationships = [rel.target_id
@@ -596,7 +597,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                                          allow_override=allow_kwargs_override)
 
         return self.execute_task(task_name,
-                                 task_queue=task_queue,
+                                 local=self.local,
                                  kwargs=final_kwargs,
                                  node_context=node_context,
                                  send_task_events=send_task_events,
@@ -631,7 +632,6 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
 
     def _build_cloudify_context(self,
                                 task_id,
-                                task_queue,
                                 task_name,
                                 node_context):
         node_context = node_context or {}
@@ -639,7 +639,6 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             '__cloudify_context': '0.3',
             'task_id': task_id,
             'task_name': task_name,
-            'task_target': task_queue,
             'blueprint_id': self.blueprint.id,
             'deployment_id': self.deployment.id,
             'execution_id': self.execution_id,
@@ -651,7 +650,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
 
     def execute_task(self,
                      task_name,
+                     local=True,
                      task_queue=None,
+                     task_target=None,
                      kwargs=None,
                      node_context=None,
                      send_task_events=DEFAULT_SEND_TASK_EVENTS,
@@ -661,7 +662,6 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         Execute a task
 
         :param task_name: the task named
-        :param task_queue: the task queue, if None runs the task locally
         :param kwargs: optional kwargs to be passed to the task
         :param node_context: Used internally by node.execute_operation
         """
@@ -669,13 +669,11 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         task_id = str(uuid.uuid4())
         cloudify_context = self._build_cloudify_context(
             task_id,
-            task_queue,
             task_name,
             node_context)
         kwargs['__cloudify_context'] = cloudify_context
 
-        if task_queue is None:
-            # Local task
+        if local:
             values = task_name.split('.')
             module_name = '.'.join(values[:-1])
             method_name = values[-1]
@@ -690,16 +688,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                                    total_retries=total_retries,
                                    retry_interval=retry_interval)
         else:
-            # Remote task
-            # Import here because this only applies to remote tasks execution
-            # environment
-            import celery
-
-            task = celery.subtask(task_name,
-                                  kwargs=kwargs,
-                                  queue=task_queue,
-                                  immutable=True)
-            return self.remote_task(task=task,
+            return self.remote_task(task_queue=task_queue,
+                                    task_target=task_target,
+                                    kwargs=kwargs,
                                     cloudify_context=cloudify_context,
                                     task_id=task_id,
                                     send_task_events=send_task_events,
@@ -759,16 +750,17 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             **final_task_config))
 
     def remote_task(self,
-                    task,
+                    kwargs,
                     cloudify_context,
                     task_id,
+                    task_queue=None,
+                    task_target=None,
                     send_task_events=DEFAULT_SEND_TASK_EVENTS,
                     total_retries=None,
                     retry_interval=None):
         """
         Create a remote workflow task
 
-        :param task: The underlying celery task
         :param cloudify_context: A dict for creating the CloudifyContext
                                  used by the called task
         :param task_id: The task id
@@ -779,8 +771,10 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         if retry_interval is not None:
             task_configuration['retry_interval'] = retry_interval
         return self._process_task(
-            RemoteWorkflowTask(task=task,
+            RemoteWorkflowTask(kwargs=kwargs,
                                cloudify_context=cloudify_context,
+                               task_target=task_target,
+                               task_queue=task_queue,
                                workflow_context=self,
                                task_id=task_id,
                                send_task_events=send_task_events,
@@ -942,8 +936,7 @@ class CloudifyWorkflowContextHandler(object):
                                      additional_context=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    def get_operation_task_queue(self, workflow_node_instance,
-                                 operation_executor):
+    def get_task(self, workflow_task, queue=None, target=None):
         raise NotImplementedError('Implemented by subclasses')
 
     @property
@@ -1025,13 +1018,47 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 out_func=logs.amqp_event_out)
         return send_event_task
 
-    def get_operation_task_queue(self, workflow_node_instance,
-                                 operation_executor):
-        rest_node_instance = workflow_node_instance._node_instance
-        if operation_executor == 'host_agent':
-            return rest_node_instance.host_id
-        if operation_executor == 'central_deployment_agent':
+    def get_task(self, workflow_task, queue=None, target=None):
+
+        runtime_props = []
+
+        def _derive(property_name):
+            executor = workflow_task.cloudify_context['executor']
+            host_id = workflow_task.cloudify_context['host_id']
+            if executor == 'host_agent':
+                if len(runtime_props) == 0:
+                    host_node_instance = get_node_instance(host_id)
+                    cloudify_agent = host_node_instance.runtime_properties.get(
+                        'cloudify_agent')
+                    if not cloudify_agent:
+                        raise exceptions.NonRecoverableError(
+                            'Missing cloudify_agent runtime information. '
+                            'This most likely means that the Compute node '
+                            'never started successfully')
+                    runtime_props.append(cloudify_agent)
+                return runtime_props[0][property_name]
             return self.workflow_ctx.deployment.id
+
+        if queue is None:
+            queue = _derive('queue')
+
+        if target is None:
+            target = _derive('name')
+
+        kwargs = workflow_task.kwargs
+        # augment cloudify context with target and queue
+        kwargs['__cloudify_context']['task_queue'] = queue
+        kwargs['__cloudify_context']['task_target'] = target
+
+        # Remote task
+        # Import here because this only applies to remote tasks execution
+        # environment
+        import celery
+
+        return celery.subtask(workflow_task.name,
+                              kwargs=kwargs,
+                              queue=queue,
+                              immutable=True), queue, target
 
     @property
     def operation_cloudify_context(self):
@@ -1145,9 +1172,8 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                 out_func=logs.stdout_event_out)
         return send_event_task
 
-    def get_operation_task_queue(self, workflow_node_instance,
-                                 operation_executor):
-        return None
+    def get_task(self, workflow_task, queue=None, target=None):
+        raise NotImplementedError('Not implemented by local workflow tasks')
 
     @property
     def operation_cloudify_context(self):

@@ -554,8 +554,13 @@ class CloudifyContext(CommonContext):
 
     @property
     def task_target(self):
-        """The task target (RabbitMQ queue name)."""
+        """The task target (celery worker name)."""
         return self._context.get('task_target')
+
+    @property
+    def task_queue(self):
+        """The task target (celery queue name)."""
+        return self._context.get('task_queue')
 
     @property
     def plugin(self):

@@ -13,30 +13,30 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
+import logging
 import unittest
-import os
 
-from cloudify.constants import LOCAL_IP_KEY
+from cloudify.utils import setup_logger
+from cloudify.utils import LocalCommandRunner
 from cloudify.exceptions import CommandExecutionException
-
-__author__ = 'elip'
 
 
 class LocalCommandRunnerTest(unittest.TestCase):
 
-    from cloudify.utils import LocalCommandRunner
-    runner = LocalCommandRunner()
+    runner = None
 
     @classmethod
     def setUpClass(cls):
-        os.environ[LOCAL_IP_KEY] = 'localhost'
+        cls.logger = setup_logger(cls.__name__)
+        cls.logger.setLevel(logging.DEBUG)
+        cls.runner = LocalCommandRunner(
+            logger=cls.logger)
 
     def test_run_command_success(self):
-        command_execution_result = self.runner.run('echo Hello')
-        self.assertEqual('Hello', command_execution_result.std_out.strip())
-        self.assertEqual(0, command_execution_result.return_code)
-        self.assertEqual('', command_execution_result.std_err)
+        response = self.runner.run('echo Hello')
+        self.assertEqual('Hello', response.std_out)
+        self.assertEqual(0, response.return_code)
+        self.assertEqual('', response.std_err)
 
     def test_run_command_error(self):
         try:
@@ -44,3 +44,8 @@ class LocalCommandRunnerTest(unittest.TestCase):
             self.fail('Expected CommandExecutionException due to Bad command')
         except CommandExecutionException as e:
             self.assertTrue(1, e.code)
+
+    def test_run_command_with_env(self):
+        response = self.runner.run('env',
+                                   execution_env={'TEST_KEY': 'TEST_VALUE'})
+        self.assertTrue('TEST_KEY=TEST_VALUE' in response.std_out)
