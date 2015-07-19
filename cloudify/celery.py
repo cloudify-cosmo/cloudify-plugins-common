@@ -17,8 +17,11 @@
 # maintain backwards compatibility for < 3.3
 #########################################
 from cloudify_agent.app import app as celery  # NOQA
-
-
+"""
+This module is not intended to be used as standalone.
+On celery worker installation this file will be copied to the
+application root directory.
+"""
 # TODO: move to more appropriate place
 TASK_STATE_PENDING = 'PENDING'
 TASK_STATE_STARTED = 'STARTED'
