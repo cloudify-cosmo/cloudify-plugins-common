@@ -640,7 +640,8 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
         if task_dump:
             with open(status_dump_path, 'a') as f:
                 json_dump = json.dumps({'duration': duration,
-                                        'status': status})
+                                        'status': status,
+                                        'id': self.task.id})
                 f.write('{0}\n'.format(json_dump))
         return result
 
