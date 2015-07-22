@@ -19,7 +19,8 @@ from os.path import dirname
 import testtools
 import jinja2
 
-from cloudify import constants
+from cloudify.constants import MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY, \
+    MANAGER_FILE_SERVER_URL_KEY
 from cloudify import context
 from cloudify import exceptions
 from cloudify.utils import create_temp_folder
@@ -45,9 +46,9 @@ class CloudifyContextTest(testtools.TestCase):
         cls.file_server_process = FileServer(resources_path)
         cls.file_server_process.start()
 
-        os.environ[constants.MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY] \
+        os.environ[MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY] \
             = "http://localhost:{0}".format(PORT)
-        os.environ[constants.MANAGER_FILE_SERVER_URL_KEY] = \
+        os.environ[MANAGER_FILE_SERVER_URL_KEY] = \
             "http://localhost:{0}".format(PORT)
         cls.context = context.CloudifyContext({'blueprint_id': ''})
 
@@ -133,102 +134,6 @@ class CloudifyContextTest(testtools.TestCase):
         self.assertEqual(context.RELATIONSHIP_INSTANCE, ctx.type)
 
 
-# class CloudifyTemplateTest(testtools.TestCase):
-#
-#     file_server_process = None
-#
-#     @classmethod
-#     def setUpClass(cls):
-#
-#         cls.resources_path = os.path.join(dirname(tests_path.__file__), "resources")
-#
-#         from cloudify.tests.file_server import FileServer
-#         from cloudify.tests.file_server import PORT
-#
-#         cls.file_server_process = FileServer(cls.resources_path)
-#         cls.file_server_process.start()
-#
-#         os.environ[MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY] \
-#             = "http://localhost:{0}".format(PORT)
-#         os.environ[MANAGER_FILE_SERVER_URL_KEY] = \
-#             "http://localhost:{0}".format(PORT)
-#         cls.context = context.CloudifyContext({'blueprint_id': '',
-#                                                'deployment_id': 'default_id'})
-#
-#     @classmethod
-#     def tearDownClass(cls):
-#         cls.file_server_process.stop()
-#
-#     def test_get_resource_template(self):
-#         resource = \
-#             self.context.get_resource('for_template_rendering_tests.conf',
-#                                       template_variables={'ctx': self.context})
-#         self.assertEqual('deployment_id: default_id', resource)
-#
-#     def test_get_resource_not_template(self):
-#         resource = \
-#             self.context.get_resource('for_template_rendering_tests.conf')
-#
-#         self._assert_template_didnt_change(resource)
-#
-#     def test_get_resource_empty_template_variables(self):
-#         resource = \
-#             self.context.get_resource('for_template_rendering_tests.conf', template_variables={})
-#         self._assert_template_didnt_change(resource)
-#
-#     def test_get_resource_template_fail(self):
-#         resource = None
-#         try:
-#             resource = \
-#                 self.context.get_resource('for_template_rendering_tests.conf',
-#                                           template_variables={'ct': self.context})
-#         except jinja2.exceptions.UndefinedError:
-#             pass
-#
-#         self.assertIsNone(resource)
-#
-#     def test_download_resource_template(self):
-#         resource_path = self.context.download_resource('for_template_rendering_tests.conf', template_variables={'ctx': self.context})
-#         with open(resource_path, 'r') as f:
-#             resource = f.read()
-#         self.assertEqual('deployment_id: default_id', resource)
-#
-#     def test_download_resource_not_template(self):
-#         resource_path = \
-#             self.context.download_resource('for_template_rendering_tests.conf')
-#
-#         with open(resource_path, 'r') as f:
-#             resource = f.read()
-#
-#         self._assert_template_didnt_change(resource)
-#
-#     def test_download_resource_empty_template_variables(self):
-#         resource_path = \
-#             self.context.download_resource('for_template_rendering_tests.conf', template_variables={})
-#         with open(resource_path, 'r') as f:
-#             resource = f.read()
-#         self._assert_template_didnt_change(resource)
-#
-#     def test_download_resource_template_fail(self):
-#         resource_path = None
-#         try:
-#             resource_path = \
-#                 self.context.download_resource('for_template_rendering_tests.conf',
-#                                                template_variables={'ct': self.context})
-#         except jinja2.exceptions.UndefinedError:
-#             pass
-#
-#         self.assertIsNone(resource_path)
-#
-#     def _assert_template_didnt_change(self, resource):
-#         original_template_path = os.path.join(self.resources_path,
-#                                               'for_template_rendering_tests.conf')
-#         with open(original_template_path, 'r') as f:
-#             original = f.read()
-#
-#         self.assertEqual(original, resource)
-
-
 class GetResourceTemplateTests(testtools.TestCase):
 
     def setUp(self):
@@ -275,51 +180,51 @@ class GetResourceTemplateTests(testtools.TestCase):
 
     def test_get_resource_template(self):
         self._generic_get_download_template_test({
-            'operation': 'test.get_template',
+            'operation': 'get_template',
             'testing': 'get_resource'
         })
 
     def test_get_resource_not_template(self):
         self._generic_get_download_template_test({
-            'operation': 'test.get_template',
+            'operation': 'get_template',
             'testing': 'get_resource_not_template'
         }, rendered=False)
 
     def test_get_resource_empty_template_variables(self):
         self._generic_get_download_template_test({
-            'operation': 'test.get_template',
+            'operation': 'get_template',
             'testing': 'get_resource_empty_template'
         }, rendered=False)
 
     def test_get_resource_template_fail(self):
         self._generic_get_download_template_test({
-            'operation': 'test.get_template',
+            'operation': 'get_template',
             'testing': 'get_resource_template_fail'
         }, rendered=False, should_fail_rendering=True)
 
     def test_download_resource_template(self):
         self._generic_get_download_template_test(
-            dict(operation='test.download_template',
+            dict(operation='download_template',
                  testing='download_resource'),
             download=True)
 
     def test_download_resource_not_template(self):
         self._generic_get_download_template_test(
-            dict(operation='test.download_template',
+            dict(operation='download_template',
                  testing='download_resource_not_template'),
             download=True,
             rendered=False)
 
     def test_download_resource_empty_template_variables(self):
         self._generic_get_download_template_test(
-            dict(operation='test.download_template',
+            dict(operation='download_template',
                  testing='download_resource_empty_template'),
             download=True,
             rendered=False)
 
     def test_download_resource_template_fail(self):
         self._generic_get_download_template_test(
-            dict(operation='test.download_template',
+            dict(operation='download_template',
                  testing='download_resource_template_fail'),
             download=True,
             rendered=False,
@@ -391,7 +296,7 @@ def download_template(ctx, testing, **_):
 
 
 @workflow
-def execute_operation(ctx, operation, **kwargs):
+def execute_operation(ctx, operation, testing, **kwargs):
     node = ctx.get_node('node1')
     instance = next(node.instances)
-    instance.execute_operation(operation, kwargs={'testing': kwargs['testing']})
+    instance.execute_operation(operation, kwargs={'testing': testing})
