@@ -247,6 +247,11 @@ class WorkflowTask(object):
         raise NotImplementedError('Implemented by subclasses')
 
 
+def success_handler(task):
+    task.async_result.get()
+    return HandlerResult.cont()
+
+
 class RemoteWorkflowTask(WorkflowTask):
     """A WorkflowTask wrapping a celery based task"""
 
@@ -261,7 +266,7 @@ class RemoteWorkflowTask(WorkflowTask):
                  task_target=None,
                  task_id=None,
                  info=None,
-                 on_success=None,
+                 on_success=success_handler,
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
                  retry_interval=DEFAULT_RETRY_INTERVAL,
@@ -620,7 +625,24 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
         self.async_result = async_result
 
     def _get(self):
-        return self.async_result.get()
+        import os
+        import json
+        task_dump = os.environ.get('WORKFLOW_TASK_DUMP')
+        status_dump_path = '{0}_status'.format(task_dump)
+        start = time.time()
+        try:
+            result = self.async_result.get(timeout=10)
+            status = 'success'
+        except:
+            status = 'timed out'
+            result = None
+        duration = time.time() - start
+        if task_dump:
+            with open(status_dump_path, 'a') as f:
+                json_dump = json.dumps({'duration': duration,
+                                        'status': status})
+                f.write('{0}\n'.format(json_dump))
+        return result
 
     def _refresh_state(self):
         self.async_result = self.task.async_result.async_result
