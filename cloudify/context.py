@@ -636,12 +636,10 @@ class CloudifyContext(CommonContext):
                               uploaded.
         """
 
-        # if use_template:
-        #     template_variables = self._add_context_to_template_variables(template_variables)
-
-        return self._endpoint.get_blueprint_resource(self.blueprint.id,
-                                                     resource_path,
-                                                     template_variables=template_variables)
+        return self._endpoint.get_blueprint_resource(
+            self.blueprint.id,
+            resource_path,
+            template_variables=template_variables)
 
     def download_resource(self,
                           resource_path,
@@ -672,14 +670,13 @@ class CloudifyContext(CommonContext):
                  failed to be written to the local file system.
 
         """
-        # if use_template:
-        #     template_variables = self._add_context_to_template_variables(template_variables)
 
-        return self._endpoint.download_blueprint_resource(self.blueprint.id,
-                                                          resource_path,
-                                                          self.logger,
-                                                          target_path,
-                                                          template_variables=template_variables)
+        return self._endpoint.download_blueprint_resource(
+            self.blueprint.id,
+            resource_path,
+            self.logger,
+            target_path,
+            template_variables=template_variables)
 
     def _add_context_to_template_variables(self, template_variables):
         if not template_variables:

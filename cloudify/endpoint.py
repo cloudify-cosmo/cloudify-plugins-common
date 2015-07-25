@@ -48,7 +48,8 @@ class Endpoint(object):
                                     target_path=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    def render_resource(self, resource, template_variables, is_file_path=False):
+    def render_resource(self, resource,
+                        template_variables, is_file_path=False):
 
         resource_path = resource
         if is_file_path:
@@ -56,7 +57,8 @@ class Endpoint(object):
                 resource = f.read()
 
         template_env = jinja2.Environment(loader=jinja2.BaseLoader())
-        resource = template_env.from_string(resource).render(template_variables)
+        resource = template_env.from_string(
+            resource).render(template_variables)
 
         if is_file_path:
             with open(resource_path, 'w') as f:
@@ -150,7 +152,9 @@ class ManagerEndpoint(Endpoint):
         resource = manager.get_blueprint_resource(blueprint_id,
                                                   resource_path)
         if template_variables:
-            resource = super(ManagerEndpoint, self).render_resource(resource, template_variables)
+            resource = super(ManagerEndpoint,
+                             self).render_resource(resource,
+                                                   template_variables)
         return resource
 
     def download_blueprint_resource(self,
@@ -164,7 +168,10 @@ class ManagerEndpoint(Endpoint):
                                                        logger,
                                                        target_path)
         if template_variables:
-            resource = super(ManagerEndpoint, self).render_resource(resource, template_variables, is_file_path=True)
+            resource = super(ManagerEndpoint,
+                             self).render_resource(resource,
+                                                   template_variables,
+                                                   is_file_path=True)
         return resource
 
     def get_provider_context(self):
@@ -231,7 +238,9 @@ class LocalEndpoint(Endpoint):
                                template_variables=None):
         resource = self.storage.get_resource(resource_path)
         if template_variables:
-            resource = super(LocalEndpoint, self).render_resource(resource, template_variables)
+            resource = super(LocalEndpoint,
+                             self).render_resource(resource,
+                                                   template_variables)
         return resource
 
     def download_blueprint_resource(self,
@@ -243,7 +252,10 @@ class LocalEndpoint(Endpoint):
         resource = self.storage.download_resource(resource_path,
                                                   target_path)
         if template_variables:
-            resource = super(LocalEndpoint, self).render_resource(resource, template_variables, is_file_path=True)
+            resource = super(LocalEndpoint,
+                             self).render_resource(resource,
+                                                   template_variables,
+                                                   is_file_path=True)
         return resource
 
     def get_provider_context(self):

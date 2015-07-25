@@ -145,7 +145,8 @@ class GetResourceTemplateTests(testtools.TestCase):
             os.path.dirname(os.path.realpath(__file__)),
             "resources/blueprints/resources")
 
-    def _assert_rendering(self, env, download, rendered, should_fail_rendering):
+    def _assert_rendering(self, env, download,
+                          rendered, should_fail_rendering):
         instance = env.storage.get_node_instances(node_id='node1')[0]
         resource = instance.runtime_properties['resource']
         if not should_fail_rendering:
@@ -156,11 +157,13 @@ class GetResourceTemplateTests(testtools.TestCase):
                 rendered_resource = resource
 
             if rendered:
-                expected_resource_path = os.path.join(self.blueprint_resources_path,
-                                                      'rendered_template.conf')
+                expected_resource_path = \
+                    os.path.join(self.blueprint_resources_path,
+                                 'rendered_template.conf')
             else:
-                expected_resource_path = os.path.join(self.blueprint_resources_path,
-                                                      'for_template_rendering_tests.conf')
+                expected_resource_path = \
+                    os.path.join(self.blueprint_resources_path,
+                                 'for_template_rendering_tests.conf')
 
             with open(expected_resource_path, 'r') as f:
                 expected = f.read()
@@ -176,7 +179,8 @@ class GetResourceTemplateTests(testtools.TestCase):
         env = local.init_env(self.blueprint_path)
         env.execute('execute_operation',
                     parameters=parameters)
-        self._assert_rendering(env, download, rendered, should_fail_rendering)
+        self._assert_rendering(env, download,
+                               rendered, should_fail_rendering)
 
     def test_get_resource_template(self):
         self._generic_get_download_template_test({
