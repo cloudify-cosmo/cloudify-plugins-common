@@ -20,7 +20,8 @@ install_requires = [
     'pika==0.9.13',
     'networkx==1.8.1',
     'proxy_tools==0.1.0',
-    'bottle==0.12.7'
+    'bottle==0.12.7',
+    'jinja2==2.7.2'
 ]
 
 try:
