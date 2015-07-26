@@ -637,8 +637,8 @@ class CloudifyContext(CommonContext):
         """
 
         return self._endpoint.get_blueprint_resource(
-            self.blueprint.id,
-            resource_path,
+            blueprint_id=self.blueprint.id,
+            resource_path=resource_path,
             template_variables=template_variables)
 
     def download_resource(self,
@@ -672,10 +672,10 @@ class CloudifyContext(CommonContext):
         """
 
         return self._endpoint.download_blueprint_resource(
-            self.blueprint.id,
-            resource_path,
-            self.logger,
-            target_path,
+            blueprint_id=self.blueprint.id,
+            resource_path=resource_path,
+            logger=self.logger,
+            target_path=target_path,
             template_variables=template_variables)
 
     def _add_context_to_template_variables(self, template_variables):
