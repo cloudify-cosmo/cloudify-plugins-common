@@ -153,8 +153,9 @@ class ManagerEndpoint(Endpoint):
                                                   resource_path=resource_path)
         if template_variables:
             resource = super(ManagerEndpoint,
-                             self).render_resource(resource=resource,
-                                                   template_variables=template_variables)
+                             self).render_resource(
+                resource=resource,
+                template_variables=template_variables)
         return resource
 
     def download_blueprint_resource(self,
@@ -163,15 +164,17 @@ class ManagerEndpoint(Endpoint):
                                     logger,
                                     target_path=None,
                                     template_variables=None):
-        resource = manager.download_blueprint_resource(blueprint_id=blueprint_id,
-                                                       resource_path=resource_path,
-                                                       logger=logger,
-                                                       target_path=target_path)
+        resource = manager.download_blueprint_resource(
+            blueprint_id=blueprint_id,
+            resource_path=resource_path,
+            logger=logger,
+            target_path=target_path)
         if template_variables:
             resource = super(ManagerEndpoint,
-                             self).render_resource(resource=resource,
-                                                   template_variables=template_variables,
-                                                   is_file_path=True)
+                             self).render_resource(
+                resource=resource,
+                template_variables=template_variables,
+                is_file_path=True)
         return resource
 
     def get_provider_context(self):
@@ -239,8 +242,9 @@ class LocalEndpoint(Endpoint):
         resource = self.storage.get_resource(resource_path)
         if template_variables:
             resource = super(LocalEndpoint,
-                             self).render_resource(resource=resource,
-                                                   template_variables=template_variables)
+                             self).render_resource(
+                resource=resource,
+                template_variables=template_variables)
         return resource
 
     def download_blueprint_resource(self,
@@ -253,9 +257,10 @@ class LocalEndpoint(Endpoint):
                                                   target_path=target_path)
         if template_variables:
             resource = super(LocalEndpoint,
-                             self).render_resource(resource=resource,
-                                                   template_variables=template_variables,
-                                                   is_file_path=True)
+                             self).render_resource(
+                resource=resource,
+                template_variables=template_variables,
+                is_file_path=True)
         return resource
 
     def get_provider_context(self):
