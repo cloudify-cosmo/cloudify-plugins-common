@@ -1,5 +1,5 @@
 ########
-# Copyright (c) 2014 GigaSpaces Technologies Ltd. All rights reserved
+# Copyright (c) 2015 GigaSpaces Technologies Ltd. All rights reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -9,22 +9,31 @@
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
-# * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# * See the License for the specific language governing permissions and
-# * limitations under the License.
+#    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    * See the License for the specific language governing permissions and
+#    * limitations under the License.
 
 import shutil
 import tempfile
 from os import path, listdir
-
-from cloudify.workflows import local
 from functools import wraps
 
+from cloudify.workflows import local
+from exeptions import PluginFileNotFoundError
 
-def _find_plugin_yaml(file_path):
-    if 'plugin.yaml' in listdir(file_path):
-        return path.join(file_path, 'plugin.yaml')
-    return _find_plugin_yaml(path.realpath(path.join(file_path, '..')))
+PLUGIN_NAME = 'plugin.yaml'
+
+
+def _find_plugin_yaml(original_path):
+    running_path = original_path
+    while PLUGIN_NAME not in listdir(running_path):
+        level_up_path = path.realpath(path.join(running_path, '..'))
+        if level_up_path == running_path:
+            raise PluginFileNotFoundError(original_path, PLUGIN_NAME)
+        else:
+            running_path = level_up_path
+
+    return path.join(running_path, PLUGIN_NAME)
 
 
 class set_testing_env(object):
@@ -57,7 +66,7 @@ class set_testing_env(object):
         # Plugin path and name
         self.copy_plugin = copy_plugin
         if self.copy_plugin:
-            self.plugin_yaml_filename = 'plugin.yaml'
+            self.plugin_yaml_filename = PLUGIN_NAME
             self.plugin_yaml_path = _find_plugin_yaml(
                 path.dirname(source_file_path))
 
@@ -121,7 +130,8 @@ class set_testing_env(object):
     def __call__(self, test):
         @wraps(test)
         def wrapped_test(func, *args, **kwargs):
-            test_env, tempdir = self.set_up(str(func)[:str(func).index('(')-1])
+            test_env, tempdir = self.set_up(
+                str(func)[:str(func).index('(') - 1])
             test(func, test_env, *args, **kwargs)
             self.tear_down(tempdir)
 
