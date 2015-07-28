@@ -98,7 +98,8 @@ class set_testing_env(object):
 
         # Init env with supplied args
         if self.init_args:
-            test_env.env = local.init_env(temp_blueprint_path, **self.init_args)
+            test_env.env = local.init_env(temp_blueprint_path,
+                                          **self.init_args)
         else:
             test_env.env = local.init_env(temp_blueprint_path)
 
