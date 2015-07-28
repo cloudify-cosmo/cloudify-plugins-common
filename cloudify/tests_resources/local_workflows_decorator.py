@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ from cloudify.workflows import local
 from exeptions import PluginFileNotFoundError
 
 PLUGIN_NAME = 'plugin.yaml'
+
 
 def _find_plugin_yaml(original_path):
     running_path = original_path
@@ -66,7 +67,8 @@ class set_testing_env(object):
         self.copy_plugin = copy_plugin
         if self.copy_plugin:
             self.plugin_yaml_filename = PLUGIN_NAME
-            self.plugin_yaml_path = _find_plugin_yaml(path.dirname(source_file_path))
+            self.plugin_yaml_path = _find_plugin_yaml(
+                path.dirname(source_file_path))
 
         # Set prefix for resources
         self.prefix = prefix if prefix else "{}-unit-tests-".format(
@@ -128,7 +130,8 @@ class set_testing_env(object):
     def __call__(self, test):
         @wraps(test)
         def wrapped_test(func, *args, **kwargs):
-            test_env, tempdir = self.set_up(str(func)[:str(func).index('(')-1])
+            test_env, tempdir = self.set_up(
+                str(func)[:str(func).index('(') - 1])
             test(func, test_env, *args, **kwargs)
             self.tear_down(tempdir)
 
