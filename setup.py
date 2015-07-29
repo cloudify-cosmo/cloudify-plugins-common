@@ -43,7 +43,7 @@ setup(
               'cloudify.workflows',
               'cloudify.plugins',
               'cloudify.proxy',
-              'cloudify.tests_resources'],
+              'cloudify.test_utils'],
     license='LICENSE',
     description='Contains necessary decorators and utility methods for '
                 'writing Cloudify plugins',
