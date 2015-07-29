@@ -68,7 +68,7 @@ if celery_work_folder:
 celery = Celery('cloudify.celery',
                 broker=os.environ.get('BROKER_URL', DEFAULT_AMQP_URI),
                 backend=os.environ.get('BROKER_URL', DEFAULT_AMQP_URI))
-
+celery.conf.update(CELERY_TASK_RESULT_EXPIRES=600)
 
 if celery_work_folder:
     current_excepthook = sys.excepthook
