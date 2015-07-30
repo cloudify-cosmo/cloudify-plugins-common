@@ -5,11 +5,11 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#        http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
-# * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
@@ -37,6 +37,13 @@ IGNORED_LOCAL_WORKFLOW_MODULES = (
 
 
 def _find_plugin_yaml(original_path):
+    """
+    Tries to find the plugin.yaml file automatically (by traversing up the
+    directory tree).
+    :param original_path: The path to start the search from
+    :return: The absolute path of the plugin.yaml file (if found, o.w.
+    raises an Error)
+    """
     running_path = original_path
     while PLUGIN_YAML_NAME not in listdir(running_path):
         level_up_path = path.realpath(path.join(running_path, '..'))
@@ -46,10 +53,16 @@ def _find_plugin_yaml(original_path):
         else:
             running_path = level_up_path
 
-    return path.join(running_path, PLUGIN_YAML_NAME)
+    return path.abspath(path.join(running_path, PLUGIN_YAML_NAME))
 
 
 def _copy_resources(resources_source_path, dest_path):
+    """
+    Copies a list of resources to the dest_path
+    :param resources_source_path: the list of resources to be copied
+    :param dest_path: the desination path
+    :return: None
+    """
     for resource_source_path in resources_source_path:
         resource_dest_path = path.join(dest_path,
                                        path.basename(resource_source_path))
@@ -99,7 +112,13 @@ class WorkflowTestDecorator(object):
             }
 
     def set_up(self, local_file_path, test_method_name):
+        """
+        Sets up the enviroment variables needed for this test.
 
+        :param local_file_path: the path of the test file.
+        :param test_method_name: the name of the test method.
+        :return: The test env which is a wrapped Environment.
+        """
         if not self.prefix:
             self.prefix = path.basename(test_method_name)
 
@@ -134,12 +153,24 @@ class WorkflowTestDecorator(object):
         return test_env
 
     def tear_down(self):
+        """
+        Deletes the allocated temp dir
+        :return: None
+        """
         if path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
     def __call__(self, test):
         @wraps(test)
         def wrapped_test(func, *args, **kwargs):
+            """
+            The wrapper function itself.
+
+            :param func: the function of which this test has been called from
+            :param args:
+            :param kwargs:
+            :return:
+            """
             test_env = self.set_up(
                 sys.modules[func.__class__.__module__].__file__,
                 test.__name__
