@@ -17,9 +17,7 @@ import sys
 import shutil
 import tempfile
 from os import path, listdir, makedirs
-
 from functools import wraps
-from attrdict import AttrDict
 
 from cloudify.workflows import local
 
@@ -92,14 +90,12 @@ def _copy_resources(test_root_path, resources):
         shutil.copyfile(resource_source_path, resource_dest_path)
 
 
-# TODO: env_as_keyword not tested yet (as the whole project is in python2 only)
 class WorkflowTestDecorator(object):
     def __init__(self,
                  blueprint_path,
-                 env_as_keyword=False,
                  plugin_auto_copy=False,
                  resources_to_copy=None,
-                 prefix=None,
+                 temp_dir_prefix=None,
                  init_args=None):
         """
         Sets the required parameters for future env init. passes the
@@ -111,7 +107,7 @@ class WorkflowTestDecorator(object):
         :param blueprint_path: The relative path to the blueprint
         :param plugin_auto_copy: Tries to find and copy plugin.yaml (optional)
         :param resources_to_copy: Paths to resources to copy (optional)
-        :param prefix: prefix for the resources (optional)
+        :param temp_dir_prefix: prefix for the resources (optional)
         """
         # blueprint to run
         self.blueprint_path = blueprint_path
@@ -125,10 +121,8 @@ class WorkflowTestDecorator(object):
             self.plugin_yaml_filename = PLUGIN_YAML_NAME
 
         # Set prefix for resources
-        self.prefix = prefix
+        self.temp_dir_prefix = temp_dir_prefix
         self.temp_dir = None
-
-        self.env_as_keyword = env_as_keyword
 
         # set init args
         if init_args:
@@ -149,11 +143,11 @@ class WorkflowTestDecorator(object):
         :param test_method_name: the name of the test method.
         :return: The test env which is a wrapped Environment.
         """
-        if not self.prefix:
-            self.prefix = test_method_name
+        if not self.temp_dir_prefix:
+            self.temp_dir_prefix = test_method_name
 
         # Creating temp dir
-        self.temp_dir = tempfile.mkdtemp(self.prefix)
+        self.temp_dir = tempfile.mkdtemp(prefix=self.temp_dir_prefix)
 
         # Adding blueprint to the resources to copy
         self.resources_to_copy.append(self.blueprint_path)
@@ -167,16 +161,13 @@ class WorkflowTestDecorator(object):
         _copy_resources(self.temp_dir, self.resources_to_copy)
 
         # Updating the test_method_name (if not manually set)
-        if self.init_args and not self.init_args.get('name', False):
+        if self.init_args and not self.init_args.get('name'):
             self.init_args['name'] = test_method_name
 
         # Init env with supplied args
         temp_blueprint_path = path.join(self.temp_dir,
                                         path.basename(self.blueprint_path))
         test_env = local.init_env(temp_blueprint_path, **self.init_args)
-
-        # Creating a vars field to hold all the test based variables.
-        test_env.vars = AttrDict()
 
         return test_env
 
@@ -190,24 +181,19 @@ class WorkflowTestDecorator(object):
 
     def __call__(self, test):
         @wraps(test)
-        def wrapped_test(func, *args, **kwargs):
+        def wrapped_test(func_self, *args, **kwargs):
             """
             The wrapper function itself.
 
             :param func: the function of which this test has been called from
-            :param args:
-            :param kwargs:
             :return:
             """
             test_env = self.set_up(
-                sys.modules[func.__class__.__module__].__file__,
-                test.__name__
+                sys.modules[func_self.__class__.__module__].__file__,
+                func_self._testMethodName
             )
             try:
-                if self.env_as_keyword and sys.version >= 3:
-                    test(func, cfy_local=test_env, *args, **kwargs)
-                else:
-                    test(func, test_env, *args, **kwargs)
+                test(func_self, test_env, *args, **kwargs)
             finally:
                 self.tear_down()
 
