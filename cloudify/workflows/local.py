@@ -50,7 +50,8 @@ class _Environment(object):
                  name='local',
                  inputs=None,
                  load_existing=False,
-                 ignored_modules=None):
+                 ignored_modules=None,
+                 provider_context=None):
         self.storage = storage
         self.storage.env = self
 
@@ -65,7 +66,8 @@ class _Environment(object):
                 plan=plan,
                 nodes=nodes,
                 node_instances=node_instances,
-                blueprint_path=blueprint_path)
+                blueprint_path=blueprint_path,
+                provider_context=provider_context)
 
     @property
     def plan(self):
@@ -96,6 +98,7 @@ class _Environment(object):
                 allow_custom_parameters=False,
                 task_retries=-1,
                 task_retry_interval=30,
+                subgraph_retries=0,
                 task_thread_pool_size=DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE):
         workflows = self.plan['workflows']
         workflow_name = workflow
@@ -119,6 +122,7 @@ class _Environment(object):
             'storage': self.storage,
             'task_retries': task_retries,
             'task_retry_interval': task_retry_interval,
+            'subgraph_retries': subgraph_retries,
             'local_task_thread_pool_size': task_thread_pool_size
         }
 
@@ -132,7 +136,8 @@ def init_env(blueprint_path,
              name='local',
              inputs=None,
              storage=None,
-             ignored_modules=None):
+             ignored_modules=None,
+             provider_context=None):
     if storage is None:
         storage = InMemoryStorage()
     return _Environment(storage=storage,
@@ -140,7 +145,8 @@ def init_env(blueprint_path,
                         name=name,
                         inputs=inputs,
                         load_existing=False,
-                        ignored_modules=ignored_modules)
+                        ignored_modules=ignored_modules,
+                        provider_context=provider_context)
 
 
 def load_env(name, storage):
@@ -280,11 +286,14 @@ class _Storage(object):
         self._nodes = None
         self._locks = None
         self.env = None
+        self._provider_context = None
 
-    def init(self, name, plan, nodes, node_instances, blueprint_path):
+    def init(self, name, plan, nodes, node_instances, blueprint_path,
+             provider_context):
         self.name = name
         self.resources_root = os.path.dirname(os.path.abspath(blueprint_path))
         self.plan = plan
+        self._provider_context = provider_context or {}
         self._init_locks_and_nodes(nodes)
 
     def _init_locks_and_nodes(self, nodes):
@@ -350,6 +359,9 @@ class _Storage(object):
     def get_node_instance(self, node_instance_id):
         return copy.deepcopy(self._get_node_instance(node_instance_id))
 
+    def get_provider_context(self):
+        return copy.deepcopy(self._provider_context)
+
     def _load_instance(self, node_instance_id):
         raise NotImplementedError()
 
@@ -372,12 +384,13 @@ class InMemoryStorage(_Storage):
         super(InMemoryStorage, self).__init__()
         self._node_instances = None
 
-    def init(self, name, plan, nodes, node_instances, blueprint_path):
+    def init(self, name, plan, nodes, node_instances, blueprint_path,
+             provider_context):
         self.plan = plan
         self._node_instances = dict((instance.id, instance)
                                     for instance in node_instances)
         super(InMemoryStorage, self).init(name, plan, nodes, node_instances,
-                                          blueprint_path)
+                                          blueprint_path, provider_context)
 
     def load(self, name):
         raise NotImplementedError('load is not implemented by memory storage')
@@ -409,7 +422,8 @@ class FileStorage(_Storage):
         self._payload_path = None
         self._blueprint_path = None
 
-    def init(self, name, plan, nodes, node_instances, blueprint_path):
+    def init(self, name, plan, nodes, node_instances, blueprint_path,
+             provider_context):
         storage_dir = os.path.join(self._root_storage_dir, name)
         instances_dir = os.path.join(storage_dir, 'node-instances')
         data_path = os.path.join(storage_dir, 'data')
@@ -424,7 +438,8 @@ class FileStorage(_Storage):
             f.write(json.dumps({
                 'plan': plan,
                 'blueprint_filename': blueprint_filename,
-                'nodes': nodes
+                'nodes': nodes,
+                'provider_context': provider_context or {}
             }))
         resources_root = os.path.dirname(os.path.abspath(blueprint_path))
         self.resources_root = os.path.join(storage_dir, 'resources')
@@ -450,6 +465,7 @@ class FileStorage(_Storage):
         self.resources_root = os.path.join(self._storage_dir, 'resources')
         self._blueprint_path = os.path.join(self.resources_root,
                                             data['blueprint_filename'])
+        self._provider_context = data.get('provider_context', {})
         nodes = [Node(node) for node in data['nodes']]
         self._init_locks_and_nodes(nodes)
 

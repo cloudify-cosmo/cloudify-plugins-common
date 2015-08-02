@@ -49,6 +49,10 @@ class MockRestclient(CloudifyClient):
     def executions(self):
         return MockExecutionsClient()
 
+    @property
+    def manager(self):
+        return MockManagerClient()
+
 
 class MockNodesClient(object):
 
@@ -78,3 +82,9 @@ class MockExecutionsClient(object):
             'id': '111',
             'status': 'terminated'
         })
+
+
+class MockManagerClient(object):
+
+    def get_context(self):
+        return {'context': {}}

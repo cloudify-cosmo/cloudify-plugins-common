@@ -25,6 +25,7 @@ from cloudify.workflows import api
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
 DEFAULT_RETRY_INTERVAL = 30
+DEFAULT_SUBGRAPH_TOTAL_RETRIES = 0
 
 DEFAULT_SEND_TASK_EVENTS = True
 
@@ -91,6 +92,7 @@ class WorkflowTask(object):
         self.is_terminated = False
         self.workflow_context = workflow_context
         self.send_task_events = send_task_events
+        self.containing_subgraph = None
 
         self.current_retries = 0
         # timestamp for which the task should not be executed
@@ -168,11 +170,27 @@ class WorkflowTask(object):
                     handler_result.ignore_total_retries]):
                 if handler_result.retry_after is None:
                     handler_result.retry_after = self.retry_interval
-                new_task = self.duplicate_for_retry(
-                    time.time() + handler_result.retry_after)
-                handler_result.retried_task = new_task
+                if handler_result.retried_task is None:
+                    new_task = self.duplicate_for_retry(
+                        time.time() + handler_result.retry_after)
+                    handler_result.retried_task = new_task
             else:
                 handler_result.action = HandlerResult.HANDLER_FAIL
+
+        if self.containing_subgraph:
+            subgraph = self.containing_subgraph
+            retried_task = None
+            if handler_result.action == HandlerResult.HANDLER_FAIL:
+                handler_result.action = HandlerResult.HANDLER_IGNORE
+                # It is possible that two concurrent tasks failed.
+                # we will only consider the first one handled
+                if not subgraph.failed_task:
+                    subgraph.failed_task = self
+                    subgraph.set_state(TASK_FAILED)
+            elif handler_result.action == HandlerResult.HANDLER_RETRY:
+                retried_task = handler_result.retried_task
+            subgraph.task_terminated(task=self, new_task=retried_task)
+
         return handler_result
 
     def _handle_task_succeeded(self):
@@ -663,6 +681,11 @@ class LocalWorkflowTaskResult(WorkflowTaskResult):
             return self._holder.result
 
 
+class StubAsyncResult(object):
+    """Stub async result that always returns None"""
+    result = None
+
+
 class HandlerResult(object):
 
     HANDLER_RETRY = 'handler_retry'
@@ -680,6 +703,7 @@ class HandlerResult(object):
 
         # this field is filled by handle_terminated_task() below after
         # duplicating the task and updating the relevant task fields
+        # or by a subgraph on_XXX handler
         self.retried_task = None
 
     @classmethod

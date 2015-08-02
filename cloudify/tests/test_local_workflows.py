@@ -54,7 +54,8 @@ class BaseWorkflowTest(testtools.TestCase):
     def _init_env(self, blueprint_path,
                   inputs=None,
                   name=None,
-                  ignored_modules=None):
+                  ignored_modules=None,
+                  provider_context=None):
         if name is None:
             name = self._testMethodName
 
@@ -68,7 +69,8 @@ class BaseWorkflowTest(testtools.TestCase):
                               name=name,
                               inputs=inputs,
                               storage=storage,
-                              ignored_modules=ignored_modules)
+                              ignored_modules=ignored_modules,
+                              provider_context=provider_context)
 
     def _load_env(self, name):
         if name is None:
@@ -90,7 +92,8 @@ class BaseWorkflowTest(testtools.TestCase):
                    load_env=False,
                    ignored_modules=None,
                    operation_retries=None,
-                   operation_retry_interval=None):
+                   operation_retry_interval=None,
+                   provider_context=None):
         if create_blueprint_func is None:
             create_blueprint_func = self._blueprint_1
 
@@ -151,7 +154,8 @@ class BaseWorkflowTest(testtools.TestCase):
                 self.env = self._init_env(blueprint_path,
                                           inputs=inputs,
                                           name=name,
-                                          ignored_modules=ignored_modules)
+                                          ignored_modules=ignored_modules,
+                                          provider_context=provider_context)
 
     def _execute_workflow(self,
                           workflow_method=None,
@@ -167,7 +171,8 @@ class BaseWorkflowTest(testtools.TestCase):
                           setup_env=True,
                           ignored_modules=None,
                           operation_retries=None,
-                          operation_retry_interval=None):
+                          operation_retry_interval=None,
+                          provider_context=None):
         if setup_env:
             self._setup_env(
                 workflow_methods=[workflow_method],
@@ -180,7 +185,8 @@ class BaseWorkflowTest(testtools.TestCase):
                 load_env=load_env,
                 ignored_modules=ignored_modules,
                 operation_retries=operation_retries,
-                operation_retry_interval=operation_retry_interval)
+                operation_retry_interval=operation_retry_interval,
+                provider_context=provider_context)
         elif load_env:
             self.env = self._load_env(name)
 
@@ -774,10 +780,17 @@ class LocalWorkflowTest(BaseWorkflowTest):
         self._execute_workflow(flow, operation_methods=[op0, op1])
 
     def test_operation_bootstrap_context(self):
+        bootstrap_context = {'stub': 'prop'}
+        provider_context = {
+            'cloudify': bootstrap_context
+        }
+
         def contexts(ctx, **_):
-            self.assertEqual({}, ctx.bootstrap_context._bootstrap_context)
-            self.assertEqual({}, ctx.provider_context)
-        self._execute_workflow(operation_methods=[contexts])
+            self.assertEqual(bootstrap_context,
+                             ctx.bootstrap_context._bootstrap_context)
+            self.assertEqual(provider_context, ctx.provider_context)
+        self._execute_workflow(operation_methods=[contexts],
+                               provider_context=provider_context)
 
     def test_workflow_graph_mode(self):
         def flow(ctx, **_):
@@ -933,6 +946,9 @@ class FileStorageTest(BaseWorkflowTest):
             os.path.join(self.storage_dir, self._testMethodName)))
 
     def test_persistency(self):
+        bootstrap_context = {'stub': 'prop'}
+        provider_context = {'cloudify': bootstrap_context}
+
         def persistency_1(ctx, **_):
             instance = _instance(ctx, 'node')
             instance.set_state('persistency')
@@ -946,10 +962,14 @@ class FileStorageTest(BaseWorkflowTest):
         def op(ctx, **_):
             self.assertEqual('new_input', ctx.node.properties['from_input'])
             self.assertEqual('content', ctx.get_resource('resource'))
+            self.assertEqual(bootstrap_context,
+                             ctx.bootstrap_context._bootstrap_context)
+            self.assertEqual(provider_context, ctx.provider_context)
 
         self._setup_env(workflow_methods=[persistency_1, persistency_2],
                         operation_methods=[op],
-                        inputs={'from_input': 'new_input'})
+                        inputs={'from_input': 'new_input'},
+                        provider_context=provider_context)
 
         self._execute_workflow(workflow_name='workflow0',
                                setup_env=False, load_env=True)

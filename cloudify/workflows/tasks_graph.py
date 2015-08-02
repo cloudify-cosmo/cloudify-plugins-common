@@ -31,9 +31,12 @@ class TaskDependencyGraph(object):
     :param workflow_context: A WorkflowContext instance (used for logging)
     """
 
-    def __init__(self, workflow_context):
+    def __init__(self, workflow_context,
+                 default_subgraph_task_config=None):
         self.ctx = workflow_context
         self.graph = nx.DiGraph()
+        default_subgraph_task_config = default_subgraph_task_config or {}
+        self._default_subgraph_task_config = default_subgraph_task_config
 
     def add_task(self, task):
         """Add a WorkflowTask to this graph
@@ -88,6 +91,11 @@ class TaskDependencyGraph(object):
         """
         return TaskSequence(self)
 
+    def subgraph(self, name):
+        task = SubgraphTask(name, self, **self._default_subgraph_task_config)
+        self.add_task(task)
+        return task
+
     def execute(self):
         """
         Start executing the graph based on tasks and dependencies between
@@ -135,7 +143,8 @@ class TaskDependencyGraph(object):
             else:
                 time.sleep(0.1)
 
-    def _is_execution_cancelled(self):
+    @staticmethod
+    def _is_execution_cancelled():
         return api.has_cancel_request()
 
     def _executable_tasks(self):
@@ -151,7 +160,10 @@ class TaskDependencyGraph(object):
         return (task for task in self.tasks_iter()
                 if task.get_state() == tasks.TASK_PENDING and
                 task.execute_after <= now and
-                not self._task_has_dependencies(task.id))
+                not (task.containing_subgraph and
+                     task.containing_subgraph.get_state() ==
+                     tasks.TASK_FAILED) and
+                not self._task_has_dependencies(task))
 
     def _terminated_tasks(self):
         """
@@ -162,13 +174,14 @@ class TaskDependencyGraph(object):
         return (task for task in self.tasks_iter()
                 if task.get_state() in tasks.TERMINATED_STATES)
 
-    def _task_has_dependencies(self, task_id):
+    def _task_has_dependencies(self, task):
         """
-        :param task_id: The task id
+        :param task: The task
         :return: Does this task have any dependencies
         """
-        successors = self.graph.succ.get(task_id)
-        return successors is not None and len(successors) > 0
+        return (len(self.graph.succ.get(task.id, {})) > 0 or
+                (task.containing_subgraph and self._task_has_dependencies(
+                    task.containing_subgraph)))
 
     def tasks_iter(self):
         """
@@ -186,6 +199,8 @@ class TaskDependencyGraph(object):
 
         handler_result = task.handle_task_terminated()
         if handler_result.action == tasks.HandlerResult.HANDLER_FAIL:
+            if isinstance(task, SubgraphTask) and task.failed_task:
+                task = task.failed_task
             raise RuntimeError(
                 "Workflow failed: Task failed '{0}' -> {1}".format(task.name,
                                                                    task.error))
@@ -264,3 +279,87 @@ class TaskSequence(object):
                         self.graph.add_dependency(task, last_fork_join_task)
             if fork_join_tasks:
                 self.last_fork_join_tasks = fork_join_tasks
+
+
+class SubgraphTask(tasks.WorkflowTask):
+
+    def __init__(self,
+                 name,
+                 graph,
+                 task_id=None,
+                 info=None,
+                 on_success=None,
+                 on_failure=None,
+                 total_retries=tasks.DEFAULT_SUBGRAPH_TOTAL_RETRIES,
+                 retry_interval=tasks.DEFAULT_RETRY_INTERVAL,
+                 send_task_events=tasks.DEFAULT_SEND_TASK_EVENTS):
+        super(SubgraphTask, self).__init__(
+            graph.ctx,
+            task_id,
+            info=info,
+            on_success=on_success,
+            on_failure=on_failure,
+            total_retries=total_retries,
+            retry_interval=retry_interval,
+            send_task_events=send_task_events)
+        self.graph = graph
+        self._name = name
+        self.tasks = {}
+        self.failed_task = None
+        if not self.on_failure:
+            self.on_failure = lambda tsk: tasks.HandlerResult.fail()
+        self.async_result = tasks.StubAsyncResult()
+
+    def _duplicate(self):
+        raise NotImplementedError('self.retried_task should be set explicitly'
+                                  ' in self.on_failure handler')
+
+    @property
+    def cloudify_context(self):
+        return {}
+
+    def is_local(self):
+        return True
+
+    @property
+    def name(self):
+        return self._name
+
+    def sequence(self):
+        return TaskSequence(self)
+
+    def subgraph(self, name):
+        task = SubgraphTask(name, self.graph,
+                            **self.graph._default_subgraph_task_config)
+        self.add_task(task)
+        return task
+
+    def add_task(self, task):
+        self.graph.add_task(task)
+        self.tasks[task.id] = task
+        if task.containing_subgraph and task.containing_subgraph is not self:
+            raise RuntimeError('task {0}[{1}] cannot be contained in more '
+                               'than one subgraph. It is currently contained '
+                               'in {2} and it is now being added to {3}'
+                               .format(task,
+                                       task.id,
+                                       task.containing_subgraph.name,
+                                       self.name))
+        task.containing_subgraph = self
+
+    def add_dependency(self, src_task, dst_task):
+        self.graph.add_dependency(src_task, dst_task)
+
+    def apply_async(self):
+        if not self.tasks:
+            self.set_state(tasks.TASK_SUCCEEDED)
+        else:
+            self.set_state(tasks.TASK_STARTED)
+
+    def task_terminated(self, task, new_task=None):
+        del self.tasks[task.id]
+        if new_task:
+            self.tasks[new_task.id] = new_task
+            new_task.containing_subgraph = self
+        if not self.tasks and self.get_state() not in tasks.TERMINATED_STATES:
+            self.set_state(tasks.TASK_SUCCEEDED)

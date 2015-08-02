@@ -1,0 +1,51 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.3m4/types.yaml
+
+dsl_definitions:
+  - &op
+    implementation: p.cloudify.tests.test_lifecycle_retry.operation
+    inputs:
+      descriptor:
+        default: { get_input: descriptor }
+  - &node_interfaces
+    cloudify.interfaces.lifecycle:
+      create: *op
+      configure: *op
+      start: *op
+      stop: *op
+      delete: *op
+  - &rel_interfaces
+    cloudify.interfaces.relationship_lifecycle:
+      preconfigure: *op
+      postconfigure: *op
+      establish: *op
+      unlink: *op
+
+inputs:
+  descriptor: {}
+
+plugins:
+  p:
+    executor: central_deployment_agent
+    install: false
+
+node_types:
+  type:
+    derived_from: cloudify.nodes.Root
+    interfaces: *node_interfaces
+
+relationships:
+  relationship:
+    derived_from: cloudify.relationships.contained_in
+    source_interfaces: *rel_interfaces
+
+node_templates:
+  node1:
+    type: type
+  node2:
+    type: type
+    relationships:
+      - target: node1
+        type: relationship
