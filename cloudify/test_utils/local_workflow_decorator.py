@@ -16,7 +16,8 @@
 import sys
 import shutil
 import tempfile
-from os import path, listdir
+from os import path, listdir, makedirs
+
 from functools import wraps
 from attrdict import AttrDict
 
@@ -56,34 +57,61 @@ def _find_plugin_yaml(original_path):
     return path.abspath(path.join(running_path, PLUGIN_YAML_NAME))
 
 
-def _copy_resources(resources_source_path, dest_path):
+def _assure_path_exists(dest_path):
+    """
+    Creates a the destination path (if not exists)
+    :param dest_path:
+    :return:
+    """
+    dir_path = path.dirname(dest_path)
+    if not path.exists(dir_path):
+        makedirs(dir_path)
+
+
+def _copy_resources(test_root_path, resources):
     """
     Copies a list of resources to the dest_path
-    :param resources_source_path: the list of resources to be copied
-    :param dest_path: the desination path
+
+    :param test_root_path: the default destination path
+    :param resources: a list of resources to be copied - can contain source
+    path only, or a tuple of source and destination path.
     :return: None
     """
-    for resource_source_path in resources_source_path:
-        resource_dest_path = path.join(dest_path,
-                                       path.basename(resource_source_path))
-        shutil.copyfile(path.abspath(resource_source_path), resource_dest_path)
+    for resource in resources:
+        if isinstance(resource, tuple):
+            resource_source_path, relative_dest_path = resource
+            relative_dest_path = path.join(relative_dest_path,
+                                           path.basename(resource_source_path))
+        else:
+            resource_source_path = resource
+            relative_dest_path = path.basename(resource_source_path)
+
+        resource_source_path = path.abspath(resource_source_path)
+        resource_dest_path = path.join(test_root_path, relative_dest_path)
+        _assure_path_exists(path.dirname(resource_dest_path))
+        shutil.copyfile(resource_source_path, resource_dest_path)
 
 
+# TODO: env_as_keyword not tested yet (as the whole project is in python2 only)
 class WorkflowTestDecorator(object):
     def __init__(self,
                  blueprint_path,
+                 env_as_keyword=False,
                  plugin_auto_copy=False,
                  resources_to_copy=None,
                  prefix=None,
                  init_args=None):
         """
-        Sets the required parameters for future env init
+        Sets the required parameters for future env init. passes the
+        environment to the cfy_local argument.
 
+        :param env_as_keyword: specified if the env will be passed as a
+                           positional or keyword argument (keyword possible
+                           only on py34) (Defaults to False).
         :param blueprint_path: The relative path to the blueprint
         :param plugin_auto_copy: Tries to find and copy plugin.yaml (optional)
         :param resources_to_copy: Paths to resources to copy (optional)
         :param prefix: prefix for the resources (optional)
-        :return: local workflow decorator
         """
         # blueprint to run
         self.blueprint_path = blueprint_path
@@ -99,6 +127,8 @@ class WorkflowTestDecorator(object):
         # Set prefix for resources
         self.prefix = prefix
         self.temp_dir = None
+
+        self.env_as_keyword = env_as_keyword
 
         # set init args
         if init_args:
@@ -120,7 +150,7 @@ class WorkflowTestDecorator(object):
         :return: The test env which is a wrapped Environment.
         """
         if not self.prefix:
-            self.prefix = path.basename(test_method_name)
+            self.prefix = test_method_name
 
         # Creating temp dir
         self.temp_dir = tempfile.mkdtemp(self.prefix)
@@ -134,7 +164,7 @@ class WorkflowTestDecorator(object):
                 _find_plugin_yaml(path.dirname(local_file_path)))
 
         # Copying resources
-        _copy_resources(self.resources_to_copy, self.temp_dir)
+        _copy_resources(self.temp_dir, self.resources_to_copy)
 
         # Updating the test_method_name (if not manually set)
         if self.init_args and not self.init_args.get('name', False):
@@ -143,11 +173,9 @@ class WorkflowTestDecorator(object):
         # Init env with supplied args
         temp_blueprint_path = path.join(self.temp_dir,
                                         path.basename(self.blueprint_path))
-        if self.init_args:
-            test_env = local.init_env(temp_blueprint_path, **self.init_args)
-        else:
-            test_env = local.init_env(temp_blueprint_path)
+        test_env = local.init_env(temp_blueprint_path, **self.init_args)
 
+        # Creating a vars field to hold all the test based variables.
         test_env.vars = AttrDict()
 
         return test_env
@@ -176,7 +204,10 @@ class WorkflowTestDecorator(object):
                 test.__name__
             )
             try:
-                test(func, test_env, *args, **kwargs)
+                if self.env_as_keyword and sys.version >= 3:
+                    test(func, cfy_local=test_env, *args, **kwargs)
+                else:
+                    test(func, test_env, *args, **kwargs)
             finally:
                 self.tear_down()
 
