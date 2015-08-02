@@ -625,7 +625,9 @@ class CloudifyContext(CommonContext):
             self._provider_context = self._endpoint.get_provider_context()
         return self._provider_context
 
-    def get_resource(self, resource_path):
+    def get_resource(self,
+                     resource_path,
+                     template_variables=None):
         """
         Retrieves a resource bundled with the blueprint as a string.
 
@@ -633,10 +635,16 @@ class CloudifyContext(CommonContext):
                               relative to the blueprint file which was
                               uploaded.
         """
-        return self._endpoint.get_blueprint_resource(self.blueprint.id,
-                                                     resource_path)
 
-    def download_resource(self, resource_path, target_path=None):
+        return self._endpoint.get_blueprint_resource(
+            blueprint_id=self.blueprint.id,
+            resource_path=resource_path,
+            template_variables=template_variables)
+
+    def download_resource(self,
+                          resource_path,
+                          target_path=None,
+                          template_variables=None):
         """
         Retrieves a resource bundled with the blueprint and saves it under a
         local file.
@@ -662,10 +670,13 @@ class CloudifyContext(CommonContext):
                  failed to be written to the local file system.
 
         """
-        return self._endpoint.download_blueprint_resource(self.blueprint.id,
-                                                          resource_path,
-                                                          self.logger,
-                                                          target_path)
+
+        return self._endpoint.download_blueprint_resource(
+            blueprint_id=self.blueprint.id,
+            resource_path=resource_path,
+            logger=self.logger,
+            target_path=target_path,
+            template_variables=template_variables)
 
     def _init_cloudify_logger(self):
         logger_name = self.task_id if self.task_id is not None \
