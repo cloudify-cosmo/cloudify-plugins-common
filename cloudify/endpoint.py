@@ -53,17 +53,24 @@ class Endpoint(object):
                                    resource,
                                    template_variables,
                                    download=False):
-        if template_variables:
-            template = jinja2.Template(resource)
-            rendered_resource = template.render(template_variables)
 
-            if not download:
-                return rendered_resource
-            else:
-                with open(resource, 'w') as f:
-                    f.write(rendered_resource)
+        if not template_variables:
+            return resource
 
-        return resource
+        resource_path = resource
+        if download:
+            with open(resource_path, 'r') as f:
+                resource = f.read()
+
+        template = jinja2.Template(resource)
+        rendered_resource = template.render(template_variables)
+
+        if download:
+            with open(resource_path, 'w') as f:
+                f.write(rendered_resource)
+            return resource_path
+        else:
+            return rendered_resource
 
     def get_provider_context(self):
         raise NotImplementedError('Implemented by subclasses')
