@@ -678,13 +678,6 @@ class CloudifyContext(CommonContext):
             target_path=target_path,
             template_variables=template_variables)
 
-    def _add_context_to_template_variables(self, template_variables):
-        if not template_variables:
-            template_variables = {}
-
-        template_variables['ctx'] = template_variables.get('ctx', self)
-        return template_variables
-
     def _init_cloudify_logger(self):
         logger_name = self.task_id if self.task_id is not None \
             else 'cloudify_plugin'

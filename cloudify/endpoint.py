@@ -45,25 +45,23 @@ class Endpoint(object):
                                     blueprint_id,
                                     resource_path,
                                     logger,
-                                    target_path=None):
+                                    target_path=None,
+                                    template_variables=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    def render_resource(self, resource,
-                        template_variables, is_file_path=False):
+    def _render_resource_if_needed(self,
+                                   resource,
+                                   template_variables,
+                                   download=False):
+        if template_variables:
+            template = jinja2.Template(resource)
+            rendered_resource = template.render(template_variables)
 
-        resource_path = resource
-        if is_file_path:
-            with open(resource_path, 'r') as f:
-                resource = f.read()
-
-        template_env = jinja2.Environment(loader=jinja2.BaseLoader())
-        resource = template_env.from_string(
-            resource).render(template_variables)
-
-        if is_file_path:
-            with open(resource_path, 'w') as f:
-                f.write(resource)
-            return resource_path
+            if not download:
+                return rendered_resource
+            else:
+                with open(resource, 'w') as f:
+                    f.write(rendered_resource)
 
         return resource
 
@@ -151,12 +149,9 @@ class ManagerEndpoint(Endpoint):
                                template_variables=None):
         resource = manager.get_blueprint_resource(blueprint_id=blueprint_id,
                                                   resource_path=resource_path)
-        if template_variables:
-            resource = super(ManagerEndpoint,
-                             self).render_resource(
-                resource=resource,
-                template_variables=template_variables)
-        return resource
+        return self._render_resource_if_needed(
+            resource=resource,
+            template_variables=template_variables)
 
     def download_blueprint_resource(self,
                                     blueprint_id,
@@ -169,13 +164,10 @@ class ManagerEndpoint(Endpoint):
             resource_path=resource_path,
             logger=logger,
             target_path=target_path)
-        if template_variables:
-            resource = super(ManagerEndpoint,
-                             self).render_resource(
-                resource=resource,
-                template_variables=template_variables,
-                is_file_path=True)
-        return resource
+        return self._render_resource_if_needed(
+            resource=resource,
+            template_variables=template_variables,
+            download=True)
 
     def get_provider_context(self):
         return manager.get_provider_context()
@@ -240,12 +232,9 @@ class LocalEndpoint(Endpoint):
                                resource_path,
                                template_variables=None):
         resource = self.storage.get_resource(resource_path)
-        if template_variables:
-            resource = super(LocalEndpoint,
-                             self).render_resource(
-                resource=resource,
-                template_variables=template_variables)
-        return resource
+        return self._render_resource_if_needed(
+            resource=resource,
+            template_variables=template_variables)
 
     def download_blueprint_resource(self,
                                     blueprint_id,
@@ -255,13 +244,10 @@ class LocalEndpoint(Endpoint):
                                     template_variables=None):
         resource = self.storage.download_resource(resource_path=resource_path,
                                                   target_path=target_path)
-        if template_variables:
-            resource = super(LocalEndpoint,
-                             self).render_resource(
-                resource=resource,
-                template_variables=template_variables,
-                is_file_path=True)
-        return resource
+        return self._render_resource_if_needed(
+            resource=resource,
+            template_variables=template_variables,
+            download=True)
 
     def get_provider_context(self):
         # TODO
