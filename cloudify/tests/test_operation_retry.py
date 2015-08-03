@@ -14,8 +14,8 @@
 #    * limitations under the License.
 
 
-import os
 from StringIO import StringIO
+from os import path
 
 import testtools
 from mock import patch
@@ -24,9 +24,8 @@ from cloudify import context
 from cloudify import decorators
 from cloudify import exceptions
 from cloudify import logs
-from cloudify.workflows import local
 from cloudify.workflows import tasks as workflow_tasks
-
+from cloudify.test_utils import workflow_test
 
 RETRY_MESSAGE = 'operation will be retried'
 RETRY_AFTER = 10
@@ -38,7 +37,6 @@ def retry_operation(ctx, **_):
 
 
 class OperationRetryTests(testtools.TestCase):
-
     def test_operation_retry_api(self):
         op_name = 'operation'
         ctx = context.CloudifyContext({
@@ -83,7 +81,6 @@ def node_operation_retry(ctx, **kwargs):
 
 @decorators.workflow
 def execute_operation(ctx, operation, **kwargs):
-
     ignore_operations = ['lifecycle.stop']
 
     graph = ctx.graph_mode()
@@ -92,6 +89,7 @@ def execute_operation(ctx, operation, **kwargs):
         if operation in ignore_operations:
             def ignore(tsk):
                 return workflow_tasks.HandlerResult.ignore()
+
             task.on_failure = ignore
         graph.add_task(task)
     graph.execute()
@@ -99,21 +97,18 @@ def execute_operation(ctx, operation, **kwargs):
 
 class OperationRetryWorkflowTests(testtools.TestCase):
 
-    def setUp(self):
-        blueprint_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "resources/blueprints/test-operation-retry-blueprint.yaml")
-        self.env = local.init_env(blueprint_path)
-        super(OperationRetryWorkflowTests, self).setUp()
+    blueprint_path = path.join('resources', 'blueprints',
+                               'test-operation-retry-blueprint.yaml')
 
-    def test_operation_retry(self):
-        self.env.execute('execute_operation',
-                         task_retries=3,
-                         task_retry_interval=1,
-                         parameters={
-                             'operation': 'lifecycle.start'
-                         })
-        instance = self.env.storage.get_node_instances()[0]
+    @workflow_test(blueprint_path)
+    def test_operation_retry(self, cfy_local):
+        cfy_local.execute('execute_operation',
+                          task_retries=3,
+                          task_retry_interval=1,
+                          parameters={
+                              'operation': 'lifecycle.start'
+                          })
+        instance = cfy_local.storage.get_node_instances()[0]
         self.assertEqual(4, instance['runtime_properties']['counter'])
 
     def test_operation_retry_task_message(self):
@@ -130,12 +125,13 @@ class OperationRetryWorkflowTests(testtools.TestCase):
             self.assertIn('Operation will be retried',
                           output_buffer.getvalue())
 
-    def test_ignore_operation_retry(self):
-        self.env.execute('execute_operation',
-                         task_retries=3,
-                         task_retry_interval=1,
-                         parameters={
-                             'operation': 'lifecycle.stop'
-                         })
-        instance = self.env.storage.get_node_instances()[0]
+    @workflow_test(blueprint_path)
+    def test_ignore_operation_retry(self, cfy_local):
+        cfy_local.execute('execute_operation',
+                          task_retries=3,
+                          task_retry_interval=1,
+                          parameters={
+                              'operation': 'lifecycle.stop'
+                          })
+        instance = cfy_local.storage.get_node_instances()[0]
         self.assertEqual(4, instance['runtime_properties']['counter'])

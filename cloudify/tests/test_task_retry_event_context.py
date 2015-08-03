@@ -13,8 +13,7 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
-import os
+from os import path
 
 import testtools
 from mock import patch
@@ -22,7 +21,7 @@ from mock import patch
 from cloudify import decorators
 from cloudify import exceptions
 from cloudify import logs
-from cloudify.workflows import local
+from cloudify.test_utils import workflow_test
 
 
 @decorators.operation
@@ -47,24 +46,22 @@ def execute_operation(ctx, retry_type, **_):
 
 class TaskRetryEventContextTests(testtools.TestCase):
 
-    def setUp(self):
-        blueprint_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "resources/blueprints/"
-            "test-task-retry-event-context-blueprint.yaml")
-        self.env = local.init_env(blueprint_path)
-        super(TaskRetryEventContextTests, self).setUp()
+    blueprint_path = path.join('resources', 'blueprints',
+                               'test-task-retry-event-context-blueprint.yaml')
 
-    def test_operation_retry(self):
-        self._test_impl('retry', task_retries=2)
+    @workflow_test(blueprint_path)
+    def test_operation_retry(self, cfy_local):
+        self._test_impl(cfy_local, 'retry', task_retries=2)
 
-    def test_recoverable_retry(self):
-        self._test_impl('error', task_retries=2)
+    @workflow_test(blueprint_path)
+    def test_recoverable_retry(self, cfy_local):
+        self._test_impl(cfy_local, 'error', task_retries=2)
 
-    def test_infinite_retries(self):
-        self._test_impl('non-recoverable', task_retries=-1)
+    @workflow_test(blueprint_path)
+    def test_infinite_retries(self, cfy_local):
+        self._test_impl(cfy_local, 'non-recoverable', task_retries=-1)
 
-    def _test_impl(self, retry_type, task_retries):
+    def _test_impl(self, cfy_local, retry_type, task_retries):
         events = []
         original_event_out = logs.stdout_event_out
 
@@ -73,12 +70,12 @@ class TaskRetryEventContextTests(testtools.TestCase):
             events.append(event)
         with patch('cloudify.logs.stdout_event_out', event_output):
             try:
-                self.env.execute('execute_operation',
-                                 task_retries=task_retries,
-                                 task_retry_interval=0,
-                                 parameters={
-                                     'retry_type': retry_type
-                                 })
+                cfy_local.execute('execute_operation',
+                                  task_retries=task_retries,
+                                  task_retry_interval=0,
+                                  parameters={
+                                      'retry_type': retry_type
+                                  })
             except exceptions.NonRecoverableError:
                 pass
         events = [e for e in events if
