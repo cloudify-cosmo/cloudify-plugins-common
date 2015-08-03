@@ -66,11 +66,11 @@ def _assure_path_exists(dest_path):
         makedirs(dir_path)
 
 
-def _copy_resources(test_root_path, resources):
+def _copy_resources(test_source_path, resources, default_dest_path):
     """
     Copies a list of resources to the dest_path
 
-    :param test_root_path: the default destination path
+    :param test_source_path: the default destination path
     :param resources: a list of resources to be copied - can contain source
     path only, or a tuple of source and destination path.
     :return: None
@@ -84,8 +84,11 @@ def _copy_resources(test_root_path, resources):
             resource_source_path = resource
             relative_dest_path = path.basename(resource_source_path)
 
-        resource_source_path = path.abspath(resource_source_path)
-        resource_dest_path = path.join(test_root_path, relative_dest_path)
+        if not path.isabs(resource_source_path):
+            resource_source_path = path.join(test_source_path,
+                                             resource_source_path)
+
+        resource_dest_path = path.join(default_dest_path, relative_dest_path)
         _assure_path_exists(path.dirname(resource_dest_path))
         shutil.copyfile(resource_source_path, resource_dest_path)
 
@@ -156,7 +159,8 @@ class WorkflowTestDecorator(object):
                 _find_plugin_yaml(path.dirname(local_file_path)))
 
         # Copying resources
-        _copy_resources(self.temp_dir, self.resources_to_copy)
+        _copy_resources(path.dirname(local_file_path), self.resources_to_copy,
+                        self.temp_dir)
 
         # Updating the test_method_name (if not manually set)
         if self.init_args and not self.init_args.get('name'):

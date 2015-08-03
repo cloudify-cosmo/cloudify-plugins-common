@@ -197,7 +197,7 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
                     and \
                     (not type_names or (next((type for type in nodes_by_id[
                         inst.node_id].type_hierarchy if type in type_names),
-                                             None))):
+                    None))):
                 self.assertTrue(test_op_visited)
                 num_of_visited_instances += 1
             else:
@@ -234,7 +234,7 @@ class TestExecuteOperationWorkflow(testtools.TestCase):
         # the visits
         def assert_time_difference(earlier_inst_index, later_inst_index):
             td = instances_and_visit_times[later_inst_index][1] - \
-                 instances_and_visit_times[earlier_inst_index][1]
+                instances_and_visit_times[earlier_inst_index][1]
             self.assertThat(td, MatchesAny(Equals(1), GreaterThan(1)))
 
         for index1, index2 in indices_pairs_for_time_diff_assertions:
