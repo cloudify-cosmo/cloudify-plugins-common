@@ -40,12 +40,12 @@ def _find_plugin_yaml(original_path):
     Tries to find the plugin.yaml file automatically (by traversing up the
     directory tree).
     :param original_path: The path to start the search from
-    :return: The absolute path of the plugin.yaml file (if found, o.w.
-    raises an Error)
+    :return: The absolute path of the plugin.yaml file (if found, o.w. raises
+     an Error)
     """
     running_path = original_path
     while PLUGIN_YAML_NAME not in listdir(running_path):
-        level_up_path = path.realpath(path.join(running_path, '..'))
+        level_up_path = path.dirname(running_path)
         if level_up_path == running_path:
             msg = 'Traversing up the folder tree from {0}, failed to find {1}.'
             raise IOError(msg.format(original_path, PLUGIN_YAML_NAME))
@@ -101,13 +101,11 @@ class WorkflowTestDecorator(object):
         Sets the required parameters for future env init. passes the
         environment to the cfy_local argument.
 
-        :param env_as_keyword: specified if the env will be passed as a
-                           positional or keyword argument (keyword possible
-                           only on py34) (Defaults to False).
         :param blueprint_path: The relative path to the blueprint
         :param plugin_auto_copy: Tries to find and copy plugin.yaml (optional)
         :param resources_to_copy: Paths to resources to copy (optional)
         :param temp_dir_prefix: prefix for the resources (optional)
+        :param init_args: arguments to pass to the environment init (optional).
         """
         # blueprint to run
         self.blueprint_path = blueprint_path
