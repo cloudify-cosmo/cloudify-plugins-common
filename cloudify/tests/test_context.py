@@ -247,7 +247,7 @@ def get_template(ctx, testing, **_):
 
     if testing == 'get_resource_with_ctx':
         try:
-            resource = ctx.get_and_render_resource(
+            resource = ctx.get_resource_and_render(
                 rendering_tests_demo_conf,
                 template_variables={'ctx': ctx})
         except exceptions.NonRecoverableError:
@@ -255,14 +255,14 @@ def get_template(ctx, testing, **_):
             resource = 'failed'
 
     if testing == 'get_resource_no_template':
-        resource = ctx.get_and_render_resource(rendering_tests_demo_conf)
+        resource = ctx.get_resource_and_render(rendering_tests_demo_conf)
 
     if testing == 'get_resource_empty_template':
-        resource = ctx.get_and_render_resource(rendering_tests_demo_conf,
+        resource = ctx.get_resource_and_render(rendering_tests_demo_conf,
                                                template_variables={})
 
     if testing == 'get_resource':
-        resource = ctx.get_and_render_resource(
+        resource = ctx.get_resource_and_render(
             rendering_tests_demo_conf,
             template_variables={'key': 'value'})
 
@@ -277,7 +277,7 @@ def download_template(ctx, testing, **_):
 
     if testing == 'download_resource_with_ctx':
         try:
-            resource = ctx.download_and_render_resource(
+            resource = ctx.download_resource_and_render(
                 rendering_tests_demo_conf,
                 template_variables={'ctx': ctx})
         except exceptions.NonRecoverableError:
@@ -285,16 +285,16 @@ def download_template(ctx, testing, **_):
             resource = 'failed'
 
     if testing == 'download_resource_no_template':
-        resource = ctx.download_and_render_resource(
+        resource = ctx.download_resource_and_render(
             rendering_tests_demo_conf)
 
     if testing == 'download_resource_empty_template':
-        resource = ctx.download_and_render_resource(
+        resource = ctx.download_resource_and_render(
             rendering_tests_demo_conf,
             template_variables={})
 
     if testing == 'download_resource':
-        resource = ctx.download_and_render_resource(
+        resource = ctx.download_resource_and_render(
             rendering_tests_demo_conf,
             template_variables={'key': 'value'})
 
