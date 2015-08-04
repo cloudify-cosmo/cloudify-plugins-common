@@ -17,7 +17,6 @@ import os
 from os.path import dirname
 
 import testtools
-import jinja2
 
 from cloudify import constants
 from cloudify import context
@@ -135,14 +134,17 @@ class CloudifyContextTest(testtools.TestCase):
 
 class GetResourceTemplateTests(testtools.TestCase):
 
-    def setUp(self):
-        super(GetResourceTemplateTests, self).setUp()
-        self.blueprint_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "resources/blueprints/test-get-resource-template.yaml")
+    def __init__(self, *args, **kwargs):
+        super(GetResourceTemplateTests, self).__init__(*args, **kwargs)
         self.blueprint_resources_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             "resources/blueprints/resources")
+        self.blueprint_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "resources/blueprints/test-get-resource-template.yaml")
+
+    def setUp(self):
+        super(GetResourceTemplateTests, self).setUp()
 
     def _assert_rendering(self, env, download,
                           rendered, should_fail_rendering):
@@ -155,10 +157,14 @@ class GetResourceTemplateTests(testtools.TestCase):
             else:
                 rendered_resource = resource
 
-            if rendered:
+            if rendered == 'normal':
                 expected_resource_path = \
                     os.path.join(self.blueprint_resources_path,
                                  'rendered_template.conf')
+            elif rendered == 'extended':
+                expected_resource_path = \
+                    os.path.join(self.blueprint_resources_path,
+                                 'extended_rendered_template.conf')
             else:
                 expected_resource_path = \
                     os.path.join(self.blueprint_resources_path,
@@ -173,7 +179,7 @@ class GetResourceTemplateTests(testtools.TestCase):
     def _generic_get_download_template_test(self,
                                             parameters,
                                             download=False,
-                                            rendered=True,
+                                            rendered='normal',
                                             should_fail_rendering=False):
         env = local.init_env(self.blueprint_path)
         env.execute('execute_operation',
@@ -181,57 +187,56 @@ class GetResourceTemplateTests(testtools.TestCase):
         self._assert_rendering(env, download,
                                rendered, should_fail_rendering)
 
-    def test_get_resource_template(self):
+    def test_get_resource_template_with_ctx(self):
         self._generic_get_download_template_test({
             'operation': 'get_template',
-            'testing': 'get_resource'
-        })
+            'testing': 'get_resource_with_ctx'
+        }, rendered='false', should_fail_rendering=True)
 
-    def test_get_resource_not_template(self):
+    def test_get_resource_no_template(self):
         self._generic_get_download_template_test({
             'operation': 'get_template',
-            'testing': 'get_resource_not_template'
-        }, rendered=False)
+            'testing': 'get_resource_no_template'
+        })
 
     def test_get_resource_empty_template_variables(self):
         self._generic_get_download_template_test({
             'operation': 'get_template',
             'testing': 'get_resource_empty_template'
-        }, rendered=False)
+        })
 
-    def test_get_resource_template_fail(self):
+    def test_get_resource(self):
         self._generic_get_download_template_test({
             'operation': 'get_template',
-            'testing': 'get_resource_template_fail'
-        }, rendered=False, should_fail_rendering=True)
+            'testing': 'get_resource'
+        }, rendered='extended')
 
-    def test_download_resource_template(self):
+    def test_download_resource_template_with_ctx(self):
         self._generic_get_download_template_test(
             dict(operation='download_template',
-                 testing='download_resource'),
-            download=True)
-
-    def test_download_resource_not_template(self):
-        self._generic_get_download_template_test(
-            dict(operation='download_template',
-                 testing='download_resource_not_template'),
+                 testing='download_resource_with_ctx'),
             download=True,
-            rendered=False)
+            rendered='false',
+            should_fail_rendering=True)
+
+    def test_download_resource_no_template(self):
+        self._generic_get_download_template_test(
+            dict(operation='download_template',
+                 testing='download_resource_no_template'),
+            download=True)
 
     def test_download_resource_empty_template_variables(self):
         self._generic_get_download_template_test(
             dict(operation='download_template',
                  testing='download_resource_empty_template'),
-            download=True,
-            rendered=False)
+            download=True)
 
-    def test_download_resource_template_fail(self):
+    def test_download_resource(self):
         self._generic_get_download_template_test(
             dict(operation='download_template',
-                 testing='download_resource_template_fail'),
+                 testing='download_resource'),
             download=True,
-            rendered=False,
-            should_fail_rendering=True)
+            rendered='extended')
 
 
 @operation
@@ -240,28 +245,26 @@ def get_template(ctx, testing, **_):
     resource = 'empty'
     rendering_tests_demo_conf = 'resources/for_template_rendering_tests.conf'
 
-    if testing == 'get_resource':
-        resource = \
-            ctx.get_resource(rendering_tests_demo_conf,
-                             template_variables={'ctx': ctx})
+    if testing == 'get_resource_with_ctx':
+        try:
+            resource = ctx.get_resource_and_render(
+                rendering_tests_demo_conf,
+                template_variables={'ctx': ctx})
+        except exceptions.NonRecoverableError:
+            print 'caught expected exception'
+            resource = 'failed'
 
-    if testing == 'get_resource_not_template':
-        resource = \
-            ctx.get_resource(rendering_tests_demo_conf)
+    if testing == 'get_resource_no_template':
+        resource = ctx.get_resource_and_render(rendering_tests_demo_conf)
 
     if testing == 'get_resource_empty_template':
-        resource = \
-            ctx.get_resource(rendering_tests_demo_conf,
-                             template_variables={})
+        resource = ctx.get_resource_and_render(rendering_tests_demo_conf,
+                                               template_variables={})
 
-    if testing == 'get_resource_template_fail':
-        try:
-            resource = \
-                ctx.get_resource(rendering_tests_demo_conf,
-                                 template_variables={'ct': ctx})
-        except jinja2.exceptions.UndefinedError:
-            print 'caught expected UndefinedError jinja exception'
-            resource = 'failed'
+    if testing == 'get_resource':
+        resource = ctx.get_resource_and_render(
+            rendering_tests_demo_conf,
+            template_variables={'key': 'value'})
 
     ctx.instance.runtime_properties['resource'] = resource
 
@@ -272,34 +275,34 @@ def download_template(ctx, testing, **_):
     resource = 'empty'
     rendering_tests_demo_conf = 'resources/for_template_rendering_tests.conf'
 
-    if testing == 'download_resource':
-        resource = \
-            ctx.download_resource(rendering_tests_demo_conf,
-                                  template_variables={'ctx': ctx})
+    if testing == 'download_resource_with_ctx':
+        try:
+            resource = ctx.download_resource_and_render(
+                rendering_tests_demo_conf,
+                template_variables={'ctx': ctx})
+        except exceptions.NonRecoverableError:
+            print 'caught expected exception'
+            resource = 'failed'
 
-    if testing == 'download_resource_not_template':
-        resource = \
-            ctx.download_resource(rendering_tests_demo_conf)
+    if testing == 'download_resource_no_template':
+        resource = ctx.download_resource_and_render(
+            rendering_tests_demo_conf)
 
     if testing == 'download_resource_empty_template':
-        resource = \
-            ctx.download_resource(rendering_tests_demo_conf,
-                                  template_variables={})
+        resource = ctx.download_resource_and_render(
+            rendering_tests_demo_conf,
+            template_variables={})
 
-    if testing == 'download_resource_template_fail':
-        try:
-            resource = \
-                ctx.download_resource(rendering_tests_demo_conf,
-                                      template_variables={'ct': ctx})
-        except jinja2.exceptions.UndefinedError:
-            print 'caught expected UndefinedError jinja exception'
-            resource = 'failed'
+    if testing == 'download_resource':
+        resource = ctx.download_resource_and_render(
+            rendering_tests_demo_conf,
+            template_variables={'key': 'value'})
 
     ctx.instance.runtime_properties['resource'] = resource
 
 
 @workflow
-def execute_operation(ctx, operation, testing, **kwargs):
+def execute_operation(ctx, operation, testing, **_):
     node = ctx.get_node('node1')
     instance = next(node.instances)
     instance.execute_operation(operation, kwargs={'testing': testing})

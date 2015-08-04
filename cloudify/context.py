@@ -626,8 +626,7 @@ class CloudifyContext(CommonContext):
         return self._provider_context
 
     def get_resource(self,
-                     resource_path,
-                     template_variables=None):
+                     resource_path):
         """
         Retrieves a resource bundled with the blueprint as a string.
 
@@ -638,13 +637,30 @@ class CloudifyContext(CommonContext):
 
         return self._endpoint.get_blueprint_resource(
             blueprint_id=self.blueprint.id,
+            resource_path=resource_path)
+
+    def get_resource_and_render(self,
+                                resource_path,
+                                template_variables=None):
+        """
+        Like get_resource, but also renders the resource according
+        to template_variables.
+        This context is added to template_variables.
+
+        :param template_variables: according to this dict the
+                                   resource will be rendered.
+        """
+
+        template_variables = self._add_context_to_template_variables(
+            template_variables)
+        return self._endpoint.get_blueprint_resource(
+            blueprint_id=self.blueprint.id,
             resource_path=resource_path,
             template_variables=template_variables)
 
     def download_resource(self,
                           resource_path,
-                          target_path=None,
-                          template_variables=None):
+                          target_path=None):
         """
         Retrieves a resource bundled with the blueprint and saves it under a
         local file.
@@ -675,6 +691,28 @@ class CloudifyContext(CommonContext):
             blueprint_id=self.blueprint.id,
             resource_path=resource_path,
             logger=self.logger,
+            target_path=target_path)
+
+    def download_resource_and_render(self,
+                                     resource_path,
+                                     target_path=None,
+                                     template_variables=None):
+        """
+        Like download_resource, but also renders the resource according
+        to template_variables.
+        This context is added to template_variables.
+
+        :param template_variables: according to this dict the resource
+                                   will be rendered.
+
+        """
+
+        template_variables = self._add_context_to_template_variables(
+            template_variables)
+        return self._endpoint.download_blueprint_resource(
+            blueprint_id=self.blueprint.id,
+            resource_path=resource_path,
+            logger=self.logger,
             target_path=target_path,
             template_variables=template_variables)
 
@@ -683,6 +721,19 @@ class CloudifyContext(CommonContext):
             else 'cloudify_plugin'
         handler = self._endpoint.get_logging_handler()
         return init_cloudify_logger(handler, logger_name)
+
+    def _add_context_to_template_variables(self, template_variables):
+
+        if template_variables:
+            if 'ctx' in template_variables:
+                raise exceptions.NonRecoverableError(
+                    'Key not allowed - a key named '
+                    'ctx is in template_variables')
+        else:
+            template_variables = {}
+
+        template_variables['ctx'] = self
+        return template_variables
 
 
 class OperationContext(object):
