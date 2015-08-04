@@ -96,7 +96,7 @@ def _copy_resources(test_source_path, resources, default_dest_path):
 class WorkflowTestDecorator(object):
     def __init__(self,
                  blueprint_path,
-                 plugin_auto_copy=False,
+                 copy_plugin_yaml=False,
                  resources_to_copy=None,
                  temp_dir_prefix=None,
                  init_args=None,
@@ -106,7 +106,7 @@ class WorkflowTestDecorator(object):
         environment to the cfy_local argument.
 
         :param blueprint_path: The relative path to the blueprint
-        :param plugin_auto_copy: Tries to find and copy plugin.yaml (optional)
+        :param copy_plugin_yaml: Tries to find and copy plugin.yaml (optional)
         :param resources_to_copy: Paths to resources to copy (optional)
         :param temp_dir_prefix: prefix for the resources (optional)
         :param init_args: arguments to pass to the environment init (optional).
@@ -119,8 +119,8 @@ class WorkflowTestDecorator(object):
         # Plugin path and name
         self.resources_to_copy = resources_to_copy if resources_to_copy else []
 
-        self.copy_plugin = plugin_auto_copy
-        if self.copy_plugin:
+        self.copy_plugin_yaml = copy_plugin_yaml
+        if self.copy_plugin_yaml:
             self.plugin_yaml_filename = PLUGIN_YAML_NAME
 
         # Set prefix for resources
@@ -165,7 +165,7 @@ class WorkflowTestDecorator(object):
         self.resources_to_copy.append(self.blueprint_path)
 
         # Finding and adding the plugin
-        if self.copy_plugin:
+        if self.copy_plugin_yaml:
             self.resources_to_copy.append(
                 _find_plugin_yaml(path.dirname(local_file_path)))
 
