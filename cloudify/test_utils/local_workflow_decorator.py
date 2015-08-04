@@ -99,7 +99,8 @@ class WorkflowTestDecorator(object):
                  plugin_auto_copy=False,
                  resources_to_copy=None,
                  temp_dir_prefix=None,
-                 init_args=None):
+                 init_args=None,
+                 inputs=None):
         """
         Sets the required parameters for future env init. passes the
         environment to the cfy_local argument.
@@ -109,6 +110,7 @@ class WorkflowTestDecorator(object):
         :param resources_to_copy: Paths to resources to copy (optional)
         :param temp_dir_prefix: prefix for the resources (optional)
         :param init_args: arguments to pass to the environment init (optional).
+        :param inputs: directs inputs assignments into init_args0 (optional).
         """
         # blueprint to run
         self.blueprint_path = blueprint_path
@@ -135,6 +137,9 @@ class WorkflowTestDecorator(object):
             self.init_args = {
                 'ignored_modules': IGNORED_LOCAL_WORKFLOW_MODULES
             }
+
+        if inputs and inputs not in self.init_args.keys():
+            self.init_args['inputs'] = inputs
 
     def set_up(self, local_file_path, test_method_name):
         """
