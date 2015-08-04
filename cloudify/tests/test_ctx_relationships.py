@@ -14,42 +14,41 @@
 #  * limitations under the License.
 
 
-import os
 import copy
+from os import path
 
 import testtools
 
 from cloudify import context
-from cloudify.workflows import local
 from cloudify.decorators import operation
 from cloudify.decorators import workflow
 from cloudify import ctx as operation_ctx
 from cloudify.workflows import ctx as workflow_ctx
 from cloudify import exceptions
+from cloudify.test_utils import workflow_test
 
 
 class TestContextRelationship(testtools.TestCase):
 
-    def setUp(self):
-        super(TestContextRelationship, self).setUp()
-        blueprint_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            'resources/blueprints/relationship_context.yaml')
-        self.env = local.init_env(blueprint_path)
+    context_blueprint_path = path.join('resources', 'blueprints',
+                                       'relationship_context.yaml')
 
-    def test_instance_relationships(self):
-        self._update_runtime_properties()
-        result = self._assert_relationships('')
+    @workflow_test(context_blueprint_path)
+    def test_instance_relationships(self, cfy_local):
+        self._update_runtime_properties(cfy_local)
+        result = self._assert_relationships(cfy_local, '')
         self._test_relationships(result, '')
 
-    def test_source_relationships(self):
-        self._update_runtime_properties()
-        result = self._assert_relationships('source')
+    @workflow_test(context_blueprint_path)
+    def test_source_relationships(self, cfy_local):
+        self._update_runtime_properties(cfy_local)
+        result = self._assert_relationships(cfy_local, 'source')
         self._test_relationships(result, 'source')
 
-    def test_target_relationships(self):
-        self._update_runtime_properties()
-        result = self._assert_relationships('target')
+    @workflow_test(context_blueprint_path)
+    def test_target_relationships(self, cfy_local):
+        self._update_runtime_properties(cfy_local)
+        result = self._assert_relationships(cfy_local, 'target')
         self._test_relationships(result, 'target')
 
     def _test_relationships(self, result, rel):
@@ -92,23 +91,23 @@ class TestContextRelationship(testtools.TestCase):
         self.assertEqual(rel2['target_instance']['runtime_properties'],
                          {'node3_prop': 'node3_value'})
 
-    def _update_runtime_properties(self):
+    def _update_runtime_properties(self, cfy_local):
         for node in ['node1', 'node2', 'node3']:
-            self._run(
-                'update_runtime_properties', '',
-                node=node,
-                kwargs={
-                    'runtime_properties': {
-                        'prop': {
-                            '{0}_prop'.format(node):
-                            '{0}_value'.format(node)}}
-                })
+            self._run(cfy_local,
+                      'update_runtime_properties', '',
+                      node=node,
+                      kwargs={
+                          'runtime_properties': {
+                              'prop': {
+                                  '{0}_prop'.format(node): '{0}_value'.format(
+                                      node)}}
+                      })
 
-    def _assert_relationships(self, rel):
+    def _assert_relationships(self, cfy_local, rel):
         for node in ['node1', 'node2', 'node3']:
-            self._run('assert_relationships', rel, node=node)
+            self._run(cfy_local, 'assert_relationships', rel, node=node)
 
-        instances = self.env.storage.get_node_instances()
+        instances = cfy_local.storage.get_node_instances()
         instance1 = [i for i in instances if i.node_id == 'node1'][0]
         instance2 = [i for i in instances if i.node_id == 'node2'][0]
         instance3 = [i for i in instances if i.node_id == 'node3'][0]
@@ -119,10 +118,10 @@ class TestContextRelationship(testtools.TestCase):
             'node3': instance3.runtime_properties.get(rel, [])
         }
 
-    def _assert_capabilities(self, rel):
-        self._run('assert_capabilities', rel)
+    def _assert_capabilities(self, cfy_local, rel):
+        self._run(cfy_local, 'assert_capabilities', rel)
 
-        instances = self.env.storage.get_node_instances()
+        instances = cfy_local.storage.get_node_instances()
         instance1 = [i for i in instances if i.node_id == 'node1'][0]
         instance2 = [i for i in instances if i.node_id == 'node2'][0]
         rel = rel or 'self'
@@ -131,36 +130,42 @@ class TestContextRelationship(testtools.TestCase):
             'node2': instance2.runtime_properties.get(rel, {}),
         }
 
-    def test_modifiable_instance(self):
-        self._run('assert_modifiable', '')
-        instances = self.env.storage.get_node_instances()
+    @workflow_test(context_blueprint_path)
+    def test_modifiable_instance(self, cfy_local):
+        self._run(cfy_local, 'assert_modifiable', '')
+        instances = cfy_local.storage.get_node_instances()
         instance = [i for i in instances if i.node_id == 'node1'][0]
         self.assertEqual(instance.runtime_properties['new_prop'], 'new_value')
 
-    def test_modifiable_source(self):
-        self._test_modifiable_relationship('source')
+    @workflow_test(context_blueprint_path)
+    def test_modifiable_source(self, cfy_local):
+        self._test_modifiable_relationship(cfy_local, 'source')
 
-    def test_modifiable_target(self):
-        self._test_modifiable_relationship('target')
+    @workflow_test(context_blueprint_path)
+    def test_modifiable_target(self, cfy_local):
+        self._test_modifiable_relationship(cfy_local, 'target')
 
-    def test_not_modifiable_instance(self):
+    @workflow_test(context_blueprint_path)
+    def test_not_modifiable_instance(self, cfy_local):
         with testtools.ExpectedException(exceptions.NonRecoverableError,
                                          '.*Cannot modify.*'):
-            self._run('assert_not_modifiable', '')
+            self._run(cfy_local, 'assert_not_modifiable', '')
 
-    def test_not_modifiable_source(self):
+    @workflow_test(context_blueprint_path)
+    def test_not_modifiable_source(self, cfy_local):
         with testtools.ExpectedException(exceptions.NonRecoverableError,
                                          '.*Cannot modify.*'):
-            self._run('assert_not_modifiable', 'source')
+            self._run(cfy_local, 'assert_not_modifiable', 'source')
 
-    def test_not_modifiable_target(self):
+    @workflow_test(context_blueprint_path)
+    def test_not_modifiable_target(self, cfy_local):
         with testtools.ExpectedException(exceptions.NonRecoverableError,
                                          '.*Cannot modify.*'):
-            self._run('assert_not_modifiable', 'target')
+            self._run(cfy_local, 'assert_not_modifiable', 'target')
 
-    def _test_modifiable_relationship(self, rel):
-        self._run('assert_modifiable', rel)
-        instances = self.env.storage.get_node_instances()
+    def _test_modifiable_relationship(self, cfy_local, rel):
+        self._run(cfy_local, 'assert_modifiable', rel)
+        instances = cfy_local.storage.get_node_instances()
         instance1 = [i for i in instances if i.node_id == 'node1'][0]
         instance2 = [i for i in instances if i.node_id == 'node2'][0]
         self.assertEqual(instance1.runtime_properties['new_source_prop'],
@@ -168,54 +173,60 @@ class TestContextRelationship(testtools.TestCase):
         self.assertEqual(instance2.runtime_properties['new_target_prop'],
                          'new_target_value')
 
-    def test_immutable_properties(self):
+    @workflow_test(context_blueprint_path)
+    def test_immutable_properties(self, cfy_local):
         with testtools.ExpectedException(exceptions.NonRecoverableError,
                                          '.*read only properties.*'):
-            self._run('assert_immutable_properties', '')
+            self._run(cfy_local, 'assert_immutable_properties', '')
 
-    def test_instance_capabilities(self):
-        self._update_runtime_properties()
-        result = self._assert_capabilities('')
+    @workflow_test(context_blueprint_path)
+    def test_instance_capabilities(self, cfy_local):
+        self._update_runtime_properties(cfy_local)
+        result = self._assert_capabilities(cfy_local, '')
         self.assertIn('node2_', result['node1']['id'])
         self.assertEquals(result['node1']['prop'],
                           {'node2_prop': 'node2_value'})
 
-    def test_source_capabilities(self):
-        self._update_runtime_properties()
-        result = self._assert_capabilities('source')
+    @workflow_test(context_blueprint_path)
+    def test_source_capabilities(self, cfy_local):
+        self._update_runtime_properties(cfy_local)
+        result = self._assert_capabilities(cfy_local, 'source')
         self.assertIn('node2_', result['node1']['id'])
         self.assertEquals(result['node1']['prop'],
                           {'node2_prop': 'node2_value'})
 
-    def test_target_capabilities(self):
-        self._update_runtime_properties()
-        result = self._assert_capabilities('target')
+    @workflow_test(context_blueprint_path)
+    def test_target_capabilities(self, cfy_local):
+        self._update_runtime_properties(cfy_local)
+        result = self._assert_capabilities(cfy_local, 'target')
         self.assertIn('node3_', result['node2']['id'])
         self.assertEquals(result['node2']['prop'],
                           {'node3_prop': 'node3_value'})
 
-    def test_invalid_deployment_capabilities(self):
+    @workflow_test(context_blueprint_path)
+    def test_invalid_deployment_capabilities(self, cfy_local):
         with testtools.ExpectedException(exceptions.NonRecoverableError,
                                          '.*used in a deployment context.*'):
-            self.env.execute(
+            cfy_local.execute(
                 'execute_task',
                 parameters={
                     'task': '{0}.{1}'.format(__name__, 'assert_capabilities')
                 })
 
-    def test_2_hops(self):
-        self._update_runtime_properties()
-        self._run('asset_2_hops', '')
-        node_instances = self.env.storage.get_node_instances()
+    @workflow_test(context_blueprint_path)
+    def test_2_hops(self, cfy_local):
+        self._update_runtime_properties(cfy_local)
+        self._run(cfy_local, 'asset_2_hops', '')
+        node_instances = cfy_local.storage.get_node_instances()
         instance = [i for i in node_instances if i.node_id == 'node1'][0]
         self._assert_node2_rel(instance.runtime_properties['result'])
 
-    def _run(self, op, rel, node='node1', kwargs=None):
+    def _run(self, cfy_local, op, rel, node='node1', kwargs=None):
         kwargs = kwargs or {}
-        self.env.execute('execute_operation',
-                         task_retries=0,
-                         parameters={'op': op, 'rel': rel, 'node': node,
-                                     'kwargs': kwargs})
+        cfy_local.execute('execute_operation',
+                          task_retries=0,
+                          parameters={'op': op, 'rel': rel, 'node': node,
+                                      'kwargs': kwargs})
 
 
 @workflow
@@ -288,14 +299,12 @@ def _extract_relationship(relationship):
         'type_hierarchy': relationship.type_hierarchy,
         'target_node': {
             'id': relationship.target.node.id,
-            'prop':
-                copy.deepcopy(relationship.target.node.properties['prop'])
+            'prop': copy.deepcopy(relationship.target.node.properties['prop'])
         },
         'target_instance': {
             'id': relationship.target.instance.id,
-            'runtime_properties':
-                copy.deepcopy(
-                    relationship.target.instance.runtime_properties['prop'])
+            'runtime_properties': copy.deepcopy(
+                relationship.target.instance.runtime_properties['prop'])
         }
     }
 

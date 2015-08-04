@@ -13,14 +13,13 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
-import os
+from os import path
 
 import testtools
 
 from cloudify import decorators
 from cloudify import exceptions
-from cloudify.workflows import local
+from cloudify.test_utils import workflow_test
 
 
 @decorators.operation
@@ -41,17 +40,14 @@ def fail_execute_task(ctx, **kwargs):
 
 class TaskRetryWorkflowTests(testtools.TestCase):
 
-    def setUp(self):
-        blueprint_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "resources/blueprints/test-task-retry-blueprint.yaml")
-        self.env = local.init_env(blueprint_path)
-        super(TaskRetryWorkflowTests, self).setUp()
+    retry_blueprint_yaml = path.join('resources', 'blueprints',
+                                     'test-task-retry-blueprint.yaml')
 
-    def test_task_retry(self):
-        self.env.execute('fail_execute_task',
-                         task_retries=1,
-                         task_retry_interval=0)
+    @workflow_test(retry_blueprint_yaml)
+    def test_task_retry(self, cfy_local):
+        cfy_local.execute('fail_execute_task',
+                          task_retries=1,
+                          task_retry_interval=0)
 
 
 class ExpectedException(exceptions.RecoverableError):

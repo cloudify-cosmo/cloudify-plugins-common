@@ -13,11 +13,12 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-import os
+from os import path
+
 import testtools
 
 from cloudify.decorators import workflow
-from cloudify.workflows import local
+from cloudify.test_utils import workflow_test
 
 
 @workflow
@@ -46,32 +47,31 @@ def stop_workflow(ctx, **kwargs):
 
 class TestExecuteNotExistOperationWorkflow(testtools.TestCase):
 
-    def setUp(self):
-        super(TestExecuteNotExistOperationWorkflow, self).setUp()
-        blueprint_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "resources/blueprints/not_exist_op_workflow.yaml")
-        self.env = local.init_env(blueprint_path)
+    execute_blueprint_path = path.join('resources', 'blueprints',
+                                       'not_exist_op_workflow.yaml')
 
-    def test_execute_not_exist_operation(self):
-        node_id = self.env.plan.get('node_instances')[0].get('id')
+    @workflow_test(execute_blueprint_path)
+    def test_execute_not_exist_operation(self, cfy_local):
+        node_id = cfy_local.plan.get('node_instances')[0].get('id')
         try:
-            self.env.execute('not_exist_op_workflow')
+            cfy_local.execute('not_exist_op_workflow')
             self.fail('Expected exception due to operation not exist')
         except Exception as e:
             self.assertTrue('operation of node instance {0} does not exist'
                             .format(node_id) in e.message)
 
-    def test_execute_not_exist_interface(self):
-        node_id = self.env.plan.get('node_instances')[0].get('id')
+    @workflow_test(execute_blueprint_path)
+    def test_execute_not_exist_interface(self, cfy_local):
+        node_id = cfy_local.plan.get('node_instances')[0].get('id')
         try:
-            self.env.execute('not_exist_interface_workflow')
+            cfy_local.execute('not_exist_interface_workflow')
             self.fail('Expected exception due to operation not exist')
         except Exception as e:
             self.assertTrue('operation of node instance {0} does not exist'
                             .format(node_id) in e.message)
 
-    def test_execute_stop_operation(self):
+    @workflow_test(execute_blueprint_path)
+    def test_execute_stop_operation(self, cfy_local):
         # checks that an operation that exists in a builtin interface
         # does not raise an exception if it is not declared in the blueprint
-        self.env.execute('stop_workflow')
+        cfy_local.execute('stop_workflow')
