@@ -639,7 +639,7 @@ class CloudifyContext(CommonContext):
             blueprint_id=self.blueprint.id,
             resource_path=resource_path)
 
-    def get_and_render_resource(self,
+    def get_resource_and_render(self,
                                 resource_path,
                                 template_variables=None):
         """
@@ -648,7 +648,7 @@ class CloudifyContext(CommonContext):
         This context is added to template_variables.
 
         :param template_variables: according to this dict the
-        resource will be rendered.
+                                   resource will be rendered.
         """
 
         template_variables = self._add_context_to_template_variables(
@@ -693,7 +693,7 @@ class CloudifyContext(CommonContext):
             logger=self.logger,
             target_path=target_path)
 
-    def download_and_render_resource(self,
+    def download_resource_and_render(self,
                                      resource_path,
                                      target_path=None,
                                      template_variables=None):
@@ -703,7 +703,7 @@ class CloudifyContext(CommonContext):
         This context is added to template_variables.
 
         :param template_variables: according to this dict the resource
-        will be rendered.
+                                   will be rendered.
 
         """
 
