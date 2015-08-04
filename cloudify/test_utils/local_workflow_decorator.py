@@ -138,8 +138,14 @@ class WorkflowTestDecorator(object):
                 'ignored_modules': IGNORED_LOCAL_WORKFLOW_MODULES
             }
 
-        if inputs and inputs not in self.init_args.keys():
-            self.init_args['inputs'] = inputs
+        # set the inputs (if set)
+        if inputs and 'inputs' in self.init_args.keys():
+            raise ValueError("You've supplied 'inputs' inside init_args and as"
+                             " a keyword. You cannot have more than "
+                             "1 'inputs' source is needed.")
+        else:
+            if inputs:
+                self.init_args['inputs'] = inputs
 
     def set_up(self, local_file_path, test_method_name):
         """
