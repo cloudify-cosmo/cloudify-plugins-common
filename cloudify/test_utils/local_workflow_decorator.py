@@ -12,6 +12,7 @@
 #  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
+from contextlib import contextmanager
 
 import sys
 import shutil
@@ -66,6 +67,18 @@ def _assure_path_exists(dest_path):
         makedirs(dir_path)
 
 
+def _expand_dictionary(dic, func_self):
+    for key, val in dic.iteritems():
+        if isinstance(val, dict):
+            _expand_dictionary(val, func_self)
+        else:
+            if hasattr(val, '__call__'):
+                dic[key] = val()
+            elif isinstance(val, str):
+                self_attr = getattr(func_self, val)
+                dic[key] = self_attr() if hasattr(self_attr, '__call__') else self_attr
+
+
 def _copy_resources(test_source_path, resources, default_dest_path):
     """
     Copies a list of resources to the dest_path
@@ -91,7 +104,6 @@ def _copy_resources(test_source_path, resources, default_dest_path):
         resource_dest_path = path.join(default_dest_path, relative_dest_path)
         _assure_path_exists(path.dirname(resource_dest_path))
         shutil.copyfile(resource_source_path, resource_dest_path)
-
 
 class WorkflowTestDecorator(object):
     def __init__(self,
@@ -147,7 +159,7 @@ class WorkflowTestDecorator(object):
             if inputs:
                 self.init_args['inputs'] = inputs
 
-    def set_up(self, local_file_path, test_method_name):
+    def set_up(self, func_self):
         """
         Sets up the enviroment variables needed for this test.
 
@@ -155,6 +167,10 @@ class WorkflowTestDecorator(object):
         :param test_method_name: the name of the test method.
         :return: The test env which is a wrapped Environment.
         """
+
+        local_file_path = sys.modules[func_self.__class__.__module__].__file__
+        test_method_name = func_self._testMethodName
+
         if not self.temp_dir_prefix:
             self.temp_dir_prefix = test_method_name
 
@@ -176,6 +192,10 @@ class WorkflowTestDecorator(object):
         # Updating the test_method_name (if not manually set)
         if self.init_args and not self.init_args.get('name'):
             self.init_args['name'] = test_method_name
+
+        # Expand inputs dictionary
+        if 'inputs' in self.init_args.keys():
+            _expand_dictionary(self.init_args['inputs'], func_self)
 
         # Init env with supplied args
         temp_blueprint_path = path.join(self.temp_dir,
@@ -201,10 +221,7 @@ class WorkflowTestDecorator(object):
             :param func: the function of which this test has been called from
             :return:
             """
-            test_env = self.set_up(
-                sys.modules[func_self.__class__.__module__].__file__,
-                func_self._testMethodName
-            )
+            test_env = self.set_up(func_self)
             try:
                 test(func_self, test_env, *args, **kwargs)
             finally:
