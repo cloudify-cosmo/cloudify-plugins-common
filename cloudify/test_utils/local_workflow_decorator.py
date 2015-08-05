@@ -66,22 +66,18 @@ def _assure_path_exists(dest_path):
         makedirs(dir_path)
 
 
-def _expand_dictionary(dic, func_self):
-    for key, val in dic.iteritems():
-        if isinstance(val, dict):
-            _expand_dictionary(val, func_self)
+def _expand_dictionary(inputs, func_self):
+    if callable(inputs):
+        return inputs()
+    elif isinstance(inputs, basestring):
+        if func_self is None:
+            raise ValueError("You cannot supply 'string' "
+                             "references to 'self' object in "
+                             "contextmanager mode.")
         else:
-            if hasattr(val, '__call__'):
-                dic[key] = val()
-            elif isinstance(val, str):
-                if func_self is None:
-                    raise StandardError("You cannot supply 'string' "
-                                        "references to 'self' object in "
-                                        "contextmanager mode.")
-                else:
-                    dic[key] = getattr(func_self, val)
-                    if hasattr(dic[key], '__call__'):
-                        dic[key] = dic[key]()
+            return getattr(func_self, inputs)()
+
+    return inputs
 
 
 def _copy_resources(test_source_path, resources, default_dest_path):
@@ -108,11 +104,6 @@ def _copy_resources(test_source_path, resources, default_dest_path):
             if not path.isabs(resource_source_path):
                 resource_source_path = path.join(test_source_path,
                                                  resource_source_path)
-        elif not path.isabs(resource_source_path):
-            raise IOError("You are running a context manager, and you "
-                          "supplied a relative path ({}). When running "
-                          "with contextmanager please supply an absolute "
-                          "path.".format(resource_source_path))
 
         # Setting absolute destinaton path
         resource_dest_path = path.join(default_dest_path, relative_dest_path)
@@ -128,8 +119,7 @@ class WorkflowTestDecorator(object):
                  resources_to_copy=None,
                  temp_dir_prefix=None,
                  init_args=None,
-                 inputs=None,
-                 func_self=None):
+                 inputs=None):
         """
         Sets the required parameters for future env init. passes the
         environment to the cfy_local argument.
@@ -141,8 +131,6 @@ class WorkflowTestDecorator(object):
         :param init_args: arguments to pass to the environment init (optional).
         :param inputs: directs inputs assignments into init_args0 (optional).
         """
-
-        self.func_self = func_self
 
         # blueprint to run
         self.blueprint_path = blueprint_path
@@ -224,7 +212,8 @@ class WorkflowTestDecorator(object):
 
         # Expand inputs dictionary
         if 'inputs' in self.init_args.keys():
-            _expand_dictionary(self.init_args['inputs'], func_self)
+            self.init_args['inputs'] = \
+                _expand_dictionary(self.init_args['inputs'], func_self)
 
         # Init env with supplied args
         temp_blueprint_path = path.join(self.temp_dir,
