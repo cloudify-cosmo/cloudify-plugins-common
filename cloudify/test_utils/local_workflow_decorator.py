@@ -66,6 +66,24 @@ def _assure_path_exists(dest_path):
         makedirs(dir_path)
 
 
+def _expand_dictionary(dic, func_self):
+    for key, val in dic.iteritems():
+        if isinstance(val, dict):
+            _expand_dictionary(val, func_self)
+        else:
+            if hasattr(val, '__call__'):
+                dic[key] = val()
+            elif isinstance(val, str):
+                if func_self is None:
+                    raise StandardError("You cannot supply 'string' "
+                                        "references to 'self' object in "
+                                        "contextmanager mode.")
+                else:
+                    dic[key] = getattr(func_self, val)
+                    if hasattr(dic[key], '__call__'):
+                        dic[key] = dic[key]()
+
+
 def _copy_resources(test_source_path, resources, default_dest_path):
     """
     Copies a list of resources to the dest_path
@@ -76,6 +94,7 @@ def _copy_resources(test_source_path, resources, default_dest_path):
     :return: None
     """
     for resource in resources:
+        # Setting resource relative destination path and temp source path
         if isinstance(resource, tuple):
             resource_source_path, relative_dest_path = resource
             relative_dest_path = path.join(relative_dest_path,
@@ -84,11 +103,20 @@ def _copy_resources(test_source_path, resources, default_dest_path):
             resource_source_path = resource
             relative_dest_path = path.basename(resource_source_path)
 
-        if not path.isabs(resource_source_path):
-            resource_source_path = path.join(test_source_path,
-                                             resource_source_path)
+        # Setting resource source path
+        if test_source_path:
+            if not path.isabs(resource_source_path):
+                resource_source_path = path.join(test_source_path,
+                                                 resource_source_path)
+        elif not path.isabs(resource_source_path):
+            raise IOError("You are running a context manager, and you "
+                          "supplied a relative path ({}). When running "
+                          "with contextmanager please supply an absolute "
+                          "path.".format(resource_source_path))
 
+        # Setting absolute destinaton path
         resource_dest_path = path.join(default_dest_path, relative_dest_path)
+
         _assure_path_exists(path.dirname(resource_dest_path))
         shutil.copyfile(resource_source_path, resource_dest_path)
 
@@ -100,7 +128,8 @@ class WorkflowTestDecorator(object):
                  resources_to_copy=None,
                  temp_dir_prefix=None,
                  init_args=None,
-                 inputs=None):
+                 inputs=None,
+                 func_self=None):
         """
         Sets the required parameters for future env init. passes the
         environment to the cfy_local argument.
@@ -112,6 +141,9 @@ class WorkflowTestDecorator(object):
         :param init_args: arguments to pass to the environment init (optional).
         :param inputs: directs inputs assignments into init_args0 (optional).
         """
+
+        self.func_self = func_self
+
         # blueprint to run
         self.blueprint_path = blueprint_path
         self.temp_blueprint_path = None
@@ -147,7 +179,7 @@ class WorkflowTestDecorator(object):
             if inputs:
                 self.init_args['inputs'] = inputs
 
-    def set_up(self, local_file_path, test_method_name):
+    def set_up(self, func_self=None):
         """
         Sets up the enviroment variables needed for this test.
 
@@ -155,27 +187,44 @@ class WorkflowTestDecorator(object):
         :param test_method_name: the name of the test method.
         :return: The test env which is a wrapped Environment.
         """
-        if not self.temp_dir_prefix:
-            self.temp_dir_prefix = test_method_name
+        if func_self:
+            local_file_path = \
+                sys.modules[func_self.__class__.__module__].__file__
+            test_method_name = func_self._testMethodName
+        else:
+            local_file_path, test_method_name = None, None
 
-        # Creating temp dir
-        self.temp_dir = tempfile.mkdtemp(prefix=self.temp_dir_prefix)
+        # Creating a temp dir
+        if self.temp_dir_prefix:
+            self.temp_dir = tempfile.mkdtemp(prefix=self.temp_dir_prefix)
+        elif test_method_name:
+            self.temp_dir = tempfile.mkdtemp(prefix=test_method_name)
+        else:
+            self.temp_dir = tempfile.mkdtemp()
 
         # Adding blueprint to the resources to copy
         self.resources_to_copy.append(self.blueprint_path)
 
         # Finding and adding the plugin
-        if self.copy_plugin_yaml:
+        if func_self is not None and self.copy_plugin_yaml:
             self.resources_to_copy.append(
                 _find_plugin_yaml(path.dirname(local_file_path)))
+        elif self.copy_plugin_yaml:
+            raise StandardError("You cannot use copy_plugin_yaml in "
+                                "contextmanager mode.")
 
         # Copying resources
-        _copy_resources(path.dirname(local_file_path), self.resources_to_copy,
-                        self.temp_dir)
+        _copy_resources(path.dirname(local_file_path)
+                        if local_file_path else None,
+                        self.resources_to_copy, self.temp_dir)
 
         # Updating the test_method_name (if not manually set)
         if self.init_args and not self.init_args.get('name'):
             self.init_args['name'] = test_method_name
+
+        # Expand inputs dictionary
+        if 'inputs' in self.init_args.keys():
+            _expand_dictionary(self.init_args['inputs'], func_self)
 
         # Init env with supplied args
         temp_blueprint_path = path.join(self.temp_dir,
@@ -201,13 +250,17 @@ class WorkflowTestDecorator(object):
             :param func: the function of which this test has been called from
             :return:
             """
-            test_env = self.set_up(
-                sys.modules[func_self.__class__.__module__].__file__,
-                func_self._testMethodName
-            )
+            test_env = self.set_up(func_self)
             try:
                 test(func_self, test_env, *args, **kwargs)
             finally:
                 self.tear_down()
 
         return wrapped_test
+
+    # Support for context manager
+    def __enter__(self):
+        return self.set_up()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.tear_down()
