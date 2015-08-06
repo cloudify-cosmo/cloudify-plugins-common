@@ -131,6 +131,7 @@ class WorkflowTestDecorator(object):
         :param init_args: arguments to pass to the environment init (optional).
         :param inputs: directs inputs assignments into init_args0 (optional).
         """
+
         # blueprint to run
         self.blueprint_path = blueprint_path
         self.temp_blueprint_path = None
