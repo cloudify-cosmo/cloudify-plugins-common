@@ -69,7 +69,7 @@ def _assure_path_exists(dest_path):
 def _expand_dictionary(inputs, func_self):
     if callable(inputs):
         return inputs()
-    elif isinstance(inputs, str):
+    elif isinstance(inputs, basestring):
         if func_self is None:
             raise ValueError("You cannot supply 'string' "
                              "references to 'self' object in "
