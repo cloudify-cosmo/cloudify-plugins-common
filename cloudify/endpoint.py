@@ -257,12 +257,10 @@ class LocalEndpoint(Endpoint):
             download=True)
 
     def get_provider_context(self):
-        # TODO
-        return {}
+        return self.storage.get_provider_context()
 
     def get_bootstrap_context(self):
-        # TODO
-        return {}
+        return self.get_provider_context().get('cloudify', {})
 
     def get_logging_handler(self):
         return CloudifyPluginLoggingHandler(self.ctx,
