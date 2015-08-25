@@ -67,21 +67,20 @@ def _assure_path_exists(dest_path):
 
 
 def _expand_dictionary(inputs, func_self, func_args, func_kwargs):
+    func_to_call = None
     if callable(inputs):
-        if func_args:
-            return inputs(*func_args, **func_kwargs)
-        else:
-            return inputs(**func_kwargs)
+        func_to_call = inputs
     elif isinstance(inputs, basestring):
         if func_self is None:
             raise ValueError("You cannot supply 'string' "
                              "references to 'self' object in "
                              "contextmanager mode.")
         else:
-            if func_args:
-                return getattr(func_self, inputs)(*func_args, **func_kwargs)
-            else:
-                return getattr(func_self, inputs)(**func_kwargs)
+            func_to_call = getattr(func_self, inputs)
+
+    if func_to_call:
+        return func_to_call(*func_args, **func_kwargs)
+
     return inputs
 
 
@@ -177,8 +176,8 @@ class WorkflowTestDecorator(object):
         else:
             if inputs:
                 self.init_args['inputs'] = inputs
-        self.input_func_args = input_func_args
-        self.input_func_kwargs = input_func_kwargs if input_func_kwargs else {}
+        self.input_func_args = input_func_args or []
+        self.input_func_kwargs = input_func_kwargs or {}
 
     def set_up(self, func_self=None):
         """
