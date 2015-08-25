@@ -178,7 +178,7 @@ class WorkflowTestDecorator(object):
             if inputs:
                 self.init_args['inputs'] = inputs
         self.input_func_args = input_func_args
-        self.input_func_kwargs = input_func_kwargs
+        self.input_func_kwargs = input_func_kwargs if input_func_kwargs else {}
 
     def set_up(self, func_self=None):
         """
