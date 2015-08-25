@@ -51,7 +51,8 @@ class _Environment(object):
                  inputs=None,
                  load_existing=False,
                  ignored_modules=None,
-                 provider_context=None):
+                 provider_context=None,
+                 resolver=None):
         self.storage = storage
         self.storage.env = self
 
@@ -60,7 +61,8 @@ class _Environment(object):
         else:
             plan, nodes, node_instances = _parse_plan(blueprint_path,
                                                       inputs,
-                                                      ignored_modules)
+                                                      ignored_modules,
+                                                      resolver)
             storage.init(
                 name=name,
                 plan=plan,
@@ -137,7 +139,8 @@ def init_env(blueprint_path,
              inputs=None,
              storage=None,
              ignored_modules=None,
-             provider_context=None):
+             provider_context=None,
+             resolver=None):
     if storage is None:
         storage = InMemoryStorage()
     return _Environment(storage=storage,
@@ -146,23 +149,26 @@ def init_env(blueprint_path,
                         inputs=inputs,
                         load_existing=False,
                         ignored_modules=ignored_modules,
-                        provider_context=provider_context)
+                        provider_context=provider_context,
+                        resolver=resolver)
 
 
-def load_env(name, storage):
+def load_env(name, storage, resolver=None):
     return _Environment(storage=storage,
                         name=name,
-                        load_existing=True)
+                        load_existing=True,
+                        resolver=resolver)
 
 
-def _parse_plan(blueprint_path, inputs, ignored_modules):
+def _parse_plan(blueprint_path, inputs, ignored_modules, resolver=None):
     if dsl_parser is None:
         raise ImportError('cloudify-dsl-parser must be installed to '
                           'execute local workflows. '
                           '(e.g. "pip install cloudify-dsl-parser") [{0}]'
                           .format(_import_error))
     plan = dsl_tasks.prepare_deployment_plan(
-        dsl_parser.parse_from_path(blueprint_path), inputs=inputs)
+        dsl_parser.parse_from_path(
+            dsl_file_path=blueprint_path, resolver=resolver), inputs=inputs)
     nodes = [Node(node) for node in plan['nodes']]
     node_instances = [NodeInstance(instance)
                       for instance in plan['node_instances']]
