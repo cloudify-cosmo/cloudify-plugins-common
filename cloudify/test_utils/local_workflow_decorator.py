@@ -66,17 +66,22 @@ def _assure_path_exists(dest_path):
         makedirs(dir_path)
 
 
-def _expand_dictionary(inputs, func_self):
+def _expand_dictionary(inputs, func_self, func_args, func_kwargs):
     if callable(inputs):
-        return inputs()
+        if func_args:
+            return inputs(*func_args, **func_kwargs)
+        else:
+            return inputs(**func_kwargs)
     elif isinstance(inputs, basestring):
         if func_self is None:
             raise ValueError("You cannot supply 'string' "
                              "references to 'self' object in "
                              "contextmanager mode.")
         else:
-            return getattr(func_self, inputs)()
-
+            if func_args:
+                return getattr(func_self, inputs)(*func_args, **func_kwargs)
+            else:
+                return getattr(func_self, inputs)(**func_kwargs)
     return inputs
 
 
@@ -105,7 +110,7 @@ def _copy_resources(test_source_path, resources, default_dest_path):
                 resource_source_path = path.join(test_source_path,
                                                  resource_source_path)
 
-        # Setting absolute destinaton path
+        # Setting absolute destination path
         resource_dest_path = path.join(default_dest_path, relative_dest_path)
 
         _assure_path_exists(path.dirname(resource_dest_path))
@@ -119,7 +124,9 @@ class WorkflowTestDecorator(object):
                  resources_to_copy=None,
                  temp_dir_prefix=None,
                  init_args=None,
-                 inputs=None):
+                 inputs=None,
+                 input_func_args=None,
+                 input_func_kwargs=None):
         """
         Sets the required parameters for future env init. passes the
         environment to the cfy_local argument.
@@ -130,6 +137,10 @@ class WorkflowTestDecorator(object):
         :param temp_dir_prefix: prefix for the resources (optional)
         :param init_args: arguments to pass to the environment init (optional).
         :param inputs: directs inputs assignments into init_args0 (optional).
+        :param input_func_args: if you pass a function name into the inputs,
+               you can use this arg to specify the args to the function.
+        :param input_func_kwargs: if you pass a function name into the inputs,
+               you can use this arg to specify the kwargs to the function.
         """
 
         # blueprint to run
@@ -166,6 +177,8 @@ class WorkflowTestDecorator(object):
         else:
             if inputs:
                 self.init_args['inputs'] = inputs
+        self.input_func_args = input_func_args
+        self.input_func_kwargs = input_func_kwargs
 
     def set_up(self, func_self=None):
         """
@@ -212,8 +225,12 @@ class WorkflowTestDecorator(object):
 
         # Expand inputs dictionary
         if 'inputs' in self.init_args.keys():
+            self.input_func_kwargs['decorator_kwargs'] = vars(self)
             self.init_args['inputs'] = \
-                _expand_dictionary(self.init_args['inputs'], func_self)
+                _expand_dictionary(self.init_args['inputs'],
+                                   func_self,
+                                   self.input_func_args,
+                                   self.input_func_kwargs)
 
         # Init env with supplied args
         temp_blueprint_path = path.join(self.temp_dir,
