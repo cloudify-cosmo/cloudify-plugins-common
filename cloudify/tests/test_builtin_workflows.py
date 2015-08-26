@@ -25,6 +25,17 @@ from cloudify.decorators import operation
 from cloudify.test_utils import workflow_test
 
 
+class GlobalCounter(object):
+    def __init__(self):
+        self.count = 0
+
+    def get_and_increment(self):
+        result = self.count
+        self.count += 1
+        return result
+global_counter = GlobalCounter()
+
+
 class TestExecuteOperationWorkflow(testtools.TestCase):
     execute_blueprint_path = path.join('resources', 'blueprints',
                                        'execute_operation.yaml')
@@ -332,10 +343,9 @@ class TestScale(testtools.TestCase):
 
 
 class TestSubgraphWorkflowLogic(testtools.TestCase):
-    subgraph_blueprint_path = path.join('resources', 'blueprints',
-                                        'test-subgraph-blueprint.yaml')
 
-    @workflow_test(subgraph_blueprint_path)
+    @workflow_test(path.join('resources', 'blueprints',
+                             'test-subgraph-blueprint.yaml'))
     def test_heal_connected_to_relationship_operations_on_on_affected(self,
                                                                       cfy_local
                                                                       ):
@@ -374,6 +384,27 @@ class TestSubgraphWorkflowLogic(testtools.TestCase):
         assertion(expected_establish,
                   'cloudify.interfaces.relationship_lifecycle.establish')
 
+    @workflow_test(path.join('resources', 'blueprints',
+                             'test-heal-correct-order-blueprint.yaml'))
+    def test_heal_correct_order(self, env):
+        env.execute('heal', parameters={
+            'node_instance_id': env.storage.get_node_instances(
+                node_id='node1')[0].id})
+        all_invocations = []
+        for instance in env.storage.get_node_instances():
+            invocations = instance.runtime_properties.get('invocations', [])
+            all_invocations += invocations
+        sorted_invocations = sorted(all_invocations,
+                                    key=lambda i: i['counter'])
+
+        def assert_op(invocation, node_id, op):
+            self.assertEqual(invocation['node_id'], node_id)
+            self.assertEqual(invocation['operation'].split('.')[-1], op)
+        assert_op(sorted_invocations[0], 'node2', 'stop')
+        assert_op(sorted_invocations[1], 'node3', 'unlink')
+        assert_op(sorted_invocations[2], 'node3', 'establish')
+        assert_op(sorted_invocations[3], 'node2', 'create')
+
 
 @nottest
 @operation
@@ -401,6 +432,11 @@ def target_operation(ctx, **_):
 
 
 @operation
+def node_operation(ctx, **_):
+    _write_operation(ctx)
+
+
+@operation
 def fail(ctx, count, **_):
     _write_operation(ctx)
     current_count = ctx.instance.runtime_properties.get('current_count', 0)
@@ -421,7 +457,9 @@ def retry(ctx, count, **_):
 def _write_operation(ctx):
     invocations = ctx.instance.runtime_properties.get('invocations', [])
     invocations.append({
+        'node_id': ctx.node.id,
         'operation': ctx.operation.name,
+        'counter': global_counter.get_and_increment()
     })
     ctx.instance.runtime_properties['invocations'] = invocations
 
@@ -429,7 +467,9 @@ def _write_operation(ctx):
 def _write_rel_operation(ctx, runs_on):
     invocations = ctx.source.instance.runtime_properties.get('invocations', [])
     invocations.append({
+        'node_id': ctx.source.node.id,
         'operation': ctx.operation.name,
         'target_node': ctx.target.node.name,
-        'runs_on': runs_on})
+        'runs_on': runs_on,
+        'counter': global_counter.get_and_increment()})
     ctx.source.instance.runtime_properties['invocations'] = invocations
