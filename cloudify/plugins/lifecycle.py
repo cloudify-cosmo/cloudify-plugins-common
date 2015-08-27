@@ -66,53 +66,62 @@ class LifecycleProcessor(object):
         for instance in self.node_instances:
             subgraphs[instance.id] = node_instance_subgraph_func(instance,
                                                                  self.graph)
+        for instance in self.intact_nodes:
+            subgraphs[instance.id] = self.graph.subgraph(
+                'stub_{0}'.format(instance.id))
+
         graph_finisher_func(subgraphs)
         self.graph.execute()
 
     def _finish_install(self, subgraphs):
-        # Create task dependencies based on node relationships
-        for instance in self.node_instances:
-            for rel in instance.relationships:
-                if rel.target_node_instance in self.node_instances:
-                    self.graph.add_dependency(subgraphs[instance.id],
-                                              subgraphs[rel.target_id])
-
-        # Add operations for intact nodes depending on a node instance
-        # belonging to node_instances
-        for instance in self.intact_nodes:
-            for rel in instance.relationships:
-                if rel.target_node_instance in self.node_instances:
-                    target_subgraph = subgraphs[rel.target_id]
-                    establish_ops = _relationship_operations(
-                        rel,
-                        'cloudify.interfaces.relationship_lifecycle.establish')
-                    for establish_op in establish_ops:
-                        self.graph.add_task(establish_op)
-                        self.graph.add_dependency(establish_op,
-                                                  target_subgraph)
+        self._finish_subgraphs(
+            subgraphs=subgraphs,
+            intact_op='cloudify.interfaces.relationship_lifecycle.establish',
+            install=True)
 
     def _finish_uninstall(self, subgraphs):
-        # Create task dependencies based on node relationships
-        for instance in self.node_instances:
-            for rel in instance.relationships:
-                if rel.target_node_instance in self.node_instances:
-                    self.graph.add_dependency(subgraphs[rel.target_id],
-                                              subgraphs[instance.id])
+        self._finish_subgraphs(
+            subgraphs=subgraphs,
+            intact_op='cloudify.interfaces.relationship_lifecycle.unlink',
+            install=False)
 
+    def _finish_subgraphs(self, subgraphs, intact_op, install):
+        # Create task dependencies based on node relationships
+        self._add_dependencies(subgraphs=subgraphs,
+                               instances=self.node_instances,
+                               install=install)
+
+        def intact_on_dependency_added(instance, rel, source_subgraph):
+            if rel.target_node_instance in self.node_instances:
+                intact_tasks = _relationship_operations(rel, intact_op)
+                for intact_task in intact_tasks:
+                    if not install:
+                        set_send_node_event_on_error_handler(
+                            intact_task, instance)
+                    source_subgraph.add_task(intact_task)
         # Add operations for intact nodes depending on a node instance
         # belonging to node_instances
-        for instance in self.intact_nodes:
+        self._add_dependencies(subgraphs=subgraphs,
+                               instances=self.intact_nodes,
+                               install=install,
+                               on_dependency_added=intact_on_dependency_added)
+
+    def _add_dependencies(self, subgraphs, instances, install,
+                          on_dependency_added=None):
+        for instance in instances:
             for rel in instance.relationships:
-                if rel.target_node_instance in self.node_instances:
+                if (rel.target_node_instance in self.node_instances or
+                        rel.target_node_instance in self.intact_nodes):
+                    source_subgraph = subgraphs[instance.id]
                     target_subgraph = subgraphs[rel.target_id]
-                    unlink_tasks = _relationship_operations(
-                        rel,
-                        'cloudify.interfaces.relationship_lifecycle.unlink')
-                    for unlink_task in unlink_tasks:
-                        set_send_node_event_on_error_handler(unlink_task,
-                                                             instance)
-                        self.graph.add_task(unlink_task)
-                        self.graph.add_dependency(target_subgraph, unlink_task)
+                    if install:
+                        self.graph.add_dependency(source_subgraph,
+                                                  target_subgraph)
+                    else:
+                        self.graph.add_dependency(target_subgraph,
+                                                  source_subgraph)
+                    if on_dependency_added:
+                        on_dependency_added(instance, rel, source_subgraph)
 
 
 def set_send_node_event_on_error_handler(task, instance):
