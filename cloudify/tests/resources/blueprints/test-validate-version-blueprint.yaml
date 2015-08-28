@@ -1,0 +1,12 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+description: |
+  The test using this blueprint, expectes the version to remain 1_0,
+  please don't change it
+
+node_types:
+  type: {}
+
+node_templates:
+  node:
+    type: type

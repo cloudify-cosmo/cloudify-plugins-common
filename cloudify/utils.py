@@ -208,3 +208,18 @@ def _shlex_split(command):
     lex.whitespace_split = True
     lex.escape = ''
     return list(lex)
+
+
+class Internal(object):
+
+    @staticmethod
+    def get_install_method(properties):
+        install_agent = properties.get('install_agent')
+        if install_agent is False:
+            return 'none'
+        elif install_agent is True:
+            return 'remote'
+        else:
+            return properties.get('agent_config', {}).get('install_method')
+
+internal = Internal()

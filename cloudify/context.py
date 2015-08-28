@@ -17,7 +17,9 @@ import warnings
 
 from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
 from cloudify.logs import init_cloudify_logger
+from cloudify import constants
 from cloudify import exceptions
+from cloudify import utils
 
 
 DEPLOYMENT = 'deployment'
@@ -429,6 +431,7 @@ class CloudifyContext(CommonContext):
         self._source = None
         self._target = None
         self._operation = OperationContext(self._context.get('operation', {}))
+        self._agent = CloudifyAgentContext(self)
 
         capabilities_node_instance = None
         if 'related' in self._context:
@@ -585,6 +588,15 @@ class CloudifyContext(CommonContext):
         The current operation context.
         """
         return self._operation
+
+    @property
+    def agent(self):
+        self._verify_in_node_context()
+        if constants.COMPUTE_NODE_TYPE not in self.node.type_hierarchy:
+            raise exceptions.NonRecoverableError(
+                'ctx.agent can only be used with compute nodes but current '
+                'node is of type: {0}'.format(self.node.type))
+        return self._agent
 
     @property
     def capabilities(self):
@@ -787,6 +799,25 @@ class OperationContext(object):
         self._operation_retry = exceptions.OperationRetry(
             message=message,
             retry_after=retry_after)
+
+
+class CloudifyAgentContext(object):
+
+    def __init__(self, context):
+        self.context = context
+
+    def init_script(self, agent_config=None):
+        if (utils.internal.get_install_method(
+                self.context.node.properties) not in
+                constants.AGENT_INSTALL_METHODS_SCRIPTS):
+            return None
+        try:
+            from cloudify_agent.installer import script
+        except ImportError as e:
+            raise exceptions.NonRecoverableError(
+                'init_script cannot be used outside of an agent environment: '
+                'ImportError: {0}'.format(e))
+        return script.init_script(cloudify_agent=agent_config)
 
 
 class ImmutableProperties(dict):
