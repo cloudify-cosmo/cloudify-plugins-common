@@ -62,7 +62,7 @@ def http_client_req(socket_url, request, timeout):
     return json.loads(response.read())
 
 
-def client_req(socket_url, args, timeout=5):
+def client_req(socket_url, args, timeout=30):
     request = {
         'args': args
     }
