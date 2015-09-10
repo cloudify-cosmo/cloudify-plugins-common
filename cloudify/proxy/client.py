@@ -58,7 +58,7 @@ def http_client_req(socket_url, request, timeout):
                                data=json.dumps(request),
                                timeout=timeout)
     if response.code != 200:
-        raise RuntimeError('Requeste failed: {0}'.format(response))
+        raise RuntimeError('Request failed: {0}'.format(response))
     return json.loads(response.read())
 
 
