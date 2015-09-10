@@ -23,7 +23,6 @@ import datetime
 
 from cloudify.amqp_client import create_client
 from cloudify.event import Event
-from cloudify import broker_config
 
 EVENT_CLASS = Event
 
@@ -335,9 +334,5 @@ def _amqp_client(ctx):
              called with new arguments a second or subsequent time.
     """
     if not hasattr(clients, 'amqp_client'):
-        clients.amqp_client = create_client(
-            amqp_user=broker_config.broker_username,
-            amqp_pass=broker_config.broker_password,
-            ssl_enabled=broker_config.broker_ssl_enabled,
-            ssl_cert_path=broker_config.broker_cert_path)
+        clients.amqp_client = create_client()
     return clients.amqp_client

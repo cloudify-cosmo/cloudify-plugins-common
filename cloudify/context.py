@@ -159,34 +159,6 @@ class BootstrapContext(object):
             """
             return self._cloudify_agent.get('agent_key_path')
 
-        @property
-        def broker_user(self):
-            """
-            Returns the username for connecting to rabbit.
-            """
-            return self._cloudify_agent.get('broker_user')
-
-        @property
-        def broker_pass(self):
-            """
-            Returns the password for connecting to rabbit.
-            """
-            return self._cloudify_agent.get('broker_pass')
-
-        @property
-        def broker_ssl_enabled(self):
-            """
-            Returns whether SSL is enabled for connecting to rabbit.
-            """
-            return self._cloudify_agent.get('broker_ssl_enabled')
-
-        @property
-        def broker_ssl_cert(self):
-            """
-            Returns the SSL public cert for connecting to rabbit.
-            """
-            return self._cloudify_agent.get('broker_ssl_cert')
-
     def __init__(self, bootstrap_context):
         self._bootstrap_context = bootstrap_context
 

@@ -51,6 +51,8 @@ if __name__ == '__main__':
                 'agent_key_path'] = agent_key_path
             provider_context['cloudify'] = bootstrap_context
             management_endpoint = outputs['management_endpoint']['value'][0]
+            raise ValueError('***** in workflow.__main__.py: username or '
+                             'password missing, cannot create CloudifyClient')
             rest = CloudifyClient(management_endpoint['manager_ip'])
             rest.manager.create_context(provider['name'],
                                         provider_context)
