@@ -498,6 +498,10 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         return self.internal.task_graph
 
     @property
+    def bootstrap_context(self):
+        return self.internal._bootstrap_context
+
+    @property
     def internal(self):
         return self._internal
 

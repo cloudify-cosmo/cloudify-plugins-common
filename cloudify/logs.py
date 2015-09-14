@@ -23,6 +23,7 @@ import datetime
 
 from cloudify.amqp_client import create_client
 from cloudify.event import Event
+from cloudify import broker_config
 
 EVENT_CLASS = Event
 
@@ -84,10 +85,13 @@ class CloudifyBaseLoggingHandler(logging.Handler):
     def __init__(self, ctx, out_func, message_context_builder):
         logging.Handler.__init__(self)
         self.context = message_context_builder(ctx)
+        # Real context required if using AMQP
+        self.ctx = ctx
         if _is_system_workflow(ctx):
             out_func = stdout_log_out
         elif out_func is None:
             out_func = amqp_log_out
+
         self.out_func = out_func
 
     def flush(self):
@@ -103,7 +107,8 @@ class CloudifyBaseLoggingHandler(logging.Handler):
                 'text': message
             }
         }
-        self.out_func(log)
+
+        self.out_func(log, self.ctx)
 
 
 class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
@@ -255,7 +260,8 @@ def _send_event(ctx, context_type, event_type,
             'arguments': args
         }
     }
-    out_func(event)
+
+    out_func(event, ctx)
 
 
 def populate_base_item(item, message_type):
@@ -266,10 +272,10 @@ def populate_base_item(item, message_type):
     item['type'] = message_type
 
 
-def amqp_event_out(event):
+def amqp_event_out(event, ctx):
     try:
         populate_base_item(event, 'cloudify_event')
-        _amqp_client().publish_event(event)
+        _amqp_client(ctx).publish_event(event)
     except BaseException as e:
         error_logger = logging.getLogger('cloudify_events')
         error_logger.warning('Error publishing event to RabbitMQ ['
@@ -277,10 +283,10 @@ def amqp_event_out(event):
                              .format(e.message, json.dumps(event)))
 
 
-def amqp_log_out(log):
+def amqp_log_out(log, ctx):
     try:
         populate_base_item(log, 'cloudify_log')
-        _amqp_client().publish_log(log)
+        _amqp_client(ctx).publish_log(log)
     except BaseException as e:
         error_logger = logging.getLogger('cloudify_celery')
         error_logger.warning('Error publishing log to RabbitMQ ['
@@ -288,12 +294,16 @@ def amqp_log_out(log):
                              .format(e.message, json.dumps(log)))
 
 
-def stdout_event_out(event):
+# Stdout event output accepts (but ignores) ctx to provide same interface
+# as amqp_event_out
+def stdout_event_out(event, ctx=None):
     populate_base_item(event, 'cloudify_event')
     sys.stdout.write('{0}\n'.format(create_event_message_prefix(event)))
 
 
-def stdout_log_out(log):
+# Stdout log output accepts (but ignores) ctx to provide same interface
+# as amqp_log_out
+def stdout_log_out(log, ctx=None):
     populate_base_item(log, 'cloudify_log')
     sys.stdout.write('{0}\n'.format(create_event_message_prefix(log)))
 
@@ -313,13 +323,21 @@ def _is_system_workflow(ctx):
         '_start_deployment_environment', '_stop_deployment_environment')
 
 
-def _amqp_client():
+def _amqp_client(ctx):
     """
     Get an AMQPClient for the current thread. If non currently exists,
     create one.
 
-    :return: An AMQPClient belonging to the current thread
+    :param ctx: The context, used to get AMQP credentials and SSL settings.
+
+    :return: An AMQPClient belonging to the current thread.
+             Will return a pre-existing one without re-initialising even if
+             called with new arguments a second or subsequent time.
     """
     if not hasattr(clients, 'amqp_client'):
-        clients.amqp_client = create_client()
+        clients.amqp_client = create_client(
+            amqp_user=broker_config.broker_username,
+            amqp_pass=broker_config.broker_password,
+            ssl_enabled=broker_config.broker_ssl_enabled,
+            ssl_cert_path=broker_config.broker_cert_path)
     return clients.amqp_client

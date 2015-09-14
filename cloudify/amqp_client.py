@@ -18,7 +18,10 @@ import json
 
 import pika
 
-from cloudify.utils import get_manager_ip
+from cloudify.utils import (
+    get_manager_ip,
+    internal,
+)
 
 
 class AMQPClient(object):
@@ -26,14 +29,37 @@ class AMQPClient(object):
     events_queue_name = 'cloudify-events'
     logs_queue_name = 'cloudify-logs'
 
-    def __init__(self, amqp_host=None):
+    def __init__(self,
+                 amqp_user='guest',
+                 amqp_pass='guest',
+                 amqp_host=None,
+                 ssl_enabled=False,
+                 ssl_cert_path=''):
         if amqp_host is None:
             amqp_host = get_manager_ip()
 
         self.events_queue = None
         self.logs_queue = None
+
+        credentials = pika.credentials.PlainCredentials(
+            username=amqp_user,
+            password=amqp_pass,
+        )
+
+        amqp_port, ssl_options = internal.get_broker_ssl_and_port(
+            ssl_enabled=ssl_enabled,
+            cert_path=ssl_cert_path,
+        )
+
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=amqp_host))
+            pika.ConnectionParameters(
+                host=amqp_host,
+                port=amqp_port,
+                credentials=credentials,
+                ssl=ssl_enabled,
+                ssl_options=ssl_options,
+            )
+        )
         settings = {
             'auto_delete': True,
             'durable': True,
@@ -59,5 +85,15 @@ class AMQPClient(object):
                                         body=json.dumps(item))
 
 
-def create_client(amqp_host=None):
-    return AMQPClient(amqp_host)
+def create_client(amqp_user='guest',
+                  amqp_pass='guest',
+                  amqp_host=None,
+                  ssl_enabled=False,
+                  ssl_cert_path=''):
+    return AMQPClient(
+        amqp_host=amqp_host,
+        amqp_user=amqp_user,
+        amqp_pass=amqp_pass,
+        ssl_enabled=ssl_enabled,
+        ssl_cert_path=ssl_cert_path,
+    )
