@@ -1,10 +1,7 @@
 tosca_definitions_version: cloudify_dsl_1_1
 
-plugins:
-  mock:
-    source: source
-    executor: central_deployment_agent
-    install: false
+imports:
+  - execute_operation_workflow.yaml
 
 node_types:
   custom_type:
@@ -17,10 +14,10 @@ node_types:
     interfaces:
       test:
         get_template:
-          implementation: mock.cloudify.tests.test_context.get_template
+          implementation: common_mock.cloudify.tests.test_context.get_template
 
         download_template:
-          implementation: mock.cloudify.tests.test_context.download_template
+          implementation: common_mock.cloudify.tests.test_context.download_template
 
 node_templates:
   node1:
@@ -31,12 +28,3 @@ node_templates:
     type: custom_type
     properties:
       my_url: my_url2.html
-
-workflows:
-  execute_operation:
-    mapping: mock.cloudify.tests.test_context.execute_operation
-    parameters:
-      operation:
-        description: The operation full name.
-      testing:
-        description: The test case

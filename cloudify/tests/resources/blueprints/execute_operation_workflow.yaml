@@ -1,0 +1,15 @@
+plugins:
+  common_mock:
+    executor: central_deployment_agent
+    install: false
+
+workflows:
+  execute_operation:
+    mapping: common_mock.cloudify.tests.workflows.execute_operation
+    parameters:
+      operation:
+        description: The operation's full name
+      nodes:
+        description: Node ID's to operate on
+      testing:
+        description: The test case
