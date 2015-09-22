@@ -23,10 +23,10 @@ from cloudify import context
 from cloudify import exceptions
 from cloudify.utils import create_temp_folder
 from cloudify.decorators import operation
-from cloudify.decorators import workflow
 from cloudify.workflows import local
 
 import cloudify.tests as tests_path
+from cloudify.test_utils import workflow_test
 
 
 class CloudifyContextTest(testtools.TestCase):
@@ -132,6 +132,35 @@ class CloudifyContextTest(testtools.TestCase):
         self.assertEqual(context.RELATIONSHIP_INSTANCE, ctx.type)
 
 
+class NodeContextTests(testtools.TestCase):
+
+    test_blueprint_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        "resources/blueprints/test-context-node.yaml")
+
+    @workflow_test(blueprint_path=test_blueprint_path,
+                   resources_to_copy=[
+                       'resources/blueprints/execute_operation_workflow.yaml'])
+    def test_node_type(self, cfy_local):
+        cfy_local.execute('execute_operation', parameters={
+            'operation': 'test.interface.create',
+            'nodes': ['node1', 'node2'],
+            'testing': 'test_node_type'})
+
+        expected = {
+            'node1': ['test.node1.type', ['test.node1.type']],
+            'node2': [
+                'test.node2.type',
+                ['test.node1.type', 'test.node2.type']]}
+
+        for node in ['node1', 'node2']:
+            instance = cfy_local.storage.get_node_instances(node_id=node)[0]
+            self.assertEqual(expected[node][0],
+                             instance.runtime_properties['type'])
+            self.assertEqual(expected[node][1],
+                             instance.runtime_properties['type_hierarchy'])
+
+
 class GetResourceTemplateTests(testtools.TestCase):
 
     def __init__(self, *args, **kwargs):
@@ -182,8 +211,10 @@ class GetResourceTemplateTests(testtools.TestCase):
                                             rendered='normal',
                                             should_fail_rendering=False):
         env = local.init_env(self.blueprint_path)
+        updated_params = {'nodes': ['node1']}
+        updated_params.update(parameters)
         env.execute('execute_operation',
-                    parameters=parameters)
+                    parameters=updated_params)
         self._assert_rendering(env, download,
                                rendered, should_fail_rendering)
 
@@ -301,8 +332,7 @@ def download_template(ctx, testing, **_):
     ctx.instance.runtime_properties['resource'] = resource
 
 
-@workflow
-def execute_operation(ctx, operation, testing, **_):
-    node = ctx.get_node('node1')
-    instance = next(node.instances)
-    instance.execute_operation(operation, kwargs={'testing': testing})
+@operation
+def get_node_type(ctx, **kwargs):
+    ctx.instance.runtime_properties['type'] = ctx.node.type
+    ctx.instance.runtime_properties['type_hierarchy'] = ctx.node.type_hierarchy

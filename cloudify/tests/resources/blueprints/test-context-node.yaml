@@ -1,0 +1,20 @@
+tosca_definitions_version: cloudify_dsl_1_1
+
+imports:
+  - execute_operation_workflow.yaml
+
+node_types:
+  test.node1.type:
+    interfaces:
+      test.interface:
+        create: common_mock.cloudify.tests.test_context.get_node_type
+
+  test.node2.type:
+    derived_from: test.node1.type
+
+node_templates:
+  node1:
+    type: test.node1.type
+
+  node2:
+    type: test.node2.type

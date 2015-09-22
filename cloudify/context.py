@@ -245,6 +245,18 @@ class NodeContext(EntityContext):
         self._get_node_if_needed()
         return self._node.properties
 
+    @property
+    def type(self):
+        """The node's type"""
+        self._get_node_if_needed()
+        return self._node.type
+
+    @property
+    def type_hierarchy(self):
+        """The node's type hierarchy"""
+        self._get_node_if_needed()
+        return self._node.type_hierarchy
+
 
 class NodeInstanceContext(EntityContext):
 
