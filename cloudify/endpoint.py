@@ -140,8 +140,8 @@ class ManagerEndpoint(Endpoint):
     def __init__(self, ctx):
         super(ManagerEndpoint, self).__init__(ctx)
 
-    def get_node(self, node_id):
-        client = manager.get_rest_client()
+    def get_node(self, node_id, username, password):
+        client = manager.get_rest_client(username, password)
         return client.nodes.get(self.ctx.deployment.id, node_id)
 
     def get_node_instance(self, node_instance_id):
@@ -196,8 +196,8 @@ class ManagerEndpoint(Endpoint):
                                additional_context,
                                out_func=logs.amqp_event_out)
 
-    def evaluate_functions(self, payload):
-        client = manager.get_rest_client()
+    def evaluate_functions(self, payload, username, password):
+        client = manager.get_rest_client(username, password)
 
         def evaluate_functions_method(deployment_id, context, payload):
             return client.evaluate.functions(deployment_id,

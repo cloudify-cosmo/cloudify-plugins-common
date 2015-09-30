@@ -107,13 +107,17 @@ class NodeInstance(object):
         return self._relationships
 
 
-def get_rest_client():
+def get_rest_client(username, password):
     """
+    :param username: a username to be sent with each request
+    :param password: a password to be sent with each request
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
-    return CloudifyClient(utils.get_manager_ip(),
-                          utils.get_manager_rest_service_port())
+    headers = utils.get_auth_header(username, password)
+    return CloudifyClient(host=utils.get_manager_ip(),
+                          port=utils.get_manager_rest_service_port(),
+                          headers=headers)
 
 
 def _save_resource(logger, resource, resource_path, target_path):
@@ -191,14 +195,14 @@ def get_blueprint_resource(blueprint_id, resource_path):
     return get_resource(resource_path, base_url=base_url)
 
 
-def get_node_instance(node_instance_id):
+def get_node_instance(node_instance_id, username, password):
     """
     Read node instance data from the storage.
 
     :param node_instance_id: the node instance id
     :rtype: NodeInstance
     """
-    client = get_rest_client()
+    client = get_rest_client(username, password)
     instance = client.node_instances.get(node_instance_id)
     return NodeInstance(node_instance_id,
                         instance.node_id,
@@ -209,13 +213,13 @@ def get_node_instance(node_instance_id):
                         relationships=instance.relationships)
 
 
-def update_node_instance(node_instance):
+def update_node_instance(node_instance, username, password):
     """
     Update node instance data changes in the storage.
 
     :param node_instance: the node instance with the updated data
     """
-    client = get_rest_client()
+    client = get_rest_client(username, password)
     client.node_instances.update(
         node_instance.id,
         state=node_instance.state,
@@ -223,12 +227,12 @@ def update_node_instance(node_instance):
         version=node_instance.version)
 
 
-def get_node_instance_ip(node_instance_id):
+def get_node_instance_ip(node_instance_id, username, password):
     """
     Get the IP address of the host the node instance denoted by
     ``node_instance_id`` is contained in.
     """
-    client = get_rest_client()
+    client = get_rest_client(username, password)
     instance = client.node_instances.get(node_instance_id)
     if instance.host_id is None:
         raise NonRecoverableError('node instance: {0} is missing host_id'
@@ -248,26 +252,26 @@ def get_node_instance_ip(node_instance_id):
 # TODO: some nasty code duplication between these two methods
 
 
-def update_execution_status(execution_id, status, error=None):
+def update_execution_status(execution_id, status, username, password, error=None):
     """
     Update the execution status of the execution denoted by ``execution_id``.
 
     :returns: The updated status
     """
-    client = get_rest_client()
+    client = get_rest_client(username, password)
     return client.executions.update(execution_id, status, error)
 
 
-def get_bootstrap_context():
+def get_bootstrap_context(username, password):
     """Read the manager bootstrap context."""
-    client = get_rest_client()
+    client = get_rest_client(username, password)
     context = client.manager.get_context()['context']
     return context.get('cloudify', {})
 
 
-def get_provider_context():
+def get_provider_context(username, password):
     """Read the manager provider context."""
-    client = get_rest_client()
+    client = get_rest_client(username, password)
     context = client.manager.get_context()
     return context['context']
 

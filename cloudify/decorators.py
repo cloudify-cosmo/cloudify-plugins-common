@@ -235,12 +235,12 @@ class RequestSystemExit(SystemExit):
     pass
 
 
-def _remote_workflow(ctx, func, args, kwargs):
+def _remote_workflow(ctx, func, username, password, args, kwargs):
     def update_execution_cancelled():
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
         _send_workflow_cancelled_event(ctx)
 
-    rest = get_rest_client()
+    rest = get_rest_client(username, password)
     parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:
         if rest.executions.get(ctx.execution_id).status in \

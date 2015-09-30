@@ -22,6 +22,8 @@ import tempfile
 import sys
 import os
 
+from itsdangerous import base64_encode
+
 from cloudify import constants
 from cloudify.exceptions import CommandExecutionException
 
@@ -98,6 +100,18 @@ def get_manager_rest_service_port():
     Returns the port the manager REST service is running on.
     """
     return int(os.environ[constants.MANAGER_REST_PORT_KEY])
+
+
+def get_auth_header(username, password):
+    header = None
+
+    if username and password:
+        credentials = '{0}:{1}'.format(username, password)
+        header = {
+            constants.CLOUDIFY_AUTHENTICATION_HEADER:
+                constants.BASIC_AUTH_PREFIX + ' ' + base64_encode(credentials)}
+
+    return header
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):

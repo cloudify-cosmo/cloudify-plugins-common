@@ -451,7 +451,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
     :param ctx: a cloudify_context workflow dict
     """
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, username, password):
         self._context = ctx or {}
 
         self._local_task_thread_pool_size = ctx.get(
@@ -474,7 +474,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             raw_node_instances = storage.get_node_instances()
             handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
-            rest = get_rest_client()
+            rest = get_rest_client(username, password)
             raw_nodes = rest.nodes.list(self.deployment.id)
             raw_node_instances = rest.node_instances.list(self.deployment.id)
             handler = RemoteCloudifyWorkflowContextHandler(self)
@@ -1117,9 +1117,9 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                            target_path=target_path,
                                            logger=logger)
 
-    def start_deployment_modification(self, nodes):
+    def start_deployment_modification(self, nodes, username, password):
         deployment_id = self.workflow_ctx.deployment.id
-        client = get_rest_client()
+        client = get_rest_client(username, password)
         modification = client.deployment_modifications.start(
             deployment_id=deployment_id,
             nodes=nodes,
@@ -1131,12 +1131,12 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             })
         return Modification(self.workflow_ctx, modification)
 
-    def finish_deployment_modification(self, modification):
-        client = get_rest_client()
+    def finish_deployment_modification(self, modification, username, password):
+        client = get_rest_client(username, password)
         client.deployment_modifications.finish(modification.id)
 
-    def rollback_deployment_modification(self, modification):
-        client = get_rest_client()
+    def rollback_deployment_modification(self, modification, username, password):
+        client = get_rest_client(username, password)
         client.deployment_modifications.rollback(modification.id)
 
 
