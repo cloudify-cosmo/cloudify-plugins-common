@@ -23,7 +23,9 @@ from StringIO import StringIO
 from functools import wraps
 
 from cloudify import context
-from cloudify.workflows.workflow_context import CloudifyWorkflowContext
+from cloudify.workflows.workflow_context import (
+    CloudifyWorkflowContext,
+    CloudifySystemWideWorkflowContext)
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import api
 from cloudify_rest_client.executions import Execution
@@ -54,15 +56,6 @@ def _is_cloudify_context(obj):
     have returned True.
     """
     return context.CloudifyContext.__name__ in obj.__class__.__name__
-
-
-def _is_cloudify_workflow_context(obj):
-    """
-    Gets whether the provided obj is a CloudifyWorkflowContext instance.
-    From some reason Python's isinstance returned False when it should
-    have returned True.
-    """
-    return CloudifyWorkflowContext.__name__ in obj.__class__.__name__
 
 
 def _find_context_arg(args, kwargs, is_context):
@@ -188,17 +181,24 @@ def operation(func=None, **arguments):
         return partial_wrapper
 
 
-def workflow(func=None, **arguments):
+def workflow(func=None, system_wide=False, **arguments):
     """
     Decorate workflow functions with this decorator.
-    Internally, if celery is installed, will also wrap the function
-    with a ``@celery.task`` decorator
+    Internally, if celery is installed, ``@workflow`` will also wrap
+    the function with a ``@celery.task`` decorator
 
     The ``ctx`` injected to the function arguments is of type
-    ``cloudify.workflows.workflow_context.CloudifyWorkflowContext``
+    ``cloudify.workflows.workflow_context.CloudifyWorkflowContext`` or
+    ``cloudify.workflows.workflow_context.CloudifySystemWideWorkflowContext``
+    if ``system_wide`` flag is set to True.
 
     The ``ctx`` object can also be accessed by importing
     ``cloudify.workflows.ctx``
+
+    ``system_wide`` flag turns this workflow into a system-wide workflow that
+    is executed by the management worker and has access to an instance of
+    ``cloudify.workflows.workflow_context.CloudifySystemWideWorkflowContext``
+    as its context.
 
     Example::
 
@@ -208,14 +208,22 @@ def workflow(func=None, **arguments):
         def reinstall(**kwargs):
             pass
     """
+    if system_wide:
+        ctx_class = CloudifySystemWideWorkflowContext
+    else:
+        ctx_class = CloudifyWorkflowContext
     if func is not None:
         @wraps(func)
         def wrapper(*args, **kwargs):
 
-            ctx = _find_context_arg(args, kwargs,
-                                    _is_cloudify_workflow_context)
-            if not isinstance(ctx, CloudifyWorkflowContext):
-                ctx = CloudifyWorkflowContext(ctx)
+            def is_ctx_class_instance(obj):
+                return isinstance(obj, ctx_class)
+
+            ctx = _find_context_arg(args, kwargs, is_ctx_class_instance)
+
+            if not is_ctx_class_instance(ctx):
+                ctx = ctx_class(ctx)
+
             kwargs['ctx'] = ctx
 
             if ctx.local:
@@ -227,7 +235,7 @@ def workflow(func=None, **arguments):
         return _process_wrapper(wrapper, arguments)
     else:
         def partial_wrapper(fn):
-            return workflow(fn, **arguments)
+            return workflow(fn, system_wide, **arguments)
         return partial_wrapper
 
 
