@@ -190,6 +190,7 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
                       node_instance_ids, **kwargs):
     """ A generic workflow for executing arbitrary operations on nodes """
 
+    print '***** starting execute_operation'
     graph = ctx.graph_mode()
     subgraphs = {}
 
@@ -256,4 +257,6 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
                 graph.add_dependency(subgraphs[instance.id],
                                      subgraphs[rel.target_id])
 
+    print '***** calling graph.execute()'
     graph.execute()
+    print '***** execute_operation completed'

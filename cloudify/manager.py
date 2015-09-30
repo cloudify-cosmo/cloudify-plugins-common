@@ -107,13 +107,30 @@ class NodeInstance(object):
         return self._relationships
 
 
-def get_rest_client(username, password):
+# This method is wrong in so many ways... should the credentials be passed to
+# it or are they expected to be env vars, or both?
+# what about the rest of the settings?
+# since it's using code a lot of code from utils, shouldn't it be in utils
+# actually?
+def get_rest_client(protocol='http', username=None, password=None):
     """
     :param username: a username to be sent with each request
     :param password: a password to be sent with each request
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
+    print '***** in get_rest_client, got username: {0}'.format(username)
+    manager_ip = utils.get_manager_ip()
+    rest_port = utils.get_manager_rest_service_port()
+    # username = utils.get_username()
+    # password = utils.get_password()
+    headers = utils.get_auth_header(username, password)
+    # cert = utils.get_ssl_cert()
+    # trust_all = utils.get_ssl_trust_all()
+
+    return CloudifyClient(host=manager_ip, port=rest_port, protocol=protocol,
+                          headers=headers)  # cert=cert, trust_all=trust_all)
+
     headers = utils.get_auth_header(username, password)
     return CloudifyClient(host=utils.get_manager_ip(),
                           port=utils.get_manager_rest_service_port(),
@@ -252,7 +269,8 @@ def get_node_instance_ip(node_instance_id, username, password):
 # TODO: some nasty code duplication between these two methods
 
 
-def update_execution_status(execution_id, status, username, password, error=None):
+def update_execution_status(execution_id, status, username,
+                            password, error=None):
     """
     Update the execution status of the execution denoted by ``execution_id``.
 

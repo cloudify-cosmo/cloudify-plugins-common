@@ -451,7 +451,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
     :param ctx: a cloudify_context workflow dict
     """
 
-    def __init__(self, ctx, username, password):
+    def __init__(self, ctx):
         self._context = ctx or {}
 
         self._local_task_thread_pool_size = ctx.get(
@@ -474,9 +474,12 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             raw_node_instances = storage.get_node_instances()
             handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
-            rest = get_rest_client(username, password)
+            rest = get_rest_client(ctx.get('cloudify_username'),
+                                   ctx.get('cloudify_password'))
             raw_nodes = rest.nodes.list(self.deployment.id)
             raw_node_instances = rest.node_instances.list(self.deployment.id)
+            print '***** executing remote workflow as {0}'.\
+                format(ctx.get('cloudify_username'))
             handler = RemoteCloudifyWorkflowContextHandler(self)
 
         super(CloudifyWorkflowContext, self).__init__(
@@ -1135,7 +1138,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         client = get_rest_client(username, password)
         client.deployment_modifications.finish(modification.id)
 
-    def rollback_deployment_modification(self, modification, username, password):
+    def rollback_deployment_modification(self, modification, username,
+                                         password):
         client = get_rest_client(username, password)
         client.deployment_modifications.rollback(modification.id)
 

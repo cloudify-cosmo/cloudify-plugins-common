@@ -101,7 +101,9 @@ class _Environment(object):
                 task_retries=-1,
                 task_retry_interval=30,
                 subgraph_retries=0,
-                task_thread_pool_size=DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE):
+                task_thread_pool_size=DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE,
+                cloudify_username=None,
+                cloudify_password=None):
         workflows = self.plan['workflows']
         workflow_name = workflow
         if workflow_name not in workflows:
@@ -125,12 +127,16 @@ class _Environment(object):
             'task_retries': task_retries,
             'task_retry_interval': task_retry_interval,
             'subgraph_retries': subgraph_retries,
-            'local_task_thread_pool_size': task_thread_pool_size
+            'local_task_thread_pool_size': task_thread_pool_size,
+            'cloudify_username': cloudify_username,
+            'cloudify_password': cloudify_password
         }
 
         merged_parameters = _merge_and_validate_execution_parameters(
             workflow, workflow_name, parameters, allow_custom_parameters)
 
+        print '***** completing execute, returning workflow_method {0}'.\
+            format(workflow_method)
         return workflow_method(__cloudify_context=ctx, **merged_parameters)
 
 

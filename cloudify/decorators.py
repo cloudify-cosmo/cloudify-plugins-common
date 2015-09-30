@@ -211,22 +211,21 @@ def workflow(func=None, **arguments):
     if func is not None:
         @wraps(func)
         def wrapper(*args, **kwargs):
-
             ctx = _find_context_arg(args, kwargs,
                                     _is_cloudify_workflow_context)
             if not isinstance(ctx, CloudifyWorkflowContext):
+                print '***** calling CloudifyWorkflowContext'
                 ctx = CloudifyWorkflowContext(ctx)
             kwargs['ctx'] = ctx
-
             if ctx.local:
                 workflow_wrapper = _local_workflow
             else:
                 workflow_wrapper = _remote_workflow
-
             return workflow_wrapper(ctx, func, args, kwargs)
         return _process_wrapper(wrapper, arguments)
     else:
         def partial_wrapper(fn):
+            print '***** in workflow partial_wrapper'
             return workflow(fn, **arguments)
         return partial_wrapper
 
@@ -235,11 +234,15 @@ class RequestSystemExit(SystemExit):
     pass
 
 
-def _remote_workflow(ctx, func, username, password, args, kwargs):
+def _remote_workflow(ctx, func, args, kwargs):
     def update_execution_cancelled():
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
         _send_workflow_cancelled_event(ctx)
 
+    username = ctx.get('cloudify_username')
+    password = ctx.get('cloudify_password')
+    print '***** in _remote_workflow, creating rest client as {0}'.\
+        format(username)
     rest = get_rest_client(username, password)
     parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:
