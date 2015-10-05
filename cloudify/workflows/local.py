@@ -129,7 +129,8 @@ class _Environment(object):
             'subgraph_retries': subgraph_retries,
             'local_task_thread_pool_size': task_thread_pool_size,
             'cloudify_username': cloudify_username,  # is this required at all in local?
-            'cloudify_password': cloudify_password
+            'cloudify_password': cloudify_password,
+            'rest_protocol': 'http'
         }
 
         merged_parameters = _merge_and_validate_execution_parameters(

@@ -242,11 +242,13 @@ def _remote_workflow(ctx, func, args, kwargs):
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
         _send_workflow_cancelled_event(ctx)
 
+    # there must be a better place/way to get this, this is not per request
+    protocol = ctx.get('rest_protocol')
     username = ctx.get('cloudify_username')
     password = ctx.get('cloudify_password')
     print '***** in _remote_workflow, creating rest client as {0}'.\
         format(username)
-    rest = get_rest_client(username, password)
+    rest = get_rest_client(protocol, username, password)
     parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:
         if rest.executions.get(ctx.execution_id).status in \
