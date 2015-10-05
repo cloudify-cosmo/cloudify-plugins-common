@@ -213,13 +213,16 @@ def workflow(func=None, **arguments):
         def wrapper(*args, **kwargs):
             ctx = _find_context_arg(args, kwargs,
                                     _is_cloudify_workflow_context)
+            print '***** in decorators, ctx found: {0}'.format(ctx)
             if not isinstance(ctx, CloudifyWorkflowContext):
                 print '***** calling CloudifyWorkflowContext'
                 ctx = CloudifyWorkflowContext(ctx)
             kwargs['ctx'] = ctx
             if ctx.local:
+                print '***** local'
                 workflow_wrapper = _local_workflow
             else:
+                print '***** remote'
                 workflow_wrapper = _remote_workflow
             return workflow_wrapper(ctx, func, args, kwargs)
         return _process_wrapper(wrapper, arguments)

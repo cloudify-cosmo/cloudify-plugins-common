@@ -319,9 +319,11 @@ class RemoteWorkflowTask(WorkflowTask):
             total_retries=total_retries,
             retry_interval=retry_interval,
             send_task_events=send_task_events)
+        print '***** initializing RemoteWorkflowTask'
         self._task_target = task_target
         self._task_queue = task_queue
         self._kwargs = kwargs
+        print '***** cloudify_context: {0}'.format(cloudify_context)
         self._cloudify_context = cloudify_context
 
     def apply_async(self):

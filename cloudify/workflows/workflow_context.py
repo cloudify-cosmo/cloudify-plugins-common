@@ -474,12 +474,16 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             raw_node_instances = storage.get_node_instances()
             handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
+            print '***** creating rest client as {0}'.\
+                format(ctx.get('cloudify_username'))
             rest = get_rest_client(ctx.get('cloudify_username'),
                                    ctx.get('cloudify_password'))
+
+            print '***** calling rest.nodes.list'
             raw_nodes = rest.nodes.list(self.deployment.id)
+            print '***** calling rest.node_instances.list'
             raw_node_instances = rest.node_instances.list(self.deployment.id)
-            print '***** executing remote workflow as {0}'.\
-                format(ctx.get('cloudify_username'))
+            print '***** calling rest called'
             handler = RemoteCloudifyWorkflowContextHandler(self)
 
         super(CloudifyWorkflowContext, self).__init__(

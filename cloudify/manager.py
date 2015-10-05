@@ -17,6 +17,7 @@ import os
 import urllib2
 
 import utils
+from manager_rest import config
 from cloudify_rest_client import CloudifyClient
 from cloudify.exceptions import HttpException, NonRecoverableError
 
@@ -112,13 +113,20 @@ class NodeInstance(object):
 # what about the rest of the settings?
 # since it's using code a lot of code from utils, shouldn't it be in utils
 # actually?
-def get_rest_client(protocol='http', username=None, password=None):
+def get_rest_client(username, password):
     """
     :param username: a username to be sent with each request
     :param password: a password to be sent with each request
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
+    security_enabled = config.instance().security_enabled
+    ssl_settings = config.instance().security_ssl or {}
+    if security_enabled and ssl_settings.get('enabled', False):
+        protocol = 'https'
+    else:
+        protocol = 'http'
+    print '***** in get_rest_client, protocol: {0}'.format(protocol)
     print '***** in get_rest_client, got username: {0}'.format(username)
     manager_ip = utils.get_manager_ip()
     rest_port = utils.get_manager_rest_service_port()
