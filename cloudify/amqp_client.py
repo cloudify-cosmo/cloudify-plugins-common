@@ -15,7 +15,7 @@
 
 
 import json
-
+import os
 import pika
 
 from cloudify.utils import get_manager_ip
@@ -28,7 +28,7 @@ class AMQPClient(object):
 
     def __init__(self, amqp_host=None):
         if amqp_host is None:
-            amqp_host = get_manager_ip()
+            amqp_host = os.environ.get('BROKER_IP', get_manager_ip())
 
         self.events_queue = None
         self.logs_queue = None
