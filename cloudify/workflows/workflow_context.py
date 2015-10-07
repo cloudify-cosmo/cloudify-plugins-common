@@ -476,8 +476,10 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         else:
             print '***** creating rest client as {0}'.\
                 format(ctx.get('cloudify_username'))
-            rest = get_rest_client(ctx.get('cloudify_username'),
-                                   ctx.get('cloudify_password'))
+            print '***** ctx is: {0}'.format(ctx)
+            rest = get_rest_client(protocol=ctx.get('rest_protocol'),
+                                   username=ctx.get('cloudify_username'),
+                                   password=ctx.get('cloudify_password'))
 
             print '***** calling rest.nodes.list'
             raw_nodes = rest.nodes.list(self.deployment.id)
