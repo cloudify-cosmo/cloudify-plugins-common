@@ -521,6 +521,21 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         return self._context.get('workflow_id')
 
     @property
+    def rest_protocol(self):
+        """The rest protocol (http or https)"""
+        return self._context.get('rest_protocol')
+
+    @property
+    def cloudify_username(self):
+        """The cloudify username"""
+        return self._context.get('cloudify_username')
+
+    @property
+    def cloudify_password(self):
+        """The cloudify password"""
+        return self._context.get('cloudify_password')
+
+    @property
     def local(self):
         """Is the workflow running in a local or remote context"""
         return self._context.get('local', False)
@@ -1013,7 +1028,9 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     @property
     def bootstrap_context(self):
-        return get_bootstrap_context()
+        return get_bootstrap_context(self.workflow_ctx.rest_protocol,
+                                     self.workflow_ctx.cloudify_username,
+                                     self.workflow_ctx.cloudify_password)
 
     def get_send_task_event_func(self, task):
         return events.send_task_event_func_remote

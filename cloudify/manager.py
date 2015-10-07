@@ -270,20 +270,20 @@ def get_node_instance_ip(node_instance_id, username, password):
 # TODO: some nasty code duplication between these two methods
 
 
-def update_execution_status(execution_id, status, username,
+def update_execution_status(execution_id, status, protocol, username,
                             password, error=None):
     """
     Update the execution status of the execution denoted by ``execution_id``.
 
     :returns: The updated status
     """
-    client = get_rest_client(username, password)
+    client = get_rest_client(protocol, username, password)
     return client.executions.update(execution_id, status, error)
 
 
-def get_bootstrap_context(username, password):
+def get_bootstrap_context(protocol, username, password):
     """Read the manager bootstrap context."""
-    client = get_rest_client(username, password)
+    client = get_rest_client(protocol, username, password)
     context = client.manager.get_context()['context']
     return context.get('cloudify', {})
 
