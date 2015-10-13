@@ -29,7 +29,7 @@ class CtxParameters(dict):
         if attr in self:
             return self.get(attr)
         else:
-            return AttributeError(attr)
+            raise KeyError(attr)
 
 
 class CurrentContext(threading.local):

@@ -280,28 +280,34 @@ class DirtyTrackingDict(dict):
         self.dirty = False
 
     def __setitem__(self, key, value):
-        super(DirtyTrackingDict, self).__setitem__(key, value)
+        r = super(DirtyTrackingDict, self).__setitem__(key, value)
         self._set_changed()
+        return r
 
     def __delitem__(self, key):
-        super(DirtyTrackingDict, self).__delitem__(key)
+        r = super(DirtyTrackingDict, self).__delitem__(key)
         self._set_changed()
+        return r
 
     def update(self, E=None, **F):
-        super(DirtyTrackingDict, self).update(E, **F)
+        r = super(DirtyTrackingDict, self).update(E, **F)
         self._set_changed()
+        return r
 
     def clear(self):
-        super(DirtyTrackingDict, self).clear()
+        r = super(DirtyTrackingDict, self).clear()
         self._set_changed()
+        return r
 
     def pop(self, k, d=None):
-        super(DirtyTrackingDict, self).pop(k, d)
+        r = super(DirtyTrackingDict, self).pop(k, d)
         self._set_changed()
+        return r
 
     def popitem(self):
-        super(DirtyTrackingDict, self).popitem()
+        r = super(DirtyTrackingDict, self).popitem()
         self._set_changed()
+        return r
 
     def _set_changed(self):
         # python 2.6 doesn't have modifiable during copy.deepcopy
