@@ -14,7 +14,6 @@
 #    * limitations under the License.
 
 import warnings
-import logging
 
 from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
 from cloudify.logs import init_cloudify_logger
@@ -588,7 +587,7 @@ class CloudifyContext(CommonContext):
         return self._capabilities
 
     @property
-    def logger(self, logging_level=logging.INFO):
+    def logger(self):
         """
         A Cloudify context aware logger.
 
@@ -596,12 +595,7 @@ class CloudifyContext(CommonContext):
         using logstash.
         """
         if self._logger is None:
-            # print 'creating context logger, logging level is: {0}'.\
-            #     format(logging_level)
-            # import sys
-            # import traceback
-            # traceback.print_exc(file=sys.stdout)
-            self._logger = self._init_cloudify_logger(logging_level)
+            self._logger = self._init_cloudify_logger()
         return self._logger
 
     @property
@@ -722,12 +716,11 @@ class CloudifyContext(CommonContext):
             target_path=target_path,
             template_variables=template_variables)
 
-    def _init_cloudify_logger(self, logging_level=logging.INFO):
+    def _init_cloudify_logger(self):
         logger_name = self.task_id if self.task_id is not None \
             else 'cloudify_plugin'
         handler = self._endpoint.get_logging_handler()
-        return init_cloudify_logger(handler, logger_name,
-                                    logging_level=logging_level)
+        return init_cloudify_logger(handler, logger_name)
 
     def _add_context_to_template_variables(self, template_variables):
 

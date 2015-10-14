@@ -112,24 +112,29 @@ class NodeInstance(object):
 # what about the rest of the settings?
 # since it's using code a lot of code from utils, shouldn't it be in utils
 # actually?
-def get_rest_client(protocol, username=None, password=None):
+def get_rest_client(username=None, password=None):
     """
     :param username: a username to be sent with each request
     :param password: a password to be sent with each request
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
-    print '***** in get_rest_client, protocol: {0}'.format(protocol)
     print '***** in get_rest_client, got username: {0}'.format(username)
     manager_ip = utils.get_manager_ip()
     rest_port = utils.get_manager_rest_service_port()
+    if rest_port == 443:
+        protocol = 'https'
+    else:
+        protocol = 'http'
     print '***** in get_rest_client, got rest_port: {0}'.format(rest_port)
+    print '***** in get_rest_client, protocol: {0}'.format(protocol)
     headers = utils.get_auth_header(username, password)
-    # cert = utils.get_ssl_cert()
-    # trust_all = utils.get_ssl_trust_all()
+    trust_all = not utils.get_ssl_verify_certificate()
+    print '***** in get_rest_client, trust_all: {0}'.format(trust_all)
+    cert_path = '/root/cloudify/server.crt'
 
     return CloudifyClient(host=manager_ip, port=rest_port, protocol=protocol,
-                          headers=headers)  # cert=cert, trust_all=trust_all)
+                          headers=headers, cert=cert_path, trust_all=trust_all)
 
 
 def _save_resource(logger, resource, resource_path, target_path):
@@ -265,19 +270,19 @@ def get_node_instance_ip(node_instance_id, username, password):
 
 
 def update_execution_status(execution_id, status, protocol, username,
-                            password, error=None):
+                            password, verify_certificate, error=None):
     """
     Update the execution status of the execution denoted by ``execution_id``.
 
     :returns: The updated status
     """
-    client = get_rest_client(protocol, username, password)
+    client = get_rest_client(username, password)
     return client.executions.update(execution_id, status, error)
 
 
-def get_bootstrap_context(protocol, username, password):
+def get_bootstrap_context(username, password):
     """Read the manager bootstrap context."""
-    client = get_rest_client(protocol, username, password)
+    client = get_rest_client(username, password)
     context = client.manager.get_context()['context']
     return context.get('cloudify', {})
 

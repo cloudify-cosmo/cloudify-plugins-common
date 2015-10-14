@@ -477,8 +477,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             print '***** creating rest client as {0}'.\
                 format(ctx.get('cloudify_username'))
             print '***** ctx is: {0}'.format(ctx)
-            rest = get_rest_client(protocol=ctx.get('rest_protocol'),
-                                   username=ctx.get('cloudify_username'),
+            # protocol=ctx.get('rest_protocol'),
+            rest = get_rest_client(username=ctx.get('cloudify_username'),
                                    password=ctx.get('cloudify_password'))
 
             print '***** calling rest.nodes.list'
@@ -534,6 +534,11 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
     def cloudify_password(self):
         """The cloudify password"""
         return self._context.get('cloudify_password')
+
+    @property
+    def verify_certificate(self):
+        """verify SSL certificate flag"""
+        return self._context.get('verify_certificate')
 
     @property
     def local(self):
@@ -1030,7 +1035,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
     def bootstrap_context(self):
         return get_bootstrap_context(self.workflow_ctx.rest_protocol,
                                      self.workflow_ctx.cloudify_username,
-                                     self.workflow_ctx.cloudify_password)
+                                     self.workflow_ctx.cloudify_password,
+                                     self.workflow_ctx.verify_certificate)
 
     def get_send_task_event_func(self, task):
         return events.send_task_event_func_remote

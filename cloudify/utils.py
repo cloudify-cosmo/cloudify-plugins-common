@@ -102,6 +102,13 @@ def get_manager_rest_service_port():
     return int(os.environ[constants.MANAGER_REST_PORT_KEY])
 
 
+def get_ssl_verify_certificate():
+    """
+    Returns true if SSL certificate verification is required, false otherwise.
+    """
+    return os.environ[constants.VERIFY_CERTIFICATE]
+
+
 def get_username():
     """
     Returns the cloudify username if set as an env var.
