@@ -246,7 +246,7 @@ class TestArgumentParsing(testtools.TestCase):
         self.addCleanup(self.restore)
         self.expected = dict(
             args=[],
-            timeout=5,
+            timeout=30,
             socket_url='stub')
         self.mock_response = None
         os.environ['CTX_SOCKET_URL'] = 'stub'
