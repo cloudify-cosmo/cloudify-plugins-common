@@ -491,7 +491,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         :return: A task dependency graph instance
         """
         if next(self.internal.task_graph.tasks_iter(), None) is not None:
-            raise RuntimeError('Cannot switch to graph mode when tasks have'
+            raise RuntimeError('Cannot switch to graph mode when tasks have '
                                'already been executed')
 
         self.internal.graph_mode = True
@@ -672,7 +672,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         :param kwargs: optional kwargs to be passed to the task
         :param node_context: Used internally by node.execute_operation
         """
-        kwargs = kwargs or {}
+        # Should deepcopy cause problems here, remove it, but please make
+        # sure that WORKFLOWS_WORKER_PAYLOAD is not global in manager repo
+        kwargs = copy.deepcopy(kwargs) or {}
         task_id = str(uuid.uuid4())
         cloudify_context = self._build_cloudify_context(
             task_id,
