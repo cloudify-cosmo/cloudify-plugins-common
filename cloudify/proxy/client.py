@@ -90,7 +90,7 @@ def client_req(socket_url, args, timeout=5):
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--timeout', type=int, default=5)
+    parser.add_argument('-t', '--timeout', type=int, default=30)
     parser.add_argument('--socket-url', default=os.environ.get(CTX_SOCKET_URL))
     parser.add_argument('--json-arg-prefix', default='@')
     parser.add_argument('-j', '--json-output', action='store_true')
