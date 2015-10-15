@@ -102,7 +102,7 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
     scaled_node = host_node if (scale_compute and host_node) else node
     curr_num_instances = scaled_node.number_of_instances
     planned_num_instances = curr_num_instances + delta
-    if planned_num_instances < 1:
+    if planned_num_instances < 0:
         raise ValueError('Provided delta: {0} is illegal. current number of'
                          'instances of node {1} is {2}'
                          .format(delta, node_id, curr_num_instances))

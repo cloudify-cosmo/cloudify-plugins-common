@@ -337,9 +337,9 @@ class TestScale(testtools.TestCase):
 
     @workflow_test(scale_blueprint_path)
     def test_illegal_delta(self, cfy_local):
-        with testtools.ExpectedException(ValueError, ".*-1 is illegal.*"):
+        with testtools.ExpectedException(ValueError, ".*-2 is illegal.*"):
             cfy_local.execute('scale', parameters={'node_id': 'node',
-                                                   'delta': -1})
+                                                   'delta': -2})
 
 
 class TestSubgraphWorkflowLogic(testtools.TestCase):
