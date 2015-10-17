@@ -110,11 +110,9 @@ def operation(func=None, **arguments):
             if ctx is None:
                 ctx = {}
             if not _is_cloudify_context(ctx):
-                import CurrentContext
-                current_ctx = CurrentContext()
                 ctx = context.CloudifyContext(ctx)
-                print '***** CurrentContext type: {0}'.format(type(current_ctx))
-                print '***** CurrentContext: {0}'.format(current_ctx)
+                print '***** current_ctx type: {0}'.format(type(current_ctx))
+                print '***** current_ctx: {0}'.format(current_ctx)
                 print '***** ctx type: {0}'.format(type(ctx))
                 print '***** ctx: {0}'.format(ctx)
                 username = ctx.security_ctx.cloudify_username
