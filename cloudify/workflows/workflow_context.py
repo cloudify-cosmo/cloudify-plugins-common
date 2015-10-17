@@ -713,6 +713,10 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         """
         kwargs = kwargs or {}
         task_id = str(uuid.uuid4())
+        import traceback, sys
+        print '***** call stack: '
+        traceback.print_stack(file=sys.stdout)
+
         cloudify_context = self._build_cloudify_context(
             task_id,
             task_name,
