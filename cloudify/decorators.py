@@ -111,7 +111,6 @@ def operation(func=None, **arguments):
                 ctx = {}
             if not _is_cloudify_context(ctx):
                 ctx = context.CloudifyContext(ctx)
-                print '***** dir(ctx): {0}'.format(dir(ctx))
                 username = ctx.security_ctx.cloudify_username
                 password = ctx.security_ctx.cloudify_password
                 print '***** in operation wrapper, creating rest client as ' \
