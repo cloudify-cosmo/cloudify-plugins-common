@@ -387,6 +387,12 @@ def _execute_workflow_function(ctx, func, args, kwargs):
     try:
         ctx.internal.start_local_tasks_processing()
         current_workflow_ctx.set(ctx, kwargs)
+        print '***** in _execute_workflow_function, ctx type: {0}'.format(type(ctx))
+        print '***** in _execute_workflow_function, ctx.cloudify_username: {0}'.format(ctx.cloudify_username)
+        print '***** in _execute_workflow_function, func: {0}'.format(func)
+        print '***** in _execute_workflow_function, args: {0}'.format(args)
+        print '***** in _execute_workflow_function, kwargs: {0}'.format(kwargs)
+        print '***** in _execute_workflow_function, current_workflow_ctx: {0}'.format(current_workflow_ctx)
         result = func(*args, **kwargs)
         if not ctx.internal.graph_mode:
             tasks = list(ctx.internal.task_graph.tasks_iter())
