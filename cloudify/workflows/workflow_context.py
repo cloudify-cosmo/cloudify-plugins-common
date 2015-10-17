@@ -97,6 +97,8 @@ class CloudifyWorkflowRelationshipInstance(object):
         :param operation: The node relationship operation
         :param kwargs: optional kwargs to be passed to the called operation
         """
+        print '***** in CloudifyWorkflowNodeInstance.execute_source_operation, ' \
+              'calling self.ctx._execute_operation'
         return self.ctx._execute_operation(
             operation,
             node_instance=self.node_instance,
@@ -117,6 +119,8 @@ class CloudifyWorkflowRelationshipInstance(object):
         :param operation: The node relationship operation
         :param kwargs: optional kwargs to be passed to the called operation
         """
+        print '***** in CloudifyWorkflowNodeInstance.execute_target_operation, ' \
+              'calling self.ctx._execute_operation'
         return self.ctx._execute_operation(
             operation,
             node_instance=self.target_node_instance,
@@ -252,6 +256,8 @@ class CloudifyWorkflowNodeInstance(object):
         :param operation: The node operation
         :param kwargs: optional kwargs to be passed to the called operation
         """
+        print '***** in CloudifyWorkflowNodeInstance.execute_operation, ' \
+              'calling self.ctx._execute_operation'
         return self.ctx._execute_operation(
             operation=operation,
             node_instance=self,
@@ -632,7 +638,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         final_kwargs = self._merge_dicts(merged_from=kwargs,
                                          merged_into=operation_properties,
                                          allow_override=allow_kwargs_override)
-
+        print '***** in CloudifyWorkflowContext._execute_operation, calling' \
+              ' execute_task, security_ctx.cloudify_username is: {0}'.\
+            format(self.security_ctx.cloudify_username)
         return self.execute_task(task_name,
                                  local=self.local,
                                  kwargs=final_kwargs,
