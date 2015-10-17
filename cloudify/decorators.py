@@ -260,7 +260,8 @@ def _remote_workflow(ctx, func, args, kwargs):
             update_execution_cancelled()
             return api.EXECUTION_CANCELLED_RESULT
 
-        update_execution_status(ctx.execution_id, Execution.STARTED)
+        update_execution_status(ctx.execution_id, Execution.STARTED,
+                                username, password)
         _send_workflow_started_event(ctx)
 
         # the actual execution of the workflow will run in another
@@ -355,8 +356,8 @@ def _remote_workflow(ctx, func, args, kwargs):
             traceback.print_exc(file=error)
             error_traceback = error.getvalue()
         update_execution_status(ctx.execution_id, Execution.FAILED,
-                                ctx.rest_protocol, ctx.cloudify_username,
-                                ctx.cloudify_password, ctx.verify_certificate,
+                                ctx.cloudify_username,
+                                ctx.cloudify_password,
                                 error_traceback)
         _send_workflow_failed_event(ctx, e, error_traceback)
         raise

@@ -122,17 +122,21 @@ def get_rest_client(username=None, password=None):
     print '***** in get_rest_client, got username: {0}'.format(username)
     manager_ip = utils.get_manager_ip()
     rest_port = utils.get_manager_rest_service_port()
-    if rest_port == 443:
-        protocol = 'https'
-    else:
-        protocol = 'http'
+    protocol = 'https' if rest_port == 443 else 'http'
     print '***** in get_rest_client, got rest_port: {0}'.format(rest_port)
     print '***** in get_rest_client, protocol: {0}'.format(protocol)
     headers = utils.get_auth_header(username, password)
-    trust_all = not utils.get_ssl_verify_certificate()
+    cert_path = None
+    verify_cert = utils.get_ssl_verify_certificate()
+    print '***** in get_rest_client, verify_cert is: {0}'.format(verify_cert)
+    if verify_cert:
+        print '***** in get_rest_client, verify_cert is TRUE'
+        trust_all = False
+        cert_path = '/root/cloudify/server.crt'
+    else:
+        print '***** in get_rest_client, verify_cert is FALSE'
+        trust_all = True
     print '***** in get_rest_client, trust_all: {0}'.format(trust_all)
-    cert_path = '/root/cloudify/server.crt'
-
     return CloudifyClient(host=manager_ip, port=rest_port, protocol=protocol,
                           headers=headers, cert=cert_path, trust_all=trust_all)
 
@@ -269,8 +273,8 @@ def get_node_instance_ip(node_instance_id, username, password):
 # TODO: some nasty code duplication between these two methods
 
 
-def update_execution_status(execution_id, status, protocol, username,
-                            password, verify_certificate, error=None):
+def update_execution_status(execution_id, status, username,
+                            password, error=None):
     """
     Update the execution status of the execution denoted by ``execution_id``.
 

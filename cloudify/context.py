@@ -606,7 +606,8 @@ class CloudifyContext(CommonContext):
         :rtype: BootstrapContext
         """
         if self._bootstrap_context is None:
-            context = self._endpoint.get_bootstrap_context()
+            context = self._endpoint.get_bootstrap_context(
+                self.cloudify_username, self.cloudify_password)
             self._bootstrap_context = BootstrapContext(context)
         return self._bootstrap_context
 

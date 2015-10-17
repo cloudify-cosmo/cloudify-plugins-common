@@ -1033,10 +1033,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     @property
     def bootstrap_context(self):
-        return get_bootstrap_context(self.workflow_ctx.rest_protocol,
-                                     self.workflow_ctx.cloudify_username,
-                                     self.workflow_ctx.cloudify_password,
-                                     self.workflow_ctx.verify_certificate)
+        return get_bootstrap_context(self.workflow_ctx.cloudify_username,
+                                     self.workflow_ctx.cloudify_password)
 
     def get_send_task_event_func(self, task):
         return events.send_task_event_func_remote

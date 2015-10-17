@@ -106,6 +106,8 @@ def get_ssl_verify_certificate():
     """
     Returns true if SSL certificate verification is required, false otherwise.
     """
+    print '***** returning os.environ[constants.VERIFY_CERTIFICATE]: {0}'.\
+        format(os.environ[constants.VERIFY_CERTIFICATE])
     return os.environ[constants.VERIFY_CERTIFICATE]
 
 
