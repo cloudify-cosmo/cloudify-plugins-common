@@ -134,7 +134,7 @@ def get_rest_client(username=None, password=None):
         trust_all = False
         cert_path = '/root/cloudify/server.crt'
     else:
-        print '***** in get_rest_client, verify_cert is FALSE'
+        print '***** in get_rest_client, verify_cert is FALSE or empty'
         trust_all = True
     print '***** in get_rest_client, trust_all: {0}'.format(trust_all)
     return CloudifyClient(host=manager_ip, port=rest_port, protocol=protocol,

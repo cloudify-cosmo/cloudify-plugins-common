@@ -111,6 +111,11 @@ def operation(func=None, **arguments):
                 ctx = {}
             if not _is_cloudify_context(ctx):
                 ctx = context.CloudifyContext(ctx)
+                print '***** dir(ctx): {0}'.format(dir(ctx))
+                username = ctx.security_ctx.cloudify_username
+                password = ctx.security_ctx.cloudify_password
+                print '***** in operation wrapper, creating rest client as ' \
+                      '{0}'.format(username)
                 # remove __cloudify_context
                 raw_context = kwargs.pop(CLOUDIFY_CONTEXT_PROPERTY_KEY, {})
                 if ctx.task_target is None:
@@ -246,10 +251,8 @@ def _remote_workflow(ctx, func, args, kwargs):
     # protocol = ctx.rest_protocol
     username = ctx.cloudify_username
     password = ctx.cloudify_password
-    verify_certificate = ctx.verify_certificate
-    print '***** in _remote_workflow, creating rest client as {0}, ' \
-          'verify cert is: {1}'.\
-        format(username, verify_certificate)
+    print '***** in _remote_workflow, creating rest client as {0}'.\
+        format(username)
     rest = get_rest_client(username, password)
     parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:

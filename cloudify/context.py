@@ -95,6 +95,7 @@ class CommonContext(object):
 
         self.blueprint = BlueprintContext(self._context)
         self.deployment = DeploymentContext(self._context)
+        self.security_ctx = SecurityContext(self._context)
 
 
 class BootstrapContext(object):
@@ -212,6 +213,24 @@ class DeploymentContext(EntityContext):
     def id(self):
         """The deployment id the plugin invocation belongs to."""
         return self._context.get('deployment_id')
+
+
+class SecurityContext(object):
+
+    def __init__(self, context):
+        print '***** context type: {0}'.format(type(context))
+        self.cloudify_username = context.get('cloudify_username')
+        self.cloudify_password = context.get('cloudify_password')
+
+    @property
+    def username(self):
+        """The username of the currently active user"""
+        return self.cloudify_username
+
+    @property
+    def password(self):
+        """The password of the currently active user"""
+        return self.cloudify_password
 
 
 class NodeContext(EntityContext):
@@ -606,8 +625,11 @@ class CloudifyContext(CommonContext):
         :rtype: BootstrapContext
         """
         if self._bootstrap_context is None:
+            print '***** creating bootstrap_context using username {0}'.\
+                format(self.security_ctx.cloudify_username)
             context = self._endpoint.get_bootstrap_context(
-                self.cloudify_username, self.cloudify_password)
+                self.security_ctx.cloudify_username,
+                self.security_ctx.cloudify_password)
             self._bootstrap_context = BootstrapContext(context)
         return self._bootstrap_context
 
