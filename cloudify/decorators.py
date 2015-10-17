@@ -273,6 +273,11 @@ def _remote_workflow(ctx, func, args, kwargs):
         def child_wrapper():
             try:
                 ctx.internal.start_event_monitor()
+                print '***** in child_wrapper, ctx type: {0}'.format(type(ctx))
+                print '***** in child_wrapper, ctx.cloudify_username: {0}'.format(ctx.cloudify_username)
+                print '***** in child_wrapper, func: {0}'.format(func)
+                print '***** in child_wrapper, args: {0}'.format(args)
+                print '***** in child_wrapper, kwargs: {0}'.format(kwargs)
                 workflow_result = _execute_workflow_function(
                     ctx, func, args, kwargs)
                 child_queue.put({'result': workflow_result})
