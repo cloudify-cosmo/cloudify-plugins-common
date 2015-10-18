@@ -473,7 +473,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
 
         self.blueprint = context.BlueprintContext(self._context)
         self.deployment = WorkflowDeploymentContext(self._context, self)
-        self.security_ctx = context.SecurityContext(self._context)
+        self.security_ctx = context.SecurityContext(**self._context)
 
         if self.local:
             storage = ctx.pop('storage')
