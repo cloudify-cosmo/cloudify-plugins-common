@@ -75,7 +75,7 @@ class Endpoint(object):
     def get_provider_context(self):
         raise NotImplementedError('Implemented by subclasses')
 
-    def get_bootstrap_context(self, username, password):
+    def get_bootstrap_context(self, security_ctx):
         raise NotImplementedError('Implemented by subclasses')
 
     def get_logging_handler(self):
@@ -179,8 +179,8 @@ class ManagerEndpoint(Endpoint):
     def get_provider_context(self):
         return manager.get_provider_context()
 
-    def get_bootstrap_context(self, username, password):
-        return manager.get_bootstrap_context(username, password)
+    def get_bootstrap_context(self, security_ctx):
+        return manager.get_bootstrap_context(security_ctx)
 
     def get_logging_handler(self):
         return CloudifyPluginLoggingHandler(self.ctx,

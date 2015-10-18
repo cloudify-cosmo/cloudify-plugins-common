@@ -114,7 +114,7 @@ def operation(func=None, **arguments):
                 print '***** in operation wrapper, ctx type: {0}'.\
                     format(type(ctx))
                 print '***** in operation wrapper, ctx: {0}'.format(ctx)
-                username = ctx.security_ctx.cloudify_username
+                username = ctx.security_ctx.username
                 # if username is None:
                 #     traceback.print_stack(file=sys.stdout)
                 #     raise RuntimeError('***** REST USERNAME IS MISSING !')
@@ -275,7 +275,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             try:
                 ctx.internal.start_event_monitor()
                 print '***** in child_wrapper, ctx type: {0}'.format(type(ctx))
-                print '***** in child_wrapper, ctx.cloudify_username: {0}'.\
+                print '***** in child_wrapper, ctx.username: {0}'.\
                     format(ctx.security_ctx.username)
                 print '***** in child_wrapper, func: {0}'.format(func)
                 print '***** in child_wrapper, args: {0}'.format(args)
@@ -354,8 +354,7 @@ def _remote_workflow(ctx, func, args, kwargs):
         else:
             update_execution_status(ctx.execution_id,
                                     Execution.TERMINATED,
-                                    ctx.cloudify_username,
-                                    ctx.cloudify_password)
+                                    ctx.security_ctx)
             _send_workflow_succeeded_event(ctx)
         return result
     except RequestSystemExit:
@@ -368,8 +367,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             traceback.print_exc(file=error)
             error_traceback = error.getvalue()
         update_execution_status(ctx.execution_id, Execution.FAILED,
-                                ctx.cloudify_username,
-                                ctx.cloudify_password,
+                                ctx.security_ctx,
                                 error_traceback)
         _send_workflow_failed_event(ctx, e, error_traceback)
         raise
@@ -379,7 +377,7 @@ def _local_workflow(ctx, func, args, kwargs):
     try:
         _send_workflow_started_event(ctx)
         print '***** calling _execute_workflow_function with ' \
-              'ctx.cloudify_username: {0}'.format(ctx.cloudify_username)
+              'ctx.username: {0}'.format(ctx.username)
         result = _execute_workflow_function(ctx, func, args, kwargs)
         _send_workflow_succeeded_event(ctx)
         return result
@@ -396,13 +394,12 @@ def _execute_workflow_function(ctx, func, args, kwargs):
         current_workflow_ctx.set(ctx, kwargs)
         print '***** in _execute_workflow_function, ctx type: {0}'.\
             format(type(ctx))
-        print '***** in _execute_workflow_function, ctx.cloudify_username: {0}'.\
-            format(ctx.cloudify_username)
+        print '***** in _execute_workflow_function, ' \
+              'ctx.security_ctx.username: {0}'.\
+            format(ctx.security_ctx.username)
         print '***** in _execute_workflow_function, func: {0}'.format(func)
         print '***** in _execute_workflow_function, args: {0}'.format(args)
         print '***** in _execute_workflow_function, kwargs: {0}'.format(kwargs)
-        print '***** in _execute_workflow_function, current_workflow_ctx: {0}'.\
-            format(current_workflow_ctx)
         result = func(*args, **kwargs)
         if not ctx.internal.graph_mode:
             tasks = list(ctx.internal.task_graph.tasks_iter())

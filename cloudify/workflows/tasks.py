@@ -492,8 +492,9 @@ class LocalWorkflowTask(WorkflowTask):
                                                                self)
                 print '***** in local_task_wrapper, calling local task with' \
                       ' kwargs: {0}'.format(self.kwargs)
-                print '**** in local_task_wrapper, self.workflow_context.cloudify_username: {0}'.\
-                    format(self.workflow_context.cloudify_username)
+                print '**** in local_task_wrapper, ' \
+                      'self.workflow_context.username: {0}'.\
+                    format(self.workflow_context.username)
                 result = self.local_task(**self.kwargs)
                 self.workflow_context.internal.send_task_event(
                     TASK_SUCCEEDED, self, event={'result': str(result)})

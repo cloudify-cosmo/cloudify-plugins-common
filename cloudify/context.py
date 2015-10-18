@@ -657,10 +657,8 @@ class CloudifyContext(CommonContext):
         """
         if self._bootstrap_context is None:
             print '***** creating bootstrap_context using username {0}'.\
-                format(self.security_ctx.cloudify_username)
-            context = self._endpoint.get_bootstrap_context(
-                self.security_ctx.cloudify_username,
-                self.security_ctx.cloudify_password)
+                format(self.security_ctx.username)
+            context = self._endpoint.get_bootstrap_context(self.security_ctx)
             self._bootstrap_context = BootstrapContext(context)
         return self._bootstrap_context
 

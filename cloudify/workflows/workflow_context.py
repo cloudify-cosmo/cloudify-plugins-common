@@ -482,7 +482,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
             print '***** creating rest client as {0}'.\
-                format(self.security_ctx.cloudify_username)
+                format(self.security_ctx.username)
             print '***** ctx is: {0}'.format(ctx)
             # protocol=ctx.get('rest_protocol'),
             rest = get_rest_client(ctx.security_ctx)
@@ -618,8 +618,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                                          merged_into=operation_properties,
                                          allow_override=allow_kwargs_override)
         print '***** in CloudifyWorkflowContext._execute_operation, calling' \
-              ' execute_task, security_ctx.cloudify_username is: {0}'.\
-            format(self.security_ctx.cloudify_username)
+              ' execute_task, security_ctx.username is: {0}'.\
+            format(self.security_ctx.username)
         return self.execute_task(task_name,
                                  local=self.local,
                                  kwargs=final_kwargs,
@@ -658,8 +658,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                                 task_id,
                                 task_name,
                                 node_context,
-                                cloudify_username,
-                                cloudify_password):
+                                security_ctx):
         node_context = node_context or {}
         print '***** in _build_cloudify_context !'
         context = {
@@ -670,8 +669,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             'deployment_id': self.deployment.id,
             'execution_id': self.execution_id,
             'workflow_id': self.workflow_id,
-            'cloudify_username': cloudify_username,
-            'cloudify_password': cloudify_password
+            'security_context': security_ctx
         }
         context.update(node_context)
         context.update(self.internal.handler.operation_cloudify_context)
@@ -695,15 +693,15 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         :param node_context: Used internally by node.execute_operation
         """
         print '***** in workflow_context.py execute_task ' \
-              'self.cloudify_username: {0}'.format(self.cloudify_username)
+              'self.security_ctx.username: {0}'.\
+            format(self.security_ctx.username)
         kwargs = kwargs or {}
         task_id = str(uuid.uuid4())
         cloudify_context = self._build_cloudify_context(
             task_id,
             task_name,
             node_context,
-            self.cloudify_username,
-            self.cloudify_password)
+            self.security_ctx)
         print '***** in workflow_context.py execute_task, setting cloudify ' \
               'context to: {0}'.format(cloudify_context)
         kwargs['__cloudify_context'] = cloudify_context
@@ -1032,9 +1030,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     @property
     def bootstrap_context(self):
-        return get_bootstrap_context(
-            self.workflow_ctx.security_ctx.cloudify_username,
-            self.workflow_ctx.security_ctx.cloudify_password)
+        return get_bootstrap_context(self.workflow_ctx.security_ctx)
 
     def get_send_task_event_func(self, task):
         return events.send_task_event_func_remote
