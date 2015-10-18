@@ -219,34 +219,34 @@ class SecurityContext(object):
 
     def __init__(self, context):
         print '***** SecurityContext, context type: {0}'.format(type(context))
-        self.security_enabled = context.get('security_enabled')
+        self.is_security_enabled = context.get('security_enabled')
         print '***** SecurityContext, security_enabled: {0}'.\
             format(self.security_enabled)
-        self.ssl_enabled = context.get('ssl_enabled')
+        self.is_ssl_enabled = context.get('ssl_enabled')
         print '***** SecurityContext, ssl_enabled: {0}'.\
             format(self.ssl_enabled)
-        self.verify_ssl_certificate = context.get('verify_ssl_certificate')
+        self.verify_certificate = context.get('verify_ssl_certificate')
         print '***** SecurityContext, verify_ssl_certificate: {0}'.\
             format(self.verify_ssl_certificate)
         self.cloudify_username = context.get('cloudify_username')
         print '***** SecurityContext, cloudify_username: {0}'.\
-            format(self.cloudify_username)
+            format(self.username)
         self.cloudify_password = context.get('cloudify_password')
 
     @property
     def security_enabled(self):
         """True if security is enabled, False otherwise"""
-        return self.security_enabled
+        return self.is_security_enabled
 
     @property
     def ssl_enabled(self):
         """True if SSL is enabled, False otherwise"""
-        return self.ssl_enabled
+        return self.is_ssl_enabled
 
     @property
     def verify_ssl_certificate(self):
         """True if SSL certificate should be verified, False otherwise"""
-        return self.verify_ssl_certificate
+        return self.verify_certificate
 
     @property
     def username(self):
