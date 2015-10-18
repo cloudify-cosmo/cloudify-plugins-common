@@ -354,7 +354,10 @@ def _remote_workflow(ctx, func, args, kwargs):
                 # TODO: kill worker externally
                 raise RequestSystemExit()
         else:
-            update_execution_status(ctx.execution_id, Execution.TERMINATED)
+            update_execution_status(ctx.execution_id,
+                                    Execution.TERMINATED,
+                                    ctx.cloudify_username,
+                                    ctx.cloudify_password)
             _send_workflow_succeeded_event(ctx)
         return result
     except RequestSystemExit:
