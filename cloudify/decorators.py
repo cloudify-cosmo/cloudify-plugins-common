@@ -114,7 +114,8 @@ def operation(func=None, **arguments):
                 print '***** in operation wrapper, ctx type: {0}'.format(type(ctx))
                 print '***** in operation wrapper, ctx: {0}'.format(ctx)
                 username = ctx.security_ctx.cloudify_username
-                password = ctx.security_ctx.cloudify_password
+                if username is None:
+                    raise RuntimeError('***** REST USERNAME IS MISSING !')
                 print '***** in operation wrapper, creating rest client as ' \
                       '{0}'.format(username)
                 # remove __cloudify_context
