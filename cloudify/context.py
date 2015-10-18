@@ -218,11 +218,19 @@ class DeploymentContext(EntityContext):
 class SecurityContext(object):
 
     def __init__(self, context):
-        print '***** context type: {0}'.format(type(context))
+        print '***** SecurityContext, context type: {0}'.format(type(context))
         self.security_enabled = context.get('security_enabled')
+        print '***** SecurityContext, security_enabled: {0}'.\
+            format(self.security_enabled)
         self.ssl_enabled = context.get('ssl_enabled')
+        print '***** SecurityContext, ssl_enabled: {0}'.\
+            format(self.ssl_enabled)
         self.verify_ssl_certificate = context.get('verify_ssl_certificate')
+        print '***** SecurityContext, verify_ssl_certificate: {0}'.\
+            format(self.verify_ssl_certificate)
         self.cloudify_username = context.get('cloudify_username')
+        print '***** SecurityContext, cloudify_username: {0}'.\
+            format(self.cloudify_username)
         self.cloudify_password = context.get('cloudify_password')
 
     @property
