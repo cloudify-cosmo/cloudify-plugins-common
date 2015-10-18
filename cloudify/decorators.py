@@ -111,10 +111,8 @@ def operation(func=None, **arguments):
                 ctx = {}
             if not _is_cloudify_context(ctx):
                 ctx = context.CloudifyContext(ctx)
-                print '***** current_ctx type: {0}'.format(type(current_ctx))
-                print '***** current_ctx: {0}'.format(current_ctx)
-                print '***** ctx type: {0}'.format(type(ctx))
-                print '***** ctx: {0}'.format(ctx)
+                print '***** in operation wrapper, ctx type: {0}'.format(type(ctx))
+                print '***** in operation wrapper, ctx: {0}'.format(ctx)
                 username = ctx.security_ctx.cloudify_username
                 password = ctx.security_ctx.cloudify_password
                 print '***** in operation wrapper, creating rest client as ' \

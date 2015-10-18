@@ -678,7 +678,9 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
     def _build_cloudify_context(self,
                                 task_id,
                                 task_name,
-                                node_context):
+                                node_context,
+                                cloudify_username,
+                                cloudify_password):
         node_context = node_context or {}
         print '***** in _build_cloudify_context !'
         context = {
@@ -689,6 +691,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             'deployment_id': self.deployment.id,
             'execution_id': self.execution_id,
             'workflow_id': self.workflow_id,
+            'cloudify_username': cloudify_username,
+            'cloudify_password': cloudify_password
         }
         context.update(node_context)
         context.update(self.internal.handler.operation_cloudify_context)
@@ -711,6 +715,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         :param kwargs: optional kwargs to be passed to the task
         :param node_context: Used internally by node.execute_operation
         """
+        print '***** in workflow_context.py execute_task ' \
+              'self.cloudify_username: {0}'.format(self.cloudify_username)
         kwargs = kwargs or {}
         task_id = str(uuid.uuid4())
         import traceback, sys
@@ -720,8 +726,10 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         cloudify_context = self._build_cloudify_context(
             task_id,
             task_name,
-            node_context)
-        print '***** in execute_task, setting cloudify ' \
+            node_context,
+            self.cloudify_username,
+            self.cloudify_password)
+        print '***** in workflow_context.py execute_task, setting cloudify ' \
               'context to: {0}'.format(cloudify_context)
         kwargs['__cloudify_context'] = cloudify_context
 
