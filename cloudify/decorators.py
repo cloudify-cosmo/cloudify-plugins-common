@@ -111,7 +111,8 @@ def operation(func=None, **arguments):
                 ctx = {}
             if not _is_cloudify_context(ctx):
                 ctx = context.CloudifyContext(ctx)
-                print '***** in operation wrapper, ctx type: {0}'.format(type(ctx))
+                print '***** in operation wrapper, ctx type: {0}'.\
+                    format(type(ctx))
                 print '***** in operation wrapper, ctx: {0}'.format(ctx)
                 username = ctx.security_ctx.cloudify_username
                 # if username is None:
@@ -252,14 +253,10 @@ def _remote_workflow(ctx, func, args, kwargs):
 
     # there must be a better place/way to get this, this is not per request
     # protocol = ctx.rest_protocol
-    username = ctx.cloudify_username
-    password = ctx.cloudify_password
-    print '***** in _remote_workflow, creating rest client as {0}'.\
-        format(username)
-    rest = get_rest_client(username, password)
+    rest_client = get_rest_client(ctx.security_ctx)
     parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:
-        if rest.executions.get(ctx.execution_id).status in \
+        if rest_client.executions.get(ctx.execution_id).status in \
                 (Execution.CANCELLING, Execution.FORCE_CANCELLING):
             # execution has been requested to be cancelled before it
             # was even started
@@ -267,7 +264,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             return api.EXECUTION_CANCELLED_RESULT
 
         update_execution_status(ctx.execution_id, Execution.STARTED,
-                                username, password)
+                                ctx.security_ctx)
         _send_workflow_started_event(ctx)
 
         # the actual execution of the workflow will run in another
@@ -278,7 +275,8 @@ def _remote_workflow(ctx, func, args, kwargs):
             try:
                 ctx.internal.start_event_monitor()
                 print '***** in child_wrapper, ctx type: {0}'.format(type(ctx))
-                print '***** in child_wrapper, ctx.cloudify_username: {0}'.format(ctx.cloudify_username)
+                print '***** in child_wrapper, ctx.cloudify_username: {0}'.\
+                    format(ctx.security_ctx.username)
                 print '***** in child_wrapper, func: {0}'.format(func)
                 print '***** in child_wrapper, args: {0}'.format(args)
                 print '***** in child_wrapper, kwargs: {0}'.format(kwargs)
@@ -329,7 +327,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             except Queue.Empty:
                 pass
             # check for 'cancel' requests
-            execution = rest.executions.get(ctx.execution_id)
+            execution = rest_client.executions.get(ctx.execution_id)
             if execution.status == Execution.FORCE_CANCELLING:
                 result = api.EXECUTION_CANCELLED_RESULT
                 break
@@ -380,7 +378,8 @@ def _remote_workflow(ctx, func, args, kwargs):
 def _local_workflow(ctx, func, args, kwargs):
     try:
         _send_workflow_started_event(ctx)
-        print '***** calling _execute_workflow_function with ctx.cloudify_username: {0}'.format(ctx.cloudify_username)
+        print '***** calling _execute_workflow_function with ' \
+              'ctx.cloudify_username: {0}'.format(ctx.cloudify_username)
         result = _execute_workflow_function(ctx, func, args, kwargs)
         _send_workflow_succeeded_event(ctx)
         return result
@@ -395,12 +394,15 @@ def _execute_workflow_function(ctx, func, args, kwargs):
     try:
         ctx.internal.start_local_tasks_processing()
         current_workflow_ctx.set(ctx, kwargs)
-        print '***** in _execute_workflow_function, ctx type: {0}'.format(type(ctx))
-        print '***** in _execute_workflow_function, ctx.cloudify_username: {0}'.format(ctx.cloudify_username)
+        print '***** in _execute_workflow_function, ctx type: {0}'.\
+            format(type(ctx))
+        print '***** in _execute_workflow_function, ctx.cloudify_username: {0}'.\
+            format(ctx.cloudify_username)
         print '***** in _execute_workflow_function, func: {0}'.format(func)
         print '***** in _execute_workflow_function, args: {0}'.format(args)
         print '***** in _execute_workflow_function, kwargs: {0}'.format(kwargs)
-        print '***** in _execute_workflow_function, current_workflow_ctx: {0}'.format(current_workflow_ctx)
+        print '***** in _execute_workflow_function, current_workflow_ctx: {0}'.\
+            format(current_workflow_ctx)
         result = func(*args, **kwargs)
         if not ctx.internal.graph_mode:
             tasks = list(ctx.internal.task_graph.tasks_iter())

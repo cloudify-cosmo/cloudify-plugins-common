@@ -96,14 +96,17 @@ class _Environment(object):
 
     def execute(self,
                 workflow,
+                security_enabled,
+                ssl_enabled,
+                verify_ssl_certificate,
+                cloudify_username,
+                cloudify_password,
                 parameters=None,
                 allow_custom_parameters=False,
                 task_retries=-1,
                 task_retry_interval=30,
                 subgraph_retries=0,
-                task_thread_pool_size=DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE,
-                cloudify_username=None,
-                cloudify_password=None):
+                task_thread_pool_size=DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE,):
         workflows = self.plan['workflows']
         workflow_name = workflow
         if workflow_name not in workflows:
@@ -112,7 +115,8 @@ class _Environment(object):
                              .format(workflow_name,
                                      workflows.keys()))
         # if not cloudify_username or cloudify_password:
-        #     raise ValueError("Missing cloudify username or password, workflow '{0}' is aborted"
+        #     raise ValueError("Missing cloudify username or password,
+        #                       workflow '{0}' is aborted"
         #                      .format(workflow_name))
         workflow = workflows[workflow_name]
         workflow_method = _get_module_method(workflow['operation'],
@@ -130,10 +134,11 @@ class _Environment(object):
             'task_retry_interval': task_retry_interval,
             'subgraph_retries': subgraph_retries,
             'local_task_thread_pool_size': task_thread_pool_size,
-            'cloudify_username': cloudify_username,  # is this required at all in local?
+            'security_enabled': security_enabled,
+            'ssl_enabled': ssl_enabled,
+            'verify_ssl_certificate': verify_ssl_certificate,
+            'cloudify_username': cloudify_username,
             'cloudify_password': cloudify_password,
-            'security_enabled': True,
-            'verify_ssl_certificate': False
         }
 
         merged_parameters = _merge_and_validate_execution_parameters(

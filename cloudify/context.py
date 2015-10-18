@@ -95,7 +95,7 @@ class CommonContext(object):
 
         self.blueprint = BlueprintContext(self._context)
         self.deployment = DeploymentContext(self._context)
-        self.security_ctx = SecurityContext(self._context)
+        self.security_ctx = SecurityContext(**self._context)
 
 
 class BootstrapContext(object):
@@ -217,21 +217,26 @@ class DeploymentContext(EntityContext):
 
 class SecurityContext(object):
 
-    def __init__(self, context):
-        print '***** SecurityContext, context type: {0}'.format(type(context))
-        self.is_security_enabled = context.get('security_enabled')
+    def __init__(self, security_enabled, ssl_enabled, verify_ssl_certificate,
+                 cloudify_username, cloudify_password, **kwargs):
+        self.is_security_enabled = security_enabled
         print '***** SecurityContext, security_enabled: {0}'.\
             format(self.security_enabled)
-        self.is_ssl_enabled = context.get('ssl_enabled')
+        self.is_ssl_enabled = ssl_enabled
         print '***** SecurityContext, ssl_enabled: {0}'.\
             format(self.ssl_enabled)
-        self.verify_certificate = context.get('verify_ssl_certificate')
+        self.verify_certificate = verify_ssl_certificate
         print '***** SecurityContext, verify_ssl_certificate: {0}'.\
             format(self.verify_ssl_certificate)
-        self.cloudify_username = context.get('cloudify_username')
+        self.cloudify_username = cloudify_username
         print '***** SecurityContext, cloudify_username: {0}'.\
             format(self.username)
-        self.cloudify_password = context.get('cloudify_password')
+        self.cloudify_password = cloudify_password
+
+        if self.cloudify_username and not self.is_security_enabled:
+            import traceback
+            import sys
+            traceback.print_stack(file=sys.stdout)
 
     @property
     def security_enabled(self):

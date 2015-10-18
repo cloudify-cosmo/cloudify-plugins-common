@@ -17,6 +17,7 @@ import os
 import urllib2
 
 import utils
+import constants
 from cloudify_rest_client import CloudifyClient
 from cloudify.exceptions import HttpException, NonRecoverableError
 
@@ -112,27 +113,34 @@ class NodeInstance(object):
 # what about the rest of the settings?
 # since it's using code a lot of code from utils, shouldn't it be in utils
 # actually?
-def get_rest_client(username, password):
+def get_rest_client(security_ctx):
     """
-    :param username: a username to be sent with each request
-    :param password: a password to be sent with each request
+    :param security_ctx: a SecurityContext object
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
-    print '***** in get_rest_client, got username: {0}'.format(username)
+    print '***** in get_rest_client, got username: {0}'.\
+        format(security_ctx.username)
     manager_ip = utils.get_manager_ip()
-    rest_port = utils.get_manager_rest_service_port()
-    protocol = 'https' if rest_port == 443 else 'http'
+    rest_port = constants.DEFAULT_REST_PORT
+    protocol = constants.DEFAULT_PROTOCOL
+    cert_path = None
+
+    if security_ctx.security_enabled:
+        if security_ctx.ssl_enabled:
+            rest_port = constants.SECURED_REST_PORT
+            protocol = constants.SECURED_PROTOCOL
+
     print '***** in get_rest_client, got rest_port: {0}'.format(rest_port)
     print '***** in get_rest_client, protocol: {0}'.format(protocol)
-    headers = utils.get_auth_header(username, password)
-    cert_path = None
-    verify_cert = utils.get_ssl_verify_certificate()
-    print '***** in get_rest_client, verify_cert is: {0}'.format(verify_cert)
-    if verify_cert:
+    headers = utils.get_auth_header(security_ctx.username,
+                                    security_ctx.password)
+    print '***** in get_rest_client, verify_ssl_certificate is: {0}'.\
+        format(security_ctx.verify_ssl_certificate)
+    if security_ctx.verify_ssl_certificate:
         print '***** in get_rest_client, verify_cert is TRUE'
         trust_all = False
-        cert_path = '/root/cloudify/server.crt'
+        cert_path = constants.SSL_CERT_PATH
     else:
         print '***** in get_rest_client, verify_cert is FALSE or empty'
         trust_all = True
@@ -216,14 +224,14 @@ def get_blueprint_resource(blueprint_id, resource_path):
     return get_resource(resource_path, base_url=base_url)
 
 
-def get_node_instance(node_instance_id, username, password):
+def get_node_instance(node_instance_id, security_ctx):
     """
     Read node instance data from the storage.
 
     :param node_instance_id: the node instance id
     :rtype: NodeInstance
     """
-    client = get_rest_client(username, password)
+    client = get_rest_client(security_ctx)
     instance = client.node_instances.get(node_instance_id)
     return NodeInstance(node_instance_id,
                         instance.node_id,
@@ -234,13 +242,13 @@ def get_node_instance(node_instance_id, username, password):
                         relationships=instance.relationships)
 
 
-def update_node_instance(node_instance, username, password):
+def update_node_instance(node_instance, security_ctx):
     """
     Update node instance data changes in the storage.
 
     :param node_instance: the node instance with the updated data
     """
-    client = get_rest_client(username, password)
+    client = get_rest_client(security_ctx)
     client.node_instances.update(
         node_instance.id,
         state=node_instance.state,
@@ -248,12 +256,12 @@ def update_node_instance(node_instance, username, password):
         version=node_instance.version)
 
 
-def get_node_instance_ip(node_instance_id, username, password):
+def get_node_instance_ip(node_instance_id, security_ctx):
     """
     Get the IP address of the host the node instance denoted by
     ``node_instance_id`` is contained in.
     """
-    client = get_rest_client(username, password)
+    client = get_rest_client(security_ctx)
     instance = client.node_instances.get(node_instance_id)
     if instance.host_id is None:
         raise NonRecoverableError('node instance: {0} is missing host_id'
@@ -273,27 +281,26 @@ def get_node_instance_ip(node_instance_id, username, password):
 # TODO: some nasty code duplication between these two methods
 
 
-def update_execution_status(execution_id, status, username,
-                            password, error=None):
+def update_execution_status(execution_id, status, security_ctx, error=None):
     """
     Update the execution status of the execution denoted by ``execution_id``.
 
     :returns: The updated status
     """
-    client = get_rest_client(username, password)
+    client = get_rest_client(security_ctx)
     return client.executions.update(execution_id, status, error)
 
 
-def get_bootstrap_context(username, password):
+def get_bootstrap_context(security_ctx):
     """Read the manager bootstrap context."""
-    client = get_rest_client(username, password)
+    client = get_rest_client(security_ctx)
     context = client.manager.get_context()['context']
     return context.get('cloudify', {})
 
 
-def get_provider_context(username, password):
+def get_provider_context(security_ctx):
     """Read the manager provider context."""
-    client = get_rest_client(username, password)
+    client = get_rest_client(security_ctx)
     context = client.manager.get_context()
     return context['context']
 

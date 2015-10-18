@@ -485,8 +485,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
                 format(self.security_ctx.cloudify_username)
             print '***** ctx is: {0}'.format(ctx)
             # protocol=ctx.get('rest_protocol'),
-            rest = get_rest_client(username=self.security_ctx.cloudify_username,
-                                   password=self.security_ctx.cloudify_password)
+            rest = get_rest_client(ctx.security_ctx)
 
             print '***** calling rest.nodes.list'
             raw_nodes = rest.nodes.list(self.deployment.id)
@@ -526,26 +525,6 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
     def workflow_id(self):
         """The workflow id"""
         return self._context.get('workflow_id')
-
-    @property
-    def rest_protocol(self):
-        """The rest protocol (http or https)"""
-        return self._context.get('rest_protocol')
-
-    @property
-    def cloudify_username(self):
-        """The cloudify username"""
-        return self._context.get('cloudify_username')
-
-    @property
-    def cloudify_password(self):
-        """The cloudify password"""
-        return self._context.get('cloudify_password')
-
-    @property
-    def verify_certificate(self):
-        """verify SSL certificate flag"""
-        return self._context.get('verify_certificate')
 
     @property
     def local(self):
@@ -1168,9 +1147,9 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                                            target_path=target_path,
                                            logger=logger)
 
-    def start_deployment_modification(self, nodes, username, password):
+    def start_deployment_modification(self, nodes):
         deployment_id = self.workflow_ctx.deployment.id
-        client = get_rest_client(username, password)
+        client = get_rest_client(self.workflow_ctx.security_ctx)
         modification = client.deployment_modifications.start(
             deployment_id=deployment_id,
             nodes=nodes,
@@ -1182,13 +1161,12 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             })
         return Modification(self.workflow_ctx, modification)
 
-    def finish_deployment_modification(self, modification, username, password):
-        client = get_rest_client(username, password)
+    def finish_deployment_modification(self, modification):
+        client = get_rest_client(self.workflow_ctx.security_ctx)
         client.deployment_modifications.finish(modification.id)
 
-    def rollback_deployment_modification(self, modification, username,
-                                         password):
-        client = get_rest_client(username, password)
+    def rollback_deployment_modification(self, modification):
+        client = get_rest_client(self.workflow_ctx.security_ctx)
         client.deployment_modifications.rollback(modification.id)
 
 

@@ -95,45 +95,45 @@ def get_manager_file_server_url():
     return os.environ[constants.MANAGER_FILE_SERVER_URL_KEY]
 
 
-def get_manager_rest_service_port():
-    """
-    Returns the port the manager REST service is running on.
-    """
-    return int(os.environ[constants.MANAGER_REST_PORT_KEY])
-
-
-def get_ssl_verify_certificate():
-    """
-    Returns true if SSL certificate verification is required, false otherwise.
-    """
-    print '***** returning os.environ[constants.VERIFY_CERTIFICATE]: {0}'.\
-        format(os.environ[constants.VERIFY_CERTIFICATE])
-    return os.environ[constants.VERIFY_CERTIFICATE]
-
-
-def get_username():
-    """
-    Returns the cloudify username if set as an env var.
-    """
-    return os.environ.get(constants.CLOUDIFY_USERNAME_ENV)
-
-
-def get_password():
-    """
-    Returns the cloudify password if set as an env var.
-    """
-    return os.environ.get(constants.CLOUDIFY_PASSWORD_ENV)
-
-
-def get_ssl_cert():
-    return os.environ.get(constants.CLOUDIFY_SSL_CERT)
-
-
-def get_ssl_trust_all():
-    trust_all = os.environ.get(constants.CLOUDIFY_SSL_TRUST_ALL)
-    if trust_all is not None and len(trust_all) > 0:
-        return True
-    return False
+# def get_manager_rest_service_port():
+#     """
+#     Returns the port the manager REST service is running on.
+#     """
+#     return int(os.environ[constants.MANAGER_REST_PORT_KEY])
+#
+#
+# def get_ssl_verify_certificate():
+#     """
+#     Returns true if SSL certificate verification is required, false otherwise
+#     """
+#     print '***** returning os.environ[constants.VERIFY_CERTIFICATE]: {0}'.\
+#         format(os.environ[constants.VERIFY_CERTIFICATE])
+#     return os.environ[constants.VERIFY_CERTIFICATE]
+#
+#
+# def get_username():
+#     """
+#     Returns the cloudify username if set as an env var.
+#     """
+#     return os.environ.get(constants.CLOUDIFY_USERNAME_ENV)
+#
+#
+# def get_password():
+#     """
+#     Returns the cloudify password if set as an env var.
+#     """
+#     return os.environ.get(constants.CLOUDIFY_PASSWORD_ENV)
+#
+#
+# def get_ssl_cert():
+#     return os.environ.get(constants.CLOUDIFY_SSL_CERT)
+#
+#
+# def get_ssl_trust_all():
+#     trust_all = os.environ.get(constants.CLOUDIFY_SSL_TRUST_ALL)
+#     if trust_all is not None and len(trust_all) > 0:
+#         return True
+#     return False
 
 
 def get_auth_header(username, password):
