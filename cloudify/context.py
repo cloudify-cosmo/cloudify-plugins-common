@@ -219,6 +219,8 @@ class SecurityContext(object):
 
     def __init__(self, context):
         print '***** context type: {0}'.format(type(context))
+        self.security_enabled = context.get('security_enabled')
+        self.verify_ssl_certificate = context.get('verify_ssl_certificate')
         self.cloudify_username = context.get('cloudify_username')
         self.cloudify_password = context.get('cloudify_password')
 

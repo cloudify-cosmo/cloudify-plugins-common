@@ -132,8 +132,8 @@ class _Environment(object):
             'local_task_thread_pool_size': task_thread_pool_size,
             'cloudify_username': cloudify_username,  # is this required at all in local?
             'cloudify_password': cloudify_password,
-            'rest_protocol': 'http',
-            'verify_certificate': False
+            'security_enabled': True,
+            'verify_ssl_certificate': False
         }
 
         merged_parameters = _merge_and_validate_execution_parameters(
