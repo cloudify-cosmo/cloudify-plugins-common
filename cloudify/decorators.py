@@ -114,9 +114,10 @@ def operation(func=None, **arguments):
                 print '***** in operation wrapper, ctx type: {0}'.format(type(ctx))
                 print '***** in operation wrapper, ctx: {0}'.format(ctx)
                 username = ctx.security_ctx.cloudify_username
-                if username is None:
-                    raise RuntimeError('***** REST USERNAME IS MISSING !')
-                print '***** in operation wrapper, creating rest client as ' \
+                # if username is None:
+                #     traceback.print_stack(file=sys.stdout)
+                #     raise RuntimeError('***** REST USERNAME IS MISSING !')
+                print '***** in operation wrapper, cloudify username is: ' \
                       '{0}'.format(username)
                 # remove __cloudify_context
                 raw_context = kwargs.pop(CLOUDIFY_CONTEXT_PROPERTY_KEY, {})
@@ -376,6 +377,7 @@ def _remote_workflow(ctx, func, args, kwargs):
 def _local_workflow(ctx, func, args, kwargs):
     try:
         _send_workflow_started_event(ctx)
+        print '***** calling _execute_workflow_function with ctx.cloudify_username: {0}'.format(ctx.cloudify_username)
         result = _execute_workflow_function(ctx, func, args, kwargs)
         _send_workflow_succeeded_event(ctx)
         return result

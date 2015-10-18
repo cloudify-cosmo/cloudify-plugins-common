@@ -111,7 +111,9 @@ class _Environment(object):
                              "existing workflows are: {1}"
                              .format(workflow_name,
                                      workflows.keys()))
-
+        # if not cloudify_username or cloudify_password:
+        #     raise ValueError("Missing cloudify username or password, workflow '{0}' is aborted"
+        #                      .format(workflow_name))
         workflow = workflows[workflow_name]
         workflow_method = _get_module_method(workflow['operation'],
                                              node_name='',
@@ -139,6 +141,7 @@ class _Environment(object):
 
         print '***** completing execute, returning workflow_method {0}'.\
             format(workflow_method)
+        print '***** __cloudify_context={0}'.format(ctx)
         return workflow_method(__cloudify_context=ctx, **merged_parameters)
 
 

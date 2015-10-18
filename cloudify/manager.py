@@ -112,7 +112,7 @@ class NodeInstance(object):
 # what about the rest of the settings?
 # since it's using code a lot of code from utils, shouldn't it be in utils
 # actually?
-def get_rest_client(username=None, password=None):
+def get_rest_client(username, password):
     """
     :param username: a username to be sent with each request
     :param password: a password to be sent with each request

@@ -462,6 +462,10 @@ class LocalWorkflowTask(WorkflowTask):
             task_id=task_id,
             workflow_context=workflow_context,
             send_task_events=send_task_events)
+        # print '***** initializing LocalWorkflowTask with workflow_context.cloudify_username: ' \
+        #       '{0} \nand kwargs: {1}'.format(workflow_context.cloudify_username, kwargs)
+        # import traceback
+        # traceback.print_stack(file=sys.stdout)
         self.local_task = local_task
         self.node = node
         self.kwargs = kwargs or {}
@@ -484,6 +488,10 @@ class LocalWorkflowTask(WorkflowTask):
             try:
                 self.workflow_context.internal.send_task_event(TASK_STARTED,
                                                                self)
+                print '***** in local_task_wrapper, calling local task with' \
+                      ' kwargs: {0}'.format(self.kwargs)
+                print '**** in local_task_wrapper, self.workflow_context.cloudify_username: {0}'.\
+                    format(self.workflow_context.cloudify_username)
                 result = self.local_task(**self.kwargs)
                 self.workflow_context.internal.send_task_event(
                     TASK_SUCCEEDED, self, event={'result': str(result)})
