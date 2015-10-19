@@ -96,11 +96,7 @@ class _Environment(object):
 
     def execute(self,
                 workflow,
-                security_enabled,
-                ssl_enabled,
-                verify_ssl_certificate,
-                cloudify_username,
-                cloudify_password,
+                security_ctx,
                 parameters=None,
                 allow_custom_parameters=False,
                 task_retries=-1,
@@ -134,11 +130,7 @@ class _Environment(object):
             'task_retry_interval': task_retry_interval,
             'subgraph_retries': subgraph_retries,
             'local_task_thread_pool_size': task_thread_pool_size,
-            'security_enabled': security_enabled,
-            'ssl_enabled': ssl_enabled,
-            'verify_ssl_certificate': verify_ssl_certificate,
-            'cloudify_username': cloudify_username,
-            'cloudify_password': cloudify_password,
+            'security_ctx': security_ctx
         }
 
         merged_parameters = _merge_and_validate_execution_parameters(

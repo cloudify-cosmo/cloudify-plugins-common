@@ -95,7 +95,13 @@ class CommonContext(object):
 
         self.blueprint = BlueprintContext(self._context)
         self.deployment = DeploymentContext(self._context)
-        self.security_ctx = SecurityContext(**self._context)
+        security_context_dict = self._context.get('security_context', {})
+        print '***** Creating SecurityContext with args: {0}'.format(security_context_dict)
+        import traceback
+        import sys
+        print '***** traceback:'
+        traceback.print_stack(file=sys.stdout)
+        self.security_ctx = SecurityContext(**security_context_dict)
 
 
 class BootstrapContext(object):
@@ -217,8 +223,10 @@ class DeploymentContext(EntityContext):
 
 class SecurityContext(object):
 
-    def __init__(self, security_enabled, ssl_enabled, verify_ssl_certificate,
-                 cloudify_username, cloudify_password, **kwargs):
+    def __init__(self, security_enabled=None, ssl_enabled=None,
+                 verify_ssl_certificate=None, cloudify_username=None,
+                 cloudify_password=None):
+        print '***** in SecurityContext.__init__, got security_enabled: {0}'.format(security_enabled)
         self.is_security_enabled = security_enabled
         print '***** SecurityContext, security_enabled: {0}'.\
             format(self.security_enabled)
@@ -262,6 +270,18 @@ class SecurityContext(object):
     def password(self):
         """The password of the currently active user"""
         return self.cloudify_password
+
+    @property
+    def properties(self):
+        """The security properties as dict (read-only)
+        """
+        return {
+            'security_enabled': self.security_enabled,
+            'ssl_enabled': self.ssl_enabled,
+            'verify_ssl_certificate': self.verify_ssl_certificate,
+            'cloudify_username': self.username,
+            'cloudify_password': self.password
+        }
 
 
 class NodeContext(EntityContext):

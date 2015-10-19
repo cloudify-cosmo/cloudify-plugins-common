@@ -265,8 +265,9 @@ def _remote_workflow(ctx, func, args, kwargs):
 
         update_execution_status(ctx.execution_id, Execution.STARTED,
                                 ctx.security_ctx)
+        print '***** LOGGER 1'
         _send_workflow_started_event(ctx)
-
+        print '***** LOGGER 2'
         # the actual execution of the workflow will run in another
         # thread - this wrapper is the entry point for that
         # thread, and takes care of forwarding the result or error
@@ -275,13 +276,15 @@ def _remote_workflow(ctx, func, args, kwargs):
             try:
                 ctx.internal.start_event_monitor()
                 print '***** in child_wrapper, ctx type: {0}'.format(type(ctx))
-                print '***** in child_wrapper, ctx.username: {0}'.\
+                print '***** in child_wrapper, ctx.security_ctx.username: {0}'.\
                     format(ctx.security_ctx.username)
                 print '***** in child_wrapper, func: {0}'.format(func)
                 print '***** in child_wrapper, args: {0}'.format(args)
                 print '***** in child_wrapper, kwargs: {0}'.format(kwargs)
+                print '***** LOGGER 3'
                 workflow_result = _execute_workflow_function(
                     ctx, func, args, kwargs)
+                print '***** LOGGER 4'
                 child_queue.put({'result': workflow_result})
             except api.ExecutionCancelled:
                 child_queue.put({
@@ -327,6 +330,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             except Queue.Empty:
                 pass
             # check for 'cancel' requests
+            print '***** LOGGER 5'
             execution = rest_client.executions.get(ctx.execution_id)
             if execution.status == Execution.FORCE_CANCELLING:
                 result = api.EXECUTION_CANCELLED_RESULT
@@ -352,6 +356,9 @@ def _remote_workflow(ctx, func, args, kwargs):
                 # TODO: kill worker externally
                 raise RequestSystemExit()
         else:
+            print '***** LOGGER 6'
+            print '***** calling update_execution_status with status ' \
+                  'TERMINATED'
             update_execution_status(ctx.execution_id,
                                     Execution.TERMINATED,
                                     ctx.security_ctx)
@@ -377,7 +384,7 @@ def _local_workflow(ctx, func, args, kwargs):
     try:
         _send_workflow_started_event(ctx)
         print '***** calling _execute_workflow_function with ' \
-              'ctx.username: {0}'.format(ctx.username)
+              'ctx.username: {0}'.format(ctx.security_ctx.username)
         result = _execute_workflow_function(ctx, func, args, kwargs)
         _send_workflow_succeeded_event(ctx)
         return result
@@ -401,6 +408,7 @@ def _execute_workflow_function(ctx, func, args, kwargs):
         print '***** in _execute_workflow_function, args: {0}'.format(args)
         print '***** in _execute_workflow_function, kwargs: {0}'.format(kwargs)
         result = func(*args, **kwargs)
+        print '***** in _execute_workflow_function, result: {0}'.format(result)
         if not ctx.internal.graph_mode:
             tasks = list(ctx.internal.task_graph.tasks_iter())
             for workflow_task in tasks:

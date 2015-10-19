@@ -473,7 +473,10 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
 
         self.blueprint = context.BlueprintContext(self._context)
         self.deployment = WorkflowDeploymentContext(self._context, self)
-        self.security_ctx = context.SecurityContext(**self._context)
+        print '***** initializing CloudifyWorkflowContext...'
+        print '***** self._context: {0}'.format(self._context)
+        security_ctx_dict = self._context.get('security_ctx', {})
+        self.security_ctx = context.SecurityContext(**security_ctx_dict)
 
         if self.local:
             storage = ctx.pop('storage')
@@ -483,9 +486,7 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         else:
             print '***** creating rest client as {0}'.\
                 format(self.security_ctx.username)
-            print '***** ctx is: {0}'.format(ctx)
-            # protocol=ctx.get('rest_protocol'),
-            rest = get_rest_client(ctx.security_ctx)
+            rest = get_rest_client(self.security_ctx)
 
             print '***** calling rest.nodes.list'
             raw_nodes = rest.nodes.list(self.deployment.id)
@@ -697,11 +698,16 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             format(self.security_ctx.username)
         kwargs = kwargs or {}
         task_id = str(uuid.uuid4())
+        print '***** in workflow_context.py execute_task, ' \
+              'self.security_ctx: {0}'.format(self.security_ctx)
+        print '***** in workflow_context.py execute_task, ' \
+              'self.security_ctx.properties: {0}'.format(
+            self.security_ctx.properties)
         cloudify_context = self._build_cloudify_context(
             task_id,
             task_name,
             node_context,
-            self.security_ctx)
+            self.security_ctx.properties)
         print '***** in workflow_context.py execute_task, setting cloudify ' \
               'context to: {0}'.format(cloudify_context)
         kwargs['__cloudify_context'] = cloudify_context
