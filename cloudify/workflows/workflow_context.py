@@ -701,8 +701,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         print '***** in workflow_context.py execute_task, ' \
               'self.security_ctx: {0}'.format(self.security_ctx)
         print '***** in workflow_context.py execute_task, ' \
-              'self.security_ctx.properties: {0}'.format(
-            self.security_ctx.properties)
+              'self.security_ctx.properties: {0}'.\
+            format(self.security_ctx.properties)
         cloudify_context = self._build_cloudify_context(
             task_id,
             task_name,

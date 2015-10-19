@@ -272,6 +272,7 @@ def _remote_workflow(ctx, func, args, kwargs):
         # thread - this wrapper is the entry point for that
         # thread, and takes care of forwarding the result or error
         # back to the parent thread
+
         def child_wrapper():
             try:
                 ctx.internal.start_event_monitor()

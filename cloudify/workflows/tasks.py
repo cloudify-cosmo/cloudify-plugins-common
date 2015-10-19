@@ -494,9 +494,7 @@ class LocalWorkflowTask(WorkflowTask):
                                                                self)
                 print '***** in local_task_wrapper, calling local task with' \
                       ' kwargs: {0}'.format(self.kwargs)
-                import traceback, sys
-                traceback.print_stack(file=sys.stdout)
-                print '***** NEW in local_task_wrapper, ' \
+                print '***** in local_task_wrapper, ' \
                       'self.workflow_context.security_ctx: {0}'. \
                     format(self.workflow_context.security_ctx)
                 print '***** in local_task_wrapper, ' \

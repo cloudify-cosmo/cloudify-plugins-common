@@ -96,11 +96,8 @@ class CommonContext(object):
         self.blueprint = BlueprintContext(self._context)
         self.deployment = DeploymentContext(self._context)
         security_context_dict = self._context.get('security_context', {})
-        print '***** Creating SecurityContext with args: {0}'.format(security_context_dict)
-        import traceback
-        import sys
-        print '***** traceback:'
-        traceback.print_stack(file=sys.stdout)
+        print '***** Creating SecurityContext with args: {0}'.\
+            format(security_context_dict)
         self.security_ctx = SecurityContext(**security_context_dict)
 
 
@@ -226,7 +223,8 @@ class SecurityContext(object):
     def __init__(self, security_enabled=None, ssl_enabled=None,
                  verify_ssl_certificate=None, cloudify_username=None,
                  cloudify_password=None):
-        print '***** in SecurityContext.__init__, got security_enabled: {0}'.format(security_enabled)
+        print '***** in SecurityContext.__init__, got security_enabled:' \
+              ' {0}'.format(security_enabled)
         self.is_security_enabled = security_enabled
         print '***** SecurityContext, security_enabled: {0}'.\
             format(self.security_enabled)
