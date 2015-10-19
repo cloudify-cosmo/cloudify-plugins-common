@@ -224,14 +224,19 @@ def workflow(func=None, **arguments):
                                     _is_cloudify_workflow_context)
             print '***** in decorators, ctx found: {0}'.format(ctx)
             if not isinstance(ctx, CloudifyWorkflowContext):
+                if not ctx.get('security_ctx'):
+                    print '***** ERROR: security_ctx missing in ctx !'
+                    traceback.print_stack(file=sys.stdout)
                 print '***** calling CloudifyWorkflowContext'
                 ctx = CloudifyWorkflowContext(ctx)
             kwargs['ctx'] = ctx
             if ctx.local:
-                print '***** local'
+                print '***** using _local_workflow: {0}'.\
+                    format(_local_workflow)
                 workflow_wrapper = _local_workflow
             else:
-                print '***** remote'
+                print '***** using _remote_workflow: {0}'.\
+                    format(_remote_workflow)
                 workflow_wrapper = _remote_workflow
             return workflow_wrapper(ctx, func, args, kwargs)
         return _process_wrapper(wrapper, arguments)
