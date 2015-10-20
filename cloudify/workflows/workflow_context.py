@@ -79,7 +79,9 @@ class CloudifyWorkflowRelationshipInstance(object):
         """
         The relationship's target node CloudifyWorkflowNodeInstance instance
         """
+        print '***** calling nodes_and_instances.get_node_instance...'
         return self._nodes_and_instances.get_node_instance(self.target_id)
+        print '***** called nodes_and_instances.get_node_instance...'
 
     @property
     def relationship(self):
@@ -1078,7 +1080,10 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             host_id = workflow_task.cloudify_context['host_id']
             if executor == 'host_agent':
                 if len(runtime_props) == 0:
-                    host_node_instance = get_node_instance(host_id)
+                    print '***** in workflow_context.py.get_task, ' \
+                          'self.workflow_ctx: {0}'.format(self.workflow_ctx)
+                    host_node_instance = get_node_instance(
+                        host_id, self.workflow_ctx.security_ctx)
                     cloudify_agent = host_node_instance.runtime_properties.get(
                         'cloudify_agent')
                     if not cloudify_agent:
@@ -1120,7 +1125,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                            state):
         @task_config(send_task_events=False)
         def set_state_task():
-            node_state = get_node_instance(workflow_node_instance.id)
+            node_state = get_node_instance(workflow_node_instance.id,
+                                           self.workflow_ctx.security_ctx)
             node_state.state = state
             update_node_instance(node_state)
             return node_state
@@ -1129,7 +1135,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
     def get_get_state_task(self, workflow_node_instance):
         @task_config(send_task_events=False)
         def get_state_task():
-            return get_node_instance(workflow_node_instance.id).state
+            return get_node_instance(workflow_node_instance.id,
+                                     self.workflow_ctx.security_ctx).state
         return get_state_task
 
     def send_workflow_event(self, event_type, message=None, args=None):
