@@ -1084,6 +1084,10 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                           'self.workflow_ctx: {0}'.format(self.workflow_ctx)
                     host_node_instance = get_node_instance(
                         host_id, self.workflow_ctx.security_ctx)
+                    print '***** in workflow_context.py.get_task, got ' \
+                          'host_node_instance: {0}'.format(host_node_instance)
+                    print '***** host_node_instance.runtime_properties: {0}'.\
+                        format(host_node_instance.runtime_properties)
                     cloudify_agent = host_node_instance.runtime_properties.get(
                         'cloudify_agent')
                     if not cloudify_agent:
