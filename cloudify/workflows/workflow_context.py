@@ -1080,21 +1080,26 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             host_id = workflow_task.cloudify_context['host_id']
             if executor == 'host_agent':
                 if len(runtime_props) == 0:
-                    print '***** in workflow_context.py.get_task, ' \
-                          'self.workflow_ctx: {0}'.format(self.workflow_ctx)
-                    host_node_instance = get_node_instance(
-                        host_id, self.workflow_ctx.security_ctx)
-                    print '***** in workflow_context.py.get_task, got ' \
-                          'host_node_instance: {0}'.format(host_node_instance)
-                    print '***** host_node_instance.runtime_properties: {0}'.\
-                        format(host_node_instance.runtime_properties)
-                    cloudify_agent = host_node_instance.runtime_properties.get(
-                        'cloudify_agent')
-                    if not cloudify_agent:
-                        raise exceptions.NonRecoverableError(
-                            'Missing cloudify_agent runtime information. '
-                            'This most likely means that the Compute node '
-                            'never started successfully')
+                    with open('/tmp/workflow_context.log', 'a') as log_file:
+                        log_file.write('***** in workflow_context.py.get_task,'
+                                       ' self.workflow_ctx: {0}\n'.
+                                       format(self.workflow_ctx))
+                        host_node_instance = get_node_instance(
+                            host_id, self.workflow_ctx.security_ctx)
+                        log_file.write('***** in workflow_context.py.get_task,'
+                                       ' got host_node_instance: {0}\n'.
+                                       format(host_node_instance))
+                        log_file.write('***** host_node_instance.'
+                                       'runtime_properties: {0}\n'.
+                                       format(host_node_instance.
+                                              runtime_properties))
+                        cloudify_agent = host_node_instance.runtime_properties.get(
+                            'cloudify_agent')
+                        if not cloudify_agent:
+                            raise exceptions.NonRecoverableError(
+                                'Missing cloudify_agent runtime information. '
+                                'This most likely means that the Compute node '
+                                'never started successfully')
                     runtime_props.append(cloudify_agent)
                 return runtime_props[0][property_name]
             return self.workflow_ctx.deployment.id
