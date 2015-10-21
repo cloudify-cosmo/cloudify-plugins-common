@@ -1128,7 +1128,7 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
             node_state = get_node_instance(workflow_node_instance.id,
                                            self.workflow_ctx.security_ctx)
             node_state.state = state
-            update_node_instance(node_state)
+            update_node_instance(node_state, self.workflow_ctx.security_ctx)
             return node_state
         return set_state_task
 
