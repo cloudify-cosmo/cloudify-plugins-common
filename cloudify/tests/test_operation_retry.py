@@ -115,7 +115,8 @@ class OperationRetryWorkflowTests(testtools.TestCase):
         output_buffer = StringIO()
         original_event_out = logs.stdout_event_out
 
-        def event_output(log):
+        # Provide same interface for all event output
+        def event_output(log, ctx=None):
             original_event_out(log)
             output_buffer.write('{0}\n'.format(log['message']['text']))
 

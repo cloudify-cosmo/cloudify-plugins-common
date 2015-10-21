@@ -65,7 +65,8 @@ class TaskRetryEventContextTests(testtools.TestCase):
         events = []
         original_event_out = logs.stdout_event_out
 
-        def event_output(event):
+        # Provide same interface for all event outputs
+        def event_output(event, ctx=None):
             original_event_out(event)
             events.append(event)
         with patch('cloudify.logs.stdout_event_out', event_output):
