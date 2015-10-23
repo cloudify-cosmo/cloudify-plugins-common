@@ -15,8 +15,10 @@
 
 import os
 import urllib2
+from itsdangerous import base64_encode
 
 import utils
+from cloudify import constants
 from cloudify_rest_client import CloudifyClient
 from cloudify.exceptions import HttpException, NonRecoverableError
 
@@ -107,13 +109,29 @@ class NodeInstance(object):
         return self._relationships
 
 
-def get_rest_client():
+def _get_auth_header(username, password):
+    header = None
+
+    if username and password:
+        credentials = '{0}:{1}'.format(username, password)
+        header = {
+            constants.CLOUDIFY_AUTHENTICATION_HEADER:
+                constants.BASIC_AUTH_PREFIX + ' ' + base64_encode(credentials)}
+
+    return header
+
+
+def get_rest_client(username, password):
     """
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
-    return CloudifyClient(utils.get_manager_ip(),
-                          utils.get_manager_rest_service_port())
+    if not username or not password:
+        raise ValueError('***** in manager.py: username or password empty,'
+                         ' cannot create rest_client')
+    return CloudifyClient(host=utils.get_manager_ip(),
+                          port=utils.get_manager_rest_service_port(),
+                          headers=_get_auth_header(username, password))
 
 
 def _save_resource(logger, resource, resource_path, target_path):
