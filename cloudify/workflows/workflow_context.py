@@ -474,8 +474,11 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
             raw_node_instances = storage.get_node_instances()
             handler = LocalCloudifyWorkflowContextHandler(self, storage)
         else:
+            print '***** getting rest_client in workflow_context.py:CloudifyWorkflowContext...'
             rest = get_rest_client()
+            print '***** listing rest nodes for deployment {0}...'.format(self.deployment.id)
             raw_nodes = rest.nodes.list(self.deployment.id)
+            print '***** found nodes: {0}'.format(raw_nodes)
             raw_node_instances = rest.node_instances.list(self.deployment.id)
             handler = RemoteCloudifyWorkflowContextHandler(self)
 
