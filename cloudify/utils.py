@@ -212,3 +212,58 @@ def _shlex_split(command):
     lex.whitespace_split = True
     lex.escape = ''
     return list(lex)
+
+
+class Internal(object):
+
+    @staticmethod
+    def get_install_method(properties):
+        install_agent = properties.get('install_agent')
+        if install_agent is False:
+            return 'none'
+        elif install_agent is True:
+            return 'remote'
+        else:
+            return properties.get('agent_config', {}).get('install_method')
+
+    @staticmethod
+    def get_broker_ssl_and_port(ssl_enabled, cert_path):
+        # Input vars may be None if not set. Explicitly defining defaults.
+        ssl_enabled = ssl_enabled or False
+        cert_path = cert_path or ''
+
+        if ssl_enabled:
+            if not cert_path:
+                raise NonRecoverableError(
+                    "Broker SSL enabled but no SSL cert was provided. "
+                    "If rabbitmq_ssl_enabled is True in the inputs, "
+                    "rabbitmq_cert_public (and private) must be populated."
+                )
+            port = constants.BROKER_PORT_SSL
+            ssl_options = {
+                'ca_certs': cert_path,
+                'cert_reqs': ssl.CERT_REQUIRED,
+            }
+        else:
+            port = constants.BROKER_PORT_NO_SSL
+            ssl_options = {}
+
+        return port, ssl_options
+
+    @staticmethod
+    def get_broker_credentials(cloudify_agent):
+        """Get broker credentials or their defaults if not set."""
+        default_user = 'guest'
+        default_pass = 'guest'
+
+        try:
+            broker_user = cloudify_agent.broker_user or default_user
+            broker_pass = cloudify_agent.broker_pass or default_pass
+        except AttributeError:
+            # Handle non-agent from non-manager (e.g. for manual tests)
+            broker_user = default_user
+            broker_pass = default_pass
+
+        return broker_user, broker_pass
+
+internal = Internal()
