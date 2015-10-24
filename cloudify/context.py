@@ -623,14 +623,14 @@ class CloudifyContext(CommonContext):
         return self._logger
 
     @property
-    def bootstrap_context(self):
+    def bootstrap_context(self, username=None, password=None):
         """
         System context provided during the bootstrap process
 
         :rtype: BootstrapContext
         """
         if self._bootstrap_context is None:
-            context = self._endpoint.get_bootstrap_context()
+            context = self._endpoint.get_bootstrap_context(username, password)
             self._bootstrap_context = BootstrapContext(context)
         return self._bootstrap_context
 

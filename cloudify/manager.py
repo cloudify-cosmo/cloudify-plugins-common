@@ -121,7 +121,7 @@ def _get_auth_header(username, password):
     return header
 
 
-def get_rest_client(username, password):
+def get_rest_client(username='admin', password='admin'):
     """
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
@@ -272,13 +272,14 @@ def update_execution_status(execution_id, status, error=None):
 
     :returns: The updated status
     """
-    client = get_rest_client()
+    client = get_rest_client(username='workflow_admin',
+                             password='workflow_admin',)
     return client.executions.update(execution_id, status, error)
 
 
-def get_bootstrap_context():
+def get_bootstrap_context(username=None, password=None):
     """Read the manager bootstrap context."""
-    client = get_rest_client()
+    client = get_rest_client(username, password)
     context = client.manager.get_context()['context']
     return context.get('cloudify', {})
 

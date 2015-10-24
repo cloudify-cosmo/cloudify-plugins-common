@@ -179,8 +179,8 @@ class ManagerEndpoint(Endpoint):
     def get_provider_context(self):
         return manager.get_provider_context()
 
-    def get_bootstrap_context(self):
-        return manager.get_bootstrap_context()
+    def get_bootstrap_context(self, username=None, password=None):
+        return manager.get_bootstrap_context(username, password)
 
     def get_logging_handler(self):
         return CloudifyPluginLoggingHandler(self.ctx,

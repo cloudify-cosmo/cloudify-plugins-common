@@ -240,7 +240,8 @@ def _remote_workflow(ctx, func, args, kwargs):
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
         _send_workflow_cancelled_event(ctx)
 
-    rest = get_rest_client()
+    rest = get_rest_client(username='workflow_admin',
+                           password='workflow_admin')
     parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:
         if rest.executions.get(ctx.execution_id).status in \

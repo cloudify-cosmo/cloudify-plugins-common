@@ -476,7 +476,8 @@ class CloudifyWorkflowContext(WorkflowNodesAndInstancesContainer):
         else:
             print '***** getting rest_client in ' \
                   'workflow_context.py:CloudifyWorkflowContext...'
-            rest = get_rest_client()
+            rest = get_rest_client(username='workflow_admin',
+                                   password='workflow_admin')
             print '***** listing rest nodes for deployment {0}...'\
                 .format(self.deployment.id)
             raw_nodes = rest.nodes.list(self.deployment.id)
@@ -1015,7 +1016,8 @@ class RemoteCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
 
     @property
     def bootstrap_context(self):
-        return get_bootstrap_context()
+        return get_bootstrap_context(username='workflow_admin',
+                                     password='workflow_admin')
 
     def get_send_task_event_func(self, task):
         return events.send_task_event_func_remote
