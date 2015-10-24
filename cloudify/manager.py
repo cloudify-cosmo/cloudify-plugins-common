@@ -121,7 +121,7 @@ def _get_auth_header(username, password):
     return header
 
 
-def get_rest_client(username='admin', password='admin'):
+def get_rest_client(username, password):
     """
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
