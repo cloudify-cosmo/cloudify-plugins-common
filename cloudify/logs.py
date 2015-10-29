@@ -69,6 +69,16 @@ def message_context_from_workflow_context(ctx):
     }
 
 
+def message_context_from_sys_wide_wf_context(ctx):
+    """Build a message context from a CloudifyWorkflowContext instance"""
+    return {
+        'blueprint_id': None,
+        'deployment_id': None,
+        'execution_id': ctx.execution_id,
+        'workflow_id': ctx.workflow_id,
+    }
+
+
 def message_context_from_workflow_node_instance_context(ctx):
     """Build a message context from a CloudifyWorkflowNode instance"""
     message_context = message_context_from_workflow_context(ctx.ctx)
@@ -125,6 +135,13 @@ class CloudifyWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
             self, ctx, out_func, message_context_from_workflow_context)
 
 
+class SystemWideWorkflowLoggingHandler(CloudifyBaseLoggingHandler):
+    """Class for writing system-wide workflow log messages to RabbitMQ"""
+    def __init__(self, ctx, out_func=None):
+        CloudifyBaseLoggingHandler.__init__(
+            self, ctx, out_func, message_context_from_sys_wide_wf_context)
+
+
 class CloudifyWorkflowNodeLoggingHandler(CloudifyBaseLoggingHandler):
     """A Handler class for writing workflow nodes log messages to RabbitMQ"""
     def __init__(self, ctx, out_func=None):
@@ -171,6 +188,20 @@ def send_workflow_event(ctx, event_type,
     :param additional_context: additional context to be added to the context
     """
     _send_event(ctx, 'workflow', event_type, message, args,
+                additional_context, out_func)
+
+
+def send_sys_wide_wf_event(ctx, event_type, message=None, args=None,
+                           additional_context=None, out_func=None):
+    """Send a workflow event to RabbitMQ
+
+    :param ctx: A CloudifySystemWideWorkflowContext instance
+    :param event_type: The event type
+    :param message: The message
+    :param args: additional arguments that may be added to the message
+    :param additional_context: additional context to be added to the context
+    """
+    _send_event(ctx, 'system_wide_workflow', event_type, message, args,
                 additional_context, out_func)
 
 
@@ -246,6 +277,8 @@ def _send_event(ctx, context_type, event_type,
     elif context_type == 'workflow_node':
         message_context = message_context_from_workflow_node_instance_context(
             ctx)
+    elif context_type == 'system_wide_workflow':
+        message_context = message_context_from_sys_wide_wf_context(ctx)
     else:
         raise RuntimeError('Invalid context_type: {0}'.format(context_type))
 

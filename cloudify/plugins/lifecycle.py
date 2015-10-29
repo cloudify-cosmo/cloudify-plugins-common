@@ -169,7 +169,7 @@ def install_node_instance_subgraph(instance, graph):
     # If this is a host node, we need to add specific host start
     # tasks such as waiting for it to start and installing the agent
     # worker (if necessary)
-    if _is_host_node(instance):
+    if is_host_node(instance):
         sequence.add(*_host_post_start(instance))
 
     sequence.add(
@@ -193,7 +193,7 @@ def uninstall_node_instance_subgraph(instance, graph):
         instance.send_event('Stopping node'),
         instance.execute_operation('cloudify.interfaces.monitoring.stop')
     )
-    if _is_host_node(instance):
+    if is_host_node(instance):
         sequence.add(*_host_pre_stop(instance))
 
     sequence.add(
@@ -260,7 +260,7 @@ def _relationship_operations(relationship, operation):
             relationship.execute_target_operation(operation)]
 
 
-def _is_host_node(node_instance):
+def is_host_node(node_instance):
     return constants.COMPUTE_NODE_TYPE in node_instance.node.type_hierarchy
 
 
@@ -281,6 +281,60 @@ def _wait_for_host_to_start(host_node_instance):
     if not task.is_nop():
         task.on_success = node_get_state_handler
     return task
+
+
+def prepare_running_agent(host_node_instance):
+    plugins_to_install = filter(lambda plugin: plugin['install'],
+                                host_node_instance.node.plugins_to_install)
+    install_method = utils.internal.get_install_method(
+        host_node_instance.node.properties)
+    tasks = []
+    if plugins_to_install:
+        node_operations = host_node_instance.node.operations
+        tasks += [host_node_instance.send_event('Installing plugins')]
+        if 'cloudify.interfaces.plugin_installer.install' in \
+                node_operations:
+            # 3.2 Compute Node
+            tasks += [host_node_instance.execute_operation(
+                'cloudify.interfaces.plugin_installer.install',
+                kwargs={'plugins': plugins_to_install})
+            ]
+        else:
+            tasks += [host_node_instance.execute_operation(
+                'cloudify.interfaces.cloudify_agent.install_plugins',
+                kwargs={'plugins': plugins_to_install})
+            ]
+
+        if install_method in constants.AGENT_INSTALL_METHODS_SCRIPTS:
+            # this option is only available since 3.3 so no need to
+            # handle 3.2 version here.
+            tasks += [
+                host_node_instance.send_event('Restarting Agent via AMQP'),
+                host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.restart_amqp',
+                    send_task_events=False)
+            ]
+        else:
+            tasks += [host_node_instance.send_event(
+                'Restarting Agent')]
+            if 'cloudify.interfaces.worker_installer.restart' in \
+                    node_operations:
+                # 3.2 Compute Node
+                tasks += [host_node_instance.execute_operation(
+                    'cloudify.interfaces.worker_installer.restart',
+                    send_task_events=False)]
+            else:
+                tasks += [host_node_instance.execute_operation(
+                    'cloudify.interfaces.cloudify_agent.restart',
+                    send_task_events=False)]
+
+    tasks += [
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.install'),
+        host_node_instance.execute_operation(
+            'cloudify.interfaces.monitoring_agent.start'),
+    ]
+    return tasks
 
 
 def _host_post_start(host_node_instance):
@@ -312,53 +366,7 @@ def _host_post_start(host_node_instance):
                     'cloudify.interfaces.cloudify_agent.start')
             ]
 
-        plugins_to_install = filter(lambda plugin: plugin['install'],
-                                    host_node_instance.node.plugins_to_install)
-        if plugins_to_install:
-            tasks += [host_node_instance.send_event('Installing plugins')]
-            if 'cloudify.interfaces.plugin_installer.install' in \
-                    node_operations:
-                # 3.2 Compute Node
-                tasks += [host_node_instance.execute_operation(
-                    'cloudify.interfaces.plugin_installer.install',
-                    kwargs={
-                        'plugins': plugins_to_install})
-                ]
-            else:
-                tasks += [host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.install_plugins',
-                    kwargs={'plugins': plugins_to_install})
-                ]
-
-            if install_method in constants.AGENT_INSTALL_METHODS_SCRIPTS:
-                # this option is only available since 3.3 so no need to
-                # handle 3.2 version here.
-                tasks += [
-                    host_node_instance.send_event('Restarting Agent via AMQP'),
-                    host_node_instance.execute_operation(
-                        'cloudify.interfaces.cloudify_agent.restart_amqp',
-                        send_task_events=False)
-                ]
-            else:
-                tasks += [host_node_instance.send_event(
-                    'Restarting Agent')]
-                if 'cloudify.interfaces.worker_installer.restart' in \
-                        node_operations:
-                    # 3.2 Compute Node
-                    tasks += [host_node_instance.execute_operation(
-                        'cloudify.interfaces.worker_installer.restart',
-                        send_task_events=False)]
-                else:
-                    tasks += [host_node_instance.execute_operation(
-                        'cloudify.interfaces.cloudify_agent.restart',
-                        send_task_events=False)]
-
-    tasks += [
-        host_node_instance.execute_operation(
-            'cloudify.interfaces.monitoring_agent.install'),
-        host_node_instance.execute_operation(
-            'cloudify.interfaces.monitoring_agent.start'),
-    ]
+    tasks.extend(prepare_running_agent(host_node_instance))
     return tasks
 
 
