@@ -11,11 +11,13 @@ if workdir_path is None:
     # We are not in an appropriately configured celery environment
     config = {}
 else:
-    # Load config
     conf_file_path = os.path.join(workdir_path, 'broker_config.json')
-    with open(conf_file_path) as conf_handle:
-        conf_file = conf_handle.read()
-        config = json.loads(conf_file)
+    if os.path.isfile(conf_file_path):
+        with open(conf_file_path) as conf_handle:
+            conf_file = conf_handle.read()
+            config = json.loads(conf_file)
+    else:
+        config = {}
 
 # Provided as variables for retrieval by amqp_client and logger as required
 broker_ssl_enabled = config.get('broker_ssl_enabled', False)
