@@ -17,6 +17,7 @@ import os
 import urllib2
 
 import utils
+import constants
 from cloudify_rest_client import CloudifyClient
 from cloudify.exceptions import HttpException, NonRecoverableError
 
@@ -112,8 +113,37 @@ def get_rest_client():
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
-    return CloudifyClient(utils.get_manager_ip(),
-                          utils.get_manager_rest_service_port())
+    manager_ip = utils.get_manager_ip()
+    rest_port = constants.DEFAULT_REST_PORT
+    protocol = constants.DEFAULT_PROTOCOL
+
+    print '***** utils.is_security_enabled(): {0}'.format(utils.is_security_enabled())
+    print '***** utils.get_cloudify_username(): {0}'.format(utils.get_cloudify_username())
+    print '***** utils.get_cloudify_password(): {0}'.format(utils.get_cloudify_password())
+    print '***** utils.is_ssl_enabled(): {0}'.format(utils.is_ssl_enabled())
+    print '***** utils.is_verify_ssl_certificate(): {0}'.format(utils.is_verify_ssl_certificate())
+    if not utils.is_security_enabled():
+        rest_client = CloudifyClient(host=manager_ip, port=rest_port,
+                                     protocol=protocol)
+    else:
+        # security enabled
+        headers = utils.get_auth_header(utils.get_cloudify_username(),
+                                        utils.get_cloudify_password())
+        if utils.is_ssl_enabled():
+            rest_port = constants.SECURED_REST_PORT
+            protocol = constants.SECURED_PROTOCOL
+
+        if utils.is_verify_ssl_certificate():
+            trust_all = False
+            cert_path = utils.get_local_certificate_path()
+        else:
+            trust_all = True
+            cert_path = None
+        rest_client = CloudifyClient(host=manager_ip, port=rest_port,
+                                     protocol=protocol, headers=headers,
+                                     cert=cert_path, trust_all=trust_all)
+
+    return rest_client
 
 
 def _save_resource(logger, resource, resource_path, target_path):

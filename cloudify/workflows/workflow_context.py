@@ -24,6 +24,7 @@ import Queue
 from proxy_tools import proxy
 
 from cloudify import context
+from cloudify.context import SecurityContext
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
                               update_execution_status,
@@ -404,6 +405,8 @@ class _WorkflowContextBase(object):
 
     def __init__(self, ctx, remote_ctx_handler_cls):
         self._context = ctx = ctx or {}
+        security_ctx_dict = self._context.get('security_ctx', {})
+        self._security_ctx = SecurityContext(security_ctx_dict)
         self._local_task_thread_pool_size = ctx.get(
             'local_task_thread_pool_size',
             DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
@@ -546,7 +549,6 @@ class _WorkflowContextBase(object):
         final_kwargs = self._merge_dicts(merged_from=kwargs,
                                          merged_into=operation_properties,
                                          allow_override=allow_kwargs_override)
-
         return self.execute_task(task_name,
                                  local=self.local,
                                  kwargs=final_kwargs,
@@ -584,7 +586,8 @@ class _WorkflowContextBase(object):
     def _build_cloudify_context(self,
                                 task_id,
                                 task_name,
-                                node_context):
+                                node_context,
+                                security_ctx):
         node_context = node_context or {}
         context = {
             '__cloudify_context': '0.3',
@@ -592,7 +595,8 @@ class _WorkflowContextBase(object):
             'task_name': task_name,
             'execution_id': self.execution_id,
             'workflow_id': self.workflow_id,
-        }
+            'security_context': security_ctx
+            }
         context.update(node_context)
         context.update(self.internal.handler.operation_cloudify_context)
         return context
@@ -621,7 +625,8 @@ class _WorkflowContextBase(object):
         cloudify_context = self._build_cloudify_context(
             task_id,
             task_name,
-            node_context)
+            node_context,
+            self._security_ctx)
         kwargs['__cloudify_context'] = cloudify_context
 
         if local:
@@ -807,6 +812,8 @@ class CloudifyWorkflowContext(
 
         self.blueprint = context.BlueprintContext(self._context)
         self.deployment = WorkflowDeploymentContext(self._context, self)
+        security_ctx_dict = self._context.get('security_ctx', {})
+        self._security_ctx = context.SecurityContext(**security_ctx_dict)
 
         if self.local:
             storage = self.internal.handler.storage
@@ -1101,8 +1108,8 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
             if executor == 'host_agent':
                 if len(runtime_props) == 0:
                     host_node_instance = get_node_instance(host_id)
-                    cloudify_agent = host_node_instance.runtime_properties.get(
-                        'cloudify_agent')
+                    cloudify_agent = host_node_instance.\
+                        runtime_properties.get('cloudify_agent')
                     if not cloudify_agent:
                         raise exceptions.NonRecoverableError(
                             'Missing cloudify_agent runtime information. '
