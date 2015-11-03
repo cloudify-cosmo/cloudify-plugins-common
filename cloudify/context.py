@@ -229,6 +229,34 @@ class BootstrapContext(object):
         """
         return self._bootstrap_context.get('resources_prefix', '')
 
+    def broker_config(self, fallback_to_manager_ip=True):
+        """
+        Returns dictionary containing broker configuration.
+
+        :param fallback_to_manager_ip: If True and there is no broker_ip in
+        context, manager ip will be used. Note that manager ip detection is
+        only possible within agent.
+        """
+        attributes = {}
+        bootstrap_agent = self.cloudify_agent
+        broker_user, broker_pass = utils.internal.get_broker_credentials(
+            bootstrap_agent
+        )
+        if bootstrap_agent.broker_ip:
+            attributes['broker_ip'] = bootstrap_agent.broker_ip
+        elif fallback_to_manager_ip:
+            attributes['broker_ip'] = utils.get_manager_ip()
+        attributes['broker_user'] = broker_user
+        attributes['broker_pass'] = broker_pass
+        attributes['broker_ssl_enabled'] = bootstrap_agent.broker_ssl_enabled
+        attributes['broker_ssl_cert'] = bootstrap_agent.broker_ssl_cert
+        if bootstrap_agent.broker_ssl_enabled:
+            broker_port = constants.BROKER_PORT_SSL
+        else:
+            broker_port = constants.BROKER_PORT_NO_SSL
+        attributes['broker_port'] = broker_port
+        return attributes
+
 
 class EntityContext(object):
 
