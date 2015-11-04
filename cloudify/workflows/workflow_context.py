@@ -21,6 +21,8 @@ import importlib
 import threading
 import Queue
 
+from proxy_tools import proxy
+
 from cloudify import context
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
@@ -837,16 +839,38 @@ class CloudifySystemWideWorkflowContext(_WorkflowContextBase):
             ctx,
             SystemWideWfRemoteContextHandler
         )
+        self._dep_contexts = None
 
-    def load_deployments_contexts(self):
-        rest = get_rest_client()
-        self.deployments_contexts = {}
-        for dep in rest.deployments.list():
-            dep_ctx = self._context.copy()
-            dep_ctx['deployment_id'] = dep.id
-            dep_ctx['blueprint_id'] = dep.blueprint_id
-            self.deployments_contexts[dep.id] = \
-                CloudifyWorkflowContext(dep_ctx)
+    class _ManagedCloudifyWorkflowContext(CloudifyWorkflowContext):
+        def __enter__(self):
+            self.internal.start_local_tasks_processing()
+            self.internal.start_event_monitor()
+
+        def __exit__(self, *args, **kwargs):
+            self.internal.stop_local_tasks_processing()
+            self.internal.stop_event_monitor()
+
+    @property
+    def deployments_contexts(self):
+        if self._dep_contexts is None:
+            self._dep_contexts = {}
+            rest = get_rest_client()
+            for dep in rest.deployments.list():
+                dep_ctx = self._context.copy()
+                dep_ctx['deployment_id'] = dep.id
+                dep_ctx['blueprint_id'] = dep.blueprint_id
+
+                def lazily_loaded_ctx(dep_ctx):
+                    def lazy_ctx():
+                        if not hasattr(lazy_ctx, '_cached_ctx'):
+                            lazy_ctx._cached_ctx = \
+                                self._ManagedCloudifyWorkflowContext(dep_ctx)
+                        return lazy_ctx._cached_ctx
+
+                    return proxy(lazy_ctx)
+
+                self._dep_contexts[dep.id] = lazily_loaded_ctx(dep_ctx)
+        return self._dep_contexts
 
 
 class CloudifyWorkflowContextInternal(object):
