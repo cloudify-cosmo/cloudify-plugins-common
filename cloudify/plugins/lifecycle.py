@@ -284,12 +284,14 @@ def _wait_for_host_to_start(host_node_instance):
 
 
 def prepare_running_agent(host_node_instance):
-    plugins_to_install = filter(lambda plugin: plugin['install'],
-                                host_node_instance.node.plugins_to_install)
+    tasks = []
     install_method = utils.internal.get_install_method(
         host_node_instance.node.properties)
-    tasks = []
-    if plugins_to_install:
+
+    plugins_to_install = filter(lambda plugin: plugin['install'],
+                                host_node_instance.node.plugins_to_install)
+    if (plugins_to_install and
+            install_method != constants.AGENT_INSTALL_METHOD_NONE):
         node_operations = host_node_instance.node.operations
         tasks += [host_node_instance.send_event('Installing plugins')]
         if 'cloudify.interfaces.plugin_installer.install' in \
