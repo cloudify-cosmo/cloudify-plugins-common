@@ -160,6 +160,14 @@ class BootstrapContext(object):
             return self._cloudify_agent.get('agent_key_path')
 
         @property
+        def broker_ip(self):
+            """
+            Returns the IP for connecting to rabbit.
+            An empty string should result in clients using the manager IP.
+            """
+            return self._cloudify_agent.get('broker_ip')
+
+        @property
         def broker_user(self):
             """
             Returns the username for connecting to rabbit.

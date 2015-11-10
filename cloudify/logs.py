@@ -369,6 +369,7 @@ def _amqp_client(ctx):
     """
     if not hasattr(clients, 'amqp_client'):
         clients.amqp_client = create_client(
+            amqp_host=broker_config.broker_hostname,
             amqp_user=broker_config.broker_username,
             amqp_pass=broker_config.broker_password,
             ssl_enabled=broker_config.broker_ssl_enabled,
