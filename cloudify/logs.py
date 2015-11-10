@@ -93,14 +93,7 @@ class CloudifyBaseLoggingHandler(logging.Handler):
     def __init__(self, ctx, out_func, message_context_builder):
         logging.Handler.__init__(self)
         self.context = message_context_builder(ctx)
-        # Real context required if using AMQP
-        self.ctx = ctx
-        if _is_system_workflow(ctx):
-            out_func = stdout_log_out
-        elif out_func is None:
-            out_func = amqp_log_out
-
-        self.out_func = out_func
+        self.out_func = out_func or amqp_log_out
 
     def flush(self):
         pass
@@ -115,7 +108,6 @@ class CloudifyBaseLoggingHandler(logging.Handler):
                 'text': message
             }
         }
-
         self.out_func(log)
 
 
@@ -262,11 +254,6 @@ def send_task_event(cloudify_context,
 def _send_event(ctx, context_type, event_type,
                 message, args, additional_context,
                 out_func):
-    if _is_system_workflow(ctx):
-        out_func = stdout_event_out
-    elif out_func is None:
-        out_func = amqp_event_out
-
     if context_type in ['plugin', 'task']:
         message_context = message_context_from_cloudify_context(
             ctx)
@@ -291,7 +278,7 @@ def _send_event(ctx, context_type, event_type,
             'arguments': args
         }
     }
-
+    out_func = out_func or amqp_event_out
     out_func(event)
 
 
@@ -356,17 +343,6 @@ def create_event_message_prefix(event):
     return str(EVENT_CLASS(event))
 
 
-def _is_system_workflow(ctx):
-    # using hardcoded names; could replace this by having this info on ctx or
-    # making a REST call and cache it somehow
-    # note: looking for workflow_id in either ctx or ctx.ctx - it varies
-    # depending on the context of the log/event
-    workflow_id = ctx.workflow_id if hasattr(ctx, 'workflow_id') \
-        else ctx.ctx.workflow_id
-    return workflow_id in (
-        '_start_deployment_environment', '_stop_deployment_environment')
-
-
 @with_amqp_client
 def _publish_message(amqp_client, message, message_type, logger):
     try:
@@ -377,3 +353,23 @@ def _publish_message(amqp_client, message, message_type, logger):
         logger.warning('Error publishing {0} to RabbitMQ ['
                        'message={1}, log={2}]'
                        .format(message_type, e.message, json.dumps(message)))
+
+
+class ZMQLoggingHandler(logging.Handler):
+
+    def __init__(self, context, socket):
+        logging.Handler.__init__(self)
+        self._context = context
+        self._socket = socket
+
+    def emit(self, record):
+        message = self.format(record)
+        message = message.decode('utf-8', 'ignore').encode('utf-8')
+        try:
+            self._socket.send_json({
+                'context': self._context,
+                'message': message
+            })
+        except Exception:
+            # TODO do something about me
+            pass

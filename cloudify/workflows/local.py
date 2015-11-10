@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from cloudify_rest_client.nodes import Node
 from cloudify_rest_client.node_instances import NodeInstance
 
+from cloudify import dispatch
 from cloudify.workflows.workflow_context import (
     DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
 
@@ -113,11 +114,9 @@ class _Environment(object):
                                      workflows.keys()))
 
         workflow = workflows[workflow_name]
-        workflow_method = _get_module_method(workflow['operation'],
-                                             node_name='',
-                                             tpe='workflow')
         execution_id = str(uuid.uuid4())
         ctx = {
+            'type': 'workflow',
             'local': True,
             'deployment_id': self.name,
             'blueprint_id': self.name,
@@ -127,13 +126,14 @@ class _Environment(object):
             'task_retries': task_retries,
             'task_retry_interval': task_retry_interval,
             'subgraph_retries': subgraph_retries,
-            'local_task_thread_pool_size': task_thread_pool_size
+            'local_task_thread_pool_size': task_thread_pool_size,
+            'task_name': workflow['operation']
         }
 
         merged_parameters = _merge_and_validate_execution_parameters(
             workflow, workflow_name, parameters, allow_custom_parameters)
 
-        return workflow_method(__cloudify_context=ctx, **merged_parameters)
+        return dispatch.dispatch(__cloudify_context=ctx, **merged_parameters)
 
 
 def init_env(blueprint_path,

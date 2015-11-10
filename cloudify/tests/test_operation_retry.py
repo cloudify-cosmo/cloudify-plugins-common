@@ -26,6 +26,7 @@ from cloudify import exceptions
 from cloudify import logs
 from cloudify.workflows import tasks as workflow_tasks
 from cloudify.test_utils import workflow_test
+from cloudify.test_utils import dispatch_helper
 
 RETRY_MESSAGE = 'operation will be retried'
 RETRY_AFTER = 10
@@ -33,6 +34,10 @@ RETRY_AFTER = 10
 
 @decorators.operation
 def retry_operation(ctx, **_):
+    return dispatch_helper.run(retry_operation_impl, **_)
+
+
+def retry_operation_impl(ctx, **_):
     return ctx.operation.retry(message=RETRY_MESSAGE, retry_after=RETRY_AFTER)
 
 

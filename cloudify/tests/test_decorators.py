@@ -16,22 +16,17 @@
 
 import testtools
 
-from mock import patch, MagicMock
+from mock import patch
+from nose import tools
 
 from cloudify import ctx as ctx_proxy
 from cloudify import manager
-from cloudify import decorators
-from cloudify import logs
-from cloudify.decorators import operation, workflow
 from cloudify import context
-from cloudify.exceptions import NonRecoverableError, ProcessExecutionError
-from cloudify.workflows import workflow_context
-from cloudify import amqp_client
+from cloudify.decorators import operation, workflow
+from cloudify.exceptions import NonRecoverableError
 
+from cloudify.test_utils.dispatch_helper import run
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
-
-# Prevents creating amqp clients
-amqp_client.create_client = MagicMock()
 
 
 class MockNotPicklableException(Exception):
@@ -50,21 +45,33 @@ class MockPicklableException(Exception):
 
 
 @operation
-def acquire_context(a, b, ctx, **kwargs):
+def acquire_context(*args, **kwargs):
+    return run(acquire_context_impl, *args, **kwargs)
+
+
+def acquire_context_impl(a, b, ctx, **kwargs):
     return ctx
 
 
 @operation
 def some_operation(**kwargs):
+    return run(some_operation_impl, **kwargs)
+
+
+def some_operation_impl(**kwargs):
     from cloudify import ctx
     return ctx
 
 
-@workflow
-def error_workflow(ctx, picklable=False, **_):
-    if picklable:
-        raise MockPicklableException('hello world!')
-    raise MockNotPicklableException('hello world!')
+@tools.nottest
+@operation
+def test_op(**kwargs):
+    run(test_op_impl, **kwargs)
+
+
+@tools.nottest
+def test_op_impl(ctx, test_case, **kwargs):
+    test_case.assertEqual(ctx, ctx_proxy)
 
 
 class OperationTest(testtools.TestCase):
@@ -84,11 +91,7 @@ class OperationTest(testtools.TestCase):
         self.assertRaises(RuntimeError,
                           lambda: ctx_proxy.instance.id)
 
-        @operation
-        def test_op(ctx, **kwargs):
-            self.assertEqual(ctx, ctx_proxy)
-
-        test_op()
+        test_op(test_case=self)
 
         self.assertRaises(RuntimeError,
                           lambda: ctx_proxy.instance.id)
@@ -140,39 +143,6 @@ class OperationTest(testtools.TestCase):
         self.assertRaises(NonRecoverableError, ctx.capabilities.__contains__,
                           'k')
 
-    @patch('cloudify.logs.amqp_log_out', logs.stdout_log_out)
-    @patch('cloudify.logs.amqp_event_out', logs.stdout_event_out)
-    def test_workflow_error_delegation(self):
-        try:
-            workflow_context.get_rest_client = \
-                lambda: rest_client_mock.MockRestclient()
-            decorators.get_rest_client = \
-                lambda: rest_client_mock.MockRestclient()
-            manager.get_rest_client = \
-                lambda: rest_client_mock.MockRestclient()
-
-            kwargs = {'__cloudify_context': {}}
-            try:
-                error_workflow(picklable=False, **kwargs)
-                self.fail('Expected exception')
-            except ProcessExecutionError as e:
-                self.assertTrue('hello world!' in e.message)
-                self.assertTrue('test_decorators.py' in e.traceback)
-                self.assertTrue(MockNotPicklableException.__name__ in
-                                e.error_type)
-            try:
-                error_workflow(picklable=True, **kwargs)
-                self.fail('Expected exception')
-            except ProcessExecutionError as e:
-                self.assertTrue('hello world!' in e.message)
-                self.assertTrue('test_decorators.py' in e.traceback)
-                self.assertTrue(MockPicklableException.__name__ in
-                                e.error_type)
-        finally:
-            from cloudify.workflows import api
-            api.ctx = None
-            api.pipe = None
-
     def test_instance_update(self):
         with patch.object(context.NodeInstanceContext,
                           'update') as mock_update:
@@ -195,3 +165,25 @@ class OperationTest(testtools.TestCase):
             }}
             some_operation(**kwargs)
             self.assertEqual(2, mock_update.call_count)
+
+    def test_backwards(self):
+        @operation
+        def o1():
+            return 'o1'
+
+        @operation(some_unused_kwargs='value')
+        def o2():
+            return 'o2'
+
+        @workflow
+        def w1():
+            return 'w1'
+
+        @workflow(system_wide=True)
+        def w2():
+            return 'w2'
+
+        self.assertEqual(o1(), 'o1')
+        self.assertEqual(o2(), 'o2')
+        self.assertEqual(w1(), 'w1')
+        self.assertEqual(w2(), 'w2')

@@ -44,6 +44,7 @@ setup(
               'cloudify.compute',
               'cloudify.workflows',
               'cloudify.plugins',
+              'cloudify.celery',
               'cloudify.proxy',
               'cloudify.test_utils'],
     license='LICENSE',

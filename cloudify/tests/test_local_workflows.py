@@ -29,6 +29,7 @@ import nose.tools
 import cloudify.logs
 from cloudify.decorators import workflow, operation
 
+from cloudify.exceptions import NonRecoverableError
 from cloudify.workflows import local
 from cloudify.workflows import workflow_context
 from cloudify.workflows.workflow_context import task_config
@@ -110,12 +111,10 @@ class BaseWorkflowTest(testtools.TestCase):
             workflow_methods = [workflow_method]
 
         # same as @workflow above the method
-        workflow_methods = [workflow(m, force_not_celery=True)
-                            for m in workflow_methods]
+        workflow_methods = [workflow(m) for m in workflow_methods]
 
         # same as @operation above each op method
-        operation_methods = [operation(m, force_not_celery=True)
-                             for m in operation_methods]
+        operation_methods = [operation(m) for m in operation_methods]
 
         temp_module = self._create_temp_module()
 
@@ -329,11 +328,11 @@ class BaseWorkflowTest(testtools.TestCase):
         logs = []
 
         # Provide same interface as other log/event functions
-        def mock_stdout_event(event, ctx=None):
+        def mock_stdout_event(event):
             events.append(event)
 
         # Provide same interface as other log/event functions
-        def mock_stdout_log(log, ctx=None):
+        def mock_stdout_log(log):
             logs.append(log)
 
         o_stdout_event = cloudify.logs.stdout_event_out
@@ -1263,18 +1262,25 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
                                                         test_type),
                 workflow_name='workflow')
             self.fail()
-        except ImportError, e:
+        except (ImportError, AttributeError, NonRecoverableError) as e:
             if is_missing_module:
                 self.assertIn('No module named zzz', e.message)
-                self.assertIn(test_type, e.message)
+                if test_type != 'workflow':
+                    self.assertIn(test_type, e.message)
+                    self.assertTrue(isinstance(e, ImportError))
             else:
-                raise
-        except AttributeError, e:
-            if not is_missing_module:
-                self.assertIn("has no attribute 'does_not_exist'", e.message)
-                self.assertIn(test_type, e.message)
-            else:
-                raise
+                if test_type == 'workflow':
+                    thing1 = 'function'
+                    thing2 = ' named'
+                else:
+                    thing1 = 'attribute'
+                    thing2 = ''
+                self.assertIn("has no {0}{1} 'does_not_exist'".format(thing1,
+                                                                      thing2),
+                              e.message)
+                if test_type != 'workflow':
+                    self.assertIn(test_type, e.message)
+                    self.assertTrue(isinstance(e, AttributeError))
 
     def _blueprint_2(self,
                      is_missing_module,

@@ -307,29 +307,6 @@ def prepare_running_agent(host_node_instance):
                 kwargs={'plugins': plugins_to_install})
             ]
 
-        if install_method in constants.AGENT_INSTALL_METHODS_SCRIPTS:
-            # this option is only available since 3.3 so no need to
-            # handle 3.2 version here.
-            tasks += [
-                host_node_instance.send_event('Restarting Agent via AMQP'),
-                host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.restart_amqp',
-                    send_task_events=False)
-            ]
-        else:
-            tasks += [host_node_instance.send_event(
-                'Restarting Agent')]
-            if 'cloudify.interfaces.worker_installer.restart' in \
-                    node_operations:
-                # 3.2 Compute Node
-                tasks += [host_node_instance.execute_operation(
-                    'cloudify.interfaces.worker_installer.restart',
-                    send_task_events=False)]
-            else:
-                tasks += [host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.restart',
-                    send_task_events=False)]
-
     tasks += [
         host_node_instance.execute_operation(
             'cloudify.interfaces.monitoring_agent.install'),

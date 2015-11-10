@@ -39,6 +39,8 @@ TASK_FAILED = 'failed'
 
 TERMINATED_STATES = [TASK_RESCHEDULED, TASK_SUCCEEDED, TASK_FAILED]
 
+DISPATCH_TASK = 'cloudify.dispatch.dispatch'
+
 
 def retry_failure_handler(task):
     """Basic on_success/on_failure handler that always returns retry"""
@@ -326,8 +328,8 @@ class RemoteWorkflowTask(WorkflowTask):
 
     def apply_async(self):
         """
-        Call the underlying celery tasks apply_async. Verify the task
-        is registered and send an event before doing so.
+        Call the underlying celery tasks apply_async. Verify the worker
+        is alive and send an event before doing so.
 
         :return: a RemoteWorkflowTaskResult instance wrapping the
                  celery async result
@@ -336,7 +338,7 @@ class RemoteWorkflowTask(WorkflowTask):
             task, self._task_queue, self._task_target = \
                 self.workflow_context.internal.handler.get_task(
                     self, queue=self._task_queue, target=self._task_target)
-            self._verify_task_registered()
+            self._verify_worker_alive()
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
             self.set_state(TASK_SENT)
             async_result = task.apply_async(task_id=self.id)
@@ -393,18 +395,18 @@ class RemoteWorkflowTask(WorkflowTask):
         """kwargs to pass when invoking the task"""
         return self._kwargs
 
-    def _verify_task_registered(self):
-        verify_task_registered(self.name,
-                               self.target,
-                               self._get_registered)
+    def _verify_worker_alive(self):
+        verify_worker_alive(self.name,
+                            self.target,
+                            self._get_registered)
 
     def _get_registered(self):
         # import here because this only applies in remote execution
         # environments
-        from cloudify.celery import celery
+        from cloudify_agent.app import app
 
         worker_name = 'celery@{0}'.format(self.target)
-        inspect = celery.control.inspect(destination=[worker_name])
+        inspect = app.control.inspect(destination=[worker_name])
         registered = inspect.registered() or {}
         result = registered.get(worker_name, set())
         return set(result)
@@ -725,11 +727,11 @@ class HandlerResult(object):
         return HandlerResult(cls.HANDLER_IGNORE)
 
 
-def verify_task_registered(name, target, get_registered):
+def verify_worker_alive(name, target, get_registered):
 
     cache = RemoteWorkflowTask.cache
     registered = cache.get(target, set())
-    if name not in registered:
+    if not registered:
         registered = get_registered()
         cache[target] = registered
 
@@ -737,8 +739,8 @@ def verify_task_registered(name, target, get_registered):
         raise exceptions.NonRecoverableError(
             'Worker celery@{0} appears to be dead'.format(target))
 
-    if name not in registered:
+    if DISPATCH_TASK not in registered:
         raise exceptions.NonRecoverableError(
-            'Missing task: {0} in worker celery.{1} \n'
-            'Registered tasks are: {2}'
-            .format(name, target, registered))
+            'Missing dispatch task in worker {0} \n'
+            'Registered tasks are: {1}. (This probably means the agent '
+            'configuration is invalid) [{2}]'.format(target, registered, name))

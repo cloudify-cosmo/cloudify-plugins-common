@@ -14,12 +14,9 @@
 #    * limitations under the License.
 
 
-import Queue
-
 EXECUTION_CANCELLED_RESULT = 'execution_cancelled'
 
-
-queue = None
+cancel_request = False
 
 
 def has_cancel_request():
@@ -39,12 +36,7 @@ def has_cancel_request():
 
     :return: whether there was a request to cancel the workflow execution
     """
-    if not queue:
-        return False
-    try:
-        return queue.get_nowait()['action'] == 'cancel'
-    except Queue.Empty:
-        return False
+    return cancel_request
 
 
 class ExecutionCancelled(Exception):
