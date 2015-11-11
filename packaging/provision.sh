@@ -6,7 +6,7 @@ function install_dependencies(){
     echo "## Installing necessary dependencies"
 
     if  which yum; then
-        sudo yum -y install python-devel gcc openssl git
+        sudo yum -y install python-devel gcc openssl git libxslt-devel libxml2-devel
         SUDO="sudo"
     elif which apt-get; then
         sudo apt-get update &&
