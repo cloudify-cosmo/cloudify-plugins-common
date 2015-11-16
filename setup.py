@@ -41,6 +41,7 @@ setup(
     author='cosmo-admin',
     author_email='cosmo-admin@gigaspaces.com',
     packages=['cloudify',
+              'cloudify.compute',
               'cloudify.workflows',
               'cloudify.plugins',
               'cloudify.proxy',
