@@ -22,7 +22,7 @@ function install_dependencies(){
 
 function install_wagon(){
     echo "## installing wagon"
-    $SUDO pip install wagon==0.2.5
+    $SUDO pip install wagon==0.3.0
 }
 
 function wagon_create_package(){
