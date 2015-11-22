@@ -27,7 +27,7 @@ function install_wagon(){
 
 function wagon_create_package(){
     echo "## wagon create package"
-    $SUDO wagon create -s https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGINS_TAG_NAME.tar.gz -r . --validate -v -f
+    $SUDO wagon create -s https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGINS_TAG_NAME.tar.gz -r --validate -v -f
 }
 
 function upload_to_s3() {
