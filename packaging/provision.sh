@@ -22,12 +22,12 @@ function install_dependencies(){
 
 function install_wagon(){
     echo "## installing wagon"
-    $SUDO pip install wagon==0.2.5
+    $SUDO pip install wagon==0.3.0
 }
 
 function wagon_create_package(){
     echo "## wagon create package"
-    $SUDO wagon create -s https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGINS_TAG_NAME.tar.gz -r . --validate -v -f
+    $SUDO wagon create -s https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGINS_TAG_NAME.tar.gz -r --validate -v -f
 }
 
 function upload_to_s3() {
@@ -37,11 +37,11 @@ function upload_to_s3() {
     ###
     # no preserve is set to false only because preserving file attributes is not yet supported on Windows.
 
-    echo "## uploading tar and md5 files to s3"
+    echo "## uploading wgn and md5 files to s3"
     file=$(basename $(find . -type f -name "$1"))
     date=$(date +"%a, %d %b %Y %T %z")
     acl="x-amz-acl:public-read"
-    content_type='application/x-compressed-exe'
+    content_type='application/x-compressed'
     string="PUT\n\n$content_type\n$date\n$acl\n/$AWS_S3_BUCKET/$AWS_S3_PATH/$file"
     signature=$(echo -en "${string}" | openssl sha1 -hmac "${AWS_ACCESS_KEY}" -binary | base64)
     curl -v -X PUT -T "$file" \
@@ -90,5 +90,5 @@ print_params
 install_dependencies &&
 install_wagon &&
 wagon_create_package &&
-md5sum=$(md5sum -t *.tar.gz) && echo $md5sum > ${md5sum##* }.md5 &&
-[ -z ${AWS_ACCESS_KEY} ] || upload_to_s3 "*.tar.gz" && upload_to_s3 "*.md5"
+md5sum=$(md5sum -t *.wgn) && echo $md5sum > ${md5sum##* }.md5 &&
+[ -z ${AWS_ACCESS_KEY} ] || upload_to_s3 "*.wgn" && upload_to_s3 "*.md5"
