@@ -215,17 +215,12 @@ def workflow(func=None, system_wide=False, **arguments):
     if func is not None:
         @wraps(func)
         def wrapper(*args, **kwargs):
-
             def is_ctx_class_instance(obj):
                 return isinstance(obj, ctx_class)
-
             ctx = _find_context_arg(args, kwargs, is_ctx_class_instance)
-
             if not is_ctx_class_instance(ctx):
                 ctx = ctx_class(ctx)
-
             kwargs['ctx'] = ctx
-
             if ctx.local:
                 workflow_wrapper = _local_workflow
             else:
@@ -248,10 +243,11 @@ def _remote_workflow(ctx, func, args, kwargs):
         update_execution_status(ctx.execution_id, Execution.CANCELLED)
         _send_workflow_cancelled_event(ctx)
 
-    rest = get_rest_client()
+    # there must be a better place/way to get this, this is not per request
+    rest_client = get_rest_client()
     parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:
-        if rest.executions.get(ctx.execution_id).status in \
+        if rest_client.executions.get(ctx.execution_id).status in \
                 (Execution.CANCELLING, Execution.FORCE_CANCELLING):
             # execution has been requested to be cancelled before it
             # was even started
@@ -315,7 +311,7 @@ def _remote_workflow(ctx, func, args, kwargs):
             except Queue.Empty:
                 pass
             # check for 'cancel' requests
-            execution = rest.executions.get(ctx.execution_id)
+            execution = rest_client.executions.get(ctx.execution_id)
             if execution.status == Execution.FORCE_CANCELLING:
                 result = api.EXECUTION_CANCELLED_RESULT
                 break
@@ -340,7 +336,8 @@ def _remote_workflow(ctx, func, args, kwargs):
                 # TODO: kill worker externally
                 raise RequestSystemExit()
         else:
-            update_execution_status(ctx.execution_id, Execution.TERMINATED)
+            update_execution_status(ctx.execution_id,
+                                    Execution.TERMINATED)
             _send_workflow_succeeded_event(ctx)
         return result
     except RequestSystemExit:
@@ -352,7 +349,8 @@ def _remote_workflow(ctx, func, args, kwargs):
             error = StringIO()
             traceback.print_exc(file=error)
             error_traceback = error.getvalue()
-        update_execution_status(ctx.execution_id, Execution.FAILED,
+        update_execution_status(ctx.execution_id,
+                                Execution.FAILED,
                                 error_traceback)
         _send_workflow_failed_event(ctx, e, error_traceback)
         raise
