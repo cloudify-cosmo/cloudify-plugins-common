@@ -1,0 +1,33 @@
+node_instance_install:
+  -  state: initializing
+  - [state: creating, event: Creating node]
+  -  operation: cloudify.interfaces.lifecycle.create
+  -  state: created
+  -  relationship_operation: cloudify.interfaces.relationship_lifecycle.preconfigure
+  - [state: configuring, event: Configuring node]
+  -  operation: cloudify.interfaces.lifecycle.configure
+  -  state: configured
+  -  relationship_operation: cloudify.interfaces.relationship_lifecycle.postconfigure
+  - [state: starting, event: Starting node]
+  -  operation: cloudify.interfaces.lifecycle.start
+  -  compute_install
+  -  operation: cloudify.interfaces.monitoring.start
+  -  relationship_operation: cloudify.interfaces.relationship_lifecycle.establish
+  -  state: started
+
+node_instance_uninstall:
+  - [state: stopping, event: Stopping node]
+  -  operation: cloudify.interfaces.monitoring.stop
+  -  compute_uninstall
+  -  operation: cloudify.interfaces.lifecycle.stop
+  -  state: stopped
+  -  relationship_operation: cloudify.interfaces.relationship_lifecycle.unlink
+     reverse: true
+  - [state: deleting, event: Deleting node]
+  -  operation: cloudify.interfaces.lifecycle.delete
+  -  state: deleted
+
+#before_install: path.to.module.before_install
+#after_install: path.to.module.after_install
+#before_uninstall: path.to.module.before_uninstall
+#after_uninstall: path.to.module.after_uninstall

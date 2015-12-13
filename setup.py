@@ -64,7 +64,10 @@ setup(
             'ctx = cloudify.proxy.client:main',
         ]
     },
-    package_data={'cloudify.ctx_wrappers': ['ctx.py']},
+    package_data={
+        'cloudify.ctx_wrappers': ['ctx.py'],
+        'cloudify/resources': ['default_lifecycle.yaml']
+    },
     scripts=[
         'ctx_wrappers/ctx-sh'
     ]

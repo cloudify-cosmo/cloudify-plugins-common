@@ -14,11 +14,18 @@
 #    * limitations under the License.
 
 import itertools
+import importlib
+
+import yaml
 
 from cloudify import utils
 from cloudify import constants
+from cloudify import resources
 from cloudify.workflows.tasks_graph import forkjoin
 from cloudify.workflows import tasks as workflow_tasks
+
+
+DEFAULT_LIFECYCLE = 'default_lifecycle.yaml'
 
 
 def install_node_instances(graph, node_instances, related_nodes=None):
@@ -76,6 +83,7 @@ class LifecycleProcessor(object):
         self.node_instances = node_instances or set()
         self.intact_nodes = related_nodes or set()
         self.modified_relationship_ids = modified_relationship_ids or {}
+        self.lifecycle_config = yaml.load(resources.get(DEFAULT_LIFECYCLE))
 
     def install(self):
         self._process_node_instances(
@@ -92,9 +100,10 @@ class LifecycleProcessor(object):
                                 graph_finisher_func):
         subgraphs = {}
         for instance in self.node_instances:
-            subgraphs[instance.id] = \
-                node_instance_subgraph_func(instance, self.graph)
-
+            subgraphs[instance.id] = node_instance_subgraph_func(
+                instance,
+                self.graph,
+                self.lifecycle_config)
         for instance in self.intact_nodes:
             subgraphs[instance.id] = self.graph.subgraph(
                 'stub_{0}'.format(instance.id))
@@ -115,6 +124,8 @@ class LifecycleProcessor(object):
             install=False)
 
     def _finish_subgraphs(self, subgraphs, intact_op, install):
+        self._add_hook_dependencies(subgraphs=subgraphs, install=install)
+
         # Create task dependencies based on node relationships
         self._add_dependencies(subgraphs=subgraphs,
                                instances=self.node_instances,
@@ -136,6 +147,27 @@ class LifecycleProcessor(object):
                                instances=self.intact_nodes,
                                install=install,
                                on_dependency_added=intact_on_dependency_added)
+
+    def _add_hook_dependencies(self, subgraphs, install):
+        suffix = 'install' if install else 'uninstall'
+        for prefix in ['before', 'after']:
+            hook_name = '{0}_{1}'.format(prefix, suffix)
+            subgraph_func_name = self.lifecycle_config.get(hook_name)
+            if subgraph_func_name:
+                split = subgraph_func_name.split('.')
+                module = split[:-1]
+                func = split[-1]
+                module = importlib.import_module(module)
+                func = getattr(module, func)
+                subgraph = self.graph.subgraph(hook_name)
+                func(subgraph)
+                for node_instance_subgraph in subgraphs:
+                    if prefix == 'before':
+                        self.graph.add_dependency(node_instance_subgraph,
+                                                  subgraph)
+                    else:
+                        self.graph.add_dependency(subgraph,
+                                                  node_instance_subgraph)
 
     def _add_dependencies(self, subgraphs, instances, install,
                           on_dependency_added=None):
@@ -169,7 +201,7 @@ def set_send_node_event_on_error_handler(task, instance):
     task.on_failure = send_node_event_error_handler
 
 
-def install_node_instance_subgraph(instance, graph):
+def install_node_instance_subgraph(instance, graph, config):
     """This function is used to create a tasks sequence installing one node
     instance.
     Considering the order of tasks executions, it enforces the proper
@@ -178,74 +210,21 @@ def install_node_instance_subgraph(instance, graph):
     :param instance: node instance to generate the installation tasks for
     """
     subgraph = graph.subgraph('install_{0}'.format(instance.id))
-    sequence = subgraph.sequence()
-    sequence.add(
-        instance.set_state('initializing'),
-        forkjoin(instance.send_event('Creating node'),
-                 instance.set_state('creating')),
-        instance.execute_operation('cloudify.interfaces.lifecycle.create'),
-        instance.set_state('created'),
-        _relationships_operations(
-            subgraph,
-            instance,
-            'cloudify.interfaces.relationship_lifecycle.preconfigure'
-        ),
-        forkjoin(instance.set_state('configuring'),
-                 instance.send_event('Configuring node')),
-        instance.execute_operation('cloudify.interfaces.lifecycle.configure'),
-        instance.set_state('configured'),
-        _relationships_operations(
-            subgraph,
-            instance,
-            'cloudify.interfaces.relationship_lifecycle.postconfigure'
-        ),
-        forkjoin(instance.set_state('starting'),
-                 instance.send_event('Starting node')),
-        instance.execute_operation('cloudify.interfaces.lifecycle.start'))
-
-    # If this is a host node, we need to add specific host start
-    # tasks such as waiting for it to start and installing the agent
-    # worker (if necessary)
-    if is_host_node(instance):
-        sequence.add(*_host_post_start(instance))
-
-    sequence.add(
-        instance.execute_operation('cloudify.interfaces.monitoring.start'),
-        _relationships_operations(
-            subgraph,
-            instance,
-            'cloudify.interfaces.relationship_lifecycle.establish'
-        ),
-        instance.set_state('started'))
-
-    subgraph.on_failure = get_install_subgraph_on_failure_handler(instance)
+    _build_node_instance_subgraph_from_config(
+        subgraph=subgraph,
+        instance=instance,
+        node_instance_config=config['node_instance_install'])
+    subgraph.on_failure = get_install_subgraph_on_failure_handler(instance,
+                                                                  config)
     return subgraph
 
 
-def uninstall_node_instance_subgraph(instance, graph):
-    subgraph = graph.subgraph(instance.id)
-    sequence = subgraph.sequence()
-    sequence.add(
-        instance.set_state('stopping'),
-        instance.send_event('Stopping node'),
-        instance.execute_operation('cloudify.interfaces.monitoring.stop')
-    )
-    if is_host_node(instance):
-        sequence.add(*_host_pre_stop(instance))
-
-    sequence.add(
-        instance.execute_operation('cloudify.interfaces.lifecycle.stop'),
-        instance.set_state('stopped'),
-        _relationships_operations(
-            subgraph,
-            instance,
-            'cloudify.interfaces.relationship_lifecycle.unlink',
-            reverse=True),
-        instance.set_state('deleting'),
-        instance.send_event('Deleting node'),
-        instance.execute_operation('cloudify.interfaces.lifecycle.delete'),
-        instance.set_state('deleted')
-    )
+def uninstall_node_instance_subgraph(instance, graph, config):
+    subgraph = graph.subgraph('uninstall_{0}'.format(instance.id))
+    _build_node_instance_subgraph_from_config(
+        subgraph=subgraph,
+        instance=instance,
+        node_instance_config=config['node_instance_uninstall'])
 
     def set_ignore_handlers(_subgraph):
         for task in _subgraph.tasks.itervalues():
@@ -254,16 +233,83 @@ def uninstall_node_instance_subgraph(instance, graph):
             else:
                 set_send_node_event_on_error_handler(task, instance)
     set_ignore_handlers(subgraph)
-
     return subgraph
 
 
-def reinstall_node_instance_subgraph(instance, graph):
+def _build_node_instance_subgraph_from_config(subgraph,
+                                              instance,
+                                              node_instance_config):
+    def raise_unhandled(entry):
+        raise ValueError('Unhandled entry: {0}'.format(entry))
+
+    def handle_entry(entry):
+        if isinstance(entry, dict):
+            handler = handle_dict
+        elif isinstance(entry, list):
+            handler = handle_list
+        elif isinstance(entry, basestring):
+            handler = handle_string
+        else:
+            raise raise_unhandled(entry)
+        return handler(entry)
+
+    def handle_dict(entry):
+        if 'state' in entry:
+            return instance.set_state(entry['state'])
+        elif 'event' in entry:
+            return instance.send_event(entry['event'])
+        elif 'operation' in entry:
+            return instance.execute_operation(entry['operation'])
+        elif 'relationship_operation' in entry:
+            return _relationships_operations(
+                graph=subgraph,
+                node_instance=instance,
+                operation=entry['relationship_operation'],
+                reverse=entry.get('reverse'))
+        else:
+            raise_unhandled(entry)
+
+    def handle_list(entry):
+        tasks = []
+        for t in entry:
+            result = handle_entry(t)
+            if isinstance(result, list):
+                raise ValueError('Unsupported entry in list: {0}'.format(
+                    entry))
+            elif isinstance(result, forkjoin):
+                tasks += result.tasks
+            else:
+                tasks.append(result)
+        return forkjoin(*tasks)
+
+    def handle_string(entry):
+        if entry == 'compute_install':
+            if is_host_node(instance):
+                return _host_post_start(instance)
+        elif entry == 'compute_uninstall':
+            if is_host_node(instance):
+                return _host_pre_stop(instance)
+        else:
+            raise_unhandled(entry)
+
+    sequence = subgraph.sequence()
+    for e in node_instance_config:
+        result = handle_entry(e)
+        if not result:
+            continue
+        if not isinstance(result, list):
+            result = [result]
+        sequence.add(*result)
+
+
+def reinstall_node_instance_subgraph(instance, graph, config):
     reinstall_subgraph = graph.subgraph('reinstall_{0}'.format(instance.id))
     uninstall_subgraph = uninstall_node_instance_subgraph(instance,
-                                                          reinstall_subgraph)
+                                                          reinstall_subgraph,
+                                                          config)
     install_subgraph = install_node_instance_subgraph(instance,
-                                                      reinstall_subgraph)
+                                                      reinstall_subgraph,
+                                                      config)
     reinstall_sequence = reinstall_subgraph.sequence()
     reinstall_sequence.add(
         instance.send_event('Node lifecycle failed. '
@@ -271,11 +317,11 @@ def reinstall_node_instance_subgraph(instance, graph):
         uninstall_subgraph,
         install_subgraph)
     reinstall_subgraph.on_failure = get_install_subgraph_on_failure_handler(
-        instance)
+        instance, config)
     return reinstall_subgraph
 
 
-def get_install_subgraph_on_failure_handler(instance):
+def get_install_subgraph_on_failure_handler(instance, config):
     def install_subgraph_on_failure_handler(subgraph):
         graph = subgraph.graph
         for task in subgraph.tasks.itervalues():
@@ -283,7 +329,7 @@ def get_install_subgraph_on_failure_handler(instance):
         if not subgraph.containing_subgraph:
             result = workflow_tasks.HandlerResult.retry()
             result.retried_task = reinstall_node_instance_subgraph(
-                instance, graph)
+                instance, graph, config)
             result.retried_task.current_retries = subgraph.current_retries + 1
         else:
             result = workflow_tasks.HandlerResult.ignore()
@@ -296,8 +342,7 @@ def get_install_subgraph_on_failure_handler(instance):
 def _relationships_operations(graph,
                               node_instance,
                               operation,
-                              reverse=False,
-                              modified_relationship_ids=None):
+                              reverse):
     def on_failure(subgraph):
         for task in subgraph.tasks.itervalues():
             subgraph.remove_task(task)
@@ -315,15 +360,7 @@ def _relationships_operations(graph,
     for _, relationship_group in relationships_groups:
         group_tasks = []
         for relationship in relationship_group:
-            # either the relationship ids aren't specified, or all the
-            # relationship should be added
-            source_id = relationship.node_instance.node.id
-            target_id = relationship.target_node_instance.node.id
-            if (not modified_relationship_ids or
-                    (source_id in modified_relationship_ids and
-                     target_id in modified_relationship_ids[source_id])):
-                group_tasks += _relationship_operations(relationship,
-                                                        operation)
+            group_tasks += _relationship_operations(relationship, operation)
         tasks.append(forkjoin(*group_tasks))
     if reverse:
         tasks = reversed(tasks)
