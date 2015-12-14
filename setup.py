@@ -13,16 +13,25 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import os
+
 from setuptools import setup
 
 install_requires = [
     'cloudify-rest-client==3.3',
-    'pika==0.9.14',
     'networkx==1.8.1',
     'proxy_tools==0.1.0',
     'bottle==0.12.7',
     'jinja2==2.7.2'
 ]
+
+# once we update to pika 0.10 this should be removed
+# and put pika back to install_requires (CFY-4473)
+on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+if on_rtd:
+    install_requires.append('pika==0.9.13')
+else:
+    install_requires.append('pika==0.9.14')
 
 try:
     import importlib    # noqa
