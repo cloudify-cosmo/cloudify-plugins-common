@@ -18,11 +18,12 @@ import traceback
 import copy
 import sys
 import Queue
-from threading import Thread
 from StringIO import StringIO
 from functools import wraps
 
 from cloudify import context
+from cloudify import amqp_client_utils
+from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify.workflows.workflow_context import (
     CloudifyWorkflowContext,
     CloudifySystemWideWorkflowContext)
@@ -115,6 +116,9 @@ def operation(func=None, **arguments):
                 kwargs['ctx'] = ctx
             try:
                 current_ctx.set(ctx, kwargs)
+                # if this is a remote operation - create an amqp client for it
+                if not ctx._local:
+                    amqp_client_utils.init_amqp_client()
                 result = func(*args, **kwargs)
             except BaseException as e:
                 ctx.logger.error(
@@ -165,6 +169,7 @@ def operation(func=None, **arguments):
                 raise type(value), value, tb
 
             finally:
+                amqp_client_utils.close_amqp_client()
                 current_ctx.clear()
                 if ctx.type == context.NODE_INSTANCE:
                     ctx.instance.update()
@@ -251,6 +256,7 @@ def _remote_workflow(ctx, func, args, kwargs):
     rest = get_rest_client()
     parent_queue, child_queue = (Queue.Queue(), Queue.Queue())
     try:
+        amqp_client_utils.init_amqp_client()
         if rest.executions.get(ctx.execution_id).status in \
                 (Execution.CANCELLING, Execution.FORCE_CANCELLING):
             # execution has been requested to be cancelled before it
@@ -289,7 +295,8 @@ def _remote_workflow(ctx, func, args, kwargs):
         api.queue = parent_queue
 
         # starting workflow execution on child thread
-        t = Thread(target=child_wrapper)
+        # AMQPWrappedThread is used to provide it with its own amqp client
+        t = AMQPWrappedThread(target=child_wrapper)
         t.start()
 
         # while the child thread is executing the workflow,
@@ -356,6 +363,8 @@ def _remote_workflow(ctx, func, args, kwargs):
                                 error_traceback)
         _send_workflow_failed_event(ctx, e, error_traceback)
         raise
+    finally:
+        amqp_client_utils.close_amqp_client()
 
 
 def _local_workflow(ctx, func, args, kwargs):

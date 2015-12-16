@@ -16,19 +16,17 @@
 
 import sys
 import time
-import threading
 import logging
 import json
 import datetime
+from functools import wraps
 
-from cloudify.amqp_client import create_client
+from cloudify import amqp_client
+from cloudify import amqp_client_utils
 from cloudify.event import Event
-from cloudify import broker_config
+from cloudify.exceptions import ClosedAMQPClientException
 
 EVENT_CLASS = Event
-
-# A thread local for storing a separate amqp client for each thread
-clients = threading.local()
 
 
 def message_context_from_cloudify_context(ctx):
@@ -118,7 +116,7 @@ class CloudifyBaseLoggingHandler(logging.Handler):
             }
         }
 
-        self.out_func(log, self.ctx)
+        self.out_func(log)
 
 
 class CloudifyPluginLoggingHandler(CloudifyBaseLoggingHandler):
@@ -294,7 +292,7 @@ def _send_event(ctx, context_type, event_type,
         }
     }
 
-    out_func(event, ctx)
+    out_func(event)
 
 
 def populate_base_item(item, message_type):
@@ -305,38 +303,51 @@ def populate_base_item(item, message_type):
     item['type'] = message_type
 
 
-def amqp_event_out(event, ctx):
-    try:
-        populate_base_item(event, 'cloudify_event')
-        _amqp_client(ctx).publish_event(event)
-    except BaseException as e:
-        error_logger = logging.getLogger('cloudify_events')
-        error_logger.warning('Error publishing event to RabbitMQ ['
-                             'message={0}, event={1}]'
-                             .format(e.message, json.dumps(event)))
+def with_amqp_client(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        """
+        Calls the wrapped func with an AMQP client instance.
+        Attempts to use a thread-local AMQP client, if exists; otherwise
+        creates a new client and closes it after use.
+        """
+        # get an amqp client from the thread or create a new one
+        fresh_client = False
+        client = amqp_client_utils.get_amqp_client()
+        if not client:
+            client = amqp_client.create_client()
+            fresh_client = True
+        # call the wrapped func with the amqp client
+        try:
+            func(client, *args, **kwargs)
+        except ClosedAMQPClientException:
+            # the client has been closed, create a new one and call again
+            client = amqp_client.create_client()
+            fresh_client = True
+            func(client, *args, **kwargs)
+        finally:
+            if fresh_client:
+                client.close()
+
+    return wrapper
 
 
-def amqp_log_out(log, ctx):
-    try:
-        populate_base_item(log, 'cloudify_log')
-        _amqp_client(ctx).publish_log(log)
-    except BaseException as e:
-        error_logger = logging.getLogger('cloudify_celery')
-        error_logger.warning('Error publishing log to RabbitMQ ['
-                             'message={0}, log={1}]'
-                             .format(e.message, json.dumps(log)))
+def amqp_event_out(event):
+    populate_base_item(event, 'cloudify_event')
+    _publish_message(event, 'event', logging.getLogger('cloudify_events'))
 
 
-# Stdout event output accepts (but ignores) ctx to provide same interface
-# as amqp_event_out
-def stdout_event_out(event, ctx=None):
+def amqp_log_out(log):
+    populate_base_item(log, 'cloudify_log')
+    _publish_message(log, 'log', logging.getLogger('cloudify_logs'))
+
+
+def stdout_event_out(event):
     populate_base_item(event, 'cloudify_event')
     sys.stdout.write('{0}\n'.format(create_event_message_prefix(event)))
 
 
-# Stdout log output accepts (but ignores) ctx to provide same interface
-# as amqp_log_out
-def stdout_log_out(log, ctx=None):
+def stdout_log_out(log):
     populate_base_item(log, 'cloudify_log')
     sys.stdout.write('{0}\n'.format(create_event_message_prefix(log)))
 
@@ -356,22 +367,13 @@ def _is_system_workflow(ctx):
         '_start_deployment_environment', '_stop_deployment_environment')
 
 
-def _amqp_client(ctx):
-    """
-    Get an AMQPClient for the current thread. If non currently exists,
-    create one.
-
-    :param ctx: The context, used to get AMQP credentials and SSL settings.
-
-    :return: An AMQPClient belonging to the current thread.
-             Will return a pre-existing one without re-initialising even if
-             called with new arguments a second or subsequent time.
-    """
-    if not hasattr(clients, 'amqp_client'):
-        clients.amqp_client = create_client(
-            amqp_host=broker_config.broker_hostname,
-            amqp_user=broker_config.broker_username,
-            amqp_pass=broker_config.broker_password,
-            ssl_enabled=broker_config.broker_ssl_enabled,
-            ssl_cert_path=broker_config.broker_cert_path)
-    return clients.amqp_client
+@with_amqp_client
+def _publish_message(amqp_client, message, message_type, logger):
+    try:
+        amqp_client.publish_message(message, message_type)
+    except ClosedAMQPClientException:
+        raise
+    except BaseException as e:
+        logger.warning('Error publishing {0} to RabbitMQ ['
+                       'message={1}, log={2}]'
+                       .format(message_type, e.message, json.dumps(message)))
