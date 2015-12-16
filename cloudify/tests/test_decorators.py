@@ -26,8 +26,12 @@ from cloudify.decorators import operation, workflow
 from cloudify import context
 from cloudify.exceptions import NonRecoverableError, ProcessExecutionError
 from cloudify.workflows import workflow_context
+from cloudify import amqp_client
 
 import cloudify.tests.mocks.mock_rest_client as rest_client_mock
+
+# Prevents creating amqp clients
+amqp_client.create_client = MagicMock()
 
 
 class MockNotPicklableException(Exception):
@@ -146,9 +150,6 @@ class OperationTest(testtools.TestCase):
                 lambda: rest_client_mock.MockRestclient()
             manager.get_rest_client = \
                 lambda: rest_client_mock.MockRestclient()
-
-            # Prevents from asking amqp for msgs.
-            workflow_context.events.Monitor = MagicMock()
 
             kwargs = {'__cloudify_context': {}}
             try:
