@@ -27,6 +27,8 @@ from wsgiref.simple_server import make_server as make_wsgi_server
 
 import bottle
 
+from cloudify.proxy.client import ScriptException
+
 
 class CtxProxy(object):
 
@@ -39,8 +41,12 @@ class CtxProxy(object):
             typed_request = json.loads(request)
             args = typed_request['args']
             payload = process_ctx_request(self.ctx, args)
+            result_type = 'result'
+            if isinstance(payload, ScriptException):
+                payload = dict(message=str(payload))
+                result_type = 'stop_operation'
             result = json.dumps({
-                'type': 'result',
+                'type': result_type,
                 'payload': payload
             })
         except Exception, e:
@@ -145,7 +151,7 @@ class ZMQCtxProxy(CtxProxy):
 
     def poll_and_process(self, timeout=1):
         import zmq
-        state = dict(self.poller.poll(1000*timeout)).get(self.sock)
+        state = dict(self.poller.poll(1000 * timeout)).get(self.sock)
         if not state == zmq.POLLIN:
             return False
         request = self.sock.recv()
@@ -201,7 +207,7 @@ def process_ctx_request(ctx, args):
                 current = value
             elif index + 2 == num_args:
                 # set dict prop by path
-                value = args[index+1]
+                value = args[index + 1]
                 current = path_dict.set(key, value)
             else:
                 raise RuntimeError('Illegal argument while accessing dict')
