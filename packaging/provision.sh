@@ -72,7 +72,7 @@ export VERSION="3.3.0"
 export PRERELEASE="ga"
 export BUILD="300"
 CORE_TAG_NAME="3.3"
-PLUGINS_TAG_NAME="1.3"
+PLUGINS_TAG_NAME="1.3.1"
 
 #env Variables
 GITHUB_USERNAME=$1
