@@ -1,0 +1,44 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/3.3/types.yaml
+
+plugins:
+  p:
+    executor: central_deployment_agent
+    install: false
+
+inputs:
+  host_a_validation_result:
+    default: {}
+  host_b_validation_result:
+    default: {}
+node_types:
+  no_agents_compute:
+    derived_from: cloudify.nodes.Compute
+    interfaces:
+      cloudify.interfaces.cloudify_agent:
+        create: {}
+        configure: {}
+        start: {}
+        stop: {}
+        delete: {}
+        validate_amqp: p.cloudify.tests.test_install_new_agents_workflow.validate_amqp
+        create_amqp: p.cloudify.tests.test_install_new_agents_workflow.create_amqp
+    properties:
+      validation_result:
+        default: {}
+
+node_templates:
+  node:
+    type: cloudify.nodes.Root
+
+  host_a:
+    type: no_agents_compute
+    properties:
+      validation_result: { get_input: host_a_validation_result }
+
+  host_b:
+    type: no_agents_compute
+    properties:
+      validation_result: { get_input: host_b_validation_result }
