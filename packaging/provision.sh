@@ -81,7 +81,7 @@ AWS_ACCESS_KEY_ID=$3
 AWS_ACCESS_KEY=$4
 PLUGIN_NAME=$5
 AWS_S3_BUCKET="gigaspaces-repository-eu"
-AWS_S3_PATH="org/cloudify3/${VERSION}/${PRERELEASE}-RELEASE"
+AWS_S3_PATH="org/cloudify3/${VERSION}/${PRERELEASE}"
 
 
 
