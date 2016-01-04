@@ -40,6 +40,7 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
 from cloudify import exceptions
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
+from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify import logs
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
@@ -894,6 +895,7 @@ class CloudifyWorkflowContextInternal(object):
         # local task processing
         thread_pool_size = self.workflow_context._local_task_thread_pool_size
         self.local_tasks_processor = LocalTasksProcessing(
+            is_local_context=self.workflow_context.local,
             thread_pool_size=thread_pool_size)
 
     def get_task_configuration(self):
@@ -941,9 +943,9 @@ class CloudifyWorkflowContextInternal(object):
 
         """
         monitor = events.Monitor(self.task_graph)
-        thread = threading.Thread(target=monitor.capture)
-        thread.daemon = True
+        thread = AMQPWrappedThread(target=monitor.capture)
         thread.start()
+        thread.started_amqp_client.get(timeout=30)
         self._event_monitor = monitor
         self._event_monitor_thread = thread
 
@@ -971,12 +973,16 @@ class CloudifyWorkflowContextInternal(object):
 
 class LocalTasksProcessing(object):
 
-    def __init__(self, thread_pool_size=1):
+    def __init__(self, is_local_context, thread_pool_size=1):
         self._local_tasks_queue = Queue.Queue()
         self._local_task_processing_pool = []
         for _ in range(thread_pool_size):
-            thread = threading.Thread(target=self._process_local_task)
-            thread.daemon = True
+            if is_local_context:
+                thread = threading.Thread(target=self._process_local_task)
+                thread.daemon = True
+            else:
+                # this is a remote workflow, use an AMQPWrappedThread
+                thread = AMQPWrappedThread(target=self._process_local_task)
             self._local_task_processing_pool.append(thread)
         self.stopped = False
 

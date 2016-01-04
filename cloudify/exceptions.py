@@ -142,3 +142,8 @@ class ProcessExecutionError(RuntimeError):
         if self.error_type:
             return '{0}: {1}'.format(self.error_type, self.message)
         return self.message
+
+
+class ClosedAMQPClientException(Exception):
+    """Raised when attempting to use a closed AMQP client"""
+    pass

@@ -50,7 +50,6 @@ def setup_logger(logger_name,
     :return: A logger instance.
     :rtype: logging.Logger
     """
-
     if logger_format is None:
         logger_format = '%(asctime)s [%(levelname)s] [%(name)s] %(message)s'
     logger = logging.getLogger(logger_name)
