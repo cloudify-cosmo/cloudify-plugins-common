@@ -13,6 +13,8 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import logging
+import sys
 import os
 from os.path import dirname
 
@@ -49,10 +51,19 @@ class CloudifyContextTest(testtools.TestCase):
         os.environ[constants.MANAGER_FILE_SERVER_URL_KEY] = \
             "http://localhost:{0}".format(PORT)
         cls.context = context.CloudifyContext({'blueprint_id': ''})
+        # the context logger will try to publish messages to rabbit, which is
+        # not available here. instead, we redirect the output to stdout.
+        cls.redirect_log_to_stdout(cls.context.logger)
 
     @classmethod
     def tearDownClass(cls):
         cls.file_server_process.stop()
+
+    @staticmethod
+    def redirect_log_to_stdout(logger):
+        stdout_log_handler = logging.StreamHandler(sys.stdout)
+        stdout_log_handler.setLevel(logging.DEBUG)
+        logger.handlers = [stdout_log_handler]
 
     def test_get_resource(self):
         resource = self.context.get_resource(resource_path='for_test.log')
