@@ -107,18 +107,18 @@ def operation(func=None, **arguments):
                 ctx = context.CloudifyContext(ctx)
                 # remove __cloudify_context
                 raw_context = kwargs.pop(CLOUDIFY_CONTEXT_PROPERTY_KEY, {})
-                if ctx.task_target is None:
+                if ctx.task_target:
+                    # this operation requires an AMQP client
+                    amqp_client_utils.init_amqp_client()
+                else:
                     # task is local (not through celery) so we need to
-                    # clone kwarg
+                    # clone kwarg, and an amqp client is not required
                     kwargs = copy.deepcopy(kwargs)
                 if raw_context.get('has_intrinsic_functions') is True:
                     kwargs = ctx._endpoint.evaluate_functions(payload=kwargs)
                 kwargs['ctx'] = ctx
             try:
                 current_ctx.set(ctx, kwargs)
-                # if this is a remote operation - create an amqp client for it
-                if not ctx._local:
-                    amqp_client_utils.init_amqp_client()
                 result = func(*args, **kwargs)
             except BaseException as e:
                 ctx.logger.error(
