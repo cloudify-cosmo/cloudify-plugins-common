@@ -30,6 +30,40 @@ from cloudify.exceptions import (
 )
 
 
+class ManagerVersion(object):
+    """Cloudify manager version helper class."""
+
+    def __init__(self, raw_version):
+        """Raw version, for example: 3.4.0-m1, 3.3, 3.2.1, 3.3-rc1."""
+
+        components = [int(x) for x in raw_version.split('-')[0].split('.')]
+        if len(components) == 2:
+            components.append(0)
+        self.major = components[0]
+        self.minor = components[1]
+        self.service = components[2]
+
+    def greater_than(self, other):
+        """Returns true if this version is greater than the provided one."""
+
+        if self.major > other.major:
+            return True
+        if self.major == other.major:
+            if self.minor > other.minor:
+                return True
+            if self.minor == other.minor and self.service > other.service:
+                return True
+        return False
+
+    def equals(self, other):
+        """Returns true if this version equals the provided version."""
+        return self.major == other.major and self.minor == other.minor and \
+            self.service == other.service
+
+    def __str__(self):
+        return '{0}.{1}.{2}'.format(self.major, self.minor, self.service)
+
+
 def setup_logger(logger_name,
                  logger_level=logging.INFO,
                  handlers=None,

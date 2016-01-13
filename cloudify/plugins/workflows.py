@@ -237,8 +237,8 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
             hosts = filtered_node_instances
     else:
         hosts = [host for host in _get_all_host_instances(ctx)
-                 if utils.internal.get_install_method(host.node.properties)
-                 != constants.AGENT_INSTALL_METHOD_NONE]
+                 if utils.internal.get_install_method(host.node.properties) !=
+                 constants.AGENT_INSTALL_METHOD_NONE]
 
     for host in hosts:
         state = host.get_state().get()
