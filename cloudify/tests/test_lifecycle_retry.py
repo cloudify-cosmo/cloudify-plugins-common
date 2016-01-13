@@ -56,10 +56,13 @@ def operation(descriptor, **_):
         runtime_properties['state'] = state
 
 
+def inputs(node, op, count):
+    return {'descriptor': {node: {op: count}}}
+
+
 class TaskLifecycleRetryTests(testtools.TestCase):
 
     blueprint_path = 'resources/blueprints/test-lifecycle-retry-blueprint.yaml'
-    inputs = lambda node, op, count: {'descriptor': {node: {op: count}}}
 
     def setUp(self):
         super(TaskLifecycleRetryTests, self).setUp()
