@@ -103,6 +103,13 @@ def get_manager_rest_service_port():
     return int(os.environ[constants.MANAGER_REST_PORT_KEY])
 
 
+def get_rest_service_protocol():
+    """
+    Returns the protocol used to connect to the REST service
+    """
+    return os.environ[constants.MANAGER_REST_PROTOCOL_KEY]
+
+
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     """
     Generate and return a random string using upper case letters and digits.

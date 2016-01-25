@@ -112,8 +112,10 @@ def get_rest_client():
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
-    return CloudifyClient(utils.get_manager_ip(),
-                          utils.get_manager_rest_service_port())
+    return CloudifyClient(host=utils.get_manager_ip(),
+                          port=utils.get_manager_rest_service_port(),
+                          protocol=utils.get_rest_service_protocol(),
+                          trust_all=True)
 
 
 def _save_resource(logger, resource, resource_path, target_path):
