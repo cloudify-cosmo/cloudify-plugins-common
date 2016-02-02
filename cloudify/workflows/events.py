@@ -64,10 +64,10 @@ class Monitor(object):
             task.set_state(state)
 
     def capture(self):
-        # Only called when celery is used so we import it here
-        from cloudify.celery import celery
-        with celery.connection() as connection:
-            self._receiver = celery.events.Receiver(connection, handlers={
+        # Only called when running within an agent, so import here
+        from cloudify_agent.app import app
+        with app.connection() as connection:
+            self._receiver = app.events.Receiver(connection, handlers={
                 'task-sent': self.task_sent,
                 'task-received': self.task_received,
                 'task-started': self.task_started,

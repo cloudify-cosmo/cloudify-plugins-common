@@ -1,0 +1,204 @@
+########
+# Copyright (c) 2015 GigaSpaces Technologies Ltd. All rights reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+#    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    * See the License for the specific language governing permissions and
+#    * limitations under the License.
+
+import os
+import tempfile
+import shutil
+import logging
+
+import mock
+from mock import patch
+import testtools
+
+from cloudify import amqp_client
+from cloudify import dispatch
+from cloudify import exceptions
+from cloudify.celery import logging_server
+
+
+class TestDispatchTaskHandler(testtools.TestCase):
+
+    def test_handle_or_dispatch_to_subprocess(self):
+        expected_result = 'the result'
+        local_op_handler = self._op(func1,
+                                    args=[expected_result],
+                                    local=True)
+        subprocess_op_handler = self._op(func1,
+                                         task_target='stub',
+                                         args=[expected_result])
+        for handler in [local_op_handler, subprocess_op_handler]:
+            result = handler.handle_or_dispatch_to_subprocess_if_remote()
+            self.assertEqual(expected_result, result)
+
+    def test_dispatch_to_subprocess_args_and_kwargs(self):
+        args = [1, 2]
+        kwargs = {'one': 1, 'two': 2}
+        op_handler = self._op(func2,
+                              task_target='stub',
+                              args=args,
+                              kwargs=kwargs)
+        result = op_handler.dispatch_to_subprocess()
+        self.assertEqual([args, kwargs], result)
+
+    def test_dispatch_to_subprocess_env(self):
+        existing_env_var_key = 'EXISTING_ENV_VAR'
+        existing_env_var_value = 'existing_value'
+        custom_env_var_key = 'CUSTOM_ENV_VAR'
+        custom_env_var_value = 'custom_value'
+        env_vars_keys = [existing_env_var_key, custom_env_var_key]
+        env_vars_values = [existing_env_var_value, custom_env_var_value]
+        op_handler = self._op(
+            func3,
+            task_target='stub',
+            execution_env={custom_env_var_key: custom_env_var_value},
+            args=[env_vars_keys])
+        with patch.dict(os.environ, {
+                existing_env_var_key: existing_env_var_value}):
+            result = op_handler.dispatch_to_subprocess()
+        self.assertEqual(env_vars_values, result)
+
+    def test_dispatch_to_subprocess_logging(self):
+        message = 'MESSAGE_CONTENT'
+        workdir = tempfile.mkdtemp(prefix='cloudify-dispatch-')
+        self.addCleanup(lambda: shutil.rmtree(workdir, ignore_errors=True))
+        worker = mock.Mock()
+        logserver = logging_server.ZMQLoggingServerBootstep(
+            worker=worker,
+            with_logging_server=True,
+            logging_server_logdir=workdir)
+
+        def stop_server():
+            logserver.stop(worker)
+            logserver.thread.join()
+        self.addCleanup(stop_server)
+        logserver.start(worker)
+        for deployment_id in [None, 'deployment']:
+            op_handler = self._op(func4,
+                                  task_target='stub',
+                                  socket_url=logserver.socket_url,
+                                  args=[message],
+                                  deployment_id=deployment_id)
+            op_handler.dispatch_to_subprocess()
+            if not deployment_id:
+                deployment_id = dispatch.SYSTEM_DEPLOYMENT
+            logpath = os.path.join(workdir, '{0}.log'.format(deployment_id))
+            with open(logpath) as f:
+                self.assertIn(message, f.read())
+
+    def test_dispatch_to_subprocess_exception(self):
+        exception_types = [
+            (exceptions.NonRecoverableError, ('message',)),
+            (exceptions.RecoverableError, ('message', 'retry_after')),
+            (exceptions.OperationRetry, ('message', 'retry_after')),
+            (exceptions.HttpException, ('url', 'code', 'message')),
+            (exceptions.ProcessExecutionError, ('message', 'error_type',
+                                                'traceback')),
+            ((UserException, exceptions.RecoverableError), ('message',)),
+            ((RecoverableUserException, exceptions.RecoverableError),
+             ('message', 'retry_after')),
+            ((NonRecoverableUserException, exceptions.NonRecoverableError),
+             ('message',))
+        ]
+        for raised_exception_type, args in exception_types:
+            kwargs = {'args': args}
+            if isinstance(raised_exception_type, tuple):
+                raised_exception_type, known_ex_type = raised_exception_type
+                kwargs['user_exception'] = raised_exception_type.__name__
+            else:
+                known_ex_type = raised_exception_type
+                kwargs['known_exception'] = known_ex_type.__name__
+            op_handler = self._op(func5, task_target='stub', kwargs=kwargs)
+            try:
+                op_handler.dispatch_to_subprocess()
+                self.fail()
+            except known_ex_type as e:
+                self.assertEqual(type(e), known_ex_type)
+                # TODO: fix once proper error propagation mechanism exists
+                # self.assertIn('message', str(e))
+                for arg in args:
+                    if arg == 'message':
+                        continue
+                    self.assertEqual(arg, getattr(e, arg))
+
+    def test_dispatch_no_such_handler(self):
+        context = {
+            'type': 'unknown_type'
+        }
+        self.assertRaises(exceptions.NonRecoverableError,
+                          dispatch.dispatch, context)
+
+    @staticmethod
+    def _op(func,
+            task_target=None,
+            args=None,
+            kwargs=None,
+            execution_env=None,
+            socket_url=None,
+            deployment_id=None,
+            local=False):
+        module = __name__
+        if not local:
+            module = module.split('.')[-1]
+        execution_env = execution_env or {}
+        execution_env['PYTHONPATH'] = os.path.dirname(__file__)
+        return dispatch.OperationHandler(cloudify_context={
+            'no_ctx_kwarg': True,
+            'task_name': '{0}.{1}'.format(module, func.__name__),
+            'task_target': task_target,
+            'type': 'operation',
+            'execution_env': execution_env,
+            'socket_url': socket_url,
+            'deployment_id': deployment_id
+        }, args=args or [], kwargs=kwargs or {})
+
+
+if os.environ.get('CLOUDIFY_DISPATCH'):
+    amqp_client.create_client = mock.Mock()
+
+
+def func1(result):
+    return result
+
+
+def func2(*args, **kwargs):
+    return args, kwargs
+
+
+def func3(keys):
+    return [os.environ.get(key) for key in keys]
+
+
+def func4(message):
+    logger = logging.getLogger(__name__)
+    logger.info(message)
+
+
+def func5(args, known_exception=None, user_exception=None):
+    if user_exception:
+        raise globals()[user_exception](*args)
+    else:
+        raise getattr(exceptions, known_exception)(*args)
+
+
+class UserException(Exception):
+    pass
+
+
+class RecoverableUserException(exceptions.RecoverableError):
+    pass
+
+
+class NonRecoverableUserException(exceptions.NonRecoverableError):
+    pass

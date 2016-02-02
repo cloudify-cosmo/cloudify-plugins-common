@@ -17,7 +17,6 @@
 import functools
 import copy
 import uuid
-import importlib
 import threading
 import Queue
 
@@ -370,6 +369,13 @@ class CloudifyWorkflowNode(object):
         return self._node.get('plugins_to_install', [])
 
     @property
+    def plugins(self):
+        """
+        The plugins associated with this node
+        """
+        return self._node.get('plugins', [])
+
+    @property
     def host_id(self):
         return self._node.host_id
 
@@ -509,6 +515,10 @@ class _WorkflowContextBase(object):
         if not op_struct['operation']:
             return NOPLocalWorkflowTask(self)
         plugin_name = op_struct['plugin']
+        # could match two plugins with different executors, one is enough
+        # for our purposes (extract package details)
+        plugin = [p for p in node_instance.node.plugins
+                  if p['name'] == plugin_name][0]
         operation_mapping = op_struct['operation']
         has_intrinsic_functions = op_struct['has_intrinsic_functions']
         operation_properties = op_struct.get('inputs', {})
@@ -525,7 +535,11 @@ class _WorkflowContextBase(object):
         node_context = {
             'node_id': node_instance.id,
             'node_name': node_instance.node_id,
-            'plugin': plugin_name,
+            'plugin': {
+                'name': plugin_name,
+                'package_name': plugin.get('package_name'),
+                'package_version': plugin.get('package_version')
+            },
             'operation': {
                 'name': operation,
                 'retry_number': 0,
@@ -535,6 +549,13 @@ class _WorkflowContextBase(object):
             'host_id': node_instance._node_instance.host_id,
             'executor': operation_executor
         }
+        # central deployment agents run on the management worker
+        # so we pass the env to the dispatcher so it will be on a per
+        # operation basis
+        if operation_executor == 'central_deployment_agent':
+            agent_context = self.bootstrap_context.get('cloudify_agent', {})
+            node_context['execution_env'] = agent_context.get('env', {})
+
         if related_node_instance is not None:
             relationships = [rel.target_id
                              for rel in node_instance.relationships]
@@ -589,6 +610,7 @@ class _WorkflowContextBase(object):
         node_context = node_context or {}
         context = {
             '__cloudify_context': '0.3',
+            'type': 'operation',
             'task_id': task_id,
             'task_name': task_name,
             'execution_id': self.execution_id,
@@ -626,12 +648,9 @@ class _WorkflowContextBase(object):
         kwargs['__cloudify_context'] = cloudify_context
 
         if local:
-            values = task_name.split('.')
-            module_name = '.'.join(values[:-1])
-            method_name = values[-1]
-            module = importlib.import_module(module_name)
-            task = getattr(module, method_name)
-            return self.local_task(local_task=task,
+            # oh sweet circular dependency
+            from cloudify import dispatch
+            return self.local_task(local_task=dispatch.dispatch,
                                    info=task_name,
                                    name=task_name,
                                    kwargs=kwargs,
@@ -976,6 +995,7 @@ class LocalTasksProcessing(object):
     def __init__(self, is_local_context, thread_pool_size=1):
         self._local_tasks_queue = Queue.Queue()
         self._local_task_processing_pool = []
+        self._is_local_context = is_local_context
         for _ in range(thread_pool_size):
             if is_local_context:
                 thread = threading.Thread(target=self._process_local_task)
@@ -989,6 +1009,9 @@ class LocalTasksProcessing(object):
     def start(self):
         for thread in self._local_task_processing_pool:
             thread.start()
+        if not self._is_local_context:
+            for thread in self._local_task_processing_pool:
+                thread.started_amqp_client.get(timeout=30)
 
     def stop(self):
         self.stopped = True
@@ -1116,7 +1139,8 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
                             'never started successfully')
                     runtime_props.append(cloudify_agent)
                 return runtime_props[0][property_name]
-            return self.workflow_ctx.deployment.id
+            else:
+                return 'cloudify.management'
 
         if queue is None:
             queue = _derive('queue')
@@ -1133,10 +1157,12 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         # Import here because this only applies to remote tasks execution
         # environment
         import celery
+        from cloudify_agent import app
 
-        return celery.subtask(workflow_task.name,
+        return celery.subtask('cloudify.dispatch.dispatch',
                               kwargs=kwargs,
                               queue=queue,
+                              app=app.app,
                               immutable=True), queue, target
 
     @property

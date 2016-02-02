@@ -644,7 +644,7 @@ class CloudifyContext(CommonContext):
     @property
     def plugin(self):
         """The plugin name of the invoked task."""
-        return self._context.get('plugin')
+        return self._context.get('plugin', {}).get('name')
 
     @property
     def operation(self):

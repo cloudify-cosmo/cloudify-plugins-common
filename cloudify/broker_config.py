@@ -1,3 +1,18 @@
+########
+# Copyright (c) 2015 GigaSpaces Technologies Ltd. All rights reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+#    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    * See the License for the specific language governing permissions and
+#    * limitations under the License.
+
 # AMQP broker configuration for agents and manager
 # Primarily used by celery, so provided with variables it understands
 import json
@@ -42,3 +57,6 @@ BROKER_URL = 'amqp://{username}:{password}@{hostname}:{port}'.format(
     hostname=broker_hostname,
     port=broker_port,
 )
+CELERY_RESULT_BACKEND = BROKER_URL
+CELERY_TASK_RESULT_EXPIRES = 600
+CELERYD_PREFETCH_MULTIPLIER = 1

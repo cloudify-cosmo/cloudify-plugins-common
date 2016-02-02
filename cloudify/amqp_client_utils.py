@@ -30,12 +30,12 @@ class AMQPWrappedThread(Thread):
 
     def __init__(self, target, *args, **kwargs):
 
-        def wrapped_target():
+        def wrapped_target(*inner_args, **inner_kwargs):
             client = amqp_client.create_client()
             self.started_amqp_client.put_nowait(True)
             thread_storage.amqp_client = client
             try:
-                self.target_method()
+                self.target_method(*inner_args, **inner_kwargs)
             finally:
                 client.close()
 
