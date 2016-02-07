@@ -56,5 +56,6 @@ setup(
         'console_scripts': [
             'ctx = cloudify.proxy.client:main',
         ]
-    }
+    },
+    scripts=['ctx_wrappers/ctx-sh']
 )

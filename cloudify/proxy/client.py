@@ -26,6 +26,12 @@ import sys
 CTX_SOCKET_URL = 'CTX_SOCKET_URL'
 
 
+class ScriptException(Exception):
+    def __init__(self, message=None, retry=False):
+        super(Exception, self).__init__(message)
+        self.retry = retry
+
+
 class RequestError(RuntimeError):
 
     def __init__(self, ex_message, ex_type, ex_traceback):
@@ -44,7 +50,7 @@ def zmq_client_req(socket_url, request, timeout):
     try:
         sock.connect(socket_url)
         sock.send_json(request)
-        if sock.poll(1000*timeout):
+        if sock.poll(1000 * timeout):
             return sock.recv_json()
         else:
             raise RuntimeError('Timed out while waiting for response')
@@ -77,13 +83,16 @@ def client_req(socket_url, args, timeout=5):
 
     response = request_method(socket_url, request, timeout)
     payload = response['payload']
-    if response.get('type') == 'error':
+    response_type = response.get('type')
+    if response_type == 'error':
         ex_type = payload['type']
         ex_message = payload['message']
         ex_traceback = payload['traceback']
         raise RequestError(ex_message,
                            ex_type,
                            ex_traceback)
+    elif response_type == 'stop_operation':
+        raise SystemExit(payload['message'])
     else:
         return payload
 
