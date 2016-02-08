@@ -107,14 +107,17 @@ def get_rest_service_external_protocol():
     """
     Returns the protocol used to connect externally to the REST service
     """
-    return int(os.environ[constants.EXTERNAL_REST_PROTOCOL_KEY])
+    return os.environ[constants.EXTERNAL_REST_PROTOCOL_KEY]
 
 
 def get_rest_service_internal_protocol():
     """
     Returns the protocol used to connect internally to the REST service
     """
-    return int(os.environ[constants.INTERNAL_REST_PROTOCOL_KEY])
+    with open('/tmp/util.log', 'a') as utils_log:
+        utils_log.write('os.environ: \n')
+        utils_log.write('{0} \n'.format(os.environ))
+    return os.environ[constants.INTERNAL_REST_PROTOCOL_KEY]
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
