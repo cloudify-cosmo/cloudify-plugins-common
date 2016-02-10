@@ -17,7 +17,7 @@ function install_dependencies(){
         return
     fi
     curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | sudo python &&
-    sudo pip install pip==7.1.2 --upgrade
+    sudo pip install '>=8.0.0,<9.0.0' --upgrade
 }
 
 function install_wagon(){
