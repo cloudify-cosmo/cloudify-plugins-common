@@ -117,6 +117,13 @@ def get_rest_service_internal_protocol():
     return os.environ[constants.INTERNAL_REST_PROTOCOL_KEY]
 
 
+def get_rest_service_protocol():
+    """
+    Returns the protocol used to connect to the REST service
+    """
+    return os.environ[constants.MANAGER_REST_PROTOCOL_KEY]
+
+
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     """
     Generate and return a random string using upper case letters and digits.

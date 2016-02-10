@@ -114,7 +114,7 @@ def get_rest_client():
     """
     return CloudifyClient(host=utils.get_manager_ip(),
                           port=utils.get_manager_rest_service_port(),
-                          protocol=utils.get_rest_service_internal_protocol(),
+                          protocol=utils.get_rest_service_protocol(),
                           trust_all=True)
 
 
