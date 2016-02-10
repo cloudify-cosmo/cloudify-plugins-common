@@ -114,9 +114,6 @@ def get_rest_service_internal_protocol():
     """
     Returns the protocol used to connect internally to the REST service
     """
-    with open('/tmp/util.log', 'a') as utils_log:
-        utils_log.write('os.environ: \n')
-        utils_log.write('{0} \n'.format(os.environ))
     return os.environ[constants.INTERNAL_REST_PROTOCOL_KEY]
 
 
