@@ -23,6 +23,5 @@ test:
 deployment:
   release:
     tag: (\d+)(\.\d+){1,2}(dev|(\w+(\d+)?)?)
-    owner: circleci
     commands:
-      - "true"
+      - (true)
