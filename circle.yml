@@ -22,7 +22,7 @@ test:
 
 deployment:
   release:
-    tag: /[0-9]+(\.[0-9]+)*/
+    tag: (\d+)(\.\d+){1,2}(dev|(\w+(\d+)?)?)
     owner: circleci
     commands:
       - "true"
