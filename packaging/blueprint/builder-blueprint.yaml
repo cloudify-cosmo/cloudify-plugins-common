@@ -1,23 +1,30 @@
 tosca_definitions_version: cloudify_dsl_1_3
 
 imports:
+  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-packager/CFY-4881-convert-vagrant-to-blueprint/blueprint/build-types.yaml
   - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-packager/CFY-4881-convert-vagrant-to-blueprint/blueprint/aws-build-blueprint.yaml
 
 inputs:
   plugin_name:
     type: string
 
+  plugin_tag_name:
+    type: string
+
 dsl_definitions:
   fabric_env: &FAB_ENV
+    # these can be found under aws-build-blueprint.yaml
     user: { get_input: ssh_user }
     key_filename: { get_input: ssh_key_filename }
-    host_string: { get_attribute: [server_ip, aws_resource_id] }
+    host_string: { get_property: [build_host, build_host_ip] }
 
 node_templates:
   build:
     type: build.nodes.Generic
     properties:
       plugin_name: { get_input: plugin_name }
+      plugin_tag_name: { get_input: plugin_tag_name }
+      aws_s3_path: { concat: ['org/cloudify3/wagons/', { get_property: [SELF, plugin_name] }, /, { get_property: [SELF, plugin_tag_name]}]}
     relationships:
       - type: cloudify.relationships.contained_in
         target: build_host
