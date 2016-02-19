@@ -16,6 +16,7 @@
 from cloudify import constants, utils
 from cloudify.decorators import workflow
 from cloudify.plugins import lifecycle
+from cloudify.plugins import upgrade as _upgrade
 
 
 @workflow
@@ -23,6 +24,14 @@ def install(ctx, **kwargs):
     """Default install workflow"""
 
     lifecycle.install_node_instances(
+        graph=ctx.graph_mode(),
+        node_instances=set(ctx.node_instances))
+
+@workflow
+def upgrade(ctx, **kwargs):
+    """Upgrade workflow"""
+
+    _upgrade.upgrade_node_instances(
         graph=ctx.graph_mode(),
         node_instances=set(ctx.node_instances))
 
@@ -237,8 +246,8 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
             hosts = filtered_node_instances
     else:
         hosts = [host for host in _get_all_host_instances(ctx)
-                 if utils.internal.get_install_method(host.node.properties) !=
-                 constants.AGENT_INSTALL_METHOD_NONE]
+                 if utils.internal.get_install_method(host.node.properties)
+                 != constants.AGENT_INSTALL_METHOD_NONE]
 
     for host in hosts:
         state = host.get_state().get()
