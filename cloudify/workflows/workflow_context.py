@@ -962,7 +962,8 @@ class CloudifyWorkflowContextInternal(object):
 
         """
         monitor = events.Monitor(self.task_graph)
-        thread = AMQPWrappedThread(target=monitor.capture)
+        thread = AMQPWrappedThread(target=monitor.capture,
+                                   name='Event-Monitor')
         thread.start()
         thread.started_amqp_client.get(timeout=30)
         self._event_monitor = monitor
@@ -996,13 +997,16 @@ class LocalTasksProcessing(object):
         self._local_tasks_queue = Queue.Queue()
         self._local_task_processing_pool = []
         self._is_local_context = is_local_context
-        for _ in range(thread_pool_size):
+        for i in range(thread_pool_size):
+            name = 'Task-Processor-{0}'.format(i + 1)
             if is_local_context:
-                thread = threading.Thread(target=self._process_local_task)
+                thread = threading.Thread(target=self._process_local_task,
+                                          name=name)
                 thread.daemon = True
             else:
                 # this is a remote workflow, use an AMQPWrappedThread
-                thread = AMQPWrappedThread(target=self._process_local_task)
+                thread = AMQPWrappedThread(target=self._process_local_task,
+                                           name=name)
             self._local_task_processing_pool.append(thread)
         self.stopped = False
 

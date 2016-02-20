@@ -290,6 +290,30 @@ def populate_base_item(item, message_type):
     item['type'] = message_type
 
 
+def amqp_event_out(event):
+    populate_base_item(event, 'cloudify_event')
+    _publish_message(event, 'event', logging.getLogger('cloudify_events'))
+
+
+def amqp_log_out(log):
+    populate_base_item(log, 'cloudify_log')
+    _publish_message(log, 'log', logging.getLogger('cloudify_logs'))
+
+
+def stdout_event_out(event):
+    populate_base_item(event, 'cloudify_event')
+    sys.stdout.write('{0}\n'.format(create_event_message_prefix(event)))
+
+
+def stdout_log_out(log):
+    populate_base_item(log, 'cloudify_log')
+    sys.stdout.write('{0}\n'.format(create_event_message_prefix(log)))
+
+
+def create_event_message_prefix(event):
+    return str(EVENT_CLASS(event))
+
+
 def with_amqp_client(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -319,48 +343,27 @@ def with_amqp_client(func):
     return wrapper
 
 
-def amqp_event_out(event):
-    populate_base_item(event, 'cloudify_event')
-    _publish_message(event, 'event', logging.getLogger('cloudify_events'))
-
-
-def amqp_log_out(log):
-    populate_base_item(log, 'cloudify_log')
-    _publish_message(log, 'log', logging.getLogger('cloudify_logs'))
-
-
-def stdout_event_out(event):
-    populate_base_item(event, 'cloudify_event')
-    sys.stdout.write('{0}\n'.format(create_event_message_prefix(event)))
-
-
-def stdout_log_out(log):
-    populate_base_item(log, 'cloudify_log')
-    sys.stdout.write('{0}\n'.format(create_event_message_prefix(log)))
-
-
-def create_event_message_prefix(event):
-    return str(EVENT_CLASS(event))
-
-
 @with_amqp_client
-def _publish_message(amqp_client, message, message_type, logger):
+def _publish_message(client, message, message_type, logger):
     try:
-        amqp_client.publish_message(message, message_type)
+        client.publish_message(message, message_type)
     except ClosedAMQPClientException:
         raise
     except BaseException as e:
-        logger.warning('Error publishing {0} to RabbitMQ ['
-                       'message={1}, log={2}]'
-                       .format(message_type, e.message, json.dumps(message)))
+        logger.warning(
+            'Error publishing {0} to RabbitMQ ({1})[message={2}]'
+            .format(message_type,
+                    '{0}: {1}'.format(type(e).__name__, e),
+                    json.dumps(message)))
 
 
 class ZMQLoggingHandler(logging.Handler):
 
-    def __init__(self, context, socket):
+    def __init__(self, context, socket, fallback_logger):
         logging.Handler.__init__(self)
         self._context = context
         self._socket = socket
+        self._fallback_logger = fallback_logger
 
     def emit(self, record):
         message = self.format(record)
@@ -370,6 +373,8 @@ class ZMQLoggingHandler(logging.Handler):
                 'context': self._context,
                 'message': message
             })
-        except Exception:
-            # TODO do something about me
-            pass
+        except Exception as e:
+            self._fallback_logger.warn(
+                'Error sending message to logging server. ({0}: {1})'
+                '[context={2}, message={3}]'
+                .format(type(e).__name__, e, self._context, message))

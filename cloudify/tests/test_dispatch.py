@@ -70,8 +70,33 @@ class TestDispatchTaskHandler(testtools.TestCase):
         self.assertEqual(env_vars_values, result)
 
     def test_dispatch_to_subprocess_logging(self):
+        self._test_dispatch_to_subprocess_logging(
+            func=func4,
+            logpath_func=lambda workdir, deployment_id: os.path.join(
+                workdir, '{0}.log'.format(deployment_id)))
+
+    def test_dispatch_to_subprocess_fallback_logging_agent(self):
+        self._test_dispatch_to_subprocess_logging(
+            func=func5,
+            logpath_func=lambda workdir, deployment_id: os.path.join(
+                workdir, '{0}.log.fallback'.format(deployment_id)),
+            env_func=lambda workdir: {'CELERY_WORK_DIR': workdir})
+
+    def test_dispatch_to_subprocess_fallback_logging_manager(self):
+        self._test_dispatch_to_subprocess_logging(
+            func=func5,
+            logpath_func=lambda workdir, deployment_id: os.path.join(
+                workdir, 'logs', '{0}.log.fallback'.format(deployment_id)),
+            env_func=lambda workdir: {'CELERY_LOG_DIR': workdir})
+
+    def _test_dispatch_to_subprocess_logging(
+            self,
+            func,
+            logpath_func,
+            env_func=None):
         message = 'MESSAGE_CONTENT'
         workdir = tempfile.mkdtemp(prefix='cloudify-dispatch-')
+        os.mkdir(os.path.join(workdir, 'logs'))
         self.addCleanup(lambda: shutil.rmtree(workdir, ignore_errors=True))
         worker = mock.Mock()
         logserver = logging_server.ZMQLoggingServerBootstep(
@@ -85,15 +110,17 @@ class TestDispatchTaskHandler(testtools.TestCase):
         self.addCleanup(stop_server)
         logserver.start(worker)
         for deployment_id in [None, 'deployment']:
-            op_handler = self._op(func4,
+            env = env_func(workdir) if env_func else {}
+            op_handler = self._op(func,
                                   task_target='stub',
                                   socket_url=logserver.socket_url,
                                   args=[message],
-                                  deployment_id=deployment_id)
+                                  deployment_id=deployment_id,
+                                  execution_env=env)
             op_handler.dispatch_to_subprocess()
             if not deployment_id:
                 deployment_id = dispatch.SYSTEM_DEPLOYMENT
-            logpath = os.path.join(workdir, '{0}.log'.format(deployment_id))
+            logpath = logpath_func(workdir, deployment_id)
             with open(logpath) as f:
                 self.assertIn(message, f.read())
 
@@ -119,7 +146,7 @@ class TestDispatchTaskHandler(testtools.TestCase):
             else:
                 known_ex_type = raised_exception_type
                 kwargs['known_exception'] = known_ex_type.__name__
-            op_handler = self._op(func5, task_target='stub', kwargs=kwargs)
+            op_handler = self._op(func6, task_target='stub', kwargs=kwargs)
             try:
                 op_handler.dispatch_to_subprocess()
                 self.fail()
@@ -185,7 +212,15 @@ def func4(message):
     logger.info(message)
 
 
-def func5(args, known_exception=None, user_exception=None):
+def func5(message):
+    non_json_serializable_thingy = object()
+    logger = logging.getLogger()
+    handler = logger.handlers[0]
+    handler._context = non_json_serializable_thingy
+    logger.info(message)
+
+
+def func6(args, known_exception=None, user_exception=None):
     if user_exception:
         raise globals()[user_exception](*args)
     else:
