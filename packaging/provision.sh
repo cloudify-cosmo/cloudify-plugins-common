@@ -44,8 +44,10 @@ AWS_ACCESS_KEY_ID=$3
 AWS_ACCESS_KEY=$4
 PLUGIN_NAME=$5
 PLUGIN_TAG_NAME=$6
+PLUGIN_S3_FOLDER=$7
 
-export AWS_S3_PATH="org/cloudify3/wagons/$PLUGIN_NAME/$PLUGIN_TAG_NAME"
+
+export AWS_S3_PATH="org/cloudify3/wagons/$PLUGIN_NAME/$PLUGIN_S3_FOLDER"
 
 print_params
 install_dependencies &&
