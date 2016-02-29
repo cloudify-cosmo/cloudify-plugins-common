@@ -391,6 +391,9 @@ class _Storage(object):
     def _lock(self, node_instance_id):
         return self._locks[node_instance_id]
 
+    def get_workdir(self):
+        raise NotImplementedError()
+
 
 class InMemoryStorage(_Storage):
 
@@ -424,6 +427,10 @@ class InMemoryStorage(_Storage):
     def _instance_ids(self):
         return self._node_instances.keys()
 
+    def get_workdir(self):
+        raise NotImplementedError('get_workdir is not implemented by memory '
+                                  'storage')
+
 
 class FileStorage(_Storage):
 
@@ -431,6 +438,7 @@ class FileStorage(_Storage):
         super(FileStorage, self).__init__()
         self._root_storage_dir = os.path.join(storage_dir)
         self._storage_dir = None
+        self._workdir = None
         self._instances_dir = None
         self._data_path = None
         self._payload_path = None
@@ -439,11 +447,13 @@ class FileStorage(_Storage):
     def init(self, name, plan, nodes, node_instances, blueprint_path,
              provider_context):
         storage_dir = os.path.join(self._root_storage_dir, name)
+        workdir = os.path.join(storage_dir, 'work')
         instances_dir = os.path.join(storage_dir, 'node-instances')
         data_path = os.path.join(storage_dir, 'data')
         payload_path = os.path.join(storage_dir, 'payload')
         os.makedirs(storage_dir)
         os.mkdir(instances_dir)
+        os.mkdir(workdir)
         with open(payload_path, 'w') as f:
             f.write(json.dumps({}))
 
@@ -470,6 +480,7 @@ class FileStorage(_Storage):
     def load(self, name):
         self.name = name
         self._storage_dir = os.path.join(self._root_storage_dir, name)
+        self._workdir = os.path.join(self._storage_dir, 'workdir')
         self._instances_dir = os.path.join(self._storage_dir, 'node-instances')
         self._payload_path = os.path.join(self._storage_dir, 'payload')
         self._data_path = os.path.join(self._storage_dir, 'data')
@@ -527,6 +538,9 @@ class FileStorage(_Storage):
 
     def _instance_ids(self):
         return os.listdir(self._instances_dir)
+
+    def get_workdir(self):
+        return self._workdir
 
 
 class StorageConflictError(Exception):

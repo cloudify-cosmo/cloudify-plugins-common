@@ -13,6 +13,8 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import os
+
 import jinja2
 
 from cloudify import manager
@@ -134,6 +136,9 @@ class Endpoint(object):
                                          context=evaluation_context,
                                          payload=payload)
 
+    def get_workdir(self):
+        raise NotImplementedError('Implemented by subclasses')
+
 
 class ManagerEndpoint(Endpoint):
 
@@ -205,6 +210,19 @@ class ManagerEndpoint(Endpoint):
                                              payload)['payload']
         return self._evaluate_functions_impl(payload,
                                              evaluate_functions_method)
+
+    def get_workdir(self):
+        if not self.ctx.deployment.id:
+            raise NonRecoverableError(
+                'get_workdir is only implemented for operations that are '
+                'invoked as part of a deployment.')
+        base_workdir = os.environ['CELERY_WORK_DIR']
+        deployments_workdir = os.path.join(base_workdir, 'deployments')
+        # Exists on management worker, doesn't exist on host agents
+        if os.path.exists(deployments_workdir):
+            return os.path.join(deployments_workdir, self.ctx.deployment.id)
+        else:
+            return base_workdir
 
 
 class LocalEndpoint(Endpoint):
@@ -282,3 +300,6 @@ class LocalEndpoint(Endpoint):
                                                        context=context)
         return self._evaluate_functions_impl(
             payload, evaluate_functions_method)
+
+    def get_workdir(self):
+        return self.storage.get_workdir()

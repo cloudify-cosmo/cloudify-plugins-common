@@ -34,6 +34,7 @@ from cloudify import logs
 from cloudify import exceptions
 from cloudify import state
 from cloudify import context
+from cloudify import utils
 from cloudify import amqp_client_utils
 from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify.manager import update_execution_status, get_rest_client
@@ -218,31 +219,17 @@ class TaskHandler(object):
         return env
 
     def _extract_plugin_dir(self):
-        deployment_id = self.cloudify_context.get('deployment_id',
-                                                  SYSTEM_DEPLOYMENT)
         plugin = self.cloudify_context.get('plugin', {})
         plugin_name = plugin.get('name')
         package_name = plugin.get('package_name')
         package_version = plugin.get('package_version')
-        plugin_dir = None
-
-        # TODO: handle case where only package name is configured
-        if package_name and package_version:
-            managed_plugin_dir = '{0}-{1}'.format(package_name,
-                                                  package_version)
-            managed_plugin_dir = os.path.join(PLUGINS_DIR, managed_plugin_dir)
-            if os.path.isdir(managed_plugin_dir):
-                plugin_dir = managed_plugin_dir
-
-        # TODO: currently system wide workflows will have no deployment id so
-        # they can only run tasks installed in the agent package
-        if not plugin_dir and plugin_name:
-            source_plugin_dir = '{0}-{1}'.format(deployment_id, plugin_name)
-            source_plugin_dir = os.path.join(PLUGINS_DIR, source_plugin_dir)
-            if os.path.isdir(source_plugin_dir):
-                plugin_dir = source_plugin_dir
-
-        return plugin_dir
+        deployment_id = self.cloudify_context.get('deployment_id',
+                                                  SYSTEM_DEPLOYMENT)
+        return utils.internal.plugin_prefix(package_name=package_name,
+                                            package_version=package_version,
+                                            deployment_id=deployment_id,
+                                            plugin_name=plugin_name,
+                                            sys_prefix_fallback=False)
 
     def setup_logging(self):
         socket_url = self.cloudify_context.get('socket_url')

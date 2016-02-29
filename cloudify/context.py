@@ -13,6 +13,8 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import errno
+import os
 import warnings
 
 from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
@@ -528,6 +530,14 @@ class CloudifyContext(CommonContext):
         self._capabilities = ContextCapabilities(self._endpoint,
                                                  capabilities_node_instance)
 
+        plugin = self._context.get('plugin', {})
+        # Because we inherit from str, we can't really change the constructor
+        # only augment it.
+        self._plugin = PluginContext(plugin.get('name', ''))
+        self._plugin._plugin_context = plugin
+        self._plugin._deployment_id = self.deployment.id
+        self._plugin._endpoint = self._endpoint
+
     def _verify_in_node_context(self):
         if self.type != NODE_INSTANCE:
             raise exceptions.NonRecoverableError(
@@ -643,8 +653,8 @@ class CloudifyContext(CommonContext):
 
     @property
     def plugin(self):
-        """The plugin name of the invoked task."""
-        return self._context.get('plugin', {}).get('name')
+        """The plugin context."""
+        return self._plugin
 
     @property
     def operation(self):
@@ -882,6 +892,67 @@ class CloudifyAgentContext(object):
                 'init_script cannot be used outside of an agent environment: '
                 'ImportError: {0}'.format(e))
         return script.init_script(cloudify_agent=agent_config)
+
+
+# inherits from `str` to maintain backwards compatibility
+# with plugins that assume ctx.plugin will return the plugin name
+# ctx.plugin == name should be deprecated and this workaround should
+# be removed at some point
+class PluginContext(str):
+
+    def __init__(self, other=''):
+        # These are set explicitly after PluginContext is instantiated
+        self._plugin_context = {}
+        self._deployment_id = None
+        self._endpoint = None
+
+    @property
+    def name(self):
+        """The plugin name."""
+        return self._plugin_context.get('name', '')
+
+    @property
+    def package_name(self):
+        """The plugin package name."""
+        return self._plugin_context.get('package_name')
+
+    @property
+    def package_version(self):
+        """The plugin package version."""
+        return self._plugin_context.get('package_version')
+
+    @property
+    def prefix(self):
+        """The plugin prefix."""
+        return utils.internal.plugin_prefix(
+            package_name=self.package_name,
+            package_version=self.package_version,
+            deployment_id=self._deployment_id,
+            plugin_name=self.name,
+            sys_prefix_fallback=True)
+
+    @property
+    def workdir(self):
+        """The plugin workdir.
+
+        This directory is unique for each (deployment, plugin) combination.
+
+        Note: if this operation is executed not as part of a deployment or
+        a plugin, None is returned.
+        """
+        if not self.name:
+            return None
+        workdir = self._endpoint.get_workdir()
+        plugin_workdir = os.path.join(workdir, 'plugins', self.name)
+        if not os.path.exists(plugin_workdir):
+            try:
+                os.makedirs(plugin_workdir)
+            except IOError as e:
+                if e.errno == errno.EEXIST:
+                    pass
+                else:
+                    raise
+        return plugin_workdir
 
 
 class ImmutableProperties(dict):

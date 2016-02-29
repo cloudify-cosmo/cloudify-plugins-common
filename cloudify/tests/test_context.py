@@ -16,9 +16,12 @@
 import logging
 import sys
 import os
+import shutil
+import tempfile
 from os.path import dirname
 
 import testtools
+from mock import patch
 
 from cloudify import constants
 from cloudify import context
@@ -170,6 +173,58 @@ class NodeContextTests(testtools.TestCase):
                              instance.runtime_properties['type'])
             self.assertEqual(expected[node][1],
                              instance.runtime_properties['type_hierarchy'])
+
+
+class PluginContextTests(testtools.TestCase):
+    # workdir is tested separately for local and remote workflows
+
+    def setUp(self):
+        super(PluginContextTests, self).setUp()
+        self.plugin_name = 'test_plugin'
+        self.plugin_pacakge_name = 'test-plugin'
+        self.plugin_pacakge_version = '0.1.1'
+        self.deployment_id = 'test_deployment'
+        self.ctx = context.CloudifyContext({
+            'deployment_id': self.deployment_id,
+            'plugin': {
+                'name': self.plugin_name,
+                'package_name': self.plugin_pacakge_name,
+                'package_version': self.plugin_pacakge_version
+            }
+        })
+        self.test_prefix = tempfile.mkdtemp(prefix='context-plugin-test-')
+        self.addCleanup(lambda: shutil.rmtree(self.test_prefix,
+                                              ignore_errors=True))
+
+    def test_attributes(self):
+        self.assertEqual(self.ctx.plugin.name, self.plugin_name)
+        self.assertEqual(self.ctx.plugin.package_name,
+                         self.plugin_pacakge_name)
+        self.assertEqual(self.ctx.plugin.package_version,
+                         self.plugin_pacakge_version)
+
+    def test_prefix_from_wagon(self):
+        expected_prefix = os.path.join(
+            self.test_prefix,
+            'plugins',
+            '{0}-{1}'.format(self.plugin_pacakge_name,
+                             self.plugin_pacakge_version))
+        os.makedirs(expected_prefix)
+        with patch('sys.prefix', self.test_prefix):
+            self.assertEqual(self.ctx.plugin.prefix, expected_prefix)
+
+    def test_prefix_from_source(self):
+        expected_prefix = os.path.join(
+                self.test_prefix,
+                'plugins',
+                '{0}-{1}'.format(self.deployment_id,
+                                 self.plugin_name))
+        os.makedirs(expected_prefix)
+        with patch('sys.prefix', self.test_prefix):
+            self.assertEqual(self.ctx.plugin.prefix, expected_prefix)
+
+    def test_fallback_prefix(self):
+        self.assertEqual(self.ctx.plugin.prefix, sys.prefix)
 
 
 class GetResourceTemplateTests(testtools.TestCase):
