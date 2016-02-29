@@ -123,7 +123,8 @@ class TestLoggingServer(testtools.TestCase):
         socket.connect(server.socket_url)
         logger = logging.getLogger(handler_context)
         logger.handlers = []
-        handler = logs.ZMQLoggingHandler(handler_context, socket)
+        handler = logs.ZMQLoggingHandler(handler_context, socket,
+                                         fallback_logger=logging.getLogger())
         handler.setFormatter(logging.Formatter('%(message)s'))
         handler.setLevel(logging.DEBUG)
         logger.addHandler(handler)

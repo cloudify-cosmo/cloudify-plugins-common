@@ -16,17 +16,14 @@
 
 import json
 import logging
-from threading import current_thread
+import threading
 
 import pika
+import pika.exceptions
 
 from cloudify import broker_config
-from cloudify.exceptions import ClosedAMQPClientException
-from cloudify.utils import (
-    get_manager_ip,
-    internal,
-)
-
+from cloudify import exceptions
+from cloudify import utils
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +32,11 @@ class AMQPClient(object):
 
     EVENTS_QUEUE_NAME = 'cloudify-events'
     LOGS_QUEUE_NAME = 'cloudify-logs'
+    channel_settings = {
+        'auto_delete': True,
+        'durable': True,
+        'exclusive': False
+    }
 
     def __init__(self,
                  amqp_user='guest',
@@ -42,72 +44,69 @@ class AMQPClient(object):
                  amqp_host=None,
                  ssl_enabled=False,
                  ssl_cert_path=''):
-        if amqp_host is None:
-            amqp_host = get_manager_ip()
-
-        self.events_queue = None
-        self.logs_queue = None
+        self.connection = None
+        self.channel = None
         self._is_closed = False
-
+        if amqp_host is None:
+            amqp_host = utils.get_manager_ip()
         credentials = pika.credentials.PlainCredentials(
             username=amqp_user,
-            password=amqp_pass,
-        )
-
-        amqp_port, ssl_options = internal.get_broker_ssl_and_port(
+            password=amqp_pass)
+        amqp_port, ssl_options = utils.internal.get_broker_ssl_and_port(
             ssl_enabled=ssl_enabled,
-            cert_path=ssl_cert_path,
-        )
-
-        self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(
+            cert_path=ssl_cert_path)
+        self._connection_parameters = pika.ConnectionParameters(
                 host=amqp_host,
                 port=amqp_port,
                 credentials=credentials,
                 ssl=ssl_enabled,
-                ssl_options=ssl_options,
-            )
-        )
-        settings = {
-            'auto_delete': True,
-            'durable': True,
-            'exclusive': False
-        }
-        self.logs_queue = self.connection.channel()
-        self.logs_queue.queue_declare(queue=self.LOGS_QUEUE_NAME, **settings)
-        self.events_queue = self.connection.channel()
-        self.events_queue.queue_declare(queue=self.LOGS_QUEUE_NAME, **settings)
+                ssl_options=ssl_options)
+        self._connect()
+
+    def _connect(self):
+        self.connection = pika.BlockingConnection(self._connection_parameters)
+        self.channel = self.connection.channel()
+        for queue in [self.EVENTS_QUEUE_NAME, self.LOGS_QUEUE_NAME]:
+            self.channel.queue_declare(queue=queue, **self.channel_settings)
 
     def publish_message(self, message, message_type):
-        queue_name = self.EVENTS_QUEUE_NAME if message_type == 'event' \
-            else self.LOGS_QUEUE_NAME
-        self._publish(message, queue_name)
+        if self._is_closed:
+            raise exceptions.ClosedAMQPClientException(
+                'Publish failed, AMQP client already closed')
+        if message_type == 'event':
+            routing_key = self.EVENTS_QUEUE_NAME
+        else:
+            routing_key = self.LOGS_QUEUE_NAME
+        exchange = ''
+        body = json.dumps(message)
+        try:
+            self.channel.basic_publish(exchange=exchange,
+                                       routing_key=routing_key,
+                                       body=body)
+        except pika.exceptions.ConnectionClosed as e:
+            logger.warn(
+                'Connection closed unexpectedly for thread {0}, '
+                'reconnecting. ({1}: {2})'
+                .format(threading.current_thread(), type(e).__name__, repr(e)))
+            # obviously, there is no need to close the current
+            # channel/connection.
+            self._connect()
+            self.channel.basic_publish(exchange=exchange,
+                                       routing_key=routing_key,
+                                       body=body)
 
     def close(self):
         if self._is_closed:
             return
-
         self._is_closed = True
-        if self.logs_queue:
-            logger.debug('closing logs queue channel of thread {0}'.
-                         format(current_thread()))
-            self.logs_queue.close()
-        if self.events_queue:
-            logger.debug('closing events queue channel of thread {0}'.
-                         format(current_thread()))
-            self.events_queue.close()
+        thread = threading.current_thread()
+        if self.channel:
+            logger.debug('Closing channel of thread {0}'.format(thread))
+            self.channel.close()
         if self.connection:
-            logger.debug('closing amqp connection of thread {0}'.
-                         format(current_thread()))
+            logger.debug('Closing amqp connection of thread {0}'
+                         .format(thread))
             self.connection.close()
-
-    def _publish(self, item, queue):
-        if self._is_closed:
-            raise ClosedAMQPClientException('publish failed, AMQP client '
-                                            'already closed')
-        self.events_queue.basic_publish(exchange='',
-                                        routing_key=queue,
-                                        body=json.dumps(item))
 
 
 def create_client(amqp_host=broker_config.broker_hostname,
@@ -115,26 +114,21 @@ def create_client(amqp_host=broker_config.broker_hostname,
                   amqp_pass=broker_config.broker_password,
                   ssl_enabled=broker_config.broker_ssl_enabled,
                   ssl_cert_path=broker_config.broker_cert_path):
+    thread = threading.current_thread()
     try:
-        logger.debug('creating a new AMQP client for thread {0}, using'
-                     ' hostname; {1}, username: {2}, ssl_enabled: {3},'
-                     ' cert_path: {4}'.
-                     format(current_thread(),
-                            broker_config.broker_hostname,
-                            broker_config.broker_username,
-                            broker_config.broker_ssl_enabled,
-                            broker_config.broker_cert_path))
-
-        client = AMQPClient(amqp_host=amqp_host, amqp_user=amqp_user,
-                            amqp_pass=amqp_pass, ssl_enabled=ssl_enabled,
+        logger.debug(
+            'Creating a new AMQP client for thread {0} '
+            '[hostname={1}, username={2}, ssl_enabled={3}, cert_path={4}]'
+            .format(thread, amqp_host, amqp_user, ssl_enabled, ssl_cert_path))
+        client = AMQPClient(amqp_host=amqp_host,
+                            amqp_user=amqp_user,
+                            amqp_pass=amqp_pass,
+                            ssl_enabled=ssl_enabled,
                             ssl_cert_path=ssl_cert_path)
-
-        logger.debug('AMQP client created for thread {0}'.
-                     format(current_thread()))
+        logger.debug('AMQP client created for thread {0}'.format(thread))
     except Exception as e:
-        err_msg = 'Failed to create AMQP client for thread: {0}, error: {1}'.\
-            format(current_thread(), e)
-        logger.warning(err_msg)
+        logger.warning(
+            'Failed to create AMQP client for thread: {0} ({1}: {2})'
+            .format(thread, type(e).__name__, e))
         raise
-
     return client

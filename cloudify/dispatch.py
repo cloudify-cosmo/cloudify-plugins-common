@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import traceback
 import StringIO
 import Queue
@@ -86,6 +87,7 @@ class TaskHandler(object):
         self._func = None
         self._zmq_context = None
         self._zmq_socket = None
+        self._fallback_handler = None
 
     def handle_or_dispatch_to_subprocess_if_remote(self):
         if self.cloudify_context.get('task_target'):
@@ -257,9 +259,10 @@ class TaskHandler(object):
                 # an operation may originate from a system wide workflow.
                 # in that case, the deployment id will be None
                 handler_context = handler_context or SYSTEM_DEPLOYMENT
-
+            fallback_logger = self._create_fallback_logger(handler_context)
             handler = logs.ZMQLoggingHandler(context=handler_context,
-                                             socket=self._zmq_socket)
+                                             socket=self._zmq_socket,
+                                             fallback_logger=fallback_logger)
         else:
             # Used by tests calling dispatch directly with target_name set.
             handler = logging.StreamHandler()
@@ -269,6 +272,29 @@ class TaskHandler(object):
         logger.handlers = []
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG)
+
+    def _create_fallback_logger(self, handler_context):
+        log_dir = None
+        if os.environ.get('CELERY_LOG_DIR'):
+            log_dir = os.path.join(os.environ['CELERY_LOG_DIR'], 'logs')
+        elif os.environ.get('CELERY_WORK_DIR'):
+            log_dir = os.environ['CELERY_WORK_DIR']
+        if log_dir:
+            log_path = os.path.join(log_dir, '{0}.log.fallback'
+                                    .format(handler_context))
+            fallback_handler = logging.FileHandler(log_path, delay=True)
+            self._fallback_handler = fallback_handler
+        else:
+            # explicitly not setting fallback_handler on self. We don't
+            # want to close stderr when the task finishes.
+            fallback_handler = logging.StreamHandler()
+        fallback_logger = logging.getLogger('dispatch_fallback_logger')
+        fallback_handler.setLevel(logging.DEBUG)
+        fallback_logger.setLevel(logging.DEBUG)
+        fallback_logger.propagate = False
+        fallback_logger.handlers = []
+        fallback_logger.addHandler(fallback_handler)
+        return fallback_logger
 
     @property
     def ctx_cls(self):
@@ -305,6 +331,8 @@ class TaskHandler(object):
             self._zmq_socket.close()
         if self._zmq_context:
             self._zmq_context.term()
+        if self._fallback_handler:
+            self._fallback_handler.close()
 
 
 class OperationHandler(TaskHandler):
@@ -388,7 +416,8 @@ class WorkflowHandler(TaskHandler):
 
             queue = Queue.Queue()
             t = AMQPWrappedThread(target=self._remote_workflow_child_thread,
-                                  args=(queue,))
+                                  args=(queue,),
+                                  name='Workflow-Child')
             t.start()
 
             # while the child thread is executing the workflow, the parent
@@ -553,6 +582,7 @@ def main():
     args = dispatch_inputs['args']
     kwargs = dispatch_inputs['kwargs']
     dispatch_type = cloudify_context['type']
+    threading.current_thread().setName('Dispatch-{0}'.format(dispatch_type))
     handler_cls = TASK_HANDLERS[dispatch_type]
     handler = None
     try:
