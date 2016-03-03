@@ -369,10 +369,11 @@ class ZMQLoggingHandler(logging.Handler):
         message = self.format(record)
         message = message.decode('utf-8', 'ignore').encode('utf-8')
         try:
-            self._socket.send_json({
+            # Not using send_json to avoid possible deadlocks (see CFY-4866)
+            self._socket.send(json.dumps({
                 'context': self._context,
                 'message': message
-            })
+            }))
         except Exception as e:
             self._fallback_logger.warn(
                 'Error sending message to logging server. ({0}: {1})'
