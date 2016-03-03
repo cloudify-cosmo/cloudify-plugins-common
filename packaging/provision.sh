@@ -2,6 +2,18 @@
 
 SUDO=""
 
+function print_plugins_params() {
+
+    echo "## print common parameters"
+
+    declare -A params=( ["PLUGIN_NAME"]=$PLUGIN_NAME ["PLUGIN_TAG_NAME"]=$PLUGIN_TAG_NAME  \
+                        ["PLUGIN_S3_FOLDER"]=$PLUGIN_S3_FOLDER )
+    for param in "${!params[@]}"
+    do
+            echo "$param - ${params["$param"]}"
+    done
+}
+
 function install_dependencies(){
     echo "## Installing necessary dependencies"
 
@@ -26,8 +38,18 @@ function install_wagon(){
 }
 
 function wagon_create_package(){
+
     echo "## wagon create package"
-    $SUDO wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz -r --validate -v -f
+    if [[ "$PLUGIN_NAME" =~ "vsphere" ]] || [[ "$PLUGIN_NAME" =~ "softlayer" ]]; then
+        git clone https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/cloudify-cosmo/$PLUGIN_NAME.git
+        pushd $PLUGIN_TAG_NAME
+            git checkout -b $PLUGIN_TAG_NAME origin/$PLUGIN_TAG_NAME
+        popd
+        mkdir create_wagon ; cd create_wagon
+        $SUDO wagon create -s ../$PLUGIN_NAME/
+    else
+        $SUDO wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz -r --validate -v -f
+    fi
 }
 
 
@@ -49,7 +71,7 @@ PLUGIN_S3_FOLDER=$7
 
 export AWS_S3_PATH="org/cloudify3/wagons/$PLUGIN_NAME/$PLUGIN_S3_FOLDER"
 
-print_params
+print_plugins_params
 install_dependencies &&
 install_wagon &&
 wagon_create_package &&
