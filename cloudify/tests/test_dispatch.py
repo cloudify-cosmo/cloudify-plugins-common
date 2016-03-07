@@ -13,6 +13,7 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import sys
 import os
 import tempfile
 import shutil
@@ -25,6 +26,7 @@ import testtools
 from cloudify import amqp_client
 from cloudify import dispatch
 from cloudify import exceptions
+from cloudify import utils
 from cloudify.celery import logging_server
 
 
@@ -152,12 +154,17 @@ class TestDispatchTaskHandler(testtools.TestCase):
                 self.fail()
             except known_ex_type as e:
                 self.assertEqual(type(e), known_ex_type)
-                # TODO: fix once proper error propagation mechanism exists
-                # self.assertIn('message', str(e))
+                self.assertEqual(1, len(e.causes))
+                cause = e.causes[0]
+                self.assertIn('message', cause['message'])
+                self.assertEqual(raised_exception_type.__name__,
+                                 cause['type'])
+                self.assertIsNotNone(cause.get('traceback'))
                 for arg in args:
                     if arg == 'message':
-                        continue
-                    self.assertEqual(arg, getattr(e, arg))
+                        self.assertIn('message', getattr(e, arg))
+                    else:
+                        self.assertEqual(arg, getattr(e, arg))
 
     def test_dispatch_no_such_handler(self):
         context = {
@@ -165,6 +172,18 @@ class TestDispatchTaskHandler(testtools.TestCase):
         }
         self.assertRaises(exceptions.NonRecoverableError,
                           dispatch.dispatch, context)
+
+    def test_user_exception_causese(self):
+        message = 'TEST_MESSAGE'
+        op_handler = self._op(func7, task_target='stub', args=[message])
+        try:
+            op_handler.dispatch_to_subprocess()
+            self.fail()
+        except exceptions.NonRecoverableError as e:
+            self.assertEqual(2, len(e.causes))
+            initial_cause = e.causes[0]
+            self.assertEqual(initial_cause['message'], message)
+            self.assertEqual(initial_cause['type'], 'RuntimeError')
 
     @staticmethod
     def _op(func,
@@ -225,6 +244,16 @@ def func6(args, known_exception=None, user_exception=None):
         raise globals()[user_exception](*args)
     else:
         raise getattr(exceptions, known_exception)(*args)
+
+
+def func7(message):
+    try:
+        raise RuntimeError(message)
+    except RuntimeError:
+        _, ex, tb = sys.exc_info()
+        raise NonRecoverableUserException(causes=[
+            utils.exception_to_error_cause(ex, tb)
+        ])
 
 
 class UserException(Exception):

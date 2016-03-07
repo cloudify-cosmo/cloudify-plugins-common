@@ -19,7 +19,9 @@ class NonRecoverableError(Exception):
     An error raised by plugins to denote that no retry should be attempted by
     by the executing workflow engine.
     """
-    pass
+    def __init__(self, *args, **kwargs):
+        self.causes = kwargs.pop('causes', [])
+        super(NonRecoverableError, self).__init__(*args, **kwargs)
 
 
 class RecoverableError(Exception):
@@ -36,12 +38,14 @@ class RecoverableError(Exception):
                         decides that this task should be retried)
     """
 
-    def __init__(self, message=None, retry_after=None):
-        message = message or ''
+    def __init__(self, message='', retry_after=None, causes=None, **kwargs):
         if retry_after is not None:
-            message = '{0} [retry_after={1}]'.format(message, retry_after)
-        super(RecoverableError, self).__init__(message)
+            suffix = '[retry_after={0}]'.format(retry_after)
+            if suffix not in message:
+                message = '{0} {1}'.format(message, suffix)
         self.retry_after = retry_after
+        self.causes = causes or []
+        super(RecoverableError, self).__init__(message, **kwargs)
 
 
 class OperationRetry(RecoverableError):
@@ -49,8 +53,7 @@ class OperationRetry(RecoverableError):
     An error raised internally when an operation uses the ctx.operation.retry
     API for specifying that an operation should be retried.
     """
-    def __init__(self, message=None, retry_after=None):
-        super(OperationRetry, self).__init__(message, retry_after)
+    pass
 
 
 class HttpException(NonRecoverableError):
@@ -63,11 +66,11 @@ class HttpException(NonRecoverableError):
 
     """
 
-    def __init__(self, url, code, message):
+    def __init__(self, url, code, message, causes=None, **kwargs):
         self.url = url
         self.code = code
         self.message = message
-        super(HttpException, self).__init__(str(self))
+        super(HttpException, self).__init__(str(self), causes=causes, **kwargs)
 
     def __str__(self):
         return "{0} ({1}) : {2}".format(self.code, self.url, self.message)
@@ -126,17 +129,18 @@ class CommandExecutionException(Exception):
 
 class TimeoutException(Exception):
     """Indicates some kind of timeout happened."""
-    def __init__(self, *args):
-        Exception.__init__(self, args)
+    pass
 
 
 class ProcessExecutionError(RuntimeError):
     """Raised by the workflow engine when workflow execution fails."""
 
-    def __init__(self, message, error_type=None, traceback=None):
-        super(Exception, self).__init__(message)
+    def __init__(self, message, error_type=None, traceback=None, causes=None,
+                 **kwargs):
+        super(ProcessExecutionError, self).__init__(message, **kwargs)
         self.error_type = error_type
         self.traceback = traceback
+        self.causes = causes
 
     def __str__(self):
         if self.error_type:
