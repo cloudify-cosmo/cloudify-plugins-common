@@ -19,11 +19,9 @@ function install_dependencies(){
 
     if  which yum; then
         sudo yum -y install python-devel gcc openssl git libxslt-devel libxml2-devel openldap-devel
-        SUDO="sudo"
     elif which apt-get; then
         sudo apt-get update &&
         sudo apt-get -y install build-essential python-dev
-        SUDO="sudo"
     else
         echo 'probably windows machine'
         return
@@ -34,7 +32,9 @@ function install_dependencies(){
 
 function install_wagon(){
     echo "## installing wagon"
-    $SUDO pip install wagon==0.3.0
+    virtualenv env
+    source env/bin/activate
+    pip install wagon==0.3.0
 }
 
 function wagon_create_package(){
@@ -46,9 +46,9 @@ function wagon_create_package(){
             git checkout -b $PLUGIN_TAG_NAME origin/$PLUGIN_TAG_NAME
         popd
         mkdir create_wagon ; cd create_wagon
-        $SUDO wagon create -s ../$PLUGIN_NAME/
+        wagon create -s ../$PLUGIN_NAME/
     else
-        $SUDO wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz -r --validate -v -f
+        wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz -r --validate -v -f
     fi
 }
 
