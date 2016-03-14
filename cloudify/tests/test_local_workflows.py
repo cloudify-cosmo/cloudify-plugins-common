@@ -34,6 +34,9 @@ from cloudify.workflows import local
 from cloudify.workflows import workflow_context
 from cloudify.workflows.workflow_context import task_config
 
+PLUGIN_PACKAGE_NAME = 'test-package'
+PLUGIN_PACKAGE_VERSION = '1.1.1'
+
 
 @nose.tools.nottest
 class BaseWorkflowTest(testtools.TestCase):
@@ -226,7 +229,7 @@ class BaseWorkflowTest(testtools.TestCase):
         ))
 
         blueprint = {
-            'tosca_definitions_version': 'cloudify_dsl_1_1',
+            'tosca_definitions_version': 'cloudify_dsl_1_2',
             'imports': ['inner/imported.yaml'],
             'inputs': {
                 'from_input': {
@@ -244,7 +247,9 @@ class BaseWorkflowTest(testtools.TestCase):
             'plugins': {
                 'p': {
                     'executor': 'central_deployment_agent',
-                    'install': False
+                    'install': False,
+                    'package_name': PLUGIN_PACKAGE_NAME,
+                    'package_version': PLUGIN_PACKAGE_VERSION
                 }
             },
             'node_types': {
@@ -733,6 +738,11 @@ class LocalWorkflowTest(BaseWorkflowTest):
                              ctx.task_name)
             self.assertIsNone(ctx.task_target)
             self.assertEqual('p', ctx.plugin)
+            self.assertEqual('p', ctx.plugin.name)
+            self.assertEqual(PLUGIN_PACKAGE_NAME, ctx.plugin.package_name)
+            self.assertEqual(PLUGIN_PACKAGE_VERSION,
+                             ctx.plugin.package_version)
+            self.assertEqual(sys.prefix, ctx.plugin.prefix)
             self.assertEqual('test.op0', ctx.operation.name)
             self.assertThat(ctx.node.properties.items(),
                             ContainsAll({'property': 'value'}.items()))
@@ -1003,6 +1013,42 @@ class FileStorageTest(BaseWorkflowTest):
         def flow(ctx, **_):
             pass
         self._setup_env(workflow_methods=[flow])
+
+    def test_workdir(self):
+        content = 'CONTENT'
+
+        def op0(ctx, **_):
+            self.assertEquals(
+                ctx.plugin.workdir,
+                os.path.join(self.storage_dir, self._testMethodName,
+                             'workdir', 'plugins', 'p'))
+
+            work_file = os.path.join(ctx.plugin.workdir, 'work_file')
+            self.assertFalse(os.path.exists(work_file))
+            with open(work_file, 'w') as f:
+                f.write(content)
+
+        def op1(ctx, **_):
+            work_file = os.path.join(ctx.plugin.workdir, 'work_file')
+            with open(work_file) as f:
+                print work_file
+                self.assertEqual(content, f.read())
+
+        def workflow1(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.execute_operation('test.op0').get()
+
+        def workflow2(ctx, **_):
+            instance = _instance(ctx, 'node')
+            instance.execute_operation('test.op1').get()
+
+        self._setup_env(workflow_methods=[workflow1, workflow2],
+                        operation_methods=[op0, op1])
+
+        self._execute_workflow(workflow_name='workflow0',
+                               setup_env=False, load_env=True)
+        self._execute_workflow(workflow_name='workflow1',
+                               setup_env=False, load_env=True)
 
 
 @nose.tools.istest

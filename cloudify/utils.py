@@ -299,4 +299,25 @@ class Internal(object):
 
         return broker_user, broker_pass
 
+    @staticmethod
+    def plugin_prefix(package_name=None, package_version=None,
+                      deployment_id=None, plugin_name=None,
+                      sys_prefix_fallback=True):
+        plugins_dir = os.path.join(sys.prefix, 'plugins')
+        prefix = None
+        if package_name and package_version:
+            wagon_dir = os.path.join(plugins_dir, '{0}-{1}'.format(
+                    package_name, package_version))
+            if os.path.isdir(wagon_dir):
+                prefix = wagon_dir
+        if prefix is None and deployment_id and plugin_name:
+            source_dir = os.path.join(plugins_dir, '{0}-{1}'.format(
+                    deployment_id, plugin_name))
+            if os.path.isdir(source_dir):
+                prefix = source_dir
+        if prefix is None and sys_prefix_fallback:
+            prefix = sys.prefix
+        return prefix
+
+
 internal = Internal()
