@@ -24,10 +24,12 @@ function install_dependencies(){
         sudo apt-get -y install build-essential python-dev
     else
         echo 'probably windows machine'
+        pip install virtualenv
         return
     fi
     curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | sudo python &&
     sudo pip install pip==7.1.2 --upgrade
+    sudo pip install virtualenv
 }
 
 function install_wagon(){
