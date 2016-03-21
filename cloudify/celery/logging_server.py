@@ -16,6 +16,7 @@
 from __future__ import absolute_import
 
 import functools
+import json
 import logging
 import logging.handlers
 import os
@@ -152,7 +153,8 @@ class ZMQLoggingServer(object):
         while not self.closed:
             try:
                 if self.poller.poll(1000):
-                    self._process(self.socket.recv_json())
+                    message = json.loads(self.socket.recv(), encoding='utf-8')
+                    self._process(message)
             except Exception:
                 if not self.closed:
                     logger.warning('Error raised during record processing',
