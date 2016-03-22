@@ -38,16 +38,17 @@ class Monitor(object):
         pass
 
     def task_started(self, event):
-        self._handle(tasks_api.TASK_STARTED, event)
+        self._handle(tasks_api.TASK_STARTED, event, send_event=True)
 
     def task_succeeded(self, event):
-        self._handle(tasks_api.TASK_SUCCEEDED, event)
+        self._handle(tasks_api.TASK_SUCCEEDED, event, send_event=True)
 
     def task_failed(self, event):
         if event.get('exception', '').startswith(OperationRetry.__name__):
-            self._handle(tasks_api.TASK_RESCHEDULED, event)
+            state = tasks_api.TASK_RESCHEDULED
         else:
-            self._handle(tasks_api.TASK_FAILED, event)
+            state = tasks_api.TASK_FAILED
+        self._handle(state, event, send_event=False)
 
     def task_revoked(self, event):
         pass
@@ -55,12 +56,13 @@ class Monitor(object):
     def task_retried(self, event):
         pass
 
-    def _handle(self, state, event):
+    def _handle(self, state, event, send_event):
         task_id = event['uuid']
         task = self.tasks_graph.get_task(task_id)
         if task is not None:
-            send_task_event(state, task, send_task_event_func_remote,
-                            event)
+            if send_event:
+                send_task_event(state, task, send_task_event_func_remote,
+                                event)
             task.set_state(state)
 
     def capture(self):
@@ -142,6 +144,11 @@ def send_task_event(state, task, send_event_func, event):
                  tasks_api.TASK_SUCCEEDED) and event is None:
         raise RuntimeError('Event for task {0} is None'.format(task.name))
 
+    if event and event.get('exception'):
+        exception_str = str(event.get('exception'))
+    else:
+        exception_str = None
+
     if state == tasks_api.TASK_SENDING:
         message = "Sending task '{0}'".format(task.name)
         event_type = 'sending_task'
@@ -155,31 +162,34 @@ def send_task_event(state, task, send_event_func, event):
         message = "Task succeeded '{0}{1}'".format(task.name, suffix)
         event_type = 'task_succeeded'
     elif state == tasks_api.TASK_RESCHEDULED:
-        message = "Task rescheduled '{0}' -> {1}".format(
-            task.name, event.get('exception'))
+        message = "Task rescheduled '{0}'".format(task.name)
+        if exception_str:
+            message = '{0} -> {1}'.format(message, exception_str)
         event_type = 'task_rescheduled'
-        task.error = event.get('exception')
+        task.error = exception_str
     elif state == tasks_api.TASK_FAILED:
-        message = "Task failed '{0}' -> {1}".format(task.name,
-                                                    event.get('exception'))
+        message = "Task failed '{0}'".format(task.name)
+        if exception_str:
+            message = "{0} -> {1}".format(message, exception_str)
         event_type = 'task_failed'
-        task.error = event.get('exception')
+        task.error = exception_str
     else:
         raise RuntimeError('unhandled event type: {0}'.format(state))
 
-    if task.current_retries > 0 or state in (tasks_api.TASK_FAILED,
-                                             tasks_api.TASK_RESCHEDULED):
-        attempt = '[attempt {0}{1}]'.format(
-            task.current_retries + 1,
-            '/{0}'.format(task.total_retries + 1)
-            if task.total_retries >= 0
-            else '')
-        message = '{0} {1}'.format(message, attempt)
+    if task.current_retries > 0:
+        retry = ' [retry {0}{1}]'.format(
+            task.current_retries,
+            '/{0}'.format(task.total_retries)
+            if task.total_retries >= 0 else '')
+        message = '{0}{1}'.format(message, retry)
 
     additional_context = {
         'task_current_retries': task.current_retries,
         'task_total_retries': task.total_retries
     }
+
+    if state in (tasks_api.TASK_FAILED, tasks_api.TASK_RESCHEDULED):
+        additional_context['task_error_causes'] = event.get('causes')
 
     send_event_func(task=task,
                     event_type=event_type,

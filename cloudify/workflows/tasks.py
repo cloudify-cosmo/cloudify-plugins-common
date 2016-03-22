@@ -19,6 +19,7 @@ import time
 import uuid
 import Queue
 
+from cloudify import utils
 from cloudify import exceptions
 from cloudify.workflows import api
 
@@ -233,6 +234,20 @@ class WorkflowTask(object):
                 handler_result = HandlerResult.fail()
             elif isinstance(exception, exceptions.RecoverableError):
                 handler_result.retry_after = exception.retry_after
+
+        if not self.is_subgraph:
+            causes = []
+            if isinstance(exception, (exceptions.RecoverableError,
+                                      exceptions.NonRecoverableError)):
+                causes = exception.causes
+            if isinstance(self, LocalWorkflowTask):
+                tb = self.async_result._holder.error[1]
+                causes.append(utils.exception_to_error_cause(exception, tb))
+            self.workflow_context.internal.send_task_event(
+                state=self.get_state(),
+                task=self,
+                event={'exception': exception, 'causes': causes})
+
         return handler_result
 
     def __str__(self):
@@ -265,6 +280,10 @@ class WorkflowTask(object):
         """
 
         raise NotImplementedError('Implemented by subclasses')
+
+    @property
+    def is_subgraph(self):
+        return False
 
 
 class RemoteWorkflowTask(WorkflowTask):
@@ -345,11 +364,7 @@ class RemoteWorkflowTask(WorkflowTask):
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except exceptions.NonRecoverableError as e:
             self.set_state(TASK_FAILED)
-            self.workflow_context.internal\
-                .send_task_event(TASK_FAILED, self, {'exception': e})
-            self.error = e
-            self.async_result = RemoteWorkflowNotExistTaskResult(self)
-
+            self.async_result = RemoteWorkflowNotExistTaskResult(self, e)
         return self.async_result
 
     def is_local(self):
@@ -493,8 +508,6 @@ class LocalWorkflowTask(WorkflowTask):
                 new_task_state = TASK_RESCHEDULED if isinstance(
                     e, exceptions.OperationRetry) else TASK_FAILED
                 exc_type, exception, tb = sys.exc_info()
-                self.workflow_context.internal.send_task_event(
-                    new_task_state, self, event={'exception': str(exception)})
                 self.async_result._holder.error = (exception, tb)
                 self.set_state(new_task_state)
 
@@ -620,16 +633,17 @@ class WorkflowTaskResult(object):
 
 
 class RemoteWorkflowNotExistTaskResult(WorkflowTaskResult):
-    def __init__(self, task):
+
+    def __init__(self, task, exception):
         super(RemoteWorkflowNotExistTaskResult, self).__init__(task)
-        self.task = task
+        self.exception = exception
 
     def _get(self):
-        raise self.task.error
+        raise self.exception
 
     @property
     def result(self):
-        return self.task.error
+        return self.exception
 
 
 class RemoteWorkflowTaskResult(WorkflowTaskResult):

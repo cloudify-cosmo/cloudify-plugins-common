@@ -143,21 +143,31 @@ class TaskHandler(object):
                 return dispatch_output['payload']
             elif dispatch_output['type'] == 'error':
                 error = dispatch_output['payload']
-                # message = payload['message']
-                # TODO: handle traceback, can't really serialize
-                # the traceback, as it may include frames that are not in the
-                # current python path and adding it to the message will be very
-                # verbose
+
                 tb = error['traceback']
-                message = tb
+                exception_type = error['exception_type']
+                message = error['message']
+
+                known_exception_type_kwargs = error[
+                    'known_exception_type_kwargs']
+                causes = known_exception_type_kwargs.pop('causes', [])
+                causes.append({
+                    'message': message,
+                    'type': exception_type,
+                    'traceback': tb
+                })
+                known_exception_type_kwargs['causes'] = causes
+
                 known_exception_type = getattr(exceptions,
                                                error['known_exception_type'])
                 known_exception_type_args = error['known_exception_type_args']
+
                 if error['append_message']:
                     known_exception_type_args.append(message)
                 else:
                     known_exception_type_args.insert(0, message)
-                raise known_exception_type(*known_exception_type_args)
+                raise known_exception_type(*known_exception_type_args,
+                                           **known_exception_type_kwargs)
             else:
                 raise exceptions.NonRecoverableError(
                     'Unexpected output type: {0}'
@@ -348,11 +358,6 @@ class OperationHandler(TaskHandler):
         state.current_ctx.set(ctx, kwargs)
         try:
             result = self.func(*self.args, **kwargs)
-        except:
-            ctx.logger.error(
-                'Exception raised on operation [%s] invocation',
-                ctx.task_name, exc_info=True)
-            raise
         finally:
             amqp_client_utils.close_amqp_client()
             state.current_ctx.clear()
@@ -610,6 +615,11 @@ def main():
             # convert pure user exceptions to a RecoverableError
             known_exception_type = exceptions.RecoverableError
 
+        try:
+            causes = e.causes
+        except AttributeError:
+            causes = []
+
         payload_type = 'error'
         payload = {
             'traceback': trace_out,
@@ -617,6 +627,7 @@ def main():
             'message': str(e),
             'known_exception_type': known_exception_type.__name__,
             'known_exception_type_args': known_exception_type_args,
+            'known_exception_type_kwargs': {'causes': causes or []},
             'append_message': append_message,
         }
     finally:

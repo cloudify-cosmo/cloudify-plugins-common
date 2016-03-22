@@ -22,6 +22,8 @@ import string
 import subprocess
 import sys
 import tempfile
+import traceback
+import StringIO
 
 from cloudify import constants
 from cloudify.exceptions import (
@@ -151,6 +153,17 @@ def create_temp_folder():
     path_join = os.path.join(tempfile.gettempdir(), id_generator(5))
     os.makedirs(path_join)
     return path_join
+
+
+def exception_to_error_cause(exception, tb):
+    error = StringIO.StringIO()
+    etype = type(exception)
+    traceback.print_exception(etype, exception, tb, file=error)
+    return {
+        'message': str(exception),
+        'traceback': error.getvalue(),
+        'type': etype.__name__
+    }
 
 
 class LocalCommandRunner(object):

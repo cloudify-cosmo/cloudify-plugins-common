@@ -43,7 +43,6 @@ class TaskDependencyGraph(object):
 
         :param task: The task
         """
-        self.ctx.logger.debug('adding task: {0}'.format(task))
         self.graph.add_node(task.id, task=task)
 
     def get_task(self, task_id):
@@ -74,9 +73,6 @@ class TaskDependencyGraph(object):
         :param src_task: The source task
         :param dst_task: The target task
         """
-
-        self.ctx.logger.debug('adding dependency: {0} -> {1}'.format(src_task,
-                                                                     dst_task))
         if not self.graph.has_node(src_task.id):
             raise RuntimeError('source task {0} is not in graph (task id: '
                                '{1})'.format(src_task, src_task.id))
@@ -201,9 +197,10 @@ class TaskDependencyGraph(object):
         if handler_result.action == tasks.HandlerResult.HANDLER_FAIL:
             if isinstance(task, SubgraphTask) and task.failed_task:
                 task = task.failed_task
-            raise RuntimeError(
-                "Workflow failed: Task failed '{0}' -> {1}".format(task.name,
-                                                                   task.error))
+            message = "Workflow failed: Task failed '{0}'".format(task.name)
+            if task.error:
+                message = '{0} -> {1}'.format(message, task.error)
+            raise RuntimeError(message)
 
         dependents = self.graph.predecessors(task.id)
         removed_edges = [(dependent, task.id)
@@ -324,6 +321,10 @@ class SubgraphTask(tasks.WorkflowTask):
     @property
     def name(self):
         return self._name
+
+    @property
+    def is_subgraph(self):
+        return True
 
     def sequence(self):
         return TaskSequence(self)
