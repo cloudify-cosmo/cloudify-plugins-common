@@ -42,6 +42,24 @@ def reinstall_node_instances(graph, node_instances, intact_nodes=None):
     processor.install()
 
 
+def add_relationships(graph, node_instances, intact_nodes=None,
+                      modified_relationship_ids=None):
+    processor = LifecycleProcessor(graph=graph,
+                                   node_instances=node_instances,
+                                   intact_nodes=intact_nodes)
+
+    processor.update_adding_relationships(modified_relationship_ids)
+
+
+def remove_relationships(graph, node_instances, intact_nodes=None,
+                         modified_relationship_ids=None):
+    processor = LifecycleProcessor(graph=graph,
+                                   node_instances=node_instances,
+                                   intact_nodes=intact_nodes)
+
+    processor.update_removing_relationships(modified_relationship_ids)
+
+
 class LifecycleProcessor(object):
 
     def __init__(self,
@@ -55,20 +73,40 @@ class LifecycleProcessor(object):
     def install(self):
         self._process_node_instances(
             node_instance_subgraph_func=install_node_instance_subgraph,
-            graph_finisher_func=self._finish_install)
+            graph_finisher_func=self._finish_install
+        )
 
     def uninstall(self):
         self._process_node_instances(
             node_instance_subgraph_func=uninstall_node_instance_subgraph,
-            graph_finisher_func=self._finish_uninstall)
+            graph_finisher_func=self._finish_uninstall
+        )
+
+    def update_adding_relationships(self, modified_relationship_ids):
+        self._process_node_instances(
+            node_instance_subgraph_func=add_relationship_to_node_instance,
+            graph_finisher_func=lambda x: None,
+            modified_relationship_ids=modified_relationship_ids
+        )
+
+    def update_removing_relationships(self, modified_relationship_ids):
+        self._process_node_instances(
+            node_instance_subgraph_func=remove_relationship_from_node_instnace,
+            graph_finisher_func=lambda x: None,
+            modified_relationship_ids=modified_relationship_ids
+        )
 
     def _process_node_instances(self,
                                 node_instance_subgraph_func,
-                                graph_finisher_func):
+                                graph_finisher_func,
+                                modified_relationship_ids=None):
         subgraphs = {}
         for instance in self.node_instances:
-            subgraphs[instance.id] = node_instance_subgraph_func(instance,
-                                                                 self.graph)
+            subgraphs[instance.id] = \
+                node_instance_subgraph_func(instance,
+                                            self.graph,
+                                            modified_relationship_ids)
+
         for instance in self.intact_nodes:
             subgraphs[instance.id] = self.graph.subgraph(
                 'stub_{0}'.format(instance.id))
@@ -134,7 +172,33 @@ def set_send_node_event_on_error_handler(task, instance):
     task.on_failure = send_node_event_error_handler
 
 
-def install_node_instance_subgraph(instance, graph):
+def add_relationship_to_node_instance(instance, graph, modified_entity_ids):
+    subgraph = graph.subgraph('add_relationship_{0}'.format(instance.id))
+    sequence = subgraph.sequence()
+
+    sequence.add(
+        forkjoin(*_relationships_operations(
+                instance,
+                'cloudify.interfaces.relationship_lifecycle.establish',
+                modified_entity_ids)),
+    )
+
+
+def remove_relationship_from_node_instnace(instance,
+                                           graph,
+                                           modified_relationship_ids):
+    subgraph = graph.subgraph('add_relationship_{0}'.format(instance.id))
+    sequence = subgraph.sequence()
+
+    sequence.add(
+            forkjoin(*_relationships_operations(
+                    instance,
+                    'cloudify.interfaces.relationship_lifecycle.unlink',
+                    modified_relationship_ids)),
+    )
+
+
+def install_node_instance_subgraph(instance, graph, *args, **kwargs):
     """This function is used to create a tasks sequence installing one node
     instance.
     Considering the order of tasks executions, it enforces the proper
@@ -185,7 +249,7 @@ def install_node_instance_subgraph(instance, graph):
     return subgraph
 
 
-def uninstall_node_instance_subgraph(instance, graph):
+def uninstall_node_instance_subgraph(instance, graph, *args, **kwargs):
     subgraph = graph.subgraph(instance.id)
     sequence = subgraph.sequence()
     sequence.add(
@@ -248,10 +312,18 @@ def get_install_subgraph_on_failure_handler(instance):
     return install_subgraph_on_failure_handler
 
 
-def _relationships_operations(node_instance, operation):
+def _relationships_operations(node_instance,
+                              operation,
+                              modified_relationship_ids=None):
     tasks = []
     for relationship in node_instance.relationships:
-        tasks += _relationship_operations(relationship, operation)
+        # either the relationship ids aren't specified, or all the relationship
+        # should be added
+        rel_id = '{0}:{1}'.format(relationship.node_instance.node.id,
+                                  relationship.target_node_instance.node.id)
+        if not modified_relationship_ids or \
+                rel_id in modified_relationship_ids['relationship']:
+            tasks += _relationship_operations(relationship, operation)
     return tasks
 
 

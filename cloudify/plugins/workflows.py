@@ -16,6 +16,7 @@
 from cloudify import constants, utils
 from cloudify.decorators import workflow
 from cloudify.plugins import lifecycle
+from cloudify.manager import get_rest_client
 
 
 @workflow
@@ -353,14 +354,72 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
 
 
 @workflow
-def update(ctx, added_instance_ids, related_instance_ids, **kwargs):
-    added_instances = [i for i in ctx.node_instances if
-                       i.id in added_instance_ids]
+def update(ctx,
+           update_id,
+           added_instance_ids,
+           add_related_instance_ids,
+           removed_instance_ids,
+           remove_related_instance_ids,
+           modified_entity_ids,
+           extended_instance_ids,
+           extend_related_instance_ids,
+           reduced_instance_ids,
+           reduce_related_instance_ids):
 
-    related_instances = [i for i in ctx.node_instances if
-                         i.id in related_instance_ids]
+    added_instances = []
+    add_related_instances = []
+    removed_instances = []
+    remove_related_instances = []
+    extended_instances = []
+    extend_related_instances = []
+    reduced_instances = []
+    reduce_related_instances = []
 
+    for instance in ctx.node_instances:
+        if instance.id in added_instance_ids:
+            added_instances.append(instance)
+        if instance.id in add_related_instance_ids:
+            add_related_instances.append(instance)
+        if instance.id in extended_instance_ids:
+            extended_instances.append(instance)
+        if instance.id in extend_related_instance_ids:
+            extend_related_instances.append(instance)
+        if instance.id in reduced_instance_ids:
+            reduced_instances.append(instance)
+        if instance.id in reduce_related_instance_ids:
+            reduce_related_instances.append(instance)
+        if instance.id in removed_instance_ids:
+            removed_instances.append(instance)
+        if instance.id in remove_related_instance_ids:
+            remove_related_instances.append(instance)
+
+    # Adding nodes or node instances should be based on modified instances
     lifecycle.install_node_instances(
-        graph=ctx.graph_mode(),
-        node_instances=set(added_instances),
-        intact_nodes=set(related_instances))
+            graph=ctx.graph_mode(),
+            node_instances=set(added_instances),
+            intact_nodes=set(add_related_instances))
+
+    # This one as well.
+    lifecycle.add_relationships(
+            graph=ctx.graph_mode(),
+            node_instances=set(extended_instances),
+            intact_nodes=set(extend_related_instances),
+            modified_relationship_ids=modified_entity_ids
+    )
+
+    lifecycle.remove_relationships(
+            graph=ctx.graph_mode(),
+            node_instances=set(reduced_instances),
+            intact_nodes=set(reduce_related_instances),
+            modified_relationship_ids=modified_entity_ids
+    )
+
+    lifecycle.uninstall_node_instances(
+            graph=ctx.graph_mode(),
+            node_instances=set(removed_instances),
+            intact_nodes=set(remove_related_instances)
+    )
+
+    # Finalize the commit (i.e. remove relationships or nodes)
+    client = get_rest_client()
+    client.deployment_updates.finalize_commit(update_id)
