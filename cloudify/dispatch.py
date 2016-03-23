@@ -27,8 +27,10 @@ import threading
 import traceback
 import StringIO
 import Queue
+from time import sleep
 
 from cloudify_rest_client.executions import Execution
+from cloudify_rest_client.exceptions import InvalidExecutionUpdateStatus
 
 from cloudify import logs
 from cloudify import exceptions
@@ -372,39 +374,31 @@ class OperationHandler(TaskHandler):
 
 
 class WorkflowHandler(TaskHandler):
-
     @property
     def ctx_cls(self):
         if getattr(self.func, 'workflow_system_wide', False):
             return workflow_context.CloudifySystemWideWorkflowContext
-        else:
-            return workflow_context.CloudifyWorkflowContext
+        return workflow_context.CloudifyWorkflowContext
 
     def handle(self):
         if not self.func:
-            raise exceptions.NonRecoverableError('func not found: {0}'.
-                                                 format(self.cloudify_context))
+            raise exceptions.NonRecoverableError(
+                'func not found: {0}'.format(self.cloudify_context))
+
         self.kwargs['ctx'] = self.ctx
         if self.ctx.local:
-            handler = self._handle_local_workflow
-        else:
-            handler = self._handle_remote_workflow
-        return handler()
+            return self._handle_local_workflow()
+        return self._handle_remote_workflow()
 
     def _handle_remote_workflow(self):
         rest = get_rest_client()
         amqp_client_utils.init_amqp_client()
         try:
-            execution = rest.executions.get(self.ctx.execution_id,
-                                            _include=['status'])
-            if execution.status in (Execution.CANCELLING,
-                                    Execution.FORCE_CANCELLING):
-                # execution has been requested to be cancelled before it was
-                # even started
+            try:
+                self._workflow_started()
+            except InvalidExecutionUpdateStatus:
                 self._workflow_cancelled()
                 return api.EXECUTION_CANCELLED_RESULT
-
-            self._workflow_started()
 
             queue = Queue.Queue()
             t = AMQPWrappedThread(target=self._remote_workflow_child_thread,
@@ -543,8 +537,21 @@ class WorkflowHandler(TaskHandler):
                 self.ctx.workflow_id))
 
     def _update_execution_status(self, status, error=None):
-        if not self.ctx.local:
-            update_execution_status(self.ctx.execution_id, status, error)
+        if self.ctx.local:
+            return
+        while True:
+            try:
+                return update_execution_status(
+                    self.ctx.execution_id, status, error)
+            except InvalidExecutionUpdateStatus as exc:
+                self.ctx.logger.exception(
+                    'update execution status is invalid: {0}'.format(exc))
+                raise
+            except Exception as exc:
+                self.ctx.logger.exception(
+                    'update execution status got unexpected rest error: {0}'
+                    .format(exc))
+            sleep(5)
 
 
 TASK_HANDLERS = {
