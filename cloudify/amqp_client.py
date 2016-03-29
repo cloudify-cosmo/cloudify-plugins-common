@@ -66,6 +66,7 @@ class AMQPClient(object):
     def _connect(self):
         self.connection = pika.BlockingConnection(self._connection_parameters)
         self.channel = self.connection.channel()
+        self.channel.confirm_delivery()
         for queue in [self.EVENTS_QUEUE_NAME, self.LOGS_QUEUE_NAME]:
             self.channel.queue_declare(queue=queue, **self.channel_settings)
 
