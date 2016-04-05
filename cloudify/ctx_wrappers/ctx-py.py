@@ -73,6 +73,11 @@ class CtxNodeProperties(object):
         except:
             return returns
 
+    def get_all(self):
+        cmd = ['ctx', '-j', 'node', 'properties']
+        result = json.loads(subprocess.check_output(cmd))
+        return unicode_to_string(result)
+
 
 class CtxNode(object):
     def __init__(self, relationship=None):
@@ -206,10 +211,15 @@ class Ctx(object):
         if destination:
             cmd.append(destination)
         if params:
+            kwargs = {
+                'template_variables': params
+            }
             if not isinstance(params, dict):
-                raise
-            cmd.append(params)
-        return check_output(cmd)
+                self.abort_operation('Expecting params to be in the form of '
+                                     'dict')
+            parameters = '@{0}'.format(json.dumps(kwargs))
+            cmd.append(parameters)
+        return subprocess.check_output(cmd)
 
 
 ctx = Ctx()
