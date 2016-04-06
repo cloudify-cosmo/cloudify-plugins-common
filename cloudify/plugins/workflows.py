@@ -22,7 +22,6 @@ from cloudify.manager import get_rest_client
 @workflow
 def install(ctx, **kwargs):
     """Default install workflow"""
-
     lifecycle.install_node_instances(
         graph=ctx.graph_mode(),
         node_instances=set(ctx.node_instances))
@@ -357,67 +356,62 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
 def update(ctx,
            update_id,
            added_instance_ids,
-           add_related_instance_ids,
+           added_target_instances,
            removed_instance_ids,
-           remove_related_instance_ids,
+           remove_target_instance_ids,
            modified_entity_ids,
            extended_instance_ids,
-           extend_related_instance_ids,
+           extend_target_instance_ids,
            reduced_instance_ids,
-           reduce_related_instance_ids):
+           reduce_target_instance_ids):
 
-    added_instances = []
-    add_related_instances = []
-    removed_instances = []
-    remove_related_instances = []
-    extended_instances = []
-    extend_related_instances = []
-    reduced_instances = []
-    reduce_related_instances = []
+    instances_by_change = {
+        'added_instances': (added_instance_ids, []),
+        'added_target_instances': (added_target_instances, []),
+        'removed_instances': (removed_instance_ids, []),
+        'remove_target_instance_ids': (remove_target_instance_ids, []),
+        'extended_and_target_instances':
+            (extended_instance_ids + extend_target_instance_ids, []),
+        'reduced_and_target_instances':
+            (reduced_instance_ids + reduce_target_instance_ids, []),
+    }
 
     for instance in ctx.node_instances:
-        if instance.id in added_instance_ids:
-            added_instances.append(instance)
-        if instance.id in add_related_instance_ids:
-            add_related_instances.append(instance)
-        if instance.id in extended_instance_ids:
-            extended_instances.append(instance)
-        if instance.id in extend_related_instance_ids:
-            extend_related_instances.append(instance)
-        if instance.id in reduced_instance_ids:
-            reduced_instances.append(instance)
-        if instance.id in reduce_related_instance_ids:
-            reduce_related_instances.append(instance)
-        if instance.id in removed_instance_ids:
-            removed_instances.append(instance)
-        if instance.id in remove_related_instance_ids:
-            remove_related_instances.append(instance)
+
+        instance_holders = \
+            [instance_holder
+             for _, (changed_ids, instance_holder)
+             in instances_by_change.iteritems()
+             if instance.id in changed_ids]
+
+        for instance_holder in instance_holders:
+            instance_holder.append(instance)
 
     # Adding nodes or node instances should be based on modified instances
     lifecycle.install_node_instances(
-            graph=ctx.graph_mode(),
-            node_instances=set(added_instances),
-            intact_nodes=set(add_related_instances))
+        graph=ctx.graph_mode(),
+        node_instances=set(instances_by_change['added_instances'][1]),
+        intact_nodes=set(instances_by_change['added_target_instances'][1]))
 
     # This one as well.
-    lifecycle.add_relationships(
-            graph=ctx.graph_mode(),
-            node_instances=set(extended_instances),
-            intact_nodes=set(extend_related_instances),
-            modified_relationship_ids=modified_entity_ids
+    lifecycle.execute_establish_relationships(
+        graph=ctx.graph_mode(),
+        node_instances=set(instances_by_change['extended_and_target_instances']
+                           [1]),
+        modified_relationship_ids=modified_entity_ids['relationship']
     )
 
-    lifecycle.remove_relationships(
-            graph=ctx.graph_mode(),
-            node_instances=set(reduced_instances),
-            intact_nodes=set(reduce_related_instances),
-            modified_relationship_ids=modified_entity_ids
+    lifecycle.execute_unlink_relationships(
+        graph=ctx.graph_mode(),
+        node_instances=set(instances_by_change['reduced_and_target_instances']
+                           [1]),
+        modified_relationship_ids=modified_entity_ids['relationship']
     )
 
     lifecycle.uninstall_node_instances(
-            graph=ctx.graph_mode(),
-            node_instances=set(removed_instances),
-            intact_nodes=set(remove_related_instances)
+        graph=ctx.graph_mode(),
+        node_instances=set(instances_by_change['removed_instances'][1]),
+        intact_nodes=set(instances_by_change['remove_target_instance_ids'][1])
     )
 
     # Finalize the commit (i.e. remove relationships or nodes)

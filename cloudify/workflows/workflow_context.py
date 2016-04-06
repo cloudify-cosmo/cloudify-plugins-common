@@ -1381,16 +1381,16 @@ class Modification(object):
         node_instances = modification.node_instances
         added_raw_nodes = dict(
             (instance.node_id, workflow_ctx.get_node(instance.node_id)._node)
-            for instance in node_instances.added_and_related).values()
-        added_raw_node_instances = node_instances.added_and_related
+            for instance in node_instances.added_and_targeted).values()
+        added_raw_node_instances = node_instances.added_and_targeted
         self._added = ModificationNodes(self,
                                         added_raw_nodes,
                                         added_raw_node_instances)
 
         removed_raw_nodes = dict(
             (instance.node_id, workflow_ctx.get_node(instance.node_id)._node)
-            for instance in node_instances.removed_and_related).values()
-        removed_raw_node_instances = node_instances.removed_and_related
+            for instance in node_instances.removed_and_targeted).values()
+        removed_raw_node_instances = node_instances.removed_and_targeted
         self._removed = ModificationNodes(self,
                                           removed_raw_nodes,
                                           removed_raw_node_instances)
