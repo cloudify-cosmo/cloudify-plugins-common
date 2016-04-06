@@ -126,7 +126,7 @@ def _save_resource(logger, resource, resource_path, target_path):
     return target_path
 
 
-def download_resource(resource_path, logger, target_path=None):
+def download_resource_from_manager(resource_path, logger, target_path=None):
     """
     Download resource from the manager file server.
 
@@ -135,30 +135,41 @@ def download_resource(resource_path, logger, target_path=None):
     :param target_path: optional target path for the resource
     :returns: path to the downloaded resource
     """
-    resource = get_resource(resource_path)
+    resource = get_resource_from_manager(resource_path)
     return _save_resource(logger, resource, resource_path, target_path)
 
 
-def download_blueprint_resource(blueprint_id,
-                                resource_path,
-                                logger,
-                                target_path=None):
+def download_resource(blueprint_id,
+                      deployment_id,
+                      resource_path,
+                      logger,
+                      target_path=None):
     """
     Download resource from the manager file server with path relative to
-    the blueprint denoted by ``blueprint_id``.
+    the deployment or blueprint denoted by ``deployment_id`` or
+    ``blueprint_id``
+
+    An attempt will first be made for getting the resource from the deployment
+    folder. If not found, an attempt will be made for getting the resource
+    from the blueprint folder.
 
     :param blueprint_id: the blueprint id of the blueprint to download the
                          resource from
-    :param resource_path: path to resource relative to blueprint folder
+    :param deployment_id: the deployment id of the deployment to download the
+                          resource from
+    :param resource_path: path to resource relative to blueprint or deployment
+                          folder
     :param logger: logger to use for info output
     :param target_path: optional target path for the resource
     :returns: path to the downloaded resource
     """
-    resource = get_blueprint_resource(blueprint_id, resource_path)
+    resource = get_resource(blueprint_id,
+                            deployment_id,
+                            resource_path)
     return _save_resource(logger, resource, resource_path, target_path)
 
 
-def get_resource(resource_path, base_url=None):
+def get_resource_from_manager(resource_path, base_url=None):
     """
     Get resource from the manager file server.
 
@@ -175,20 +186,52 @@ def get_resource(resource_path, base_url=None):
         raise HttpException(e.url, e.code, e.msg)
 
 
-def get_blueprint_resource(blueprint_id, resource_path):
+def get_resource(blueprint_id, deployment_id, resource_path):
     """
-    Get resource from the manager file server with patch relative to
-    the blueprint denoted by ``blueprint_id``.
+    Get resource from the manager file server with path relative to
+    the deployment or blueprint denoted by ``deployment_id`` or
+    ``blueprint_id``.
+
+    An attempt will first be made for getting the resource from the deployment
+    folder. If not found, an attempt will be made for getting the resource
+    from the blueprint folder.
 
     :param blueprint_id: the blueprint id of the blueprint to download
                          the resource from
+    :param deployment_id: the deployment id of the deployment to download the
+                          resource from
     :param resource_path: path to resource relative to blueprint folder
     :returns: resource content
     """
-    base_url = "{0}/{1}".format(utils
-                                .get_manager_file_server_blueprints_root_url(),
-                                blueprint_id)
-    return get_resource(resource_path, base_url=base_url)
+
+    def _get_resource(base_url):
+        try:
+            return get_resource_from_manager(resource_path, base_url=base_url)
+        except HttpException as e:
+            if e.code != 404:
+                raise
+            return None
+
+    resource = None
+    if deployment_id is not None:
+        deployment_base_url = '{0}/{1}'.format(
+            utils.get_manager_file_server_deployments_root_url(),
+            deployment_id)
+        resource = _get_resource(deployment_base_url)
+
+    if resource is None:
+        blueprint_base_url = '{0}/{1}'.format(
+                utils.get_manager_file_server_blueprints_root_url(),
+                blueprint_id)
+        resource = _get_resource(blueprint_base_url)
+        if resource is None:
+            if deployment_id is None:
+                url = blueprint_base_url
+            else:
+                url = ','.join([deployment_base_url, blueprint_base_url])
+            raise HttpException(url, 404, 'Resource not found: {0}'
+                                .format(resource_path))
+    return resource
 
 
 def get_node_instance(node_instance_id):

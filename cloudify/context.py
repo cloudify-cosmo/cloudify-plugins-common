@@ -733,8 +733,9 @@ class CloudifyContext(CommonContext):
                               uploaded.
         """
 
-        return self._endpoint.get_blueprint_resource(
+        return self._endpoint.get_resource(
             blueprint_id=self.blueprint.id,
+            deployment_id=self.deployment.id,
             resource_path=resource_path)
 
     def get_resource_and_render(self,
@@ -751,8 +752,9 @@ class CloudifyContext(CommonContext):
 
         template_variables = self._add_context_to_template_variables(
             template_variables)
-        return self._endpoint.get_blueprint_resource(
+        return self._endpoint.get_resource(
             blueprint_id=self.blueprint.id,
+            deployment_id=self.deployment.id,
             resource_path=resource_path,
             template_variables=template_variables)
 
@@ -785,8 +787,9 @@ class CloudifyContext(CommonContext):
 
         """
 
-        return self._endpoint.download_blueprint_resource(
+        return self._endpoint.download_resource(
             blueprint_id=self.blueprint.id,
+            deployment_id=self.deployment.id,
             resource_path=resource_path,
             logger=self.logger,
             target_path=target_path)
@@ -807,8 +810,9 @@ class CloudifyContext(CommonContext):
 
         template_variables = self._add_context_to_template_variables(
             template_variables)
-        return self._endpoint.download_blueprint_resource(
+        return self._endpoint.download_resource(
             blueprint_id=self.blueprint.id,
+            deployment_id=self.deployment.id,
             resource_path=resource_path,
             logger=self.logger,
             target_path=target_path,
