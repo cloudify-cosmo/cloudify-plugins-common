@@ -257,7 +257,10 @@ class PathDictAccess(object):
         value = self._get_object_by_path(prop_path)
         return value
 
-    def _get_object_by_path(self, prop_path):
+    def _get_object_by_path(self, prop_path, fail_on_missing=True):
+        # when setting a nested object, make sure to also set all the
+        # intermediate path objects
+
         current = self.obj
         for prop_segment in prop_path.split('.'):
             match = self.pattern.match(prop_segment)
@@ -271,7 +274,10 @@ class PathDictAccess(object):
                 current = current[property_name][index]
             else:
                 if prop_segment not in current:
-                    current[prop_segment] = {}
+                    if fail_on_missing:
+                        self._raise_illegal(prop_path)
+                    else:
+                        current[prop_segment] = {}
                 current = current[prop_segment]
         return current
 
@@ -280,7 +286,8 @@ class PathDictAccess(object):
         if len(split) == 1:
             return self.obj, prop_path
         parent_path = '.'.join(split[:-1])
-        parent_obj = self._get_object_by_path(parent_path)
+        parent_obj = self._get_object_by_path(parent_path,
+                                              fail_on_missing=False)
         prop_name = split[-1]
         return parent_obj, prop_name
 

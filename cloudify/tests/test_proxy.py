@@ -29,7 +29,8 @@ from cloudify.mocks import MockCloudifyContext
 from cloudify.proxy import client
 from cloudify.proxy.server import (UnixCtxProxy,
                                    TCPCtxProxy,
-                                   HTTPCtxProxy)
+                                   HTTPCtxProxy,
+                                   PathDictAccess)
 
 IS_WINDOWS = os.name == 'nt'
 
@@ -352,3 +353,74 @@ class TestCtxEntryPoint(testtools.TestCase):
 
     def test_ctx_in_path(self):
         subprocess.call(['ctx', '--help'])
+
+
+class TestPathDictAccess(testtools.TestCase):
+    def test_simple_set(self):
+        obj = {}
+        path_dict = PathDictAccess(obj)
+        path_dict.set('foo', 42)
+        self.assertEqual(obj, {'foo': 42})
+
+    def test_nested_set(self):
+        obj = {'foo': {}}
+        path_dict = PathDictAccess(obj)
+        path_dict.set('foo.bar', 42)
+        self.assertEqual(obj, {'foo': {'bar': 42}})
+
+    def test_set_index(self):
+        obj = {'foo': [None, {'bar': 0}]}
+        path_dict = PathDictAccess(obj)
+        path_dict.set('foo[1].bar', 42)
+        self.assertEqual(obj, {'foo': [None, {'bar': 42}]})
+
+    def test_set_nonexistent_parent(self):
+        obj = {}
+        path_dict = PathDictAccess(obj)
+        path_dict.set('foo.bar', 42)
+        self.assertEqual(obj, {'foo': {'bar': 42}})
+
+    def test_set_nonexistent_parent_nested(self):
+        obj = {}
+        path_dict = PathDictAccess(obj)
+        path_dict.set('foo.bar.baz', 42)
+        self.assertEqual(obj, {'foo': {'bar': {'baz': 42}}})
+
+    def test_simple_get(self):
+        obj = {'foo': 42}
+        path_dict = PathDictAccess(obj)
+        result = path_dict.get('foo')
+        self.assertEqual(result, 42)
+
+    def test_nested_get(self):
+        obj = {'foo': {'bar': 42}}
+        path_dict = PathDictAccess(obj)
+        result = path_dict.get('foo.bar')
+        self.assertEqual(result, 42)
+
+    def test_nested_get_shadows_dotted_name(self):
+        obj = {'foo': {'bar': 42}, 'foo.bar': 58}
+        path_dict = PathDictAccess(obj)
+        result = path_dict.get('foo.bar')
+        self.assertEqual(result, 42)
+
+    def test_index_get(self):
+        obj = {'foo': [0, 1]}
+        path_dict = PathDictAccess(obj)
+        result = path_dict.get('foo[1]')
+        self.assertEqual(result, 1)
+
+    def test_get_nonexistent(self):
+        obj = {}
+        path_dict = PathDictAccess(obj)
+        self.assertRaises(RuntimeError, path_dict.get, 'foo')
+
+    def test_get_by_index_not_list(self):
+        obj = {'foo': {0: 'not-list'}}
+        path_dict = PathDictAccess(obj)
+        self.assertRaises(RuntimeError, path_dict.get, 'foo[0]')
+
+    def test_get_by_index_nonexistent_parent(self):
+        obj = {}
+        path_dict = PathDictAccess(obj)
+        self.assertRaises(RuntimeError, path_dict.get, 'foo[1]')
