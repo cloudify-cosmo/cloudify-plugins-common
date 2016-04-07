@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
+from collections import MutableMapping, Mapping
 import subprocess
 import json
 import shlex
+import sys
 
 
 def check_output(*popenargs, **kwargs):
@@ -13,14 +15,17 @@ def check_output(*popenargs, **kwargs):
     Python 2.6.2
     https://gist.github.com/edufelipe/1027906
     """
-    process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
-    output, unused_err = process.communicate()
+    process = subprocess.Popen(stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               *popenargs, **kwargs)
+    output, stderr = process.communicate()
     retcode = process.poll()
     if retcode:
         cmd = kwargs.get("args")
         if cmd is None:
             cmd = popenargs[0]
         error = subprocess.CalledProcessError(retcode, cmd)
+        sys.stderr.write(stderr)
+        error.stderr = stderr
         error.output = output
         raise error
     return output
@@ -56,7 +61,7 @@ class CtxLogger(object):
 
 
 # TODO: set immutable properties here.
-class CtxNodeProperties(object):
+class CtxNodeProperties(Mapping):
     def __init__(self, relationship=None):
         self.relationship = relationship
 
@@ -64,19 +69,28 @@ class CtxNodeProperties(object):
         cmd = ['ctx', '-j', 'node', 'properties', property_name]
         if self.relationship:
             cmd.insert(2, self.relationship)
-        result = json.loads(check_output(cmd))
-        return unicode_to_string(result)
-
-    def get(self, property_name, returns=None):
         try:
-            return self.__getitem__(property_name)
-        except:
-            return returns
+            result = json.loads(check_output(cmd))
+        except subprocess.CalledProcessError as e:
+            if 'illegal path:' in e.stderr:
+                raise KeyError(property_name)
+            else:
+                raise
+        return unicode_to_string(result)
 
     def get_all(self):
         cmd = ['ctx', '-j', 'node', 'properties']
-        result = json.loads(subprocess.check_output(cmd))
+        result = json.loads(check_output(cmd))
         return unicode_to_string(result)
+
+    def __len__(self):
+        return len(self.get_all())
+
+    def __iter__(self):
+        return iter(self.get_all())
+
+    def __contains__(self, element):
+        return element in self.get_all()
 
 
 class CtxNode(object):
@@ -105,7 +119,7 @@ class CtxNode(object):
         return self._node('type')
 
 
-class CtxInstanceRuntimeProperties(object):
+class CtxInstanceRuntimeProperties(MutableMapping):
     def __init__(self, relationship=None):
         self.relationship = relationship
 
@@ -113,11 +127,14 @@ class CtxInstanceRuntimeProperties(object):
         cmd = ['ctx', '-j', 'instance', 'runtime_properties', property_name]
         if self.relationship:
             cmd.insert(2, self.relationship)
-        result = json.loads(check_output(cmd))
+        try:
+            result = json.loads(check_output(cmd))
+        except subprocess.CalledProcessError as e:
+            if 'illegal path:' in e.stderr:
+                raise KeyError(property_name)
+            else:
+                raise
         return unicode_to_string(result)
-
-    def get(self, property_name, returns=None):
-        return self.__getitem__(property_name) or returns
 
     def __setitem__(self, property_name, value):
         cmd = ['ctx', 'instance', 'runtime_properties', property_name,
@@ -126,6 +143,23 @@ class CtxInstanceRuntimeProperties(object):
         if self.relationship:
             cmd.insert(1, self.relationship)
         return check_output(cmd)
+
+    def __delitem__(self, property_name):
+        self[property_name] = None
+
+    def get_all(self):
+        cmd = ['ctx', '-j', 'instance', 'runtime_properties']
+        result = json.loads(check_output(cmd))
+        return unicode_to_string(result)
+
+    def __len__(self):
+        return len(self.get_all())
+
+    def __iter__(self):
+        return iter(self.get_all())
+
+    def __contains__(self, element):
+        return element in self.get_all()
 
 
 class CtxNodeInstance(object):
@@ -219,7 +253,7 @@ class Ctx(object):
                                      'dict')
             parameters = '@{0}'.format(json.dumps(kwargs))
             cmd.append(parameters)
-        return subprocess.check_output(cmd)
+        return check_output(cmd)
 
 
 ctx = Ctx()
