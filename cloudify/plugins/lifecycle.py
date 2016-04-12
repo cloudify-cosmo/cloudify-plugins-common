@@ -20,31 +20,31 @@ from cloudify.workflows.tasks_graph import forkjoin
 from cloudify.workflows import tasks as workflow_tasks
 
 
-def install_node_instances(graph, node_instances, intact_nodes=None):
+def install_node_instances(graph, node_instances, related_nodes=None):
     processor = LifecycleProcessor(graph=graph,
                                    node_instances=node_instances,
-                                   related_nodes=intact_nodes)
+                                   related_nodes=related_nodes)
     processor.install()
 
 
-def uninstall_node_instances(graph, node_instances, intact_nodes=None):
+def uninstall_node_instances(graph, node_instances, related_nodes=None):
     processor = LifecycleProcessor(graph=graph,
                                    node_instances=node_instances,
-                                   related_nodes=intact_nodes)
+                                   related_nodes=related_nodes)
     processor.uninstall()
 
 
-def reinstall_node_instances(graph, node_instances, intact_nodes=None):
+def reinstall_node_instances(graph, node_instances, related_nodes=None):
     processor = LifecycleProcessor(graph=graph,
                                    node_instances=node_instances,
-                                   related_nodes=intact_nodes)
+                                   related_nodes=related_nodes)
     processor.uninstall()
     processor.install()
 
 
 def execute_establish_relationships(graph,
                                     node_instances,
-                                    intact_nodes=None,
+                                    related_nodes=None,
                                     modified_relationship_ids=None):
     processor = LifecycleProcessor(
             graph=graph,
@@ -57,7 +57,7 @@ def execute_establish_relationships(graph,
 
 def execute_unlink_relationships(graph,
                                  node_instances,
-                                 intact_nodes=None,
+                                 related_nodes=None,
                                  modified_relationship_ids=None):
     processor = LifecycleProcessor(
             graph=graph,
