@@ -125,6 +125,13 @@ def get_manager_file_server_blueprints_root_url():
     return os.environ[constants.MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY]
 
 
+def get_manager_file_server_deployments_root_url():
+    """
+    Returns the blueprints root url in the file server.
+    """
+    return os.environ[constants.MANAGER_FILE_SERVER_DEPLOYMENTS_ROOT_URL_KEY]
+
+
 def get_manager_file_server_url():
     """
     Returns the manager file server base url.

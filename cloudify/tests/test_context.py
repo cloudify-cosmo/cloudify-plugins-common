@@ -21,7 +21,7 @@ import tempfile
 from os.path import dirname
 
 import testtools
-from mock import patch
+from mock import patch, MagicMock
 
 from cloudify import constants
 from cloudify import context
@@ -51,6 +51,8 @@ class CloudifyContextTest(testtools.TestCase):
 
         os.environ[constants.MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY] \
             = "http://localhost:{0}".format(PORT)
+        os.environ[constants.MANAGER_FILE_SERVER_DEPLOYMENTS_ROOT_URL_KEY] \
+            = "http://localhost:{0}/deployments".format(PORT)
         os.environ[constants.MANAGER_FILE_SERVER_URL_KEY] = \
             "http://localhost:{0}".format(PORT)
         cls.context = context.CloudifyContext({'blueprint_id': ''})
@@ -69,26 +71,42 @@ class CloudifyContextTest(testtools.TestCase):
         logger.handlers = [stdout_log_handler]
 
     def test_get_resource(self):
-        resource = self.context.get_resource(resource_path='for_test.log')
-        self.assertIsNotNone(resource)
+        resource = self.context.get_resource(
+            resource_path='for_test_bp_resource.txt')
+        self.assertEquals(resource, 'Hello from test')
+
+    def test_get_deployment_resource_priority_over_blueprint_resource(self):
+        deployment_context_mock = MagicMock()
+        deployment_context_mock.id = 'dep1'
+        self.context.deployment = deployment_context_mock
+        resource = self.context.get_resource(resource_path='for_test.txt')
+        self.assertEquals(resource, 'belongs to dep1')
+
+    def test_get_deployment_resource_no_blueprint_resource(self):
+        deployment_context_mock = MagicMock()
+        deployment_context_mock.id = 'dep1'
+        self.context.deployment = deployment_context_mock
+        resource = self.context.get_resource(
+            resource_path='for_test_only_dep.txt')
+        self.assertEquals(resource, 'belongs to dep1')
 
     def test_download_resource(self):
         resource_path = self.context.download_resource(
-            resource_path='for_test.log')
+            resource_path='for_test.txt')
         self.assertIsNotNone(resource_path)
         self.assertTrue(os.path.exists(resource_path))
 
     def test_download_resource_to_specific_file(self):
         target_path = "{0}/for_test_custom.log".format(create_temp_folder())
         resource_path = self.context.download_resource(
-            resource_path='for_test.log',
+            resource_path='for_test.txt',
             target_path=target_path)
         self.assertEqual(target_path, resource_path)
         self.assertTrue(os.path.exists(resource_path))
 
     def test_download_resource_to_non_writable_location(self):
         self.assertRaises(IOError, self.context.download_resource,
-                          'for_test.log',
+                          'for_test.txt',
                           '/non-existing-folder')
 
     def test_get_non_existing_resource(self):

@@ -28,7 +28,7 @@ from cloudify.manager import (get_node_instance,
                               update_execution_status,
                               get_bootstrap_context,
                               get_rest_client,
-                              download_blueprint_resource)
+                              download_resource)
 from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
@@ -1195,10 +1195,11 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
                                     resource_path,
                                     target_path=None):
         logger = self.workflow_ctx.logger
-        return download_blueprint_resource(blueprint_id=blueprint_id,
-                                           resource_path=resource_path,
-                                           target_path=target_path,
-                                           logger=logger)
+        return download_resource(blueprint_id=blueprint_id,
+                                 deployment_id=None,
+                                 resource_path=resource_path,
+                                 target_path=target_path,
+                                 logger=logger)
 
 
 class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):

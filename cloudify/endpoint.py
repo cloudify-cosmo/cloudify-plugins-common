@@ -37,18 +37,20 @@ class Endpoint(object):
     def update_node_instance(self, node_instance):
         raise NotImplementedError('Implemented by subclasses')
 
-    def get_blueprint_resource(self,
-                               blueprint_id,
-                               resource_path,
-                               template_variables=None):
+    def get_resource(self,
+                     blueprint_id,
+                     deployment_id,
+                     resource_path,
+                     template_variables=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    def download_blueprint_resource(self,
-                                    blueprint_id,
-                                    resource_path,
-                                    logger,
-                                    target_path=None,
-                                    template_variables=None):
+    def download_resource(self,
+                          blueprint_id,
+                          deployment_id,
+                          resource_path,
+                          logger,
+                          target_path=None,
+                          template_variables=None):
         raise NotImplementedError('Implemented by subclasses')
 
     def _render_resource_if_needed(self,
@@ -155,24 +157,28 @@ class ManagerEndpoint(Endpoint):
     def update_node_instance(self, node_instance):
         return manager.update_node_instance(node_instance)
 
-    def get_blueprint_resource(self,
-                               blueprint_id,
-                               resource_path,
-                               template_variables=None):
-        resource = manager.get_blueprint_resource(blueprint_id=blueprint_id,
-                                                  resource_path=resource_path)
+    def get_resource(self,
+                     blueprint_id,
+                     deployment_id,
+                     resource_path,
+                     template_variables=None):
+        resource = manager.get_resource(blueprint_id=blueprint_id,
+                                        deployment_id=deployment_id,
+                                        resource_path=resource_path)
         return self._render_resource_if_needed(
             resource=resource,
             template_variables=template_variables)
 
-    def download_blueprint_resource(self,
-                                    blueprint_id,
-                                    resource_path,
-                                    logger,
-                                    target_path=None,
-                                    template_variables=None):
-        resource = manager.download_blueprint_resource(
+    def download_resource(self,
+                          blueprint_id,
+                          deployment_id,
+                          resource_path,
+                          logger,
+                          target_path=None,
+                          template_variables=None):
+        resource = manager.download_resource(
             blueprint_id=blueprint_id,
+            deployment_id=deployment_id,
             resource_path=resource_path,
             logger=logger,
             target_path=target_path)
@@ -252,21 +258,23 @@ class LocalEndpoint(Endpoint):
             state=None,
             version=node_instance.version)
 
-    def get_blueprint_resource(self,
-                               blueprint_id,
-                               resource_path,
-                               template_variables=None):
+    def get_resource(self,
+                     blueprint_id,
+                     deployment_id,
+                     resource_path,
+                     template_variables=None):
         resource = self.storage.get_resource(resource_path)
         return self._render_resource_if_needed(
             resource=resource,
             template_variables=template_variables)
 
-    def download_blueprint_resource(self,
-                                    blueprint_id,
-                                    resource_path,
-                                    logger,
-                                    target_path=None,
-                                    template_variables=None):
+    def download_resource(self,
+                          blueprint_id,
+                          deployment_id,
+                          resource_path,
+                          logger,
+                          target_path=None,
+                          template_variables=None):
         resource = self.storage.download_resource(resource_path=resource_path,
                                                   target_path=target_path)
         return self._render_resource_if_needed(
