@@ -720,7 +720,7 @@ class LocalWorkflowTest(BaseWorkflowTest):
             instance = _instance(ctx, 'node')
             instance.set_state('state').get()
             instance.execute_operation('test.op0').get()
-            target_path = ctx.internal.handler.download_blueprint_resource(
+            target_path = ctx.internal.handler.download_deployment_resource(
                 'resource')
             with open(target_path) as f:
                 self.assertEqual('content', f.read())

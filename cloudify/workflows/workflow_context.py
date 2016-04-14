@@ -1085,9 +1085,9 @@ class CloudifyWorkflowContextHandler(object):
                             additional_context=None):
         raise NotImplementedError('Implemented by subclasses')
 
-    def download_blueprint_resource(self,
-                                    resource_path,
-                                    target_path=None):
+    def download_deployment_resource(self,
+                                     resource_path,
+                                     target_path=None):
         raise NotImplementedError('Implemented by subclasses')
 
     def start_deployment_modification(self, nodes):
@@ -1190,13 +1190,14 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
             return get_node_instance(workflow_node_instance.id).state
         return get_state_task
 
-    def download_blueprint_resource(self,
-                                    blueprint_id,
-                                    resource_path,
-                                    target_path=None):
+    def download_deployment_resource(self,
+                                     blueprint_id,
+                                     deployment_id,
+                                     resource_path,
+                                     target_path=None):
         logger = self.workflow_ctx.logger
         return download_resource(blueprint_id=blueprint_id,
-                                 deployment_id=None,
+                                 deployment_id=deployment_id,
                                  resource_path=resource_path,
                                  target_path=target_path,
                                  logger=logger)
@@ -1212,12 +1213,13 @@ class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):
         return CloudifyWorkflowLoggingHandler(self.workflow_ctx,
                                               out_func=logs.amqp_log_out)
 
-    def download_blueprint_resource(self,
-                                    resource_path,
-                                    target_path=None):
+    def download_deployment_resource(self,
+                                     resource_path,
+                                     target_path=None):
         return super(RemoteCloudifyWorkflowContextHandler, self) \
-            .download_blueprint_resource(
+            .download_deployment_resource(
                 blueprint_id=self.workflow_ctx.blueprint.id,
+                deployment_id=self.workflow_ctx.deployment.id,
                 resource_path=resource_path,
                 target_path=target_path)
 
@@ -1367,9 +1369,9 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
                             additional_context=additional_context,
                             out_func=logs.stdout_event_out)
 
-    def download_blueprint_resource(self,
-                                    resource_path,
-                                    target_path=None):
+    def download_deployment_resource(self,
+                                     resource_path,
+                                     target_path=None):
         return self.storage.download_resource(resource_path=resource_path,
                                               target_path=target_path)
 
