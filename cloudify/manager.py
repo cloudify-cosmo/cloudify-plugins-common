@@ -72,6 +72,14 @@ class NodeInstance(object):
         """
         return self._runtime_properties
 
+    @runtime_properties.setter
+    def runtime_properties(self, new_properties):
+        # notify the old object of the changes - trigger a .modifiable check
+        self._runtime_properties._set_changed()
+
+        self._runtime_properties = DirtyTrackingDict(new_properties)
+        self._runtime_properties._set_changed()
+
     @property
     def version(self):
         return self._version
