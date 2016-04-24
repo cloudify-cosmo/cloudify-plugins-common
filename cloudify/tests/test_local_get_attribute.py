@@ -59,10 +59,16 @@ class TestLocalWorkflowGetAttribute(testtools.TestCase):
         finally:
             shutil.rmtree(tempdir)
 
-    def _test(self, storage=None):
+    def test_multi_instance_relationship_ambiguity_resolution(self):
+        self._test(blueprint='get_attribute_multi_instance.yaml')
+
+    def test_multi_instance_scaling_group_ambiguity_resolution(self):
+        self._test(blueprint='get_attribute_multi_instance2.yaml')
+
+    def _test(self, storage=None, blueprint='get_attribute.yaml'):
         blueprint_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
-            'resources/blueprints/get_attribute.yaml')
+            'resources/blueprints/{0}'.format(blueprint))
         self.env = local.init_env(blueprint_path, storage=storage)
         self.env.execute('setup', task_retries=0)
         self.env.execute('run', task_retries=0)
@@ -122,3 +128,25 @@ def op(self_ref=None,
             'source: {0}'.format(source_ref)
         assert target_ref == 'target_ref_value', \
             'target: {0}'.format(target_ref)
+
+
+@workflow
+def run_multi(**_):
+    node = workflow_ctx.get_node('node1')
+    for instance in node.instances:
+        instance.execute_operation('test.op')
+
+
+@operation
+def populate_multi(**_):
+    operation_ctx.instance.runtime_properties.update({
+        'node_ref_property': 'node_ref_value_{0}'.format(
+            operation_ctx.instance.id),
+    })
+
+
+@operation
+def op_multi(node_ref, **_):
+    operation_ctx.logger.info(node_ref)
+    assert node_ref.startswith('node_ref_value_node2_'), \
+        'node: {0}'.format(operation_ctx.instance.id)
