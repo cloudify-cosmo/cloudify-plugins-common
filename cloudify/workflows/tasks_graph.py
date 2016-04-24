@@ -60,7 +60,11 @@ class TaskDependencyGraph(object):
 
         :param task: The task
         """
-        self.graph.remove_node(task.id)
+        if task.is_subgraph:
+            for subgraph_task in task.tasks.values():
+                self.remove_task(subgraph_task)
+        if task.id in self.graph:
+            self.graph.remove_node(task.id)
 
     # src depends on dst
     def add_dependency(self, src_task, dst_task):
@@ -284,7 +288,6 @@ class SubgraphTask(tasks.WorkflowTask):
                  name,
                  graph,
                  task_id=None,
-                 info=None,
                  on_success=None,
                  on_failure=None,
                  total_retries=tasks.DEFAULT_SUBGRAPH_TOTAL_RETRIES,
@@ -293,7 +296,7 @@ class SubgraphTask(tasks.WorkflowTask):
         super(SubgraphTask, self).__init__(
             graph.ctx,
             task_id,
-            info=info,
+            info=name,
             on_success=on_success,
             on_failure=on_failure,
             total_retries=total_retries,
@@ -347,6 +350,9 @@ class SubgraphTask(tasks.WorkflowTask):
                                        task.containing_subgraph.name,
                                        self.name))
         task.containing_subgraph = self
+
+    def remove_task(self, task):
+        self.graph.remove_task(task)
 
     def add_dependency(self, src_task, dst_task):
         self.graph.add_dependency(src_task, dst_task)

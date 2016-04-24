@@ -406,6 +406,84 @@ class TestSubgraphWorkflowLogic(testtools.TestCase):
         assert_op(sorted_invocations[3], 'node2', 'create')
 
 
+class TestRelationshipOrderInLifecycleWorkflows(testtools.TestCase):
+
+    blueprint_path = path.join('resources', 'blueprints',
+                               'test-relationship-order-blueprint.yaml')
+
+    @workflow_test(blueprint_path)
+    def test_install_uninstall_and_heal_relationships_order(self, env):
+        self.env = env
+
+        self._assert_invocation_order(
+            workflow='install',
+            expected_invocations=[
+                ('main',    'establish', 'node1'),
+                ('main',    'establish', 'node2'),
+                ('main',    'establish', 'main_compute'),
+                ('main',    'establish', 'node4'),
+                ('main',    'establish', 'node5'),
+                ('depends', 'establish', 'main_compute'),
+                ('depends', 'establish', 'main')
+            ])
+
+        self._assert_invocation_order(
+            workflow='heal',
+            expected_invocations=[
+                ('depends', 'unlink', 'main'),
+                ('depends', 'unlink', 'main_compute'),
+                ('main',    'unlink', 'node5'),
+                ('main',    'unlink', 'node4'),
+                ('main',    'unlink', 'main_compute'),
+                ('main',    'unlink', 'node2'),
+                ('main',    'unlink', 'node1'),
+                ('main',    'establish', 'node1'),
+                ('main',    'establish', 'node2'),
+                ('main',    'establish', 'main_compute'),
+                ('main',    'establish', 'node4'),
+                ('main',    'establish', 'node5'),
+                ('depends', 'establish', 'main_compute'),
+                ('depends', 'establish', 'main')
+            ])
+
+        self._assert_invocation_order(
+            workflow='uninstall',
+            expected_invocations=[
+                ('depends', 'unlink', 'main'),
+                ('depends', 'unlink', 'main_compute'),
+                ('main',    'unlink', 'node5'),
+                ('main',    'unlink', 'node4'),
+                ('main',    'unlink', 'main_compute'),
+                ('main',    'unlink', 'node2'),
+                ('main',    'unlink', 'node1'),
+            ])
+
+    def _assert_invocation_order(self, workflow, expected_invocations):
+        parameters = {}
+        if workflow == 'heal':
+            parameters = {
+                'node_instance_id': self._get_node_instance('main').id
+            }
+        self.env.execute(workflow, parameters=parameters)
+        main_instance = self._get_node_instance('main')
+        depends_on_main = self._get_node_instance('depends')
+        invocations = main_instance.runtime_properties['invocations']
+        invocations += depends_on_main.runtime_properties['invocations']
+        invocations.sort(key=lambda i: i['counter'])
+        for index, (node_id, op, target) in enumerate(expected_invocations):
+            invocation = invocations[index]
+            self.assertEqual(invocation['node_id'], node_id)
+            self.assertEqual(invocation['operation'].split('.')[-1], op)
+            self.assertEqual(invocation['target_node'], target)
+        for instance in self.env.storage.get_node_instances():
+            self.env.storage.update_node_instance(instance.id,
+                                                  instance.version,
+                                                  runtime_properties={})
+
+    def _get_node_instance(self, node_id):
+        return self.env.storage.get_node_instances(node_id=node_id)[0]
+
+
 @nottest
 @operation
 def exec_op_test_operation(ctx, **kwargs):

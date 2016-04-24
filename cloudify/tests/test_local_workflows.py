@@ -313,7 +313,18 @@ class BaseWorkflowTest(testtools.TestCase):
                     'type': 'imported_type'
                 }
             },
-            'workflows': workflows
+            'workflows': workflows,
+            'groups': {
+                'group1': {
+                    'members': ['node']
+                }
+            },
+            'policies': {
+                'policy1': {
+                    'type': 'cloudify.policies.scaling',
+                    'targets': ['group1']
+                }
+            }
         }
         return blueprint
 
@@ -559,6 +570,12 @@ class LocalWorkflowTest(BaseWorkflowTest):
         def attributes(ctx, **_):
             self.assertEqual(self._testMethodName, ctx.blueprint.id)
             self.assertEqual(self._testMethodName, ctx.deployment.id)
+            self.assertEqual(
+                ['node'], ctx.deployment.scaling_groups['group1']['members'])
+            node_instance = next(ctx.get_node('node').instances)
+            scaling_groups = node_instance.scaling_groups
+            self.assertEqual(1, len(scaling_groups))
+            self.assertEqual('group1', scaling_groups[0]['name'])
             self.assertEqual('workflow0', ctx.workflow_id)
             self.assertIsNotNone(ctx.execution_id)
         self._execute_workflow(attributes)

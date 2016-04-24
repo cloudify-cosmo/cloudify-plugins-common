@@ -1,0 +1,67 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.4m4/types.yaml
+
+node_templates:
+
+  main:
+    type: cloudify.nodes.Root
+    relationships:
+    - type: connected_to
+      target: node1
+    - type: connected_to
+      target: node2
+    - type: contained_in
+      target: main_compute
+    - type: connected_to
+      target: node4
+    - type: connected_to
+      target: node5
+
+  node1:
+    type: cloudify.nodes.Root
+
+  node2:
+    type: cloudify.nodes.Root
+
+  main_compute:
+    type: cloudify.nodes.Compute
+    properties:
+      agent_config:
+        install_method: none
+
+  node4:
+    type: cloudify.nodes.Root
+
+  node5:
+    type: cloudify.nodes.Root
+
+  depends:
+    type: cloudify.nodes.Root
+    relationships:
+    - type: connected_to
+      target: main_compute
+    - type: connected_to
+      target: main
+
+dsl_definitions:
+  - &relationship_interfaces
+    source_interfaces:
+      cloudify.interfaces.relationship_lifecycle:
+        establish: p.cloudify.tests.test_builtin_workflows.source_operation
+        unlink:    p.cloudify.tests.test_builtin_workflows.source_operation
+
+relationships:
+  connected_to:
+    derived_from: cloudify.relationships.connected_to
+    <<: *relationship_interfaces
+
+  contained_in:
+    derived_from: cloudify.relationships.contained_in
+    <<: *relationship_interfaces
+
+plugins:
+  p:
+    executor: central_deployment_agent
+    install: false

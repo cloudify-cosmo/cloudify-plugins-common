@@ -35,6 +35,12 @@ except ImportError as e:
     install_requires.append('argparse==1.2.2')
 
 
+try:
+    from collections import OrderedDict  # noqa
+except ImportError:
+    install_requires.append('ordereddict==1.1')
+
+
 setup(
     name='cloudify-plugins-common',
     version='3.4a4',
