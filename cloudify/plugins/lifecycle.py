@@ -20,55 +20,87 @@ from cloudify.workflows.tasks_graph import forkjoin
 from cloudify.workflows import tasks as workflow_tasks
 
 
-def install_node_instances(graph, node_instances, intact_nodes=None):
+def install_node_instances(graph, node_instances, related_nodes=None):
     processor = LifecycleProcessor(graph=graph,
                                    node_instances=node_instances,
-                                   intact_nodes=intact_nodes)
+                                   related_nodes=related_nodes)
     processor.install()
 
 
-def uninstall_node_instances(graph, node_instances, intact_nodes=None):
+def uninstall_node_instances(graph, node_instances, related_nodes=None):
     processor = LifecycleProcessor(graph=graph,
                                    node_instances=node_instances,
-                                   intact_nodes=intact_nodes)
+                                   related_nodes=related_nodes)
     processor.uninstall()
 
 
-def reinstall_node_instances(graph, node_instances, intact_nodes=None):
+def reinstall_node_instances(graph, node_instances, related_nodes=None):
     processor = LifecycleProcessor(graph=graph,
                                    node_instances=node_instances,
-                                   intact_nodes=intact_nodes)
+                                   related_nodes=related_nodes)
     processor.uninstall()
     processor.install()
+
+
+def execute_establish_relationships(graph,
+                                    node_instances,
+                                    related_nodes=None,
+                                    modified_relationship_ids=None):
+    processor = LifecycleProcessor(
+            graph=graph,
+            related_nodes=node_instances,
+            modified_relationship_ids=modified_relationship_ids
+    )
+
+    processor.install()
+
+
+def execute_unlink_relationships(graph,
+                                 node_instances,
+                                 related_nodes=None,
+                                 modified_relationship_ids=None):
+    processor = LifecycleProcessor(
+            graph=graph,
+            related_nodes=node_instances,
+            modified_relationship_ids=modified_relationship_ids
+    )
+
+    processor.uninstall()
 
 
 class LifecycleProcessor(object):
 
     def __init__(self,
                  graph,
-                 node_instances,
-                 intact_nodes=None):
+                 node_instances=None,
+                 related_nodes=None,
+                 modified_relationship_ids=None):
         self.graph = graph
-        self.node_instances = node_instances
-        self.intact_nodes = intact_nodes or set()
+        self.node_instances = node_instances or set()
+        self.intact_nodes = related_nodes or set()
+        self.modified_relationship_ids = modified_relationship_ids or {}
 
     def install(self):
         self._process_node_instances(
             node_instance_subgraph_func=install_node_instance_subgraph,
-            graph_finisher_func=self._finish_install)
+            graph_finisher_func=self._finish_install
+        )
 
     def uninstall(self):
         self._process_node_instances(
             node_instance_subgraph_func=uninstall_node_instance_subgraph,
-            graph_finisher_func=self._finish_uninstall)
+            graph_finisher_func=self._finish_uninstall
+        )
 
     def _process_node_instances(self,
                                 node_instance_subgraph_func,
                                 graph_finisher_func):
         subgraphs = {}
         for instance in self.node_instances:
-            subgraphs[instance.id] = node_instance_subgraph_func(instance,
-                                                                 self.graph)
+            subgraphs[instance.id] = \
+                node_instance_subgraph_func(instance,
+                                            self.graph)
+
         for instance in self.intact_nodes:
             subgraphs[instance.id] = self.graph.subgraph(
                 'stub_{0}'.format(instance.id))
@@ -95,7 +127,9 @@ class LifecycleProcessor(object):
                                install=install)
 
         def intact_on_dependency_added(instance, rel, source_subgraph):
-            if rel.target_node_instance in self.node_instances:
+            if rel.target_node_instance in self.node_instances or \
+               rel.target_node_instance.node_id in \
+               self.modified_relationship_ids.get(instance.node_id, {}):
                 intact_tasks = _relationship_operations(rel, intact_op)
                 for intact_task in intact_tasks:
                     if not install:
@@ -134,7 +168,7 @@ def set_send_node_event_on_error_handler(task, instance):
     task.on_failure = send_node_event_error_handler
 
 
-def install_node_instance_subgraph(instance, graph):
+def install_node_instance_subgraph(instance, graph, *args, **kwargs):
     """This function is used to create a tasks sequence installing one node
     instance.
     Considering the order of tasks executions, it enforces the proper
@@ -248,10 +282,19 @@ def get_install_subgraph_on_failure_handler(instance):
     return install_subgraph_on_failure_handler
 
 
-def _relationships_operations(node_instance, operation):
+def _relationships_operations(node_instance,
+                              operation,
+                              modified_relationship_ids=None):
     tasks = []
     for relationship in node_instance.relationships:
-        tasks += _relationship_operations(relationship, operation)
+        # either the relationship ids aren't specified, or all the relationship
+        # should be added
+        source_id = relationship.node_instance.node.id
+        target_id = relationship.target_node_instance.node.id
+        if not modified_relationship_ids or \
+                (source_id in modified_relationship_ids and
+                 target_id in modified_relationship_ids[source_id]):
+            tasks += _relationship_operations(relationship, operation)
     return tasks
 
 

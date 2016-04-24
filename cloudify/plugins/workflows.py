@@ -16,12 +16,12 @@
 from cloudify import constants, utils
 from cloudify.decorators import workflow
 from cloudify.plugins import lifecycle
+from cloudify.manager import get_rest_client
 
 
 @workflow
 def install(ctx, **kwargs):
     """Default install workflow"""
-
     lifecycle.install_node_instances(
         graph=ctx.graph_mode(),
         node_instances=set(ctx.node_instances))
@@ -65,7 +65,7 @@ def auto_heal_reinstall_node_subgraph(
     lifecycle.reinstall_node_instances(
         graph=graph,
         node_instances=subgraph_node_instances,
-        intact_nodes=intact_nodes)
+        related_nodes=intact_nodes)
 
 
 @workflow
@@ -107,7 +107,6 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
         raise ValueError('Provided delta: {0} is illegal. current number of'
                          'instances of node {1} is {2}'
                          .format(delta, node_id, curr_num_instances))
-
     modification = ctx.deployment.start_modification({
         scaled_node.id: {
             'instances': planned_num_instances
@@ -143,7 +142,7 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
                 lifecycle.install_node_instances(
                     graph=graph,
                     node_instances=added,
-                    intact_nodes=related)
+                    related_nodes=related)
             except:
                 ctx.logger.error('Scale out failed, scaling back in.')
                 for task in graph.tasks_iter():
@@ -151,7 +150,7 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
                 lifecycle.uninstall_node_instances(
                     graph=graph,
                     node_instances=added,
-                    intact_nodes=related)
+                    related_nodes=related)
                 raise
         else:
             removed_and_related = set(modification.removed.node_instances)
@@ -161,7 +160,7 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
             lifecycle.uninstall_node_instances(
                 graph=graph,
                 node_instances=removed,
-                intact_nodes=related)
+                related_nodes=related)
     except:
         ctx.logger.warn('Rolling back deployment modification. '
                         '[modification_id={0}]'.format(modification.id))
@@ -351,3 +350,71 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
                                      subgraphs[rel.target_id])
 
     graph.execute()
+
+
+@workflow
+def update(ctx,
+           update_id,
+           added_instance_ids,
+           added_target_instances_ids,
+           removed_instance_ids,
+           remove_target_instance_ids,
+           modified_entity_ids,
+           extended_instance_ids,
+           extend_target_instance_ids,
+           reduced_instance_ids,
+           reduce_target_instance_ids):
+
+    instances_by_change = {
+        'added_instances': (added_instance_ids, []),
+        'added_target_instances_ids': (added_target_instances_ids, []),
+        'removed_instances': (removed_instance_ids, []),
+        'remove_target_instance_ids': (remove_target_instance_ids, []),
+        'extended_and_target_instances':
+            (extended_instance_ids + extend_target_instance_ids, []),
+        'reduced_and_target_instances':
+            (reduced_instance_ids + reduce_target_instance_ids, []),
+    }
+
+    for instance in ctx.node_instances:
+
+        instance_holders = \
+            [instance_holder
+             for _, (changed_ids, instance_holder)
+             in instances_by_change.iteritems()
+             if instance.id in changed_ids]
+
+        for instance_holder in instance_holders:
+            instance_holder.append(instance)
+
+    # Adding nodes or node instances should be based on modified instances
+    lifecycle.install_node_instances(
+        graph=ctx.graph_mode(),
+        node_instances=set(instances_by_change['added_instances'][1]),
+        related_nodes=set(instances_by_change['added_target_instances_ids']
+                          [1]))
+
+    # This one as well.
+    lifecycle.execute_establish_relationships(
+        graph=ctx.graph_mode(),
+        node_instances=set(instances_by_change['extended_and_target_instances']
+                           [1]),
+        modified_relationship_ids=modified_entity_ids['relationship']
+    )
+
+    lifecycle.execute_unlink_relationships(
+        graph=ctx.graph_mode(),
+        node_instances=set(instances_by_change['reduced_and_target_instances']
+                           [1]),
+        modified_relationship_ids=modified_entity_ids['relationship']
+    )
+
+    lifecycle.uninstall_node_instances(
+        graph=ctx.graph_mode(),
+        node_instances=set(instances_by_change['removed_instances'][1]),
+        related_nodes=set(instances_by_change['remove_target_instance_ids'][1])
+    )
+
+    # Finalize the commit (i.e. remove relationships or nodes)
+    client = get_rest_client()
+    client.deployment_updates.finalize_commit(update_id)
