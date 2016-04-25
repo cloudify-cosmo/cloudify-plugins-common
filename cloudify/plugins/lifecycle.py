@@ -207,8 +207,8 @@ def install_node_instance_subgraph(instance, graph, *args, **kwargs):
         sequence.add(*_host_post_start(instance))
 
     sequence.add(
+        instance.execute_operation('cloudify.interfaces.monitoring.start'),
         forkjoin(
-            instance.execute_operation('cloudify.interfaces.monitoring.start'),
             *_relationships_operations(
                 instance,
                 'cloudify.interfaces.relationship_lifecycle.establish'
