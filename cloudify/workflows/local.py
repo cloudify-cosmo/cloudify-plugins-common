@@ -208,9 +208,13 @@ def _prepare_nodes_and_instances(nodes, node_instances, ignored_modules):
                                ignored_modules=ignored_modules)
 
     for node in nodes:
-        number_of_instances = node['instances']['deploy']
-        node['number_of_instances'] = number_of_instances
-        node['deploy_number_of_instances'] = number_of_instances
+        scalable = node['capabilities']['scalable']['properties']
+        node.update(dict(
+            number_of_instances=scalable['current_instances'],
+            deploy_number_of_instances=scalable['default_instances'],
+            min_number_of_instances=scalable['min_instances'],
+            max_number_of_instances=scalable['max_instances'],
+        ))
         if 'relationships' not in node:
             node['relationships'] = []
         scan(node, 'operations', node)

@@ -49,6 +49,11 @@ from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            send_sys_wide_wf_event,
                            send_workflow_node_event)
 
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 
 DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
 
@@ -192,7 +197,7 @@ class CloudifyWorkflowNodeInstance(object):
         self._node_instance = node_instance
         # Directly contained node instances. Filled in the context's __init__()
         self._contained_instances = []
-        self._relationship_instances = dict(
+        self._relationship_instances = OrderedDict(
             (relationship_instance['target_id'],
                 CloudifyWorkflowRelationshipInstance(
                     self.ctx, self, nodes_and_instances,
@@ -290,6 +295,10 @@ class CloudifyWorkflowNodeInstance(object):
         return self._node_instance.get('modification')
 
     @property
+    def scaling_groups(self):
+        return self._node_instance.get('scaling_groups', [])
+
+    @property
     def logger(self):
         """A logger for this workflow node"""
         if self._logger is None:
@@ -335,7 +344,7 @@ class CloudifyWorkflowNode(object):
     def __init__(self, ctx, node, nodes_and_instances):
         self.ctx = ctx
         self._node = node
-        self._relationships = dict(
+        self._relationships = OrderedDict(
             (relationship['target_id'], CloudifyWorkflowRelationship(
                 self.ctx, self, nodes_and_instances, relationship))
             for relationship in node.relationships)
@@ -1099,6 +1108,9 @@ class CloudifyWorkflowContextHandler(object):
     def rollback_deployment_modification(self, modification):
         raise NotImplementedError('Implemented by subclasses')
 
+    def scaling_groups(self):
+        raise NotImplementedError('Implemented by subclasses')
+
 
 class RemoteContextHandler(CloudifyWorkflowContextHandler):
 
@@ -1205,6 +1217,8 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
 
 class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):
 
+    _scaling_groups = None
+
     def get_node_logging_handler(self, workflow_node_instance):
         return CloudifyWorkflowNodeLoggingHandler(workflow_node_instance,
                                                   out_func=logs.amqp_log_out)
@@ -1264,6 +1278,16 @@ class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):
                                      additional_context=additional_context,
                                      out_func=logs.amqp_event_out)
         return send_event_task
+
+    @property
+    def scaling_groups(self):
+        if not self._scaling_groups:
+            deployment_id = self.workflow_ctx.deployment.id
+            client = get_rest_client()
+            deployment = client.deployments.get(
+                deployment_id, _include=['scaling_groups'])
+            self._scaling_groups = deployment['scaling_groups']
+        return self._scaling_groups
 
 
 class SystemWideWfRemoteContextHandler(RemoteContextHandler):
@@ -1375,6 +1399,10 @@ class LocalCloudifyWorkflowContextHandler(CloudifyWorkflowContextHandler):
         return self.storage.download_resource(resource_path=resource_path,
                                               target_path=target_path)
 
+    @property
+    def scaling_groups(self):
+        return self.storage.plan.get('scaling_groups', {})
+
 
 class Modification(object):
 
@@ -1453,6 +1481,10 @@ class WorkflowDeploymentContext(context.DeploymentContext):
         """
         handler = self.workflow_ctx.internal.handler
         return handler.start_deployment_modification(nodes)
+
+    @property
+    def scaling_groups(self):
+        return self.workflow_ctx.internal.handler.scaling_groups
 
 
 def task_config(fn=None, **arguments):

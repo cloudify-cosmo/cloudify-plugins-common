@@ -92,23 +92,31 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
     :param scale_compute: should scale apply on compute node containing
                           'node_id'
     """
-    graph = ctx.graph_mode()
-    node = ctx.get_node(node_id)
-    if not node:
-        raise ValueError("Node {0} doesn't exist".format(node_id))
     if delta == 0:
         ctx.logger.info('delta parameter is 0, so no scaling will take place.')
         return
-    host_node = node.host_node
-    scaled_node = host_node if (scale_compute and host_node) else node
-    curr_num_instances = scaled_node.number_of_instances
-    planned_num_instances = curr_num_instances + delta
+
+    scaling_group = ctx.deployment.scaling_groups.get(node_id)
+    if scaling_group:
+        curr_num_instances = scaling_group['properties']['current_instances']
+        planned_num_instances = curr_num_instances + delta
+        scaled_node_id = node_id
+    else:
+        node = ctx.get_node(node_id)
+        if not node:
+            raise ValueError("Node {0} doesn't exist".format(node_id))
+        host_node = node.host_node
+        scaled_node = host_node if (scale_compute and host_node) else node
+        curr_num_instances = scaled_node.number_of_instances
+        planned_num_instances = curr_num_instances + delta
+        scaled_node_id = scaled_node.id
+
     if planned_num_instances < 0:
         raise ValueError('Provided delta: {0} is illegal. current number of'
                          'instances of node {1} is {2}'
                          .format(delta, node_id, curr_num_instances))
     modification = ctx.deployment.start_modification({
-        scaled_node.id: {
+        scaled_node_id: {
             'instances': planned_num_instances
 
             # These following parameters are not exposed at the moment,
@@ -130,6 +138,7 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
             # 'removed_ids_include_hint': []
         }
     })
+    graph = ctx.graph_mode()
     try:
         ctx.logger.info('Deployment modification started. '
                         '[modification_id={0}]'.format(modification.id))
