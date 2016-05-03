@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-from collections import MutableMapping, Mapping
-import subprocess
+import sys
 import json
 import shlex
-import sys
+import subprocess
+from collections import MutableMapping, Mapping
 
 
 def check_output(*popenargs, **kwargs):
@@ -56,6 +56,9 @@ class CtxLogger(object):
     def warn(self, message):
         return self._logger(level='warn', message=message)
 
+    def warning(self, message):
+        return self._logger(level='warn', message=message)
+
     def error(self, message):
         return self._logger(level='error', message=message)
 
@@ -71,8 +74,8 @@ class CtxNodeProperties(Mapping):
             cmd.insert(2, self.relationship)
         try:
             result = json.loads(check_output(cmd))
-        except subprocess.CalledProcessError as e:
-            if 'illegal path:' in e.stderr:
+        except subprocess.CalledProcessError as ex:
+            if 'illegal path:' in ex.stderr:
                 raise KeyError(property_name)
             else:
                 raise
@@ -245,14 +248,11 @@ class Ctx(object):
         if destination:
             cmd.append(destination)
         if params:
-            kwargs = {
-                'template_variables': params
-            }
+            kwargs = {'template_variables': params}
             if not isinstance(params, dict):
                 self.abort_operation('Expecting params to be in the form of '
-                                     'dict')
-            parameters = '@{0}'.format(json.dumps(kwargs))
-            cmd.append(parameters)
+                                     'dict.')
+            cmd.append('@{0}'.format(json.dumps(kwargs)))
         return check_output(cmd)
 
 
