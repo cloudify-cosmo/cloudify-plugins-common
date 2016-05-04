@@ -637,6 +637,13 @@ def main():
             'known_exception_type_kwargs': {'causes': causes or []},
             'append_message': append_message,
         }
+
+        logger = logging.getLogger(__name__)
+        logger.error('Task {0}[{1}] raised:\n{2}'.format(
+            handler.cloudify_context['task_name'],
+            handler.cloudify_context.get('task_id', '<no-id>'),
+            trace_out))
+
     finally:
         if handler:
             handler.close()

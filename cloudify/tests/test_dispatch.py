@@ -73,6 +73,16 @@ class TestDispatchTaskHandler(testtools.TestCase):
             logpath_func=lambda workdir, deployment_id: os.path.join(
                 workdir, '{0}.log'.format(deployment_id)))
 
+    def test_dispatch_to_subprocess_logging_errors(self):
+        output = self._test_dispatch_to_subprocess_logging(
+            func=func8,
+            expect_error=True,
+            logpath_func=lambda workdir, deployment_id: os.path.join(
+                workdir, '{0}.log'.format(deployment_id)))
+        self.assertIn('Task test_dispatch.func8[test] raised:', output)
+        self.assertIn('Traceback (most recent call last):', output)
+        self.assertIn('RuntimeError: MESSAGE_CONTENT', output)
+
     def test_dispatch_to_subprocess_fallback_logging_agent(self):
         self._test_dispatch_to_subprocess_logging(
             func=func5,
@@ -181,7 +191,8 @@ class TestDispatchTaskHandler(testtools.TestCase):
             workflow_handler._ctx = _normal_ctx
 
     def _test_dispatch_to_subprocess_logging(
-            self, func, logpath_func, env_func=None):
+            self, func, logpath_func, env_func=None,
+            expect_error=False):
         message = 'MESSAGE_CONTENT'
         workdir = tempfile.mkdtemp(prefix='cloudify-dispatch-')
         os.mkdir(os.path.join(workdir, 'logs'))
@@ -206,12 +217,19 @@ class TestDispatchTaskHandler(testtools.TestCase):
                 args=[message],
                 deployment_id=deployment_id,
                 execution_env=env)
-            op_handler.dispatch_to_subprocess()
+            try:
+                op_handler.dispatch_to_subprocess()
+            except (exceptions.NonRecoverableError,
+                    exceptions.RecoverableError):
+                if not expect_error:
+                    raise
             if not deployment_id:
                 deployment_id = dispatch.SYSTEM_DEPLOYMENT
             logpath = logpath_func(workdir, deployment_id)
             with open(logpath) as f:
-                self.assertIn(message, f.read())
+                content = f.read()
+                self.assertIn(message, content)
+            return content
 
     def _operation(
             self,
@@ -230,6 +248,7 @@ class TestDispatchTaskHandler(testtools.TestCase):
         execution_env['PYTHONPATH'] = os.path.dirname(__file__)
         return dispatch.OperationHandler(cloudify_context={
             'no_ctx_kwarg': True,
+            'task_id': 'test',
             'task_name': '{0}.{1}'.format(module, func.__name__),
             'task_target': task_target,
             'type': 'operation',
@@ -283,6 +302,10 @@ def func7(message):
         raise NonRecoverableUserException(causes=[
             utils.exception_to_error_cause(ex, tb)
         ])
+
+
+def func8(message):
+    raise RuntimeError(message)
 
 
 class UserException(Exception):
