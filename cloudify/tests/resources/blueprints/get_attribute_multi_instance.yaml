@@ -1,0 +1,49 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+node_templates:
+  node1:
+    type: type
+    interfaces:
+      test:
+        setup: p.cloudify.tests.test_local_get_attribute.populate_multi
+        op:
+          implementation: p.cloudify.tests.test_local_get_attribute.op_multi
+          inputs:
+            node_ref: { get_attribute: [node2, node_ref_property] }
+    relationships:
+    - target: node2
+      type: cloudify.relationships.connected_to
+  node2:
+    type: type
+    interfaces:
+      test:
+        setup: p.cloudify.tests.test_local_get_attribute.populate_multi
+
+relationships:
+    cloudify.relationships.connected_to:
+      properties:
+        connection_type:
+          default: all_to_all
+
+node_types:
+  type: {}
+
+plugins:
+  p:
+    executor: central_deployment_agent
+    install: false
+
+workflows:
+  setup: p.cloudify.tests.test_local_get_attribute.populate_runtime_properties
+  run: p.cloudify.tests.test_local_get_attribute.run_multi
+
+groups:
+  group:
+    members: [node1, node2]
+
+policies:
+  policy:
+    type: cloudify.policies.scaling
+    targets: [group]
+    properties:
+      default_instances: 2
