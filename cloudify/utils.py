@@ -146,6 +146,13 @@ def get_manager_rest_service_port():
     return int(os.environ[constants.MANAGER_REST_PORT_KEY])
 
 
+def get_is_bypass_maintenance():
+    """
+    Returns true if workflow should run in maintenance mode.
+     """
+    return bool(os.environ.get(constants.BYPASS_MAINTENANCE))
+
+
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     """
     Generate and return a random string using upper case letters and digits.

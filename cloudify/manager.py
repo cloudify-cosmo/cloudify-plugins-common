@@ -112,8 +112,12 @@ def get_rest_client():
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
+    headers = None
+    if utils.get_is_bypass_maintenance():
+        headers = {'X-BYPASS-MAINTENANCE': 'True'}
     return CloudifyClient(utils.get_manager_ip(),
-                          utils.get_manager_rest_service_port())
+                          utils.get_manager_rest_service_port(),
+                          headers=headers)
 
 
 def _save_resource(logger, resource, resource_path, target_path):

@@ -36,6 +36,7 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       DEFAULT_RETRY_INTERVAL,
                                       DEFAULT_SEND_TASK_EVENTS,
                                       DEFAULT_SUBGRAPH_TOTAL_RETRIES)
+from cloudify import utils
 from cloudify import exceptions
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
@@ -1183,7 +1184,8 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
 
     @property
     def operation_cloudify_context(self):
-        return {'local': False}
+        return {'local': False,
+                'bypass_maintenance': utils.get_is_bypass_maintenance()}
 
     def get_set_state_task(self,
                            workflow_node_instance,
