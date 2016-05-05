@@ -38,6 +38,7 @@ from cloudify import state
 from cloudify import context
 from cloudify import utils
 from cloudify import amqp_client_utils
+from cloudify import constants
 from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import workflow_context
@@ -227,6 +228,9 @@ class TaskHandler(object):
                 plugin_pythonpath_dirs,
                 os.pathsep,
                 env.get('PYTHONPATH', ''))
+
+        if self.cloudify_context.get('bypass_maintenance'):
+            env[constants.BYPASS_MAINTENANCE] = 'True'
 
         return env
 
