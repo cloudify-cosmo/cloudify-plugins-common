@@ -20,11 +20,26 @@ from cloudify.context import (CloudifyContext,
 from cloudify.utils import setup_logger
 
 
+class MockRelationshipSubjectContext(object):
+    def __init__(self, node, instance):
+        self.node = node
+        self.instance = instance
+
+
+class MockRelationshipContext(object):
+    def __init__(self, target, type=None):
+        self.target = target
+        self.type = type
+
+
 class MockNodeInstanceContext(object):
 
-    def __init__(self, id=None, runtime_properties=None):
+    def __init__(self, id=None, runtime_properties=None, relationships=None):
         self._id = id
         self._runtime_properties = runtime_properties
+        if relationships is None:
+            relationships = []
+        self._relationships = relationships
 
     @property
     def id(self):
@@ -33,6 +48,10 @@ class MockNodeInstanceContext(object):
     @property
     def runtime_properties(self):
         return self._runtime_properties
+
+    @property
+    def relationships(self):
+        return self._relationships
 
     def update(self):
         pass
@@ -79,6 +98,7 @@ class MockCloudifyContext(CloudifyContext):
                  execution_id=None,
                  properties=None,
                  runtime_properties=None,
+                 relationships=None,
                  capabilities=None,
                  related=None,
                  source=None,
@@ -115,7 +135,8 @@ class MockCloudifyContext(CloudifyContext):
         if node_id:
             self._instance = MockNodeInstanceContext(
                 id=node_id,
-                runtime_properties=self._runtime_properties)
+                runtime_properties=self._runtime_properties,
+                relationships=relationships)
             self._capabilities = capabilities or ContextCapabilities(
                 self._endpoint, self._instance)
             self._node = MockNodeContext(node_name, properties)
