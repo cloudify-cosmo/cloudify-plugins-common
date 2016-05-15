@@ -12,6 +12,7 @@
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
+from cloudify.manager import get_rest_client
 
 
 def operation(func=None, **kwargs):
@@ -31,5 +32,14 @@ def workflow(func=None, system_wide=False, **kwargs):
     else:
         return lambda fn: workflow(fn, system_wide)
 
+
+def deployment_update_workflow(func):
+    @workflow
+    def decorator(ctx, **kwargs):
+        func(ctx, **kwargs)
+        rest_client = get_rest_client()
+        rest_client.deployment_updates.finalize_commit(kwargs['update_id'])
+
+    return decorator
 
 task = operation

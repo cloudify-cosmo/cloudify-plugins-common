@@ -14,9 +14,8 @@
 #    * limitations under the License.
 
 from cloudify import constants, utils
-from cloudify.decorators import workflow
+from cloudify.decorators import workflow, deployment_update_workflow
 from cloudify.plugins import lifecycle
-from cloudify.manager import get_rest_client
 
 
 @workflow
@@ -352,7 +351,7 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
     graph.execute()
 
 
-@workflow
+@deployment_update_workflow
 def update(ctx,
            update_id,
            added_instance_ids,
@@ -371,9 +370,9 @@ def update(ctx,
         'removed_instances': (removed_instance_ids, []),
         'remove_target_instance_ids': (remove_target_instance_ids, []),
         'extended_and_target_instances':
-            (extended_instance_ids + extend_target_instance_ids, []),
+            ((extended_instance_ids + extend_target_instance_ids), []),
         'reduced_and_target_instances':
-            (reduced_instance_ids + reduce_target_instance_ids, []),
+            ((reduced_instance_ids + reduce_target_instance_ids), []),
     }
 
     for instance in ctx.node_instances:
@@ -414,7 +413,3 @@ def update(ctx,
         node_instances=set(instances_by_change['removed_instances'][1]),
         related_nodes=set(instances_by_change['remove_target_instance_ids'][1])
     )
-
-    # Finalize the commit (i.e. remove relationships or nodes)
-    client = get_rest_client()
-    client.deployment_updates.finalize_commit(update_id)
