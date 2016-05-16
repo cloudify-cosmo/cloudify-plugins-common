@@ -69,16 +69,21 @@ def auto_heal_reinstall_node_subgraph(
 
 
 @workflow
-def scale(ctx, node_id, delta, scale_compute, **kwargs):
-    """Scales in/out the subgraph of node_id.
+def scale_entity(ctx,
+                 scalable_entity_name,
+                 delta,
+                 scale_compute,
+                 **kwargs):
+    """Scales in/out the subgraph of node_or_group_name.
 
-    If `scale_compute` is set to false, the subgraph will consist of all
-    the nodes that are contained in `node_id` and `node_id` itself.
-    If `scale_compute` is set to true, the subgraph will consist of all
-    nodes that are contained in the compute node that contains `node_id`
-    and the compute node itself.
-    If `node_id` is not contained in a compute node and is not a compute node,
-    this property is ignored.
+    If a node name is passed, and `scale_compute` is set to false, the
+    subgraph will consist of all the nodes that are contained in the node and
+    the node itself.
+    If a node name is passed, and `scale_compute` is set to true, the subgraph
+    will consist of all nodes that are contained in the compute node that
+    contains the node and the compute node itself.
+    If a group name or a node that is not contained in a compute
+    node, is passed, this property is ignored.
 
     `delta` is used to specify the scale factor.
     For `delta > 0`: If current number of instances is `N`, scale out to
@@ -87,36 +92,39 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
     `N - |delta|`.
 
     :param ctx: cloudify context
-    :param node_id: the node_id to scale
+    :param scalable_entity_name: the node or group name to scale
     :param delta: scale in/out factor
     :param scale_compute: should scale apply on compute node containing
-                          'node_id'
+                          the specified node
     """
     if delta == 0:
         ctx.logger.info('delta parameter is 0, so no scaling will take place.')
         return
 
-    scaling_group = ctx.deployment.scaling_groups.get(node_id)
+    scaling_group = ctx.deployment.scaling_groups.get(scalable_entity_name)
     if scaling_group:
         curr_num_instances = scaling_group['properties']['current_instances']
         planned_num_instances = curr_num_instances + delta
-        scaled_node_id = node_id
+        scale_id = scalable_entity_name
     else:
-        node = ctx.get_node(node_id)
+        node = ctx.get_node(scalable_entity_name)
         if not node:
-            raise ValueError("Node {0} doesn't exist".format(node_id))
+            raise ValueError("No scalable entity named {0} was found".format(
+                scalable_entity_name))
         host_node = node.host_node
         scaled_node = host_node if (scale_compute and host_node) else node
         curr_num_instances = scaled_node.number_of_instances
         planned_num_instances = curr_num_instances + delta
-        scaled_node_id = scaled_node.id
+        scale_id = scaled_node.id
 
     if planned_num_instances < 0:
         raise ValueError('Provided delta: {0} is illegal. current number of'
-                         'instances of node {1} is {2}'
-                         .format(delta, node_id, curr_num_instances))
+                         'instances of entity {1} is {2}'
+                         .format(delta,
+                                 scalable_entity_name,
+                                 curr_num_instances))
     modification = ctx.deployment.start_modification({
-        scaled_node_id: {
+        scale_id: {
             'instances': planned_num_instances
 
             # These following parameters are not exposed at the moment,
@@ -127,7 +135,7 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
             # Special care should be taken because if `scale_compute == True`
             # (which is the default), then these ids should be the compute node
             # instance ids which are not necessarily instances of the node
-            # specified by `node_id`.
+            # specified by `scalable_entity_name`.
 
             # Node instances denoted by these instance ids should be *kept* if
             # possible.
@@ -191,6 +199,16 @@ def scale(ctx, node_id, delta, scale_compute, **kwargs):
                             ' state.'
                             '[modification_id={0}]'.format(modification.id))
             raise
+
+
+# Kept for backward compatibility with older versions of types.yaml
+@workflow
+def scale(ctx, node_id, delta, scale_compute, **kwargs):
+    return scale_entity(ctx=ctx,
+                        scalable_entity_name=node_id,
+                        delta=delta,
+                        scale_compute=scale_compute,
+                        **kwargs)
 
 
 def _filter_node_instances(ctx, node_ids, node_instance_ids, type_names):

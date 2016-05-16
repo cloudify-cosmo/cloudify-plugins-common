@@ -326,20 +326,29 @@ class TestScale(testtools.TestCase):
 
     @workflow_test(scale_blueprint_path)
     def test_no_node(self, cfy_local):
-        with testtools.ExpectedException(ValueError, ".*mock doesn't exist.*"):
-            cfy_local.execute('scale', parameters={'node_id': 'mock'})
+        with testtools.ExpectedException(ValueError, ".*mock was found.*"):
+            cfy_local.execute('scale', parameters={'scalable_entity_name':
+                                                   'mock'})
+        with testtools.ExpectedException(ValueError, ".*mock was found.*"):
+            cfy_local.execute('scale_old', parameters={'node_id': 'mock'})
 
     @workflow_test(scale_blueprint_path)
     def test_zero_delta(self, cfy_local):
         # should simply work
-        cfy_local.execute('scale', parameters={'node_id': 'node',
+        cfy_local.execute('scale', parameters={'scalable_entity_name': 'node',
                                                'delta': 0})
+        cfy_local.execute('scale_old', parameters={'node_id': 'node',
+                                                   'delta': 0})
 
     @workflow_test(scale_blueprint_path)
     def test_illegal_delta(self, cfy_local):
         with testtools.ExpectedException(ValueError, ".*-2 is illegal.*"):
-            cfy_local.execute('scale', parameters={'node_id': 'node',
-                                                   'delta': -2})
+            cfy_local.execute('scale', parameters={
+                'scalable_entity_name': 'node',
+                'delta': -2})
+        with testtools.ExpectedException(ValueError, ".*-2 is illegal.*"):
+            cfy_local.execute('scale_old', parameters={'node_id': 'node',
+                                                       'delta': -2})
 
 
 class TestSubgraphWorkflowLogic(testtools.TestCase):
