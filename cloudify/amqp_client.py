@@ -102,12 +102,23 @@ class AMQPClient(object):
         self._is_closed = True
         thread = threading.current_thread()
         if self.channel:
-            logger.debug('Closing channel of thread {0}'.format(thread))
-            self.channel.close()
+            logger.debug('Closing amqp channel of thread {0}'.format(thread))
+            try:
+                self.channel.close()
+            except Exception as e:
+                # channel might be already closed, log and continue
+                logger.debug('Failed to close amqp channel of thread {0}, '
+                             'reported error: {1}'.format(thread, repr(e)))
+
         if self.connection:
             logger.debug('Closing amqp connection of thread {0}'
                          .format(thread))
-            self.connection.close()
+            try:
+                self.connection.close()
+            except Exception as e:
+                # connection might be already closed, log and continue
+                logger.debug('Failed to close amqp connection of thread {0}, '
+                             'reported error: {1}'.format(thread, repr(e)))
 
 
 def create_client(amqp_host=broker_config.broker_hostname,
