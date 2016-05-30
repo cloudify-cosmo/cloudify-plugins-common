@@ -390,8 +390,9 @@ def update(ctx,
            extended_instance_ids,
            extend_target_instance_ids,
            reduced_instance_ids,
-           reduce_target_instance_ids):
-
+           reduce_target_instance_ids,
+           skip_install,
+           skip_uninstall):
     instances_by_change = {
         'added_instances': (added_instance_ids, []),
         'added_target_instances_ids': (added_target_instances_ids, []),
@@ -414,33 +415,39 @@ def update(ctx,
         for instance_holder in instance_holders:
             instance_holder.append(instance)
 
-    # Adding nodes or node instances should be based on modified instances
-    lifecycle.install_node_instances(
-        graph=ctx.graph_mode(),
-        node_instances=set(instances_by_change['added_instances'][1]),
-        related_nodes=set(instances_by_change['added_target_instances_ids']
-                          [1]))
+    if not skip_install:
+        graph = ctx.graph_mode()
+        # Adding nodes or node instances should be based on modified instances
+        lifecycle.install_node_instances(
+            graph=graph,
+            node_instances=set(instances_by_change['added_instances'][1]),
+            related_nodes=set(instances_by_change['added_target_instances_ids']
+                              [1]))
 
-    # This one as well.
-    lifecycle.execute_establish_relationships(
-        graph=ctx.graph_mode(),
-        node_instances=set(instances_by_change['extended_and_target_instances']
-                           [1]),
-        modified_relationship_ids=modified_entity_ids['relationship']
-    )
+        # This one as well.
+        lifecycle.execute_establish_relationships(
+            graph=ctx.graph_mode(),
+            node_instances=set(
+                    instances_by_change['extended_and_target_instances'][1]),
+            modified_relationship_ids=modified_entity_ids['relationship']
+        )
 
-    lifecycle.execute_unlink_relationships(
-        graph=ctx.graph_mode(),
-        node_instances=set(instances_by_change['reduced_and_target_instances']
-                           [1]),
-        modified_relationship_ids=modified_entity_ids['relationship']
-    )
+    if not skip_uninstall:
+        graph = ctx.graph_mode()
 
-    lifecycle.uninstall_node_instances(
-        graph=ctx.graph_mode(),
-        node_instances=set(instances_by_change['removed_instances'][1]),
-        related_nodes=set(instances_by_change['remove_target_instance_ids'][1])
-    )
+        lifecycle.execute_unlink_relationships(
+            graph=graph,
+            node_instances=set(
+                    instances_by_change['reduced_and_target_instances'][1]),
+            modified_relationship_ids=modified_entity_ids['relationship']
+        )
+
+        lifecycle.uninstall_node_instances(
+            graph=graph,
+            node_instances=set(instances_by_change['removed_instances'][1]),
+            related_nodes=set(
+                    instances_by_change['remove_target_instance_ids'][1])
+        )
 
     # Finalize the commit (i.e. remove relationships or nodes)
     client = get_rest_client()
