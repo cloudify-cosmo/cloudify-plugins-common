@@ -73,6 +73,7 @@ PLUGIN_S3_FOLDER=$7
 
 export AWS_S3_PATH="org/cloudify3/wagons/$PLUGIN_NAME/$PLUGIN_S3_FOLDER"
 
+install_common_prereqs &&
 print_plugins_params
 install_dependencies &&
 install_wagon &&
