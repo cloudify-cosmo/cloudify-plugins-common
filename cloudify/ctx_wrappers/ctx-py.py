@@ -15,6 +15,7 @@ def check_output(*popenargs, **kwargs):
     Python 2.6.2
     https://gist.github.com/edufelipe/1027906
     """
+    suppress_err_output = kwargs.pop('suppress_err_output', False)
     process = subprocess.Popen(stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                *popenargs, **kwargs)
     output, stderr = process.communicate()
@@ -24,7 +25,8 @@ def check_output(*popenargs, **kwargs):
         if cmd is None:
             cmd = popenargs[0]
         error = subprocess.CalledProcessError(retcode, cmd)
-        sys.stderr.write(stderr)
+        if not suppress_err_output:
+            sys.stderr.write(stderr)
         error.stderr = stderr
         error.output = output
         raise error
@@ -73,7 +75,9 @@ class CtxNodeProperties(Mapping):
         if self.relationship:
             cmd.insert(2, self.relationship)
         try:
-            result = json.loads(check_output(cmd))
+            # suppressing key error output that is displayed even if
+            # the error is not raised
+            result = json.loads(check_output(cmd, suppress_err_output=True))
         except subprocess.CalledProcessError as ex:
             if 'illegal path:' in ex.stderr:
                 raise KeyError(property_name)
@@ -131,7 +135,7 @@ class CtxInstanceRuntimeProperties(MutableMapping):
         if self.relationship:
             cmd.insert(2, self.relationship)
         try:
-            result = json.loads(check_output(cmd))
+            result = json.loads(check_output(cmd, suppress_err_output=True))
         except subprocess.CalledProcessError as e:
             if 'illegal path:' in e.stderr:
                 raise KeyError(property_name)
