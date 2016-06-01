@@ -36,6 +36,13 @@ function install_wagon(){
     echo "## installing wagon"
     virtualenv env
     source env/bin/activate
+    if  which yum; then
+    elif which apt-get; then
+    else
+        echo 'probably windows machine'
+        pip install wagon==0.3.0
+        return
+    fi
     pip install wagon==0.3.1
 }
 
