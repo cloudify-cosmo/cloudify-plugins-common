@@ -36,7 +36,7 @@ function install_wagon(){
     echo "## installing wagon"
     virtualenv env
     source env/bin/activate
-    pip install wagon==0.3.0
+    pip install wagon==0.3.1
 }
 
 function wagon_create_package(){
