@@ -37,7 +37,9 @@ function install_wagon(){
     virtualenv env
     source env/bin/activate
     if  which yum; then
+        echo 'redaht/centos machine'
     elif which apt-get; then
+        echo 'ubuntu/debian machine'
     else
         echo 'probably windows machine'
         pip install wagon==0.3.0
