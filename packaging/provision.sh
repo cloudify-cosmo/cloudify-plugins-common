@@ -42,10 +42,8 @@ function install_wagon(){
         echo 'ubuntu/debian machine'
     else
         echo 'probably windows machine'
-        pip install wagon==0.3.0
-        return
     fi
-    pip install wagon==0.3.1
+    pip install wagon==0.3.2
 }
 
 function wagon_create_package(){
