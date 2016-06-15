@@ -124,7 +124,7 @@ def _save_resource(logger, resource, resource_path, target_path):
     if not target_path:
         target_path = os.path.join(utils.create_temp_folder(),
                                    os.path.basename(resource_path))
-    with open(target_path, 'w') as f:
+    with open(target_path, 'wb') as f:
         f.write(resource)
     logger.info("Downloaded %s to %s" % (resource_path, target_path))
     return target_path
