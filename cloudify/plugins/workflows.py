@@ -393,10 +393,13 @@ def update(ctx,
            reduce_target_instance_ids,
            skip_install,
            skip_uninstall):
+    modified_node_ids = modified_entity_ids['nodes'] - \
+                     (added_instance_ids + removed_instance_ids)
+
     instances_by_change = {
-        'added_instances': (added_instance_ids, []),
+        'added_instances': (added_instance_ids + modified_node_ids, []),
         'added_target_instances_ids': (added_target_instances_ids, []),
-        'removed_instances': (removed_instance_ids, []),
+        'removed_instances': (removed_instance_ids + modified_node_ids, []),
         'remove_target_instance_ids': (remove_target_instance_ids, []),
         'extended_and_target_instances':
             (extended_instance_ids + extend_target_instance_ids, []),
@@ -415,23 +418,6 @@ def update(ctx,
         for instance_holder in instance_holders:
             instance_holder.append(instance)
 
-    if not skip_install:
-        graph = ctx.graph_mode()
-        # Adding nodes or node instances should be based on modified instances
-        lifecycle.install_node_instances(
-            graph=graph,
-            node_instances=set(instances_by_change['added_instances'][1]),
-            related_nodes=set(instances_by_change['added_target_instances_ids']
-                              [1]))
-
-        # This one as well.
-        lifecycle.execute_establish_relationships(
-            graph=ctx.graph_mode(),
-            node_instances=set(
-                    instances_by_change['extended_and_target_instances'][1]),
-            modified_relationship_ids=modified_entity_ids['relationship']
-        )
-
     if not skip_uninstall:
         graph = ctx.graph_mode()
 
@@ -447,6 +433,23 @@ def update(ctx,
             node_instances=set(instances_by_change['removed_instances'][1]),
             related_nodes=set(
                     instances_by_change['remove_target_instance_ids'][1])
+        )
+
+    if not skip_install:
+        graph = ctx.graph_mode()
+        # Adding nodes or node instances should be based on modified instances
+        lifecycle.install_node_instances(
+            graph=graph,
+            node_instances=set(instances_by_change['added_instances'][1]),
+            related_nodes=set(instances_by_change['added_target_instances_ids']
+                              [1]))
+
+        # This one as well.
+        lifecycle.execute_establish_relationships(
+            graph=ctx.graph_mode(),
+            node_instances=set(
+                    instances_by_change['extended_and_target_instances'][1]),
+            modified_relationship_ids=modified_entity_ids['relationship']
         )
 
     # Finalize the commit (i.e. remove relationships or nodes)
