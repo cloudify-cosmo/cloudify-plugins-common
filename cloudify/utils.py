@@ -150,7 +150,7 @@ def get_is_bypass_maintenance():
     """
     Returns true if workflow should run in maintenance mode.
     """
-    return bool(os.environ.get(constants.BYPASS_MAINTENANCE))
+    return os.environ.get(constants.BYPASS_MAINTENANCE, '').lower() == 'true'
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
