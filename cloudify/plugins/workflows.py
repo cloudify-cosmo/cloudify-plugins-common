@@ -97,6 +97,13 @@ def scale_entity(ctx,
     :param scale_compute: should scale apply on compute node containing
                           the specified node
     """
+    if isinstance(delta, basestring):
+        try:
+            delta = int(delta)
+        except ValueError:
+            raise ValueError('The delta parameter must be a number. Got: {0}'
+                             .format(delta))
+
     if delta == 0:
         ctx.logger.info('delta parameter is 0, so no scaling will take place.')
         return
@@ -118,7 +125,7 @@ def scale_entity(ctx,
         scale_id = scaled_node.id
 
     if planned_num_instances < 0:
-        raise ValueError('Provided delta: {0} is illegal. current number of'
+        raise ValueError('Provided delta: {0} is illegal. current number of '
                          'instances of entity {1} is {2}'
                          .format(delta,
                                  scalable_entity_name,
