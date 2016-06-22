@@ -1148,12 +1148,12 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
                 if len(runtime_props) == 0:
                     host_node_instance = get_node_instance(host_id)
                     cloudify_agent = host_node_instance.runtime_properties.get(
-                        'cloudify_agent')
-                    if not cloudify_agent:
+                        'cloudify_agent', {})
+                    if property_name not in cloudify_agent:
                         raise exceptions.NonRecoverableError(
-                            'Missing cloudify_agent runtime information. '
-                            'This most likely means that the Compute node '
-                            'never started successfully')
+                            'Missing cloudify_agent.{0} runtime information. '
+                            'This most likely means that the Compute node was '
+                            'never started successfully'.format(property_name))
                     runtime_props.append(cloudify_agent)
                 return runtime_props[0][property_name]
             else:
