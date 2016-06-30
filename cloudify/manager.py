@@ -132,11 +132,17 @@ def get_rest_client():
                                      headers=headers)
     else:
         # security enabled
-        credentials = '{0}:{1}'.format(utils.get_rest_username(),
-                                       utils.get_rest_password())
-        auth_header = {
-            constants.CLOUDIFY_AUTHENTICATION_HEADER:
-            constants.BASIC_AUTH_PREFIX + ' ' + base64_encode(credentials)}
+        token = utils.get_rest_token()
+        if token is None:
+            credentials = '{0}:{1}'.format(utils.get_rest_username(),
+                                           utils.get_rest_password())
+            auth_header = {
+                constants.CLOUDIFY_AUTHENTICATION_HEADER:
+                constants.BASIC_AUTH_PREFIX + ' ' + base64_encode(credentials)}
+        else:
+            auth_header = {
+                constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: token
+            }
         headers.update(auth_header)
         rest_port = utils.get_manager_rest_service_port()
         rest_protocol = utils.get_manager_rest_service_protocol()
