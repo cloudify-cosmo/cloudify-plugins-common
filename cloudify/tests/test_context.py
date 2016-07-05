@@ -14,10 +14,12 @@
 #    * limitations under the License.
 
 import logging
+import mock
 import sys
 import os
 import shutil
 import tempfile
+import unittest
 from os.path import dirname
 
 import testtools
@@ -26,9 +28,12 @@ from mock import patch, MagicMock
 from cloudify import constants
 from cloudify import context
 from cloudify import exceptions
+from cloudify import conflict_handlers
 from cloudify.utils import create_temp_folder
 from cloudify.decorators import operation
+from cloudify.manager import NodeInstance
 from cloudify.workflows import local
+from cloudify_rest_client.exceptions import CloudifyClientError
 
 import cloudify.tests as tests_path
 from cloudify.test_utils import workflow_test
@@ -233,10 +238,10 @@ class PluginContextTests(testtools.TestCase):
 
     def test_prefix_from_source(self):
         expected_prefix = os.path.join(
-                self.test_prefix,
-                'plugins',
-                '{0}-{1}'.format(self.deployment_id,
-                                 self.plugin_name))
+            self.test_prefix,
+            'plugins',
+            '{0}-{1}'.format(self.deployment_id,
+                             self.plugin_name))
         os.makedirs(expected_prefix)
         with patch('sys.prefix', self.test_prefix):
             self.assertEqual(self.ctx.plugin.prefix, expected_prefix)
@@ -352,6 +357,238 @@ class GetResourceTemplateTests(testtools.TestCase):
                  testing='download_resource'),
             download=True,
             rendered='extended')
+
+
+def _context_with_endpoint(endpoint, **kwargs):
+    """Get a NodeInstanceContext with the passed stub data."""
+    context_kwargs = {
+        'context': {'node_id': 'node_id'},
+        'endpoint': endpoint,
+        'node': None,
+        'modifiable': True
+    }
+    context_kwargs.update(kwargs)
+    return context.NodeInstanceContext(**context_kwargs)
+
+
+class TestPropertiesRefresh(testtools.TestCase):
+    def test_refresh_fetches(self):
+        """Refreshing a node instance fetches new properties."""
+        # first .get_node_instances call returns an instance with value=1
+        # next call returns one with value=2
+        instances = [
+            NodeInstance('id', 'node_id', {'value': 1}),
+            NodeInstance('id', 'node_id', {'value': 2})
+        ]
+        ep = mock.Mock(**{
+            'get_node_instance.side_effect': instances
+        })
+        ctx = _context_with_endpoint(ep)
+        self.assertEqual(1, ctx.runtime_properties['value'])
+        ctx.refresh()
+        self.assertEqual(2, ctx.runtime_properties['value'])
+
+    def test_cant_refresh_dirty(self):
+        """Refreshing a dirty instance throws instead of overwriting data."""
+        instance = NodeInstance('id', 'node_id', {'value': 1})
+        ep = mock.Mock(**{
+            'get_node_instance.return_value': instance
+        })
+        ctx = _context_with_endpoint(ep)
+        ctx.runtime_properties['value'] += 5
+        try:
+            ctx.refresh()
+        except exceptions.NonRecoverableError as e:
+            self.assertIn('dirty', str(e))
+        else:
+            self.fail('NonRecoverableError was not thrown')
+        self.assertEqual(
+            6, ctx.runtime_properties['value'],
+            "Instance properties were overwritten, losing local changes.")
+
+    def test_force_overwrites_dirty(self):
+        """Force-refreshing a dirty instance overwrites local changes."""
+
+        def get_instance(endpoint):
+            # we'll be mutating the instance properties, so make sure
+            # we return a new object every time - otherwise the properties
+            # would've been overwritten with the same object, not with fresh
+            # values.
+            return NodeInstance('id', 'node_id', {'value': 1})
+
+        ep = mock.Mock(**{
+            'get_node_instance.side_effect': get_instance
+        })
+        ctx = _context_with_endpoint(ep)
+        ctx.runtime_properties['value'] += 5
+        ctx.refresh(force=True)
+        self.assertEqual(
+            1, ctx.runtime_properties['value'],
+            "Instance properties were not overwritten but force was used")
+
+
+class TestPropertiesUpdate(testtools.TestCase):
+    ERR_CONFLICT = CloudifyClientError('conflict', status_code=409)
+
+    def test_update(self):
+        """.update() without a handler sends the changed runtime properties."""
+
+        def mock_update(instance):
+            self.assertEqual({'foo': 42}, instance.runtime_properties)
+
+        instance = NodeInstance('id', 'node_id')
+        ep = mock.Mock(**{
+            'get_node_instance.return_value': instance,
+            'update_node_instance.side_effect': mock_update
+        })
+        ctx = _context_with_endpoint(ep)
+        ctx.runtime_properties['foo'] = 42
+        ctx.update()
+
+        ep.update_node_instance.assert_called_once_with(instance)
+
+    def test_update_conflict_no_handler(self):
+        """Version conflict without a handler function aborts the operation."""
+        instance = NodeInstance('id', 'node_id')
+
+        ep = mock.Mock(**{
+            'get_node_instance.return_value': instance,
+            'update_node_instance.side_effect': self.ERR_CONFLICT
+        })
+
+        ctx = _context_with_endpoint(ep)
+        ctx.runtime_properties['foo'] = 42
+
+        try:
+            ctx.update()
+        except CloudifyClientError as e:
+            self.assertEqual(409, e.status_code)
+        else:
+            self.fail('ctx.update() has hidden the 409 error')
+
+    def test_update_conflict_simple_handler(self):
+        """On a conflict, the handler will be called until it succeeds.
+
+        The simple handler function in this test will just increase the
+        runtime property value by 1 each call. When the value reaches 5,
+        the mock update method will at last allow it to save.
+        """
+        # each next call of the mock .get_node_instance will return subsequent
+        # instances: each time the runtime property is changed
+        instances = [NodeInstance('id', 'node_id', {'value': i})
+                     for i in range(5)]
+
+        def mock_update(instance):
+            if instance.runtime_properties.get('value', 0) < 5:
+                raise self.ERR_CONFLICT
+
+        ep = mock.Mock(**{
+            'get_node_instance.side_effect': instances,
+            'update_node_instance.side_effect': mock_update
+        })
+
+        ctx = _context_with_endpoint(ep)
+        ctx.runtime_properties['value'] = 1
+
+        def _handler(previous, next_props):
+            # the "previous" argument is always the props as they were before
+            # .update() was called
+            self.assertEqual(previous, {'value': 1})
+            return {'value': next_props['value'] + 1}
+
+        handler = mock.Mock(side_effect=_handler)  # Mock() for recording calls
+        ctx.update(handler)
+
+        self.assertEqual(5, len(handler.mock_calls))
+        self.assertEqual(5, len(ep.update_node_instance.mock_calls))
+
+
+class TestPropertiesUpdateDefaultMergeHandler(unittest.TestCase):
+    ERR_CONFLICT = CloudifyClientError('conflict', status_code=409)
+
+    def test_merge_handler_noconflict(self):
+        """The merge builtin handler adds properties that are not present.
+
+        If a property was added locally, but isn't in the storage version,
+        it can be added.
+        """
+        instance = NodeInstance('id', 'node_id', {'value': 1})
+
+        def mock_update(instance):
+            # we got both properties merged - the locally added one
+            # and the server one
+            self.assertEqual({'othervalue': 1, 'value': 1},
+                             instance.runtime_properties)
+
+        ep = mock.Mock(**{
+            'get_node_instance.return_value': instance,
+            'update_node_instance.side_effect': mock_update
+        })
+
+        ctx = _context_with_endpoint(ep)
+        ctx.runtime_properties['othervalue'] = 1
+        ctx.update(conflict_handlers.simple_merge_handler)
+
+        ep.update_node_instance.assert_called_once_with(instance)
+
+    def test_merge_handler_repeated_property(self):
+        """Merge handler won't overwrite already existing properties.
+
+        First fetch returns value=1; locally change that to 2 and try to
+        update. However server says that's a conflict, and now says value=5.
+        Merge handler decides it can't merge and errors out.
+        """
+        instance = NodeInstance('id', 'node_id', {'value': 1})
+
+        ep = mock.Mock(**{
+            'get_node_instance.return_value': instance,
+            'update_node_instance.side_effect': self.ERR_CONFLICT
+        })
+        ctx = _context_with_endpoint(ep)
+        ctx.runtime_properties['value'] = 2
+
+        # in the meantime, server's version changed! value is now 5
+        ep.get_node_instance.return_value = NodeInstance('id', 'node_id',
+                                                         {'value': 5})
+
+        try:
+            ctx.update(conflict_handlers.simple_merge_handler)
+        except ValueError:
+            pass
+        else:
+            self.fail('merge handler should fail to merge repeated properties')
+
+        self.assertEqual(1, len(ep.update_node_instance.mock_calls))
+
+    def test_merge_handler_conflict_resolved(self):
+        """Merge handler can resolve conflicts, adding new properties.
+
+        First fetch returns instance without the 'value' property.
+        Handler adds the locally-added 'othervalue' and tries updating.
+        That's a conflict, because now the server version has the 'value'
+        property. Handler refetches, and is able to merge.
+        """
+
+        instances = [NodeInstance('id', 'node_id'),
+                     NodeInstance('id', 'node_id', {'value': 1})]
+
+        def mock_update(instance):
+            if 'value' not in instance.runtime_properties:
+                raise self.ERR_CONFLICT
+            self.assertEqual({'othervalue': 1, 'value': 1},
+                             instance.runtime_properties)
+
+        ep = mock.Mock(**{
+            'get_node_instance.side_effect': instances,
+            'update_node_instance.side_effect': mock_update
+        })
+
+        ctx = _context_with_endpoint(ep)
+        ctx.runtime_properties['othervalue'] = 1
+        # at this point we don't know about the 'value' property yet
+        ctx.update(conflict_handlers.simple_merge_handler)
+
+        self.assertEqual(2, len(ep.update_node_instance.mock_calls))
 
 
 @operation

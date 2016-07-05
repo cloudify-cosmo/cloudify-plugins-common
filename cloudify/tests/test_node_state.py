@@ -15,6 +15,8 @@
 
 
 import testtools
+
+from cloudify import exceptions
 from cloudify.manager import NodeInstance
 
 
@@ -91,3 +93,31 @@ class NodeStateTest(testtools.TestCase):
         self.assertFalse(node.dirty)
         del(node['preexisting-key'])
         self.assertTrue(node.dirty)
+
+    def test_setting_runtime_properties(self):
+        """Assignment to .runtime_properties is possible and stores them."""
+        node = NodeInstance('instance_id', 'node_id',
+                            runtime_properties={'preexisting-key': 'val'})
+        node.runtime_properties = {'other key': 'other val'}
+        self.assertEqual({'other key': 'other val'}, node.runtime_properties)
+
+    def test_setting_runtime_properties_sets_dirty(self):
+        """Assignment to .runtime_properties sets the dirty flag."""
+        node = NodeInstance('instance_id', 'node_id',
+                            runtime_properties={'preexisting-key': 'val'})
+        node.runtime_properties = {'other key': 'other val'}
+        self.assertTrue(node.runtime_properties.dirty)
+
+    def test_setting_runtime_properties_checks_modifiable(self):
+        """Cannot assign to .runtime_properties if modifiable is false."""
+        node = NodeInstance('instance_id', 'node_id',
+                            runtime_properties={'preexisting-key': 'val'})
+        node.runtime_properties.modifiable = False
+        try:
+            node.runtime_properties = {'other key': 'other val'}
+        except exceptions.NonRecoverableError:
+            pass
+        else:
+            self.fail(
+                'Error should be raised when assigning runtime_properties '
+                'with the modifiable flag set to False')
