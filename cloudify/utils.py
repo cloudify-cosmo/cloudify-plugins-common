@@ -264,8 +264,6 @@ class CommandExecutionResponse(object):
         self.std_err = std_err
         self.return_code = return_code
 
-setup_default_logger = setup_logger  # deprecated; for backwards compatibility
-
 
 def _shlex_split(command):
     lex = shlex.shlex(command, posix=True)
