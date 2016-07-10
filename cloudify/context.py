@@ -165,7 +165,7 @@ class BootstrapContext(object):
         @property
         def broker_ip(self):
             """
-            Returns the IP for connecting to rabbit.
+            Returns the host name or IP of the rabbit server.
             An empty string should result in clients using the manager IP.
             """
             return self._cloudify_agent.get('broker_ip')
@@ -232,23 +232,16 @@ class BootstrapContext(object):
         """
         return self._bootstrap_context.get('resources_prefix', '')
 
-    def broker_config(self, fallback_to_manager_ip=True):
+    def broker_config(self, *args, **kwargs):
         """
         Returns dictionary containing broker configuration.
-
-        :param fallback_to_manager_ip: If True and there is no broker_ip in
-        context, manager ip will be used. Note that manager ip detection is
-        only possible within agent.
         """
         attributes = {}
         bootstrap_agent = self.cloudify_agent
         broker_user, broker_pass = utils.internal.get_broker_credentials(
             bootstrap_agent
         )
-        if bootstrap_agent.broker_ip:
-            attributes['broker_ip'] = bootstrap_agent.broker_ip
-        elif fallback_to_manager_ip:
-            attributes['broker_ip'] = utils.get_manager_ip()
+        attributes['broker_ip'] = bootstrap_agent.broker_ip
         attributes['broker_user'] = broker_user
         attributes['broker_pass'] = broker_pass
         attributes['broker_ssl_enabled'] = bootstrap_agent.broker_ssl_enabled
@@ -529,6 +522,7 @@ class RelationshipSubjectContext(object):
 
 
 class CloudifyContext(CommonContext):
+
     """
     A context object passed to plugins tasks invocations.
     The context object is used in plugins when interacting with

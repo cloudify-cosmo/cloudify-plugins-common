@@ -41,14 +41,12 @@ class AMQPClient(object):
     def __init__(self,
                  amqp_user='guest',
                  amqp_pass='guest',
-                 amqp_host=None,
+                 amqp_host='localhost',
                  ssl_enabled=False,
                  ssl_cert_path=''):
         self.connection = None
         self.channel = None
         self._is_closed = False
-        if amqp_host is None:
-            amqp_host = utils.get_manager_ip()
         credentials = pika.credentials.PlainCredentials(
             username=amqp_user,
             password=amqp_pass)

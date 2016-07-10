@@ -111,11 +111,11 @@ def setup_logger(logger_name,
     return logger
 
 
-def get_manager_ip():
+def get_manager_file_server_host():
     """
-    Returns the IP address of manager inside the management network.
+    Returns the host the manager file server is running on.
     """
-    return os.environ[constants.MANAGER_IP_KEY]
+    return os.environ[constants.FILE_SERVER_HOST_KEY]
 
 
 def get_manager_file_server_blueprints_root_url():
@@ -139,11 +139,79 @@ def get_manager_file_server_url():
     return os.environ[constants.MANAGER_FILE_SERVER_URL_KEY]
 
 
+def is_security_enabled():
+    """
+    Returns True if REST security is enabled, False otherwise
+    """
+    return os.environ[constants.SECURITY_ENABLED_KEY].lower() == 'true'
+
+
+def is_ssl_enabled():
+    """
+    Returns True if SSL is enabled, False otherwise
+    """
+    return os.environ[constants.SSL_ENABLED_KEY].lower() == 'true'
+
+
+def get_manager_rest_service_host():
+    """
+    Returns the host the manager REST service is running on.
+    """
+    return os.environ[constants.REST_HOST_KEY]
+
+
+# maintained for backwards compatibility
+get_manager_ip = get_manager_rest_service_host
+
+
 def get_manager_rest_service_port():
     """
     Returns the port the manager REST service is running on.
     """
-    return int(os.environ[constants.MANAGER_REST_PORT_KEY])
+    return int(os.environ[constants.REST_PORT_KEY])
+
+
+def get_manager_rest_service_protocol():
+    """
+    Returns the protocol the manager REST service is running on.
+    """
+    return os.environ[constants.REST_PROTOCOL_KEY]
+
+
+def is_verify_rest_certificate():
+    """
+    Returns True if the rest client should verify the server's SSL
+     certificate, False otherwise.
+    """
+    return os.environ[constants.VERIFY_REST_CERTIFICATE_KEY].lower() == 'true'
+
+
+def get_local_rest_certificate():
+    """
+    Returns the path to the local copy of the server's public certificate
+    """
+    return os.environ[constants.LOCAL_REST_CERT_FILE_KEY]
+
+
+def get_rest_cert_content():
+    """
+    Returns the content of the REST SSL certificate
+    """
+    return os.environ[constants.REST_CERT_CONTENT_KEY]
+
+
+def get_rest_username():
+    """
+    Returns the username to use when calling the REST service
+    """
+    return os.environ[constants.REST_USERNAME_KEY]
+
+
+def get_rest_password():
+    """
+    Returns the password to use when calling the REST service
+    """
+    return os.environ[constants.REST_PASSWORD_KEY]
 
 
 def get_is_bypass_maintenance():

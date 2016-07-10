@@ -424,7 +424,6 @@ class _WorkflowContextBase(object):
         self._local_task_thread_pool_size = ctx.get(
             'local_task_thread_pool_size',
             DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE)
-
         self._task_retry_interval = ctx.get('task_retry_interval',
                                             DEFAULT_RETRY_INTERVAL)
         self._task_retries = ctx.get('task_retries',
@@ -624,7 +623,7 @@ class _WorkflowContextBase(object):
             'task_id': task_id,
             'task_name': task_name,
             'execution_id': self.execution_id,
-            'workflow_id': self.workflow_id,
+            'workflow_id': self.workflow_id
         }
         context.update(node_context)
         context.update(self.internal.handler.operation_cloudify_context)
@@ -834,7 +833,6 @@ class CloudifyWorkflowContext(
         # in _WorkflowContextBase, but the way it is now is self-explanatory.
         _WorkflowContextBase.__init__(self, ctx,
                                       RemoteCloudifyWorkflowContextHandler)
-
         self.blueprint = context.BlueprintContext(self._context)
         self.deployment = WorkflowDeploymentContext(self._context, self)
 

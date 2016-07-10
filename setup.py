@@ -22,6 +22,7 @@ install_requires = [
     'proxy_tools==0.1.0',
     'bottle==0.12.7',
     'jinja2==2.7.2',
+    'itsdangerous==0.24'
 ]
 
 try:

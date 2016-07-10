@@ -16,7 +16,10 @@
 import os
 import urllib2
 
+from itsdangerous import base64_encode
+
 import utils
+import constants
 from cloudify_rest_client import CloudifyClient
 from cloudify.exceptions import HttpException, NonRecoverableError
 
@@ -120,12 +123,44 @@ def get_rest_client():
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
-    headers = None
+    rest_host = utils.get_manager_rest_service_host()
+    rest_port = utils.get_manager_rest_service_port()
+    rest_protocol = constants.DEFAULT_PROTOCOL
+
+    # handle maintenance mode
+    headers = {}
     if utils.get_is_bypass_maintenance():
-        headers = {'X-BYPASS-MAINTENANCE': 'True'}
-    return CloudifyClient(utils.get_manager_ip(),
-                          utils.get_manager_rest_service_port(),
-                          headers=headers)
+        headers['X-BYPASS-MAINTENANCE'] = 'True'
+
+    # handle security
+    if not utils.is_security_enabled():
+        rest_client = CloudifyClient(rest_host,
+                                     rest_port,
+                                     rest_protocol,
+                                     headers=headers)
+    else:
+        # security enabled
+        credentials = '{0}:{1}'.format(utils.get_rest_username(),
+                                       utils.get_rest_password())
+        auth_header = {
+            constants.CLOUDIFY_AUTHENTICATION_HEADER:
+            constants.BASIC_AUTH_PREFIX + ' ' + base64_encode(credentials)}
+        headers.update(auth_header)
+        rest_port = utils.get_manager_rest_service_port()
+        rest_protocol = utils.get_manager_rest_service_protocol()
+
+        if utils.is_verify_rest_certificate():
+            trust_all = False
+            cert_path = utils.get_local_rest_certificate()
+        else:
+            trust_all = True
+            cert_path = None
+
+        rest_client = CloudifyClient(host=rest_host, port=rest_port,
+                                     protocol=rest_protocol, headers=headers,
+                                     cert=cert_path, trust_all=trust_all)
+
+    return rest_client
 
 
 def _save_resource(logger, resource, resource_path, target_path):
