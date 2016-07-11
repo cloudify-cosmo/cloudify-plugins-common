@@ -32,6 +32,11 @@ from cloudify_rest_client.exceptions import InvalidExecutionUpdateStatus
 
 class TestDispatchTaskHandler(testtools.TestCase):
 
+    def test_handle_task_with_missing_args(self):
+        handler = self._operation(func1, local=True)
+        self.assertRaises(TypeError,
+                          handler.handle_or_dispatch_to_subprocess_if_remote)
+
     def test_handle_or_dispatch_to_subprocess(self):
         expected_result = 'the result'
         local_op_handler = self._operation(

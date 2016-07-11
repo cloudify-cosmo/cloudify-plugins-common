@@ -33,16 +33,17 @@ from cloudify_rest_client.executions import Execution
 from cloudify_rest_client.exceptions import InvalidExecutionUpdateStatus
 
 from cloudify import logs
-from cloudify import exceptions
 from cloudify import state
-from cloudify import context
 from cloudify import utils
-from cloudify import amqp_client_utils
+from cloudify import context
+from cloudify import inspect3
 from cloudify import constants
+from cloudify import exceptions
+from cloudify.workflows import api
+from cloudify import amqp_client_utils
+from cloudify.workflows import workflow_context
 from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify.manager import update_execution_status, get_rest_client
-from cloudify.workflows import workflow_context
-from cloudify.workflows import api
 
 CLOUDIFY_DISPATCH = 'CLOUDIFY_DISPATCH'
 
@@ -363,6 +364,7 @@ class OperationHandler(TaskHandler):
             kwargs['ctx'] = ctx
         state.current_ctx.set(ctx, kwargs)
         try:
+            inspect3.getcallargs(self.func, *self.args, **kwargs)
             result = self.func(*self.args, **kwargs)
         finally:
             amqp_client_utils.close_amqp_client()
