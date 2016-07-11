@@ -29,7 +29,7 @@ class Event(object):
 
     def __str__(self):
         deployment_id = self.deployment_id
-        timestamp = self.timestamp
+        printable_timestamp = self.printable_timestamp
         event_type_indicator = self.event_type_indicator
         message = self.text
         info = self.operation_info
@@ -37,7 +37,7 @@ class Event(object):
         if info:  # spacing in between of the info and the message
             info += ' '
 
-        return '{0} {1} {2} {3}{4}'.format(timestamp,
+        return '{0} {1} {2} {3}{4}'.format(printable_timestamp,
                                            event_type_indicator,
                                            deployment_id,
                                            info,
@@ -99,8 +99,11 @@ class Event(object):
 
     @property
     def timestamp(self):
-        return (self._event.get('@timestamp') or self._event['timestamp'])\
-            .split('.')[0]
+        return self._event.get('@timestamp') or self._event['timestamp']
+
+    @property
+    def printable_timestamp(self):
+        return self.timestamp.replace('T', ' ').replace('Z', ' ')
 
     @property
     def event_type_indicator(self):
