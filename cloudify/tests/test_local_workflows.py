@@ -1188,6 +1188,202 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             workflow_parameters_schema=valid_custom_schema,
             use_existing_env=False)
 
+    def test_workflow_parameters_types(self):
+
+        workflow = {
+            'parameters': {
+                'optional1': {'default': 7},
+                'optional2': {'default': 'bla'},
+                'optional_int1': {
+                    'default': 1,
+                    'type': 'integer'
+                },
+                'optional_int2': {
+                    'default': 2,
+                    'type': 'integer'
+                },
+                'optional_float1': {
+                    'default': 1.5,
+                    'type': 'float'
+                },
+                'optional_float2': {
+                    'default': 2,
+                    'type': 'float'
+                },
+                'optional_str1': {
+                    'default': 'bla',
+                    'type': 'string'
+                },
+                'optional_str2': {
+                    'default': 'blabla',
+                    'type': 'string'
+                },
+                'optional_bool1': {
+                    'default': 'False',
+                    'type': 'boolean'
+                },
+                'optional_bool2': {
+                    'default': 'True',
+                    'type': 'boolean'
+                },
+                'mandatory1': {},
+                'mandatory2': {},
+                'mandatory_int1': {'type': 'integer'},
+                'mandatory_int2': {'type': 'integer'},
+                'mandatory_float1': {'type': 'float'},
+                'mandatory_float2': {'type': 'float'},
+                'mandatory_str1': {'type': 'string'},
+                'mandatory_str2': {'type': 'string'},
+                'mandatory_bool1': {'type': 'boolean'},
+                'mandatory_bool2': {'type': 'boolean'}
+            }
+        }
+
+        self._test_workflow_mandatory_parameters_types(workflow)
+        self._test_workflow_optional_parameters_types(workflow)
+        self._test_workflow_custom_parameters_types(workflow)
+
+    def _test_workflow_mandatory_parameters_types(self, workflow):
+        parameters = {
+            'mandatory1': 'bla',
+            'mandatory2': 6,
+            'mandatory_int1': 1,
+            'mandatory_int2': 'bla',
+            'mandatory_float1': 3.5,
+            'mandatory_float2': True,
+            'mandatory_str1': 'bla',
+            'mandatory_str2': 7,
+            'mandatory_bool1': False,
+            'mandatory_bool2': 'bla'
+        }
+        try:
+            local._merge_and_validate_execution_parameters(
+                workflow, 'workflow', parameters)
+        except ValueError, e:
+            # check which parameters are mentioned in the error message
+            self.assertIn('mandatory_int2', str(e))
+            self.assertIn('mandatory_float2', str(e))
+            self.assertIn('mandatory_str2', str(e))
+            self.assertIn('mandatory_bool2', str(e))
+            self.assertNotIn('mandatory1', str(e))
+            self.assertNotIn('mandatory2', str(e))
+            self.assertNotIn('mandatory_int1', str(e))
+            self.assertNotIn('mandatory_float1', str(e))
+            self.assertNotIn('mandatory_str1', str(e))
+            self.assertNotIn('mandatory_bool1', str(e))
+        else:
+            self.fail()
+
+    def _test_workflow_optional_parameters_types(self, workflow):
+        parameters = {
+            'mandatory1': False,
+            'mandatory2': [],
+            'mandatory_int1': -7,
+            'mandatory_int2': 3.5,
+            'mandatory_float1': 5.0,
+            'mandatory_float2': [],
+            'mandatory_str1': u'bla',
+            'mandatory_str2': ['bla'],
+            'mandatory_bool1': True,
+            'mandatory_bool2': 0,
+            'optional1': 'bla',
+            'optional2': 6,
+            'optional_int1': 1,
+            'optional_int2': 'bla',
+            'optional_float1': 3.5,
+            'optional_float2': True,
+            'optional_str1': 'bla',
+            'optional_str2': 7,
+            'optional_bool1': False,
+            'optional_bool2': 'bla'
+        }
+        try:
+            local._merge_and_validate_execution_parameters(
+                workflow, 'workflow', parameters)
+        except ValueError, e:
+            # check which parameters are mentioned in the error message
+            self.assertIn('mandatory_int2', str(e))
+            self.assertIn('mandatory_float2', str(e))
+            self.assertIn('mandatory_str2', str(e))
+            self.assertIn('mandatory_bool2', str(e))
+            self.assertNotIn('mandatory1', str(e))
+            self.assertNotIn('mandatory2', str(e))
+            self.assertNotIn('mandatory_int1', str(e))
+            self.assertNotIn('mandatory_float1', str(e))
+            self.assertNotIn('mandatory_str1', str(e))
+            self.assertNotIn('mandatory_bool1', str(e))
+
+            self.assertIn('optional_int2', str(e))
+            self.assertIn('optional_float2', str(e))
+            self.assertIn('optional_str2', str(e))
+            self.assertIn('optional_bool2', str(e))
+            self.assertNotIn('optional1', str(e))
+            self.assertNotIn('optional2', str(e))
+            self.assertNotIn('optional_int1', str(e))
+            self.assertNotIn('optional_float1', str(e))
+            self.assertNotIn('optional_str1', str(e))
+            self.assertNotIn('optional_bool1', str(e))
+        else:
+            self.fail()
+
+    def _test_workflow_custom_parameters_types(self, workflow):
+        parameters = {
+            'mandatory1': False,
+            'mandatory2': [],
+            'mandatory_int1': -7,
+            'mandatory_int2': 3,
+            'mandatory_float1': 5.0,
+            'mandatory_float2': 0.0,
+            'mandatory_str1': u'bla',
+            'mandatory_str2': 'bla',
+            'mandatory_bool1': True,
+            'mandatory_bool2': False,
+            'optional1': 'bla',
+            'optional2': 6,
+            'optional_int1': 1,
+            'optional_int2': 'bla',
+            'optional_float1': 3.5,
+            'optional_str1': 'bla',
+            'optional_bool1': False,
+            'custom1': 8,
+            'custom2': 3.2,
+            'custom3': 'bla',
+            'custom4': True
+        }
+        try:
+            local._merge_and_validate_execution_parameters(
+                workflow, 'workflow', parameters, True)
+        except ValueError, e:
+            # check which parameters are mentioned in the error message
+            self.assertNotIn('mandatory_int2', str(e))
+            self.assertNotIn('mandatory_float2', str(e))
+            self.assertNotIn('mandatory_str2', str(e))
+            self.assertNotIn('mandatory_bool2', str(e))
+            self.assertNotIn('mandatory1', str(e))
+            self.assertNotIn('mandatory2', str(e))
+            self.assertNotIn('mandatory_int1', str(e))
+            self.assertNotIn('mandatory_float1', str(e))
+            self.assertNotIn('mandatory_str1', str(e))
+            self.assertNotIn('mandatory_bool1', str(e))
+
+            self.assertIn('optional_int2', str(e))
+            self.assertNotIn('optional_float2', str(e))
+            self.assertNotIn('optional_str2', str(e))
+            self.assertNotIn('optional_bool2', str(e))
+            self.assertNotIn('optional1', str(e))
+            self.assertNotIn('optional2', str(e))
+            self.assertNotIn('optional_int1', str(e))
+            self.assertNotIn('optional_float1', str(e))
+            self.assertNotIn('optional_str1', str(e))
+            self.assertNotIn('optional_bool1', str(e))
+
+            self.assertNotIn('custom1', str(e))
+            self.assertNotIn('custom2', str(e))
+            self.assertNotIn('custom3', str(e))
+            self.assertNotIn('custom4', str(e))
+        else:
+            self.fail()
+
     def test_global_retry_configuration(self):
         self._test_retry_configuration_impl(
             global_retries=1,

@@ -21,6 +21,7 @@ import shutil
 import uuid
 import json
 import threading
+from StringIO import StringIO
 from contextlib import contextmanager
 
 from cloudify_rest_client.nodes import Node
@@ -264,7 +265,20 @@ def _merge_and_validate_execution_parameters(
 
     missing_mandatory_parameters = set()
 
+    allowed_types = {
+        'integer': int,
+        'float': float,
+        'string': basestring,
+        'boolean': bool
+    }
+    wrong_types = {}
+
     for name, param in workflow_parameters.iteritems():
+        if 'type' in param and name in execution_parameters:
+            if not isinstance(execution_parameters[name],
+                              allowed_types.get(param['type'], object)):
+                wrong_types[name] = param['type']
+
         if 'default' not in param:
             if name not in execution_parameters:
                 missing_mandatory_parameters.add(name)
@@ -279,6 +293,13 @@ def _merge_and_validate_execution_parameters(
             'Workflow "{0}" must be provided with the following '
             'parameters to execute: {1}'
             .format(workflow_name, ','.join(missing_mandatory_parameters)))
+
+    if wrong_types:
+        error_message = StringIO()
+        for param_name, param_type in wrong_types.iteritems():
+            error_message.write('Parameter "{0}" must be of type {1}\n'.
+                                format(param_name, param_type))
+        raise ValueError(error_message.getvalue())
 
     custom_parameters = dict(
         (k, v) for (k, v) in execution_parameters.iteritems()
