@@ -1,18 +1,20 @@
+import sys
 import inspect
 
 
-def getfullargspec(func):
+def _getfullargspec(func):
     (args, varargs, keywords, defaults) = inspect.getargspec(func)
     return (args, varargs, keywords, defaults, [], [], {})
 
 
-def getcallargs(*func_and_positional, **named):
+def _getcallargs(func, *positional, **named):
+    # def getcallargs(*func_and_positional, **named):
     """Get the mapping of arguments to values.
     A dict is returned, with keys the function argument names (including the
     names of the * and ** arguments, if any), and values the respective bound
     values from 'positional' and 'named'."""
-    func = func_and_positional[0]
-    positional = func_and_positional[1:]
+    # func = func_and_positional[0]
+    # positional = func_and_positional[1:]
     spec = getfullargspec(func)
     args, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, ann = spec
     arg2value = {}
@@ -103,3 +105,11 @@ def _missing_arguments(f_name, argnames, pos, values):
                     (f_name, missing,
                      "positional" if pos else "keyword-only",
                      "" if missing == 1 else "s", s))
+
+
+if sys.version_info >= (3, 2):
+    getfullargspec = inspect.getfullargspec
+    getcallargs = inspect.getcallargs
+else:
+    getfullargspec = _getfullargspec
+    getcallargs = _getcallargs
