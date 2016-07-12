@@ -1254,7 +1254,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             'mandatory_str1': 'bla',
             'mandatory_str2': 7,
             'mandatory_bool1': False,
-            'mandatory_bool2': 'bla'
+            'mandatory_bool2': 'boolean_that_is_not_string'
         }
         try:
             local._merge_and_validate_execution_parameters(
@@ -1278,13 +1278,13 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         parameters = {
             'mandatory1': False,
             'mandatory2': [],
-            'mandatory_int1': -7,
+            'mandatory_int1': '-7',
             'mandatory_int2': 3.5,
-            'mandatory_float1': 5.0,
+            'mandatory_float1': '5.0',
             'mandatory_float2': [],
             'mandatory_str1': u'bla',
             'mandatory_str2': ['bla'],
-            'mandatory_bool1': True,
+            'mandatory_bool1': 'tRUe',
             'mandatory_bool2': 0,
             'optional1': 'bla',
             'optional2': 6,
@@ -1344,7 +1344,7 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             'optional_int2': 'bla',
             'optional_float1': 3.5,
             'optional_str1': 'bla',
-            'optional_bool1': False,
+            'optional_bool1': 'falSE',
             'custom1': 8,
             'custom2': 3.2,
             'custom3': 'bla',
