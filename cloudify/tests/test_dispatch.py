@@ -37,6 +37,16 @@ class TestDispatchTaskHandler(testtools.TestCase):
         self.assertRaises(TypeError,
                           handler.handle_or_dispatch_to_subprocess_if_remote)
 
+    def test_handle_task_with_invalid_kwargs(self):
+        handler = self._operation(func1, kwargs={'one': 1}, local=True)
+        self.assertRaises(TypeError,
+                          handler.handle_or_dispatch_to_subprocess_if_remote)
+
+    def test_handle_task_with_invalid_args_amount(self):
+        handler = self._operation(func1, args=[1, 2], local=True)
+        self.assertRaises(TypeError,
+                          handler.handle_or_dispatch_to_subprocess_if_remote)
+
     def test_handle_or_dispatch_to_subprocess(self):
         expected_result = 'the result'
         local_op_handler = self._operation(
