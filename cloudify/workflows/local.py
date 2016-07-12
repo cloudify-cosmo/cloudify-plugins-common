@@ -255,6 +255,21 @@ def _get_module_method(module_method_path, tpe, node_name,
                                      node_name, tpe))
 
 
+def _try_convert_from_str(string, target_type):
+    if target_type == basestring:
+        return string
+    if target_type == bool:
+        if string.lower() == 'true':
+            return True
+        if string.lower() == 'false':
+            return False
+        return string
+    try:
+        return target_type(string)
+    except ValueError:
+        return string
+
+
 def _merge_and_validate_execution_parameters(
         workflow, workflow_name, execution_parameters=None,
         allow_custom_parameters=False):
@@ -274,7 +289,18 @@ def _merge_and_validate_execution_parameters(
     wrong_types = {}
 
     for name, param in workflow_parameters.iteritems():
+
         if 'type' in param and name in execution_parameters:
+
+            # check if need to convert from string
+            if (isinstance(execution_parameters[name], basestring) and
+                    param['type'] in allowed_types):
+                execution_parameters[name] = \
+                    _try_convert_from_str(
+                        execution_parameters[name],
+                        allowed_types[param['type']])
+
+            # validate type
             if not isinstance(execution_parameters[name],
                               allowed_types.get(param['type'], object)):
                 wrong_types[name] = param['type']
