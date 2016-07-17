@@ -15,7 +15,6 @@
 
 
 import sys
-import time
 import logging
 import json
 import datetime
@@ -285,8 +284,8 @@ def _send_event(ctx, context_type, event_type,
 
 
 def populate_base_item(item, message_type):
-    timezone = time.strftime("%z", time.gmtime())
-    timestamp = str(datetime.datetime.now())[0:-3] + timezone
+    # Adding 'Z' to match ISO format
+    timestamp = '{0}Z'.format(datetime.datetime.now().isoformat()[:-3])
     item['timestamp'] = timestamp
     item['message_code'] = None
     item['type'] = message_type
