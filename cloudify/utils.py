@@ -30,6 +30,7 @@ from cloudify.exceptions import (
     CommandExecutionException,
     NonRecoverableError,
 )
+from cloudify.state import workflow_ctx, ctx
 
 
 class ManagerVersion(object):
@@ -200,18 +201,35 @@ def get_rest_cert_content():
     return os.environ[constants.REST_CERT_CONTENT_KEY]
 
 
+def _get_current_context():
+    for context in [ctx, workflow_ctx]:
+        try:
+            return context._get_current_object()
+        except RuntimeError:
+            continue
+    raise RuntimeError('Context required, but no operation or workflow '
+                       'context available.')
+
+
+def get_rest_token():
+    """
+    Returns the auth token to use when calling the REST service
+    """
+    return _get_current_context().rest_token
+
+
 def get_rest_username():
     """
     Returns the username to use when calling the REST service
     """
-    return os.environ[constants.REST_USERNAME_KEY]
+    return _get_current_context().rest_username
 
 
 def get_rest_password():
     """
     Returns the password to use when calling the REST service
     """
-    return os.environ[constants.REST_PASSWORD_KEY]
+    return _get_current_context().rest_password
 
 
 def get_is_bypass_maintenance():
