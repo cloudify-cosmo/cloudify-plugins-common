@@ -843,8 +843,7 @@ class CloudifyWorkflowContext(
     """
 
     def __init__(self, ctx):
-        current_workflow_ctx.set(self)
-        try:
+        with current_workflow_ctx.push(self):
             # Not using super() here, because
             # WorkflowNodesAndInstancesContainer's __init__() needs some data
             # to be prepared before calling it. It would be possible to
@@ -867,8 +866,6 @@ class CloudifyWorkflowContext(
 
             WorkflowNodesAndInstancesContainer.__init__(self, self, raw_nodes,
                                                         raw_node_instances)
-        finally:
-            current_workflow_ctx.clear()
 
     def _build_cloudify_context(self, *args):
         context = super(
@@ -885,14 +882,11 @@ class CloudifyWorkflowContext(
 class CloudifySystemWideWorkflowContext(_WorkflowContextBase):
 
     def __init__(self, ctx):
-        current_workflow_ctx.set(self)
-        try:
+        with current_workflow_ctx.push(self):
             super(CloudifySystemWideWorkflowContext, self).__init__(
                 ctx,
                 SystemWideWfRemoteContextHandler
             )
-        finally:
-            current_workflow_ctx.clear()
         self._dep_contexts = None
 
     class _ManagedCloudifyWorkflowContext(CloudifyWorkflowContext):
@@ -1060,16 +1054,15 @@ class LocalTasksProcessing(object):
 
     def _process_local_task(self, workflow_ctx):
         # see CFY-1442
-        current_workflow_ctx.set(workflow_ctx)
-        while not self.stopped:
-            try:
-                task = self._local_tasks_queue.get(timeout=1)
-                task()
-            # may seem too general, but daemon threads are just great.
-            # anyway, this is properly unit tested, so we should be good.
-            except:
-                pass
-        current_workflow_ctx.clear()
+        with current_workflow_ctx.push(workflow_ctx):
+            while not self.stopped:
+                try:
+                    task = self._local_tasks_queue.get(timeout=1)
+                    task()
+                # may seem too general, but daemon threads are just great.
+                # anyway, this is properly unit tested, so we should be good.
+                except:
+                    pass
 
 # Local/Remote Handlers
 
