@@ -361,17 +361,18 @@ class OperationHandler(TaskHandler):
             kwargs = ctx._endpoint.evaluate_functions(payload=kwargs)
         if not self.cloudify_context.get('no_ctx_kwarg'):
             kwargs['ctx'] = ctx
-        state.current_ctx.set(ctx, kwargs)
-        try:
-            result = self.func(*self.args, **kwargs)
-        finally:
-            amqp_client_utils.close_amqp_client()
-            if ctx.type == context.NODE_INSTANCE:
-                ctx.instance.update()
-            elif ctx.type == context.RELATIONSHIP_INSTANCE:
-                ctx.source.instance.update()
-                ctx.target.instance.update()
-            state.current_ctx.clear()
+
+        with state.current_ctx.push(ctx, kwargs):
+            try:
+                result = self.func(*self.args, **kwargs)
+            finally:
+                amqp_client_utils.close_amqp_client()
+                if ctx.type == context.NODE_INSTANCE:
+                    ctx.instance.update()
+                elif ctx.type == context.RELATIONSHIP_INSTANCE:
+                    ctx.source.instance.update()
+                    ctx.target.instance.update()
+
         if ctx.operation._operation_retry:
             raise ctx.operation._operation_retry
         return result
@@ -391,13 +392,10 @@ class WorkflowHandler(TaskHandler):
 
         self.kwargs['ctx'] = self.ctx
 
-        state.current_workflow_ctx.set(self.ctx, self.kwargs)
-        try:
+        with state.current_workflow_ctx.push(self.ctx, self.kwargs):
             if self.ctx.local:
                 return self._handle_local_workflow()
             return self._handle_remote_workflow()
-        finally:
-            state.current_workflow_ctx.clear()
 
     def _handle_remote_workflow(self):
         rest = get_rest_client()
@@ -472,25 +470,24 @@ class WorkflowHandler(TaskHandler):
         # the actual execution of the workflow will run in another thread.
         # this method is the entry point for that thread, and takes care of
         # forwarding the result or error back to the parent thread
-        state.current_workflow_ctx.set(self.ctx, self.kwargs)
-        try:
-            self.ctx.internal.start_event_monitor()
-            workflow_result = self._execute_workflow_function()
-            queue.put({'result': workflow_result})
-        except api.ExecutionCancelled:
-            queue.put({'result': api.EXECUTION_CANCELLED_RESULT})
-        except BaseException as workflow_ex:
-            tb = StringIO.StringIO()
-            traceback.print_exc(file=tb)
-            err = {
-                'type': type(workflow_ex).__name__,
-                'message': str(workflow_ex),
-                'traceback': tb.getvalue()
-            }
-            queue.put({'error': err})
-        finally:
-            state.current_workflow_ctx.clear()
-            self.ctx.internal.stop_event_monitor()
+        with state.current_workflow_ctx.push(self.ctx, self.kwargs):
+            try:
+                self.ctx.internal.start_event_monitor()
+                workflow_result = self._execute_workflow_function()
+                queue.put({'result': workflow_result})
+            except api.ExecutionCancelled:
+                queue.put({'result': api.EXECUTION_CANCELLED_RESULT})
+            except BaseException as workflow_ex:
+                tb = StringIO.StringIO()
+                traceback.print_exc(file=tb)
+                err = {
+                    'type': type(workflow_ex).__name__,
+                    'message': str(workflow_ex),
+                    'traceback': tb.getvalue()
+                }
+                queue.put({'error': err})
+            finally:
+                self.ctx.internal.stop_event_monitor()
 
     def _handle_local_workflow(self):
         try:
