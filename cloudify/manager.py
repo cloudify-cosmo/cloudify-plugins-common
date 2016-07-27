@@ -14,8 +14,8 @@
 #    * limitations under the License.
 
 import os
-import urllib2
 
+import requests
 from itsdangerous import base64_encode
 
 import utils
@@ -231,12 +231,17 @@ def get_resource_from_manager(resource_path, base_url=None):
     """
     if base_url is None:
         base_url = utils.get_manager_file_server_url()
-    try:
-        url = '{0}/{1}'.format(base_url, resource_path)
-        response = urllib2.urlopen(url)
-        return response.read()
-    except urllib2.HTTPError as e:
-        raise HttpException(e.url, e.code, e.msg)
+
+    url = '{0}/{1}'.format(base_url, resource_path)
+    if utils.is_verify_rest_certificate():
+        verify = utils.get_local_rest_certificate() or True
+    else:
+        verify = False
+
+    response = requests.get(url, verify=verify)
+    if not response.ok:
+        raise HttpException(url, response.status_code, response.reason)
+    return response.content
 
 
 def get_resource(blueprint_id, deployment_id, resource_path):
