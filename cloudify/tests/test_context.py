@@ -55,6 +55,7 @@ class CloudifyContextTest(testtools.TestCase):
             = "http://localhost:{0}/deployments".format(PORT)
         os.environ[constants.MANAGER_FILE_SERVER_URL_KEY] = \
             "http://localhost:{0}".format(PORT)
+        os.environ[constants.VERIFY_REST_CERTIFICATE_KEY] = 'false'
         cls.context = context.CloudifyContext({'blueprint_id': ''})
         # the context logger will try to publish messages to rabbit, which is
         # not available here. instead, we redirect the output to stdout.
