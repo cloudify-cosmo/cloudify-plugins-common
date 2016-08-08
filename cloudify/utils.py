@@ -175,6 +175,19 @@ def get_manager_rest_service_host():
     return os.environ[constants.REST_HOST_KEY]
 
 
+def get_agent_rest_cert_path():
+    """
+    Returns location of the rest certificate on the agent
+    """
+    return os.environ[constants.AGENT_REST_CERT_PATH]
+
+
+def get_broker_ssl_cert_path():
+    """
+    Returns location of the broker certificate on the agent
+    """
+    return os.environ[constants.BROKER_SSL_CERT_PATH]
+
 # maintained for backwards compatibility
 get_manager_ip = get_manager_rest_service_host
 
