@@ -61,9 +61,8 @@ def _assure_path_exists(dest_path):
     :param dest_path:
     :return:
     """
-    dir_path = path.dirname(dest_path)
-    if not path.exists(dir_path):
-        makedirs(dir_path)
+    if not path.exists(dest_path):
+        makedirs(dest_path)
 
 
 def _expand_dictionary(inputs, func_self, func_args, func_kwargs):
