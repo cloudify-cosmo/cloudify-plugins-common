@@ -17,6 +17,7 @@
 import testtools
 
 from cloudify import decorators
+from cloudify import exceptions
 from cloudify import context
 from cloudify import ctx
 
@@ -56,6 +57,17 @@ def operation(descriptor, **_):
         runtime_properties['state'] = state
 
 
+@decorators.operation
+def operation_failing_stop(*_, **__):
+    invocations.append((ctx.node.id, ctx.operation.name.split('.')[-1]))
+    raise exceptions.NonRecoverableError('')
+
+
+@decorators.operation
+def operation_delete(*_, **__):
+    invocations.append((ctx.node.id, ctx.operation.name.split('.')[-1]))
+
+
 def inputs(node, op, count):
     return {'descriptor': {node: {op: count}}}
 
@@ -63,6 +75,9 @@ def inputs(node, op, count):
 class TaskLifecycleRetryTests(testtools.TestCase):
 
     blueprint_path = 'resources/blueprints/test-lifecycle-retry-blueprint.yaml'
+    non_ignore_blueprint = \
+        'resources/blueprints/' \
+        'test-uninstall-ignore-failure-parameter-blueprint.yaml'
 
     def setUp(self):
         super(TaskLifecycleRetryTests, self).setUp()
@@ -72,8 +87,13 @@ class TaskLifecycleRetryTests(testtools.TestCase):
         global invocations
         invocations = []
 
-    def _run(self, env, subgraph_retries=0, workflow='install'):
+    def _run(self,
+             env,
+             subgraph_retries=0,
+             workflow='install',
+             parameters=None):
         env.execute(workflow,
+                    parameters=parameters,
                     task_retries=1,
                     task_retry_interval=0,
                     subgraph_retries=subgraph_retries)
@@ -193,10 +213,32 @@ class TaskLifecycleRetryTests(testtools.TestCase):
 
     @workflow_test(blueprint_path, inputs=inputs('node2', 'stop', 6))
     def test_retry_lifecycle_in_uninstall_2(self, env):
-        e = self.assertRaises(RuntimeError, self._run, env,
-                              subgraph_retries=1, workflow='uninstall')
+        parameters = {
+            'ignore_failure': True
+        }
+        e = self.assertRaises(RuntimeError, self._run, env, subgraph_retries=1,
+                              workflow='uninstall', parameters=parameters)
         self.assertIn('test_lifecycle_retry.operation', str(e))
         self.assertEqual(invocations, [
             ('node2', 'stop'),
             ('node2', 'stop'),
         ])
+
+    @workflow_test(non_ignore_blueprint)
+    def test_retry_lifecycle_in_uninstall_ignore_failure_false(self, env):
+        parameters = {
+            'ignore_failure': False
+        }
+        e = self.assertRaises(RuntimeError, self._run, env, subgraph_retries=0,
+                              workflow='uninstall', parameters=parameters)
+        self.assertIn('test_lifecycle_retry.operation_failing_stop', str(e))
+        self.assertEqual(invocations, [('node1', 'stop')])
+
+    @workflow_test(non_ignore_blueprint)
+    def test_retry_lifecycle_in_uninstall_ignore_failure_true(self, env):
+        parameters = {
+            'ignore_failure': True
+        }
+        self._run(env=env, subgraph_retries=0, workflow='uninstall',
+                  parameters=parameters)
+        self.assertEqual(invocations, [('node1', 'stop'), ('node1', 'delete')])

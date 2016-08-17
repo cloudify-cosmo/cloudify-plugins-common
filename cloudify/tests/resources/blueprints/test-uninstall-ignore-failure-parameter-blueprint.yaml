@@ -1,0 +1,27 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/4.0m1/types.yaml
+
+dsl_definitions:
+  - &node_interfaces
+    cloudify.interfaces.lifecycle:
+      create: p.cloudify.tests.test_lifecycle_retry.operation
+      configure: p.cloudify.tests.test_lifecycle_retry.operation
+      start: p.cloudify.tests.test_lifecycle_retry.operation
+      stop: p.cloudify.tests.test_lifecycle_retry.operation_failing_stop
+      delete: p.cloudify.tests.test_lifecycle_retry.operation_delete
+
+plugins:
+  p:
+    executor: central_deployment_agent
+    install: false
+
+node_types:
+  type:
+    derived_from: cloudify.nodes.Root
+    interfaces: *node_interfaces
+
+node_templates:
+  node1:
+    type: type
