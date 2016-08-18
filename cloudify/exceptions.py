@@ -20,7 +20,7 @@ class NonRecoverableError(Exception):
     by the executing workflow engine.
     """
     def __init__(self, *args, **kwargs):
-        self.causes = kwargs.pop('causes', [])
+        self.causes = kwargs.pop('causes', []) or []
         super(NonRecoverableError, self).__init__(*args, **kwargs)
 
 
