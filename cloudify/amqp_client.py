@@ -30,12 +30,11 @@ logger = logging.getLogger(__name__)
 
 class AMQPClient(object):
 
-    EVENTS_QUEUE_NAME = 'cloudify-events'
-    LOGS_QUEUE_NAME = 'cloudify-logs'
+    EVENTS_EXCHANGE_NAME = 'cloudify-events'
+    LOGS_EXCHANGE_NAME = 'cloudify-logs'
     channel_settings = {
         'auto_delete': True,
         'durable': True,
-        'exclusive': False
     }
 
     def __init__(self,
@@ -65,18 +64,19 @@ class AMQPClient(object):
         self.connection = pika.BlockingConnection(self._connection_parameters)
         self.channel = self.connection.channel()
         self.channel.confirm_delivery()
-        for queue in [self.EVENTS_QUEUE_NAME, self.LOGS_QUEUE_NAME]:
-            self.channel.queue_declare(queue=queue, **self.channel_settings)
+        for exchange in [self.EVENTS_EXCHANGE_NAME, self.LOGS_EXCHANGE_NAME]:
+            self.channel.exchange_declare(exchange=exchange, type='fanout',
+                                          **self.channel_settings)
 
     def publish_message(self, message, message_type):
         if self._is_closed:
             raise exceptions.ClosedAMQPClientException(
                 'Publish failed, AMQP client already closed')
         if message_type == 'event':
-            routing_key = self.EVENTS_QUEUE_NAME
+            exchange = self.EVENTS_EXCHANGE_NAME
         else:
-            routing_key = self.LOGS_QUEUE_NAME
-        exchange = ''
+            exchange = self.LOGS_EXCHANGE_NAME
+        routing_key = ''
         body = json.dumps(message)
         try:
             self.channel.basic_publish(exchange=exchange,

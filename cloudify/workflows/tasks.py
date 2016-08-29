@@ -241,7 +241,7 @@ class WorkflowTask(object):
             causes = []
             if isinstance(exception, (exceptions.RecoverableError,
                                       exceptions.NonRecoverableError)):
-                causes = exception.causes
+                causes = exception.causes or []
             if isinstance(self, LocalWorkflowTask):
                 tb = self.async_result._holder.error[1]
                 causes.append(utils.exception_to_error_cause(exception, tb))
