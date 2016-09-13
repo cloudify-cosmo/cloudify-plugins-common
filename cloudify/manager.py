@@ -16,7 +16,7 @@
 import os
 
 import requests
-from itsdangerous import base64_encode
+from base64 import urlsafe_b64encode
 
 import utils
 import constants
@@ -146,7 +146,8 @@ def get_rest_client():
                                            utils.get_rest_password())
             auth_header = {
                 constants.CLOUDIFY_AUTHENTICATION_HEADER:
-                constants.BASIC_AUTH_PREFIX + ' ' + base64_encode(credentials)}
+                constants.BASIC_AUTH_PREFIX + ' '
+                + urlsafe_b64encode(credentials)}
         else:
             auth_header = {
                 constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: token
