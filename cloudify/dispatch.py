@@ -43,6 +43,7 @@ from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import workflow_context
 from cloudify.workflows import api
+from cloudify.constants import LOGGING_CONFIG_FILE
 
 CLOUDIFY_DISPATCH = 'CLOUDIFY_DISPATCH'
 
@@ -78,7 +79,7 @@ except ImportError:
 SYSTEM_DEPLOYMENT = '__system__'
 PLUGINS_DIR = os.path.join(VIRTUALENV, 'plugins')
 DISPATCH_LOGGER_FORMATTER = logging.Formatter(
-    '%(asctime)s [%(levelname)s] %(message)s')
+    '%(asctime)s [%(name)s] %(levelname)s: %(message)s')
 
 
 class TaskHandler(object):
@@ -275,6 +276,22 @@ class TaskHandler(object):
         logger.handlers = []
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG)
+        self._update_logging_level()
+
+    @staticmethod
+    def _update_logging_level():
+        if not os.path.isfile(LOGGING_CONFIG_FILE):
+            return
+        with open(LOGGING_CONFIG_FILE, 'r') as config_file:
+            config_lines = config_file.readlines()
+        for line in config_lines:
+            if not line.strip() or line.startswith('#'):
+                continue
+            level_name, logger_name = line.split()
+            level_id = logging.getLevelName(level_name.upper())
+            if not isinstance(level_id, int):
+                continue
+            logging.getLogger(logger_name).setLevel(level_id)
 
     def _create_fallback_logger(self, handler_context):
         log_dir = None
