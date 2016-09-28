@@ -374,8 +374,11 @@ class OperationHandler(TaskHandler):
             # task is local (not through celery) so we need clone kwarg
             # and an amqp client is not required
             kwargs = copy.deepcopy(kwargs)
-        if self.cloudify_context.get('has_intrinsic_functions') is True:
-            kwargs = ctx._endpoint.evaluate_functions(payload=kwargs)
+
+        if self.cloudify_context.get('has_intrinsic_functions'):
+            with state.current_ctx.push(ctx, kwargs):
+                kwargs = ctx._endpoint.evaluate_functions(payload=kwargs)
+
         if not self.cloudify_context.get('no_ctx_kwarg'):
             kwargs['ctx'] = ctx
 
