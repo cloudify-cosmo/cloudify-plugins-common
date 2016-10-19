@@ -16,7 +16,6 @@
 import os
 
 import requests
-from base64 import urlsafe_b64encode
 
 import utils
 import constants
@@ -141,18 +140,7 @@ def get_rest_client():
     else:
         # security enabled
         token = utils.get_rest_token()
-        if token is None:
-            credentials = '{0}:{1}'.format(utils.get_rest_username(),
-                                           utils.get_rest_password())
-            auth_header = {
-                constants.CLOUDIFY_AUTHENTICATION_HEADER:
-                constants.BASIC_AUTH_PREFIX + ' '
-                + urlsafe_b64encode(credentials)}
-        else:
-            auth_header = {
-                constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: token
-            }
-        headers.update(auth_header)
+        headers.update({constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: token})
         rest_port = utils.get_manager_rest_service_port()
         rest_protocol = utils.get_manager_rest_service_protocol()
 
