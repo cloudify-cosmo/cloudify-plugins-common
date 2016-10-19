@@ -473,16 +473,6 @@ class _WorkflowContextBase(object):
         return self._context.get('workflow_id')
 
     @property
-    def rest_username(self):
-        """REST service username"""
-        return self._context.get('rest_username')
-
-    @property
-    def rest_password(self):
-        """REST service password"""
-        return self._context.get('rest_password')
-
-    @property
     def rest_token(self):
         """REST service token"""
         return self._context.get('rest_token')
@@ -1206,8 +1196,6 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
     def operation_cloudify_context(self):
         return {'local': False,
                 'bypass_maintenance': utils.get_is_bypass_maintenance(),
-                'rest_username': utils.get_rest_username(),
-                'rest_password': utils.get_rest_password(),
                 'rest_token': utils.get_rest_token()}
 
     def get_set_state_task(self,

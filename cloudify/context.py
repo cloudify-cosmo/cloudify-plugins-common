@@ -685,16 +685,6 @@ class CloudifyContext(CommonContext):
         return self._context.get('workflow_id')
 
     @property
-    def rest_username(self):
-        """REST service username"""
-        return self._context.get('rest_username')
-
-    @property
-    def rest_password(self):
-        """REST service password"""
-        return self._context.get('rest_password')
-
-    @property
     def rest_token(self):
         """REST service token"""
         return self._context.get('rest_token')

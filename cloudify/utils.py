@@ -245,20 +245,6 @@ def get_rest_token():
     return _get_current_context().rest_token
 
 
-def get_rest_username():
-    """
-    Returns the username to use when calling the REST service
-    """
-    return _get_current_context().rest_username
-
-
-def get_rest_password():
-    """
-    Returns the password to use when calling the REST service
-    """
-    return _get_current_context().rest_password
-
-
 def get_is_bypass_maintenance():
     """
     Returns true if workflow should run in maintenance mode.
