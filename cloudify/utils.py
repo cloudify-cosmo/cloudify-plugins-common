@@ -188,6 +188,7 @@ def get_broker_ssl_cert_path():
     """
     return os.environ[constants.BROKER_SSL_CERT_PATH]
 
+
 # maintained for backwards compatibility
 get_manager_ip = get_manager_rest_service_host
 
@@ -362,6 +363,7 @@ class CommandExecutionResponse(object):
         self.std_out = std_out
         self.std_err = std_err
         self.return_code = return_code
+
 
 setup_default_logger = setup_logger  # deprecated; for backwards compatibility
 
