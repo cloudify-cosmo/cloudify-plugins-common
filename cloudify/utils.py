@@ -66,6 +66,24 @@ class ManagerVersion(object):
     def __str__(self):
         return '{0}.{1}.{2}'.format(self.major, self.minor, self.service)
 
+    def __eq__(self, other):
+        return self.equals(other)
+
+    def __gt__(self, other):
+        return self.greater_than(other)
+
+    def __lt__(self, other):
+        return other > self
+
+    def __ge__(self, other):
+        return self > other or self == other
+
+    def __le__(self, other):
+        return self < other or self == other
+
+    def __ne__(self, other):
+        return self > other or self < other
+
 
 def setup_logger(logger_name,
                  logger_level=logging.INFO,
