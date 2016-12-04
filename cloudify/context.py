@@ -198,6 +198,13 @@ class BootstrapContext(object):
             """
             return self._cloudify_agent.get('broker_ssl_cert')
 
+        @property
+        def cluster(self):
+            """
+            Returns the cluster configuration.
+            """
+            return self._cloudify_agent.get('cluster')
+
     def __init__(self, bootstrap_context):
         self._bootstrap_context = bootstrap_context
 
@@ -246,6 +253,7 @@ class BootstrapContext(object):
         attributes['broker_pass'] = broker_pass
         attributes['broker_ssl_enabled'] = bootstrap_agent.broker_ssl_enabled
         attributes['broker_ssl_cert'] = bootstrap_agent.broker_ssl_cert
+        attributes['cluster'] = bootstrap_agent.cluster
         if bootstrap_agent.broker_ssl_enabled:
             broker_port = constants.BROKER_PORT_SSL
         else:

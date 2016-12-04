@@ -15,6 +15,8 @@
 
 # AMQP broker configuration for agents and manager
 # Primarily used by celery, so provided with variables it understands
+from __future__ import absolute_import
+
 import json
 import os
 import ssl
@@ -51,12 +53,21 @@ else:
     broker_port = constants.BROKER_PORT_NO_SSL
 
 # This is held in the config to avoid the password appearing in ps listings
-BROKER_URL = 'amqp://{username}:{password}@{hostname}:{port}'.format(
-    username=broker_username,
-    password=broker_password,
-    hostname=broker_hostname,
-    port=broker_port,
-)
+if config.get('cluster'):
+    BROKER_URL = ';'.join('amqp://{username}:{password}@{hostname}:{port}//'
+                          .format(username=h['broker_user'],
+                                  password=h['broker_pass'],
+                                  hostname=h['broker_ip'],
+                                  port=broker_port)
+                          for h in config['cluster'])
+else:
+    BROKER_URL = 'amqp://{username}:{password}@{hostname}:{port}//'.format(
+        username=broker_username,
+        password=broker_password,
+        hostname=broker_hostname,
+        port=broker_port,
+    )
+CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_TASK_RESULT_EXPIRES = 600
 CELERYD_PREFETCH_MULTIPLIER = 0

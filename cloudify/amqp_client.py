@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
 import json
 import logging
 import threading
@@ -22,6 +21,7 @@ import pika
 import pika.exceptions
 
 from cloudify import broker_config
+from cloudify import cluster
 from cloudify import exceptions
 from cloudify import utils
 
@@ -53,11 +53,11 @@ class AMQPClient(object):
             ssl_enabled=ssl_enabled,
             cert_path=ssl_cert_path)
         self._connection_parameters = pika.ConnectionParameters(
-                host=amqp_host,
-                port=amqp_port,
-                credentials=credentials,
-                ssl=ssl_enabled,
-                ssl_options=ssl_options)
+            host=amqp_host,
+            port=amqp_port,
+            credentials=credentials,
+            ssl=ssl_enabled,
+            ssl_options=ssl_options)
         self._connect()
 
     def _connect(self):
@@ -125,16 +125,23 @@ def create_client(amqp_host=broker_config.broker_hostname,
                   ssl_enabled=broker_config.broker_ssl_enabled,
                   ssl_cert_path=broker_config.broker_cert_path):
     thread = threading.current_thread()
+
+    amqp_settings = {
+        'amqp_user': amqp_user,
+        'amqp_host': amqp_host,
+        'amqp_pass': amqp_pass,
+        'ssl_enabled': ssl_enabled,
+        'ssl_cert_path': ssl_cert_path
+    }
+    amqp_settings.update(cluster.get_cluster_amqp_settings())
+
     try:
         logger.debug(
             'Creating a new AMQP client for thread {0} '
             '[hostname={1}, username={2}, ssl_enabled={3}, cert_path={4}]'
-            .format(thread, amqp_host, amqp_user, ssl_enabled, ssl_cert_path))
-        client = AMQPClient(amqp_host=amqp_host,
-                            amqp_user=amqp_user,
-                            amqp_pass=amqp_pass,
-                            ssl_enabled=ssl_enabled,
-                            ssl_cert_path=ssl_cert_path)
+            .format(thread, amqp_host, amqp_user, ssl_enabled,
+                    ssl_cert_path))
+        client = AMQPClient(**amqp_settings)
         logger.debug('AMQP client created for thread {0}'.format(thread))
     except Exception as e:
         logger.warning(

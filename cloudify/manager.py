@@ -20,6 +20,7 @@ import requests
 import utils
 import constants
 from cloudify_rest_client import CloudifyClient
+from cloudify.cluster import CloudifyClusterClient, get_cluster_settings
 from cloudify.exceptions import HttpException, NonRecoverableError
 
 
@@ -122,6 +123,12 @@ def get_rest_client():
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
+    cluster_settings = get_cluster_settings()
+    if cluster_settings:
+        client_class = CloudifyClusterClient
+    else:
+        client_class = CloudifyClient
+
     rest_host = utils.get_manager_rest_service_host()
     rest_port = utils.get_manager_rest_service_port()
     rest_protocol = constants.DEFAULT_PROTOCOL
@@ -134,10 +141,10 @@ def get_rest_client():
 
     # handle security
     if not utils.is_security_enabled():
-        rest_client = CloudifyClient(rest_host,
-                                     rest_port,
-                                     rest_protocol,
-                                     headers=headers)
+        rest_client = client_class(rest_host,
+                                   rest_port,
+                                   rest_protocol,
+                                   headers=headers)
     else:
         # security enabled
         token = utils.get_rest_token()
@@ -152,9 +159,9 @@ def get_rest_client():
             trust_all = True
             cert_path = None
 
-        rest_client = CloudifyClient(host=rest_host, port=rest_port,
-                                     protocol=rest_protocol, headers=headers,
-                                     cert=cert_path, trust_all=trust_all)
+        rest_client = client_class(host=rest_host, port=rest_port,
+                                   protocol=rest_protocol, headers=headers,
+                                   cert=cert_path, trust_all=trust_all)
 
     return rest_client
 
