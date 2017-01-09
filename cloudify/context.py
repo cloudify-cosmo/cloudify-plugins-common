@@ -100,6 +100,7 @@ class CommonContext(object):
 
         self.blueprint = BlueprintContext(self._context)
         self.deployment = DeploymentContext(self._context)
+        self.tenant = TenantContext(self._context)
 
 
 class BootstrapContext(object):
@@ -274,6 +275,14 @@ class DeploymentContext(EntityContext):
     def id(self):
         """The deployment id the plugin invocation belongs to."""
         return self._context.get('deployment_id')
+
+
+class TenantContext(EntityContext):
+
+    @property
+    def name(self):
+        """The tenant name the plugin invocation belongs to."""
+        return self._context.get('tenant_name')
 
 
 class NodeContext(EntityContext):
@@ -844,10 +853,15 @@ class CloudifyContext(CommonContext):
                  failed to be written to the local file system.
 
         """
+        tenant_name = self.tenant.name if self.tenant.name else ''
+        blueprint_id = os.path.join(tenant_name, self.blueprint.id) \
+            if self.blueprint.id else ''
+        deployment_id = os.path.join(tenant_name, self.deployment.id) \
+            if self.deployment.id else ''
 
         return self._endpoint.download_resource(
-            blueprint_id=self.blueprint.id,
-            deployment_id=self.deployment.id,
+            blueprint_id=blueprint_id,
+            deployment_id=deployment_id,
             resource_path=resource_path,
             logger=self.logger,
             target_path=target_path)

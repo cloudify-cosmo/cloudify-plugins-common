@@ -55,7 +55,7 @@ class CloudifyContextTest(testtools.TestCase):
         cls.file_server_process.start()
 
         os.environ[constants.MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY] \
-            = "http://localhost:{0}".format(PORT)
+            = "http://localhost:{0}/blueprints".format(PORT)
         os.environ[constants.MANAGER_FILE_SERVER_DEPLOYMENTS_ROOT_URL_KEY] \
             = "http://localhost:{0}/deployments".format(PORT)
         os.environ[constants.MANAGER_FILE_SERVER_URL_KEY] = \
@@ -69,6 +69,12 @@ class CloudifyContextTest(testtools.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.file_server_process.stop()
+
+    def setup_tenant_context(self):
+        self.context = context.CloudifyContext(
+            {'blueprint_id': 'test_blueprint',
+             'tenant_name': 'default_tenant'})
+        self.redirect_log_to_stdout(self.context.logger)
 
     @staticmethod
     def redirect_log_to_stdout(logger):
@@ -99,6 +105,13 @@ class CloudifyContextTest(testtools.TestCase):
     def test_download_resource(self):
         resource_path = self.context.download_resource(
             resource_path='for_test.txt')
+        self.assertIsNotNone(resource_path)
+        self.assertTrue(os.path.exists(resource_path))
+
+    def test_download_blueprint_from_tenant(self):
+        self.setup_tenant_context()
+        resource_path = self.context.download_resource(
+            resource_path='blueprint.yaml')
         self.assertIsNotNone(resource_path)
         self.assertTrue(os.path.exists(resource_path))
 
