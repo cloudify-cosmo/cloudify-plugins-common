@@ -264,6 +264,13 @@ def get_rest_token():
     return _get_current_context().rest_token
 
 
+def get_tenant_name():
+    """
+    Returns the tenant name to use when calling the REST service
+    """
+    return _get_current_context().tenant_name
+
+
 def get_is_bypass_maintenance():
     """
     Returns true if workflow should run in maintenance mode.

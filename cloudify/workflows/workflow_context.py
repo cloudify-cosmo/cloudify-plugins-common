@@ -478,6 +478,11 @@ class _WorkflowContextBase(object):
         return self._context.get('rest_token')
 
     @property
+    def tenant_name(self):
+        """Cloudify tenant name"""
+        return self._context.get('tenant_name')
+
+    @property
     def local(self):
         """Is the workflow running in a local or remote context"""
         return self._context.get('local', False)
@@ -629,7 +634,7 @@ class _WorkflowContextBase(object):
             'task_id': task_id,
             'task_name': task_name,
             'execution_id': self.execution_id,
-            'workflow_id': self.workflow_id
+            'workflow_id': self.workflow_id,
         }
         context.update(node_context)
         context.update(self.internal.handler.operation_cloudify_context)
@@ -1196,7 +1201,9 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
     def operation_cloudify_context(self):
         return {'local': False,
                 'bypass_maintenance': utils.get_is_bypass_maintenance(),
-                'rest_token': utils.get_rest_token()}
+                'rest_token': utils.get_rest_token(),
+                'tenant_name': utils.get_tenant_name()
+                }
 
     def get_set_state_task(self,
                            workflow_node_instance,
