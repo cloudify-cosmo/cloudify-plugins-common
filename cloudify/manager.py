@@ -130,7 +130,7 @@ def get_rest_client():
     headers = {}
     if utils.get_is_bypass_maintenance():
         headers['X-BYPASS-MAINTENANCE'] = 'True'
-    headers[constants.CLOUDIFY_TENANT_HEADER] = constants.DEFAULT_TENANT
+    headers[constants.CLOUDIFY_TENANT_HEADER] = utils.get_tenant_name()
 
     # handle security
     if not utils.is_security_enabled():
