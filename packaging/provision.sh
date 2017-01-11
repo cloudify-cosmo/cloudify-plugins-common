@@ -21,7 +21,7 @@ function install_dependencies(){
         sudo yum -y install python-devel gcc openssl git libxslt-devel libxml2-devel openldap-devel libffi-devel openssl-devel
     elif which apt-get; then
         sudo apt-get update &&
-        sudo apt-get -y install build-essential python-dev
+        sudo apt-get -y install build-essential python-dev gcc openssl libffi-dev libssl-dev
     else
         echo 'probably windows machine'
         pip install virtualenv
@@ -57,7 +57,7 @@ function wagon_create_package(){
         mkdir create_wagon ; cd create_wagon
         wagon create -s ../$PLUGIN_NAME/
     else
-        wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz -r --validate -v -f
+        wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f
     fi
 }
 
