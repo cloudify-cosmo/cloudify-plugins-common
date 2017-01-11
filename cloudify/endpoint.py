@@ -164,6 +164,7 @@ class ManagerEndpoint(Endpoint):
                      template_variables=None):
         resource = manager.get_resource(blueprint_id=blueprint_id,
                                         deployment_id=deployment_id,
+                                        tenant_name=self.ctx.tenant_name,
                                         resource_path=resource_path)
         return self._render_resource_if_needed(
             resource=resource,
@@ -179,6 +180,7 @@ class ManagerEndpoint(Endpoint):
         resource = manager.download_resource(
             blueprint_id=blueprint_id,
             deployment_id=deployment_id,
+            tenant_name=self.ctx.tenant_name,
             resource_path=resource_path,
             logger=logger,
             target_path=target_path)
@@ -223,7 +225,8 @@ class ManagerEndpoint(Endpoint):
                 'get_workdir is only implemented for operations that are '
                 'invoked as part of a deployment.')
         base_workdir = os.environ['CELERY_WORK_DIR']
-        deployments_workdir = os.path.join(base_workdir, 'deployments')
+        deployments_workdir = os.path.join(
+            base_workdir, 'deployments', self.ctx.tenant_name)
         # Exists on management worker, doesn't exist on host agents
         if os.path.exists(deployments_workdir):
             return os.path.join(deployments_workdir, self.ctx.deployment.id)

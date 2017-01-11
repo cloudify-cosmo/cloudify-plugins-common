@@ -1225,11 +1225,13 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
     def download_deployment_resource(self,
                                      blueprint_id,
                                      deployment_id,
+                                     tenant_name,
                                      resource_path,
                                      target_path=None):
         logger = self.workflow_ctx.logger
         return download_resource(blueprint_id=blueprint_id,
                                  deployment_id=deployment_id,
+                                 tenant_name=tenant_name,
                                  resource_path=resource_path,
                                  target_path=target_path,
                                  logger=logger)
@@ -1254,6 +1256,7 @@ class RemoteCloudifyWorkflowContextHandler(RemoteContextHandler):
             .download_deployment_resource(
                 blueprint_id=self.workflow_ctx.blueprint.id,
                 deployment_id=self.workflow_ctx.deployment.id,
+                tenant_name=self.workflow_ctx.tenant_name,
                 resource_path=resource_path,
                 target_path=target_path)
 
