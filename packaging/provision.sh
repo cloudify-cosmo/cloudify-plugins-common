@@ -57,7 +57,7 @@ function wagon_create_package(){
         mkdir create_wagon ; cd create_wagon
         wagon create -s ../$PLUGIN_NAME/
     else
-        wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz -r --validate -v -f
+        wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f
     fi
 }
 
