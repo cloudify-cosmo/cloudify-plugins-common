@@ -184,6 +184,7 @@ def download_resource_from_manager(resource_path, logger, target_path=None):
 
 def download_resource(blueprint_id,
                       deployment_id,
+                      tenant_name,
                       resource_path,
                       logger,
                       target_path=None):
@@ -200,6 +201,7 @@ def download_resource(blueprint_id,
                          resource from
     :param deployment_id: the deployment id of the deployment to download the
                           resource from
+    :param tenant_name: the resource's tenant
     :param resource_path: path to resource relative to blueprint or deployment
                           folder
     :param logger: logger to use for info output
@@ -208,6 +210,7 @@ def download_resource(blueprint_id,
     """
     resource = get_resource(blueprint_id,
                             deployment_id,
+                            tenant_name,
                             resource_path)
     return _save_resource(logger, resource, resource_path, target_path)
 
@@ -234,7 +237,7 @@ def get_resource_from_manager(resource_path, base_url=None):
     return response.content
 
 
-def get_resource(blueprint_id, deployment_id, resource_path):
+def get_resource(blueprint_id, deployment_id, tenant_name, resource_path):
     """
     Get resource from the manager file server with path relative to
     the deployment or blueprint denoted by ``deployment_id`` or
@@ -248,6 +251,7 @@ def get_resource(blueprint_id, deployment_id, resource_path):
                          the resource from
     :param deployment_id: the deployment id of the deployment to download the
                           resource from
+    :param tenant_name: tenant name
     :param resource_path: path to resource relative to blueprint folder
     :returns: resource content
     """
@@ -262,15 +266,17 @@ def get_resource(blueprint_id, deployment_id, resource_path):
 
     resource = None
     if deployment_id is not None:
-        deployment_base_url = '{0}/{1}'.format(
+        deployment_base_url = '{0}/{1}/{2}'.format(
             utils.get_manager_file_server_deployments_root_url(),
+            tenant_name,
             deployment_id)
         resource = _get_resource(deployment_base_url)
 
     if resource is None:
-        blueprint_base_url = '{0}/{1}'.format(
-                utils.get_manager_file_server_blueprints_root_url(),
-                blueprint_id)
+        blueprint_base_url = '{0}/{1}/{2}'.format(
+            utils.get_manager_file_server_blueprints_root_url(),
+            tenant_name,
+            blueprint_id)
         resource = _get_resource(blueprint_base_url)
         if resource is None:
             if deployment_id is None:
