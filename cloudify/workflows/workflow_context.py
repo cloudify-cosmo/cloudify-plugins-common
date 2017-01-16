@@ -1167,13 +1167,17 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
                     runtime_props.append(cloudify_agent)
                 return runtime_props[0][property_name]
             else:
-                node = self.workflow_ctx.get_node(workflow_task.cloudify_context['node_name'])
+                node = \
+                    self.workflow_ctx.get_node(
+                        workflow_task.cloudify_context['node_name'])
                 controller_queue = node.properties.get('controller_queue')
                 if not controller_queue:
                     for rel in node.relationships:
                         target_node = rel.target_node
-                        if 'cloudify.nodes.Controller' in target_node.type_hierarchy:
-                            controller_queue = target_node.properties.get('controller_queue')
+                        if 'cloudify.nodes.Controller' in \
+                                target_node.type_hierarchy:
+                            controller_queue = \
+                                target_node.properties.get('controller_queue')
                             break
                 return controller_queue or 'cloudify.management'
 

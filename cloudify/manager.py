@@ -268,8 +268,8 @@ def get_resource(blueprint_id, deployment_id, resource_path):
 
     if resource is None:
         blueprint_base_url = '{0}/{1}'.format(
-                utils.get_manager_file_server_blueprints_root_url(),
-                blueprint_id)
+            utils.get_manager_file_server_blueprints_root_url(),
+            blueprint_id)
         resource = _get_resource(blueprint_base_url)
         if resource is None:
             if deployment_id is None:

@@ -53,11 +53,11 @@ class AMQPClient(object):
             ssl_enabled=ssl_enabled,
             cert_path=ssl_cert_path)
         self._connection_parameters = pika.ConnectionParameters(
-                host=amqp_host,
-                port=amqp_port,
-                credentials=credentials,
-                ssl=ssl_enabled,
-                ssl_options=ssl_options)
+            host=amqp_host,
+            port=amqp_port,
+            credentials=credentials,
+            ssl=ssl_enabled,
+            ssl_options=ssl_options)
         self._connect()
 
     def _connect(self):

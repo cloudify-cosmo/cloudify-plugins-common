@@ -56,9 +56,9 @@ def execute_establish_relationships(graph,
                                     related_nodes=None,
                                     modified_relationship_ids=None):
     processor = LifecycleProcessor(
-            graph=graph,
-            related_nodes=node_instances,
-            modified_relationship_ids=modified_relationship_ids)
+        graph=graph,
+        related_nodes=node_instances,
+        modified_relationship_ids=modified_relationship_ids)
     processor.install()
 
 
@@ -67,9 +67,9 @@ def execute_unlink_relationships(graph,
                                  related_nodes=None,
                                  modified_relationship_ids=None):
     processor = LifecycleProcessor(
-            graph=graph,
-            related_nodes=node_instances,
-            modified_relationship_ids=modified_relationship_ids)
+        graph=graph,
+        related_nodes=node_instances,
+        modified_relationship_ids=modified_relationship_ids)
     processor.uninstall()
 
 

@@ -450,7 +450,7 @@ def update(ctx,
         lifecycle.execute_establish_relationships(
             graph=ctx.graph_mode(),
             node_instances=set(
-                    instances_by_change['extended_and_target_instances'][1]),
+                instances_by_change['extended_and_target_instances'][1]),
             modified_relationship_ids=modified_entity_ids['relationship']
         )
 
@@ -460,7 +460,7 @@ def update(ctx,
         lifecycle.execute_unlink_relationships(
             graph=graph,
             node_instances=set(
-                    instances_by_change['reduced_and_target_instances'][1]),
+                instances_by_change['reduced_and_target_instances'][1]),
             modified_relationship_ids=modified_entity_ids['relationship']
         )
 
@@ -469,7 +469,7 @@ def update(ctx,
             node_instances=set(instances_by_change['removed_instances'][1]),
             ignore_failure=ignore_failure,
             related_nodes=set(
-                    instances_by_change['remove_target_instance_ids'][1])
+                instances_by_change['remove_target_instance_ids'][1])
         )
 
     # Finalize the commit (i.e. remove relationships or nodes)
