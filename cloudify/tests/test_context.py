@@ -224,8 +224,10 @@ class PluginContextTests(testtools.TestCase):
         self.plugin_pacakge_name = 'test-plugin'
         self.plugin_pacakge_version = '0.1.1'
         self.deployment_id = 'test_deployment'
+        self.tenant_name = 'default_tenant'
         self.ctx = context.CloudifyContext({
             'deployment_id': self.deployment_id,
+            'tenant_name': self.tenant_name,
             'plugin': {
                 'name': self.plugin_name,
                 'package_name': self.plugin_pacakge_name,
@@ -247,6 +249,7 @@ class PluginContextTests(testtools.TestCase):
         expected_prefix = os.path.join(
             self.test_prefix,
             'plugins',
+            self.tenant_name,
             '{0}-{1}'.format(self.plugin_pacakge_name,
                              self.plugin_pacakge_version))
         os.makedirs(expected_prefix)
@@ -257,6 +260,7 @@ class PluginContextTests(testtools.TestCase):
         expected_prefix = os.path.join(
             self.test_prefix,
             'plugins',
+            self.tenant_name,
             '{0}-{1}'.format(self.deployment_id,
                              self.plugin_name))
         os.makedirs(expected_prefix)
