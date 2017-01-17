@@ -242,11 +242,13 @@ class TaskHandler(object):
         package_version = plugin.get('package_version')
         deployment_id = self.cloudify_context.get('deployment_id',
                                                   SYSTEM_DEPLOYMENT)
-        return utils.internal.plugin_prefix(package_name=package_name,
-                                            package_version=package_version,
-                                            deployment_id=deployment_id,
-                                            plugin_name=plugin_name,
-                                            sys_prefix_fallback=False)
+        return utils.internal.plugin_prefix(
+            package_name=package_name,
+            package_version=package_version,
+            deployment_id=deployment_id,
+            plugin_name=plugin_name,
+            tenant_name=self.cloudify_context.get('tenant_name'),
+            sys_prefix_fallback=False)
 
     def setup_logging(self):
         socket_url = self.cloudify_context.get('socket_url')

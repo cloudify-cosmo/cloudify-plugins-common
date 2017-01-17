@@ -589,6 +589,7 @@ class CloudifyContext(CommonContext):
         self._plugin = PluginContext(plugin.get('name', ''))
         self._plugin._plugin_context = plugin
         self._plugin._deployment_id = self.deployment.id
+        self._plugin._tenant_name = self.tenant_name
         self._plugin._endpoint = self._endpoint
 
     def _verify_in_node_context(self):
@@ -971,6 +972,7 @@ class PluginContext(str):
         # These are set explicitly after PluginContext is instantiated
         self._plugin_context = {}
         self._deployment_id = None
+        self._tenant_name = None
         self._endpoint = None
 
     @property
@@ -996,6 +998,7 @@ class PluginContext(str):
             package_version=self.package_version,
             deployment_id=self._deployment_id,
             plugin_name=self.name,
+            tenant_name=self._tenant_name,
             sys_prefix_fallback=True)
 
     @property
