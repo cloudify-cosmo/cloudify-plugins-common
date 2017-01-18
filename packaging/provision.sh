@@ -43,7 +43,7 @@ function install_wagon(){
     else
         echo 'probably windows machine'
     fi
-    pip install wagon==0.3.2
+    pip install wagon==0.6.0
 }
 
 function wagon_create_package(){
@@ -55,9 +55,9 @@ function wagon_create_package(){
             git checkout -b $PLUGIN_TAG_NAME origin/$PLUGIN_TAG_NAME
         popd
         mkdir create_wagon ; cd create_wagon
-        wagon create -s ../$PLUGIN_NAME/
+        wagon create ../$PLUGIN_NAME/
     else
-        wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f
+        wagon create https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f -t 'tar.gz'
     fi
 }
 
