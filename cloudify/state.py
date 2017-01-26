@@ -15,8 +15,14 @@
 
 
 import threading
+from contextlib import contextmanager
 
 from proxy_tools import proxy
+
+
+class NotInContext(RuntimeError):
+    """Attempted accesing a context, but no context is available.
+    """
 
 
 class CtxParameters(dict):
@@ -46,10 +52,10 @@ class CurrentContext(threading.local):
 
     def _get(self, attribute):
         if not hasattr(self, attribute):
-            raise RuntimeError('No context set in current execution thread')
+            raise NotInContext('No context set in current execution thread')
         result = getattr(self, attribute)
         if result is None:
-            raise RuntimeError('No context set in current execution thread')
+            raise NotInContext('No context set in current execution thread')
         return result
 
     def clear(self):
@@ -57,6 +63,23 @@ class CurrentContext(threading.local):
             delattr(self, 'ctx')
         if hasattr(self, 'parameters'):
             delattr(self, 'parameters')
+
+    @contextmanager
+    def push(self, ctx, parameters=None):
+        try:
+            previous_ctx = self.get_ctx()
+        except NotInContext:
+            previous_ctx = None
+        try:
+            previous_parameters = self.get_parameters()
+        except NotInContext:
+            previous_parameters = None
+
+        self.set(ctx, parameters)
+        try:
+            yield self
+        finally:
+            self.set(previous_ctx, previous_parameters)
 
 
 current_ctx = CurrentContext()
