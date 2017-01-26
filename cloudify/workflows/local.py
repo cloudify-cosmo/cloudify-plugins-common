@@ -104,7 +104,8 @@ class _Environment(object):
                 task_retries=-1,
                 task_retry_interval=30,
                 subgraph_retries=0,
-                task_thread_pool_size=DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE):
+                task_thread_pool_size=DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE,
+                additional_context=None):
         workflows = self.plan['workflows']
         workflow_name = workflow
         if workflow_name not in workflows:
@@ -129,6 +130,8 @@ class _Environment(object):
             'local_task_thread_pool_size': task_thread_pool_size,
             'task_name': workflow['operation']
         }
+        if additional_context is not None:
+            ctx.update(additional_context)
 
         merged_parameters = _merge_and_validate_execution_parameters(
             workflow, workflow_name, parameters, allow_custom_parameters)

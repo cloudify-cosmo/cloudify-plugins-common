@@ -14,9 +14,12 @@
 #    * limitations under the License.
 
 import os
-import urllib2
+
+import requests
+from itsdangerous import base64_encode
 
 import utils
+import constants
 from cloudify_rest_client import CloudifyClient
 from cloudify.exceptions import HttpException, NonRecoverableError
 
@@ -112,12 +115,50 @@ def get_rest_client():
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
-    headers = None
+    rest_host = utils.get_manager_rest_service_host()
+    rest_port = utils.get_manager_rest_service_port()
+    rest_protocol = constants.DEFAULT_PROTOCOL
+
+    # handle maintenance mode
+    headers = {}
     if utils.get_is_bypass_maintenance():
-        headers = {'X-BYPASS-MAINTENANCE': 'True'}
-    return CloudifyClient(utils.get_manager_ip(),
-                          utils.get_manager_rest_service_port(),
-                          headers=headers)
+        headers['X-BYPASS-MAINTENANCE'] = 'True'
+
+    # handle security
+    if not utils.is_security_enabled():
+        rest_client = CloudifyClient(rest_host,
+                                     rest_port,
+                                     rest_protocol,
+                                     headers=headers)
+    else:
+        # security enabled
+        token = utils.get_rest_token()
+        if token is None:
+            credentials = '{0}:{1}'.format(utils.get_rest_username(),
+                                           utils.get_rest_password())
+            auth_header = {
+                constants.CLOUDIFY_AUTHENTICATION_HEADER:
+                constants.BASIC_AUTH_PREFIX + ' ' + base64_encode(credentials)}
+        else:
+            auth_header = {
+                constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: token
+            }
+        headers.update(auth_header)
+        rest_port = utils.get_manager_rest_service_port()
+        rest_protocol = utils.get_manager_rest_service_protocol()
+
+        if utils.is_verify_rest_certificate():
+            trust_all = False
+            cert_path = utils.get_local_rest_certificate()
+        else:
+            trust_all = True
+            cert_path = None
+
+        rest_client = CloudifyClient(host=rest_host, port=rest_port,
+                                     protocol=rest_protocol, headers=headers,
+                                     cert=cert_path, trust_all=trust_all)
+
+    return rest_client
 
 
 def _save_resource(logger, resource, resource_path, target_path):
@@ -182,12 +223,17 @@ def get_resource_from_manager(resource_path, base_url=None):
     """
     if base_url is None:
         base_url = utils.get_manager_file_server_url()
-    try:
-        url = '{0}/{1}'.format(base_url, resource_path)
-        response = urllib2.urlopen(url)
-        return response.read()
-    except urllib2.HTTPError as e:
-        raise HttpException(e.url, e.code, e.msg)
+
+    url = '{0}/{1}'.format(base_url, resource_path)
+    if utils.is_verify_rest_certificate():
+        verify = utils.get_local_rest_certificate() or True
+    else:
+        verify = False
+
+    response = requests.get(url, verify=verify)
+    if not response.ok:
+        raise HttpException(url, response.status_code, response.reason)
+    return response.content
 
 
 def get_resource(blueprint_id, deployment_id, resource_path):
