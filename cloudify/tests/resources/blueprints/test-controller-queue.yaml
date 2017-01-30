@@ -1,0 +1,36 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+description: >
+  Blueprint which provides the various controller queue inheritance options
+
+imports:
+  - https://drive.google.com/open?id=0BwJk-m4PjvavUjZXQWRHQkhxaGM
+
+node_templates:
+
+  controller:
+    type: cloudify.nodes.Controller
+    properties:
+      controller_queue: controller
+
+  host:
+    type: cloudify.nodes.compute
+
+  connected_host:
+    type: cloudify.nodes.compute
+    relationships:
+      - target: controller
+        type: cloudify.relationships.connected_to
+
+  dierct:
+    type: cloudify.nodes.compute
+    properties:
+      controller_queue: direct
+
+  direct_override:
+    type: cloudify.nodes.compute
+    properties:
+      controller_queue: direct_override
+    relationships:
+      - target: controller
+        type: cloudify.relationships.connected_to
