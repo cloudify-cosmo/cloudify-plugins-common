@@ -42,6 +42,7 @@ broker_cert_path = config.get('broker_cert_path', '')
 broker_username = config.get('broker_username', 'guest')
 broker_password = config.get('broker_password', 'guest')
 broker_hostname = config.get('broker_hostname', 'localhost')
+broker_heartbeat = config.get('broker_heartbeat', 30)
 
 if broker_ssl_enabled:
     BROKER_USE_SSL = {
@@ -52,21 +53,30 @@ if broker_ssl_enabled:
 else:
     broker_port = constants.BROKER_PORT_NO_SSL
 
-# This is held in the config to avoid the password appearing in ps listings
-if config.get('cluster'):
-    BROKER_URL = ';'.join('amqp://{username}:{password}@{hostname}:{port}//'
-                          .format(username=h['broker_user'],
-                                  password=h['broker_pass'],
-                                  hostname=h['broker_ip'],
-                                  port=broker_port)
-                          for h in config['cluster'])
+if broker_heartbeat:
+    options = '?heartbeat={heartbeat}'.format(heartbeat=broker_heartbeat)
 else:
-    BROKER_URL = 'amqp://{username}:{password}@{hostname}:{port}//'.format(
+    options = ''
+
+# BROKER_URL is held in the config to avoid the password appearing
+# in ps listings
+URL_TEMPLATE = 'amqp://{username}:{password}@{hostname}:{port}//{options}'
+if config.get('cluster'):
+    BROKER_URL = ';'.join(URL_TEMPLATE.format(username=node['broker_user'],
+                                              password=node['broker_pass'],
+                                              hostname=node['broker_ip'],
+                                              port=broker_port,
+                                              options=options)
+                          for node in config['cluster'])
+else:
+    BROKER_URL = URL_TEMPLATE.format(
         username=broker_username,
         password=broker_password,
         hostname=broker_hostname,
         port=broker_port,
+        options=options
     )
+
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_TASK_RESULT_EXPIRES = 600
