@@ -28,7 +28,7 @@ class NodeContextTests(testtools.TestCase):
 
     test_blueprint_path = os.path.join(
         os.path.dirname(os.path.realpath(__file__)),
-        "resources/blueprints/test-context-node.yaml")
+        "resources/blueprints/test-controller-queue.yaml")
 
     @workflow_test(blueprint_path=test_blueprint_path,
                    resources_to_copy=[
