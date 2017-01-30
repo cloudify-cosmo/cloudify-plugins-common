@@ -15,10 +15,20 @@ node_templates:
 
   host:
     type: cloudify.nodes.compute
+     properties:
+          controller_queue: father_host
 
   connected_host:
     type: cloudify.nodes.compute
     relationships:
+      - target: controller
+        type: cloudify.relationships.connected_to
+
+  contained_node:
+    type: cloudify.nodes.compute
+    relationships:
+      - target: host
+        type: cloudify.relationships.contained_in
       - target: controller
         type: cloudify.relationships.connected_to
 

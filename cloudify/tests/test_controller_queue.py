@@ -25,3 +25,6 @@ class NodeContextTests(testtools.TestCase):
         instance = cfy_local.storage.get_node_instances('direct_override')
         self.assertEqual(
             instance.runtime_properties['controller_queue'], 'direct_override')
+        instance = cfy_local.storage.get_node_instances('contained_node')
+        self.assertEqual(
+            instance.runtime_properties['controller_queue'], 'father_host')
