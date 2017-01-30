@@ -4,7 +4,7 @@ description: >
   Blueprint which provides the various controller queue inheritance options
 
 imports:
-  - https://drive.google.com/open?id=0BwJk-m4PjvavUjZXQWRHQkhxaGM
+  - resources/types.yaml
 
 node_templates:
 
@@ -14,21 +14,21 @@ node_templates:
       controller_queue: controller
 
   host_none:
-    type: cloudify.nodes.compute
+    type: cloudify.nodes.Compute
 
   host:
-    type: cloudify.nodes.compute
-     properties:
-          controller_queue: father_host
+    type: cloudify.nodes.Compute
+    properties:
+      controller_queue: father_host
 
   connected_host:
-    type: cloudify.nodes.compute
+    type: cloudify.nodes.Compute
     relationships:
       - target: controller
         type: cloudify.relationships.connected_to
 
   contained_node:
-    type: cloudify.nodes.compute
+    type: cloudify.nodes.Compute
     relationships:
       - target: host
         type: cloudify.relationships.contained_in
@@ -36,12 +36,12 @@ node_templates:
         type: cloudify.relationships.connected_to
 
   dierct:
-    type: cloudify.nodes.compute
+    type: cloudify.nodes.Compute
     properties:
       controller_queue: direct
 
   direct_override:
-    type: cloudify.nodes.compute
+    type: cloudify.nodes.Compute
     properties:
       controller_queue: direct_override
     relationships:
