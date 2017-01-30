@@ -30,9 +30,7 @@ class NodeContextTests(testtools.TestCase):
         os.path.dirname(os.path.realpath(__file__)),
         "resources/blueprints/test-controller-queue.yaml")
 
-    @workflow_test(blueprint_path=test_blueprint_path,
-                   resources_to_copy=[
-                       'resources/blueprints/test-controller-queue.yaml'])
+    @workflow_test
     def test_node_type(self, cfy_local):
         cfy_local.execute('install')
 
