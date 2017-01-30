@@ -14,6 +14,7 @@ class NodeContextTests(testtools.TestCase):
     def test_node_type(self, cfy_local):
         cfy_local.execute('install')
 
+        print "aaa!!!"
         instance = cfy_local.storage.get_node_instances('direct')
         self.assertEqual(
             instance.runtime_properties['controller_queue'], 'direct')
