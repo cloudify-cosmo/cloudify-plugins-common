@@ -13,6 +13,9 @@ node_templates:
     properties:
       controller_queue: controller
 
+  host_none:
+    type: cloudify.nodes.compute
+
   host:
     type: cloudify.nodes.compute
      properties:

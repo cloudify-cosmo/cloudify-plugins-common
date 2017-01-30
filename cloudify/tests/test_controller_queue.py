@@ -17,7 +17,7 @@ class NodeContextTests(testtools.TestCase):
         instance = cfy_local.storage.get_node_instances('direct')
         self.assertEqual(
             instance.runtime_properties['controller_queue'], 'direct')
-        instance = cfy_local.storage.get_node_instances('host')
+        instance = cfy_local.storage.get_node_instances('host_none')
         self.assertEqual(instance.runtime_properties['controller,queue'], '')
         instance = cfy_local.storage.get_node_instances('connected_host')
         self.assertEqual(
