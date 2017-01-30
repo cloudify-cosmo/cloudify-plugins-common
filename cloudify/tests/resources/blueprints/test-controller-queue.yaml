@@ -4,7 +4,7 @@ description: >
   Blueprint which provides the various controller queue inheritance options
 
 imports:
-  - resources/types.yaml
+  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-plugins-common/cloudify-service/cloudify/tests/resources/blueprints/resources/types.yaml
 
 node_templates:
 
