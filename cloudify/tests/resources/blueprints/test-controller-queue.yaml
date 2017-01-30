@@ -14,21 +14,21 @@ node_templates:
       controller_queue: controller
 
   host_none:
-    type: cloudify.nodes.Compute
+    type: cloudify.nodes.SoftwareComponent
 
   host:
-    type: cloudify.nodes.Compute
+    type: cloudify.nodes.SoftwareComponent
     properties:
       controller_queue: father_host
 
   connected_host:
-    type: cloudify.nodes.Compute
+    type: cloudify.nodes.SoftwareComponent
     relationships:
       - target: controller
         type: cloudify.relationships.connected_to
 
   contained_node:
-    type: cloudify.nodes.Compute
+    type: cloudify.nodes.SoftwareComponent
     relationships:
       - target: host
         type: cloudify.relationships.contained_in
@@ -36,12 +36,12 @@ node_templates:
         type: cloudify.relationships.connected_to
 
   dierct:
-    type: cloudify.nodes.Compute
+    type: cloudify.nodes.SoftwareComponent
     properties:
       controller_queue: direct
 
   direct_override:
-    type: cloudify.nodes.Compute
+    type: cloudify.nodes.SoftwareComponent
     properties:
       controller_queue: direct_override
     relationships:
