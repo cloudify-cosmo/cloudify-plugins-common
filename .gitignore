@@ -65,3 +65,8 @@ docs/_build/
 
 # IDEA
 .idea/*
+
+#hidden
+.*
+!/.gitignore
+
