@@ -14,20 +14,17 @@ class ControllertTests(testtools.TestCase):
     def test_controller_queue_property(self, cfy_local):
         cfy_local.execute('install')
 
-        print "aaa!!!"
-        instance = cfy_local.storage.get_node_instances('direct')
-
-        print instance
-        # self.assertEqual(
-        #     instance.properties['controller_queue'], 'direct')
-        # instance = cfy_local.storage.get_node_instances('host_none')
-        # self.assertEqual(instance.properties['controller,queue'], '')
-        # instance = cfy_local.storage.get_node_instances('connected_host')
-        # self.assertEqual(
-        #     instance.properties['controller_queue'], 'queue')
-        # instance = cfy_local.storage.get_node_instances('direct_override')
-        # self.assertEqual(
-        #     instance.properties['controller_queue'], 'direct_override')
-        # instance = cfy_local.storage.get_node_instances('contained_node')
-        # self.assertEqual(
-        #     instance.properties['controller_queue'], 'father_host')
+        instance = cfy_local.storage.get_node_instances(node_id='direct')
+        self.assertEqual(
+            instance.properties['controller_queue'], 'direct')
+        instance = cfy_local.storage.get_node_instances(node_id='host_none')
+        self.assertEqual(instance.properties['controller,queue'], '')
+        instance = cfy_local.storage.get_node_instances('connected_host')
+        self.assertEqual(
+            instance.properties['controller_queue'], 'queue')
+        instance = cfy_local.storage.get_node_instances(node_id='direct_override')
+        self.assertEqual(
+            instance.properties['controller_queue'], 'direct_override')
+        instance = cfy_local.storage.get_node_instances(node_id='contained_node')
+        self.assertEqual(
+            instance.properties['controller_queue'], 'father_host')
