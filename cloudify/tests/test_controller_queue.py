@@ -12,7 +12,7 @@ class ControllertTests(testtools.TestCase):
 
     @workflow_test(blueprint_path=test_blueprint_path)
     def test_controller_queue_property(self, cfy_local):
-        cfy_local.execute('install')
+        cfy_local.execute('execute_operation')
 
         instance = cfy_local.storage.get_node_instances(node_id='direct')[0]
         self.assertEqual(
