@@ -5,7 +5,7 @@ description: >
 
 imports:
   - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-plugins-common/cloudify-service/cloudify/tests/resources/blueprints/resources/types.yaml
-  - execute_operation_workflow.yaml
+  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-plugins-common/cloudify-service/cloudify/tests/resources/blueprints/execute_operation_workflow.yaml
 
 node_templates:
 
