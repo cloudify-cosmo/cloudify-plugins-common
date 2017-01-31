@@ -46,6 +46,15 @@ node_types:
   mock_type3:
     derived_from: mock_type2
 
+  cloudify.nodes.Controller:
+    derived_from: cloudify.nodes.Root
+    properties:
+      controller_queue:
+        description: >
+          controller queue name
+        type: string
+        required: true
+
 plugins:
   mock:
     executor: central_deployment_agent
