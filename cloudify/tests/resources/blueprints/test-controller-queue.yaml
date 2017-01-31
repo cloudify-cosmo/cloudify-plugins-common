@@ -5,6 +5,7 @@ description: >
 
 imports:
   - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-plugins-common/cloudify-service/cloudify/tests/resources/blueprints/resources/types.yaml
+  - execute_operation_workflow.yaml
 
 node_templates:
 
@@ -14,21 +15,21 @@ node_templates:
       controller_queue: controller
 
   host_none:
-    type: cloudify.nodes.SoftwareComponent
+    type: test.node1.type
 
   host:
-    type: cloudify.nodes.SoftwareComponent
+    type: test.node1.type
     properties:
       controller_queue: father_host
 
   connected_host:
-    type: cloudify.nodes.SoftwareComponent
+    type: test.node1.type
     relationships:
       - target: controller
         type: cloudify.relationships.connected_to
 
   contained_node:
-    type: cloudify.nodes.SoftwareComponent
+    type: test.node1.type
     relationships:
       - target: host
         type: cloudify.relationships.contained_in
@@ -36,12 +37,12 @@ node_templates:
         type: cloudify.relationships.connected_to
 
   dierct:
-    type: cloudify.nodes.SoftwareComponent
+    type: test.node1.type
     properties:
       controller_queue: direct
 
   direct_override:
-    type: cloudify.nodes.SoftwareComponent
+    type: test.node1.type
     properties:
       controller_queue: direct_override
     relationships:
