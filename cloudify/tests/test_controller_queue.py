@@ -12,7 +12,8 @@ class ControllertTests(testtools.TestCase):
 
     @workflow_test(blueprint_path=test_blueprint_path)
     def test_controller_queue_property(self, cfy_local):
-        cfy_local.execute('execute_operation')
+        cfy_local.execute('execute_operation',
+                          parameters={'operation': 'install'})
 
         instance = cfy_local.storage.get_node_instances(node_id='direct')[0]
         self.assertEqual(
@@ -22,9 +23,11 @@ class ControllertTests(testtools.TestCase):
         instance = cfy_local.storage.get_node_instances('connected_host')[0]
         self.assertEqual(
             instance.properties['controller_queue'], 'queue')
-        instance = cfy_local.storage.get_node_instances(node_id='direct_override')[0]
+        instance = cfy_local.storage.get_node_instances(
+            node_id='direct_override')[0]
         self.assertEqual(
             instance.properties['controller_queue'], 'direct_override')
-        instance = cfy_local.storage.get_node_instances(node_id='contained_node')[0]
+        instance = cfy_local.storage.get_node_instances(
+            node_id='contained_node')[0]
         self.assertEqual(
             instance.properties['controller_queue'], 'father_host')
