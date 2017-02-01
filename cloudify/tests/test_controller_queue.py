@@ -14,22 +14,22 @@ class ControllertTests(testtools.TestCase):
     def test_controller_queue_property(self, cfy_local):
         cfy_local.execute('install')
 
-        instance = cfy_local.provider_context.get_node_instances(
-            node_id='direct')
+        instance = cfy_local.storage.get_node_instances(
+            node_id='direct')[0]
         self.assertEqual(
             instance.properties['controller_queue'], 'direct')
-        instance = cfy_local.provider_context.get_node_instances(
-            node_id='host_none')
+        instance = cfy_local.storage.get_node_instances(
+            node_id='host_none')[0]
         self.assertEqual(instance.properties['controller,queue'], '')
-        instance = cfy_local.provider_context.get_node_instances(
-            'connected_host')
+        instance = cfy_local.storage.get_node_instances(
+            'connected_host')[0]
         self.assertEqual(
             instance.properties['controller_queue'], 'queue')
-        instance = cfy_local.provider_context.get_node_instances(
-            'direct_override')
+        instance = cfy_local.storage.get_node_instances(
+            'direct_override')[0]
         self.assertEqual(
             instance.properties['controller_queue'], 'direct_override')
-        instance = cfy_local.provider_context.get_node_instances(
-            'contained_node')
+        instance = cfy_local.storage.get_node_instances(
+            'contained_node')[0]
         self.assertEqual(
             instance.properties['controller_queue'], 'father_host')
