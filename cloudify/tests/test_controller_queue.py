@@ -14,12 +14,10 @@ class ControllertTests(testtools.TestCase):
     def test_controller_queue_property(self, cfy_local):
         cfy_local.execute('install')
 
-        instance = cfy_local.storage.get_node_instances(
-            node_id='direct')[0]
+        instance = cfy_local.storage.get_node_instances('direct')[0]
         self.assertEqual(
             instance.properties['controller_queue'], 'direct')
-        instance = cfy_local.storage.get_node_instances(
-            node_id='host_none')[0]
+        instance = cfy_local.storage.get_node_instances('host_none')[0]
         self.assertEqual(instance.properties['controller,queue'], '')
         instance = cfy_local.storage.get_node_instances(
             'connected_host')[0]
