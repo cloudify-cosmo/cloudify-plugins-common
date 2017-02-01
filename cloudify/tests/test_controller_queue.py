@@ -14,7 +14,7 @@ class ControllertTests(testtools.TestCase):
     def test_controller_queue_property(self, cfy_local):
         cfy_local.execute('install')
 
-        instance = cfy_local.get_node_instances(node_id='direct')
+        instance = cfy_local.ctx.get_node_instances(node_id='direct')
         self.assertEqual(
             instance.properties['controller_queue'], 'direct')
         instance = cfy_local.ctx.get_node_instances(node_id='host_none')
