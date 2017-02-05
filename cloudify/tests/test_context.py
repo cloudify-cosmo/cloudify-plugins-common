@@ -25,15 +25,13 @@ from os.path import dirname
 import testtools
 from mock import patch, MagicMock
 
-from cloudify import constants
-from cloudify import context
-from cloudify import exceptions
-from cloudify import conflict_handlers
+from cloudify_rest_client.exceptions import CloudifyClientError
+
 from cloudify.utils import create_temp_folder
 from cloudify.decorators import operation
 from cloudify.manager import NodeInstance
 from cloudify.workflows import local
-from cloudify_rest_client.exceptions import CloudifyClientError
+from cloudify import constants, state, context, exceptions, conflict_handlers
 
 import cloudify.tests as tests_path
 from cloudify.test_utils import workflow_test
@@ -44,6 +42,8 @@ class CloudifyContextTest(testtools.TestCase):
 
     @classmethod
     def setUpClass(cls):
+
+        state.current_ctx.set(context.CloudifyContext, {})
 
         resources_path = os.path.join(dirname(tests_path.__file__),
                                       "resources")
@@ -72,6 +72,7 @@ class CloudifyContextTest(testtools.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.file_server_process.stop()
+        state.current_ctx.clear()
 
     def setup_tenant_context(self):
         self.context = context.CloudifyContext(
