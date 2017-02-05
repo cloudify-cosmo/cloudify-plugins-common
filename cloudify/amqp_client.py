@@ -33,7 +33,7 @@ class AMQPClient(object):
     EVENTS_EXCHANGE_NAME = 'cloudify-events'
     LOGS_EXCHANGE_NAME = 'cloudify-logs'
     channel_settings = {
-        'auto_delete': True,
+        'auto_delete': False,
         'durable': True,
     }
 
