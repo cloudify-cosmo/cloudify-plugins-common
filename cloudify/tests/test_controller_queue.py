@@ -10,7 +10,9 @@ class ControllertTests(testtools.TestCase):
         os.path.dirname(os.path.realpath(__file__)),
         "resources/blueprints/test-controller-queue.yaml")
 
-    @workflow_test(blueprint_path=test_blueprint_path)
+    @workflow_test(blueprint_path=test_blueprint_path,
+                   resources_to_copy=[
+                       'resources/blueprints/execute_operation_workflow.yaml'])
     def test_controller_queue_property(self, cfy_local):
         cfy_local.execute('install')
 
