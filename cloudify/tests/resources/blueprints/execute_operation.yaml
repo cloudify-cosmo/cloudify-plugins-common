@@ -47,7 +47,7 @@ node_types:
     derived_from: mock_type2
 
   cloudify.nodes.Controller:
-    derived_from: cloudify.nodes.Root
+    derived_from: mock_type1
     properties:
       controller_queue:
         description: >
