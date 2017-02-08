@@ -19,7 +19,7 @@ import requests
 
 import utils
 import constants
-from cloudify import ctx
+# from cloudify import ctx
 from cloudify_rest_client import CloudifyClient
 from cloudify.cluster import CloudifyClusterClient, get_cluster_settings
 from cloudify.exceptions import HttpException, NonRecoverableError
@@ -240,7 +240,7 @@ def get_resource_from_manager(resource_path, base_url=None):
         verify = False
 
     headers = {
-        constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: ctx.rest_token
+        # constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: ctx.rest_token
     }
     response = requests.get(url, verify=verify, headers=headers)
     if not response.ok:
