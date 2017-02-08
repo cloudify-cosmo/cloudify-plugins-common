@@ -1173,20 +1173,23 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
                 controller_queue = node.properties.get('controller_queue')
                 if not controller_queue:
                     for rel in node.relationships:
-                        if rel.relationship.is_derived_from(
-                                "cloudify.relationships.contained_in"):
-                            target_node = rel.target_node
-                            controller_queue = \
-                                target_node.properties.get('controller_queue')
-                            break
-                if not controller_queue:
-                    for rel in node.relationships:
                         target_node = rel.target_node
                         if 'cloudify.nodes.Controller' in \
                                 target_node.type_hierarchy:
                             controller_queue = \
                                 target_node.properties.get('controller_queue')
                             break
+                if not controller_queue:
+                    for rel in node.relationships:
+                        if rel.relationship.is_derived_from(
+                                "cloudify.relationships.contained_in"):
+                            target_node = rel.target_node
+                            controller_queue = \
+                                target_node.properties.get('controller_queue')
+                            break
+                node_instance = self.workflow_ctx.get_node_instance(
+                    workflow_task.cloudify_context['node_id'])
+                node_instance.runtime_properties["controller_queue"] = queue
                 return controller_queue or 'cloudify.management'
 
         if queue is None:
