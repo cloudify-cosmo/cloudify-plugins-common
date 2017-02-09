@@ -42,7 +42,11 @@ broker_cert_path = config.get('broker_cert_path', '')
 broker_username = config.get('broker_username', 'guest')
 broker_password = config.get('broker_password', 'guest')
 broker_hostname = config.get('broker_hostname', 'localhost')
-broker_heartbeat = config.get('broker_heartbeat', 30)
+
+# only enable heartbeat by default for agents connected to a cluster
+DEFAULT_HEARTBEAT = 30 if config.get('cluster') else None
+broker_heartbeat = config.get('broker_heartbeat', DEFAULT_HEARTBEAT)
+
 
 if broker_ssl_enabled:
     BROKER_USE_SSL = {
