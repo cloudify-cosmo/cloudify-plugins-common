@@ -61,6 +61,7 @@ class CloudifyContextTest(testtools.TestCase):
         os.environ[constants.MANAGER_FILE_SERVER_URL_KEY] = \
             "http://localhost:{0}".format(PORT)
         os.environ[constants.VERIFY_REST_CERTIFICATE_KEY] = 'false'
+        _, os.environ[constants.LOCAL_REST_CERT_FILE_KEY] = tempfile.mkstemp()
         cls.context = context.CloudifyContext({
             'blueprint_id': '',
             'tenant_name': 'default_tenant'

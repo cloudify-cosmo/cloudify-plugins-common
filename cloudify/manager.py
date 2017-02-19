@@ -130,41 +130,20 @@ def get_rest_client():
     else:
         client_class = CloudifyClient
 
-    rest_host = utils.get_manager_rest_service_host()
-    rest_port = utils.get_manager_rest_service_port()
-    rest_protocol = constants.DEFAULT_PROTOCOL
-
-    # handle maintenance mode
+    # Handle maintenance mode
     headers = {}
     if utils.get_is_bypass_maintenance():
         headers['X-BYPASS-MAINTENANCE'] = 'True'
-    headers[constants.CLOUDIFY_TENANT_HEADER] = utils.get_tenant_name()
 
-    # handle security
-    if not utils.is_security_enabled():
-        rest_client = client_class(rest_host,
-                                   rest_port,
-                                   rest_protocol,
-                                   headers=headers)
-    else:
-        # security enabled
-        token = utils.get_rest_token()
-        headers.update({constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: token})
-        rest_port = utils.get_manager_rest_service_port()
-        rest_protocol = utils.get_manager_rest_service_protocol()
-
-        if utils.is_verify_rest_certificate():
-            trust_all = False
-            cert_path = utils.get_local_rest_certificate()
-        else:
-            trust_all = True
-            cert_path = None
-
-        rest_client = client_class(host=rest_host, port=rest_port,
-                                   protocol=rest_protocol, headers=headers,
-                                   cert=cert_path, trust_all=trust_all)
-
-    return rest_client
+    return client_class(
+        headers=headers,
+        host=utils.get_manager_rest_service_host(),
+        port=utils.get_manager_rest_service_port(),
+        tenant=utils.get_tenant_name(),
+        token=utils.get_rest_token(),
+        protocol=constants.SECURED_PROTOCOL,
+        cert=utils.get_local_rest_certificate()
+    )
 
 
 def _save_resource(logger, resource, resource_path, target_path):
@@ -234,10 +213,7 @@ def get_resource_from_manager(resource_path, base_url=None):
         base_url = utils.get_manager_file_server_url()
 
     url = '{0}/{1}'.format(base_url, resource_path)
-    if utils.is_verify_rest_certificate():
-        verify = utils.get_local_rest_certificate() or True
-    else:
-        verify = False
+    verify = utils.get_local_rest_certificate()
 
     headers = {}
     try:
