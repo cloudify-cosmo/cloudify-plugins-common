@@ -172,32 +172,11 @@ def get_manager_file_server_url():
     return os.environ[constants.MANAGER_FILE_SERVER_URL_KEY]
 
 
-def is_security_enabled():
-    """
-    Returns True if REST security is enabled, False otherwise
-    """
-    return os.environ[constants.SECURITY_ENABLED_KEY].lower() == 'true'
-
-
-def is_ssl_enabled():
-    """
-    Returns True if SSL is enabled, False otherwise
-    """
-    return os.environ[constants.SSL_ENABLED_KEY].lower() == 'true'
-
-
 def get_manager_rest_service_host():
     """
     Returns the host the manager REST service is running on.
     """
     return os.environ[constants.REST_HOST_KEY]
-
-
-def get_agent_rest_cert_path():
-    """
-    Returns location of the rest certificate on the agent
-    """
-    return os.environ[constants.AGENT_REST_CERT_PATH]
 
 
 def get_broker_ssl_cert_path():
@@ -216,21 +195,6 @@ def get_manager_rest_service_port():
     Returns the port the manager REST service is running on.
     """
     return int(os.environ[constants.REST_PORT_KEY])
-
-
-def get_manager_rest_service_protocol():
-    """
-    Returns the protocol the manager REST service is running on.
-    """
-    return os.environ[constants.REST_PROTOCOL_KEY]
-
-
-def is_verify_rest_certificate():
-    """
-    Returns True if the rest client should verify the server's SSL
-     certificate, False otherwise.
-    """
-    return os.environ[constants.VERIFY_REST_CERTIFICATE_KEY].lower() == 'true'
 
 
 def get_local_rest_certificate():
