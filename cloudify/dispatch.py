@@ -543,19 +543,19 @@ class WorkflowHandler(TaskHandler):
     def _update_execution_status(self, status, error=None):
         if self.ctx.local:
             return
-        while True:
+
+        caught_error = None
+        for _ in range(3):
             try:
                 return update_execution_status(
                     self.ctx.execution_id, status, error)
-            except InvalidExecutionUpdateStatus as exc:
+            except Exception as e:
                 self.ctx.logger.exception(
-                    'update execution status is invalid: {0}'.format(exc))
-                raise
-            except Exception as exc:
-                self.ctx.logger.exception(
-                    'update execution status got unexpected rest error: {0}'
-                    .format(exc))
-            sleep(5)
+                    'Update execution status got unexpected rest error: %s', e)
+                caught_error = e
+                sleep(5)
+        else:
+            raise caught_error
 
 
 TASK_HANDLERS = {
