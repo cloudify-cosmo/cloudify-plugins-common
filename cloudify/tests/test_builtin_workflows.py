@@ -33,6 +33,8 @@ class GlobalCounter(object):
         result = self.count
         self.count += 1
         return result
+
+
 global_counter = GlobalCounter()
 
 
