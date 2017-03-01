@@ -14,13 +14,14 @@
 #    * limitations under the License.
 
 import os
-
 import requests
+from urlparse import urljoin
 
 import utils
-import constants
-from cloudify.state import ctx, workflow_ctx, NotInContext
 from cloudify_rest_client import CloudifyClient
+
+from cloudify import constants
+from cloudify.state import ctx, workflow_ctx, NotInContext
 from cloudify.cluster import CloudifyClusterClient, get_cluster_settings
 from cloudify.exceptions import HttpException, NonRecoverableError
 
@@ -257,17 +258,27 @@ def get_resource(blueprint_id, deployment_id, tenant_name, resource_path):
 
     resource = None
     if deployment_id is not None:
-        deployment_base_url = '{0}/{1}/{2}'.format(
-            utils.get_manager_file_server_deployments_root_url(),
+        relative_deployment_path = os.path.join(
+            constants.FILE_SERVER_DEPLOYMENTS_FOLDER,
             tenant_name,
-            deployment_id)
+            deployment_id
+        )
+        deployment_base_url = urljoin(
+            utils.get_manager_file_server_url(),
+            relative_deployment_path
+        )
         resource = _get_resource(deployment_base_url)
 
     if resource is None:
-        blueprint_base_url = '{0}/{1}/{2}'.format(
-            utils.get_manager_file_server_blueprints_root_url(),
+        relative_blueprint_path = os.path.join(
+            constants.FILE_SERVER_BLUEPRINTS_FOLDER,
             tenant_name,
-            blueprint_id)
+            blueprint_id
+        )
+        blueprint_base_url = urljoin(
+            utils.get_manager_file_server_url(),
+            relative_blueprint_path
+        )
         resource = _get_resource(blueprint_base_url)
         if resource is None:
             if deployment_id is None:
