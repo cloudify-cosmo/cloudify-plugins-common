@@ -130,41 +130,6 @@ def setup_logger(logger_name,
     return logger
 
 
-def get_manager_file_server_host():
-    """
-    Returns the host the manager file server is running on.
-    """
-    return os.environ[constants.FILE_SERVER_HOST_KEY]
-
-
-def get_manager_file_server_port():
-    """
-    Returns the port the manager file server is running on.
-    """
-    return int(os.environ[constants.FILE_SERVER_PORT_KEY])
-
-
-def get_manager_file_server_protocol():
-    """
-    Returns the protocol of the manager file server
-    """
-    return os.environ[constants.FILE_SERVER_PROTOCOL_KEY]
-
-
-def get_manager_file_server_blueprints_root_url():
-    """
-    Returns the blueprints root url in the file server.
-    """
-    return os.environ[constants.MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY]
-
-
-def get_manager_file_server_deployments_root_url():
-    """
-    Returns the deployments root url in the file server.
-    """
-    return os.environ[constants.MANAGER_FILE_SERVER_DEPLOYMENTS_ROOT_URL_KEY]
-
-
 def get_manager_file_server_url():
     """
     Returns the manager file server base url.
@@ -202,13 +167,6 @@ def get_local_rest_certificate():
     Returns the path to the local copy of the server's public certificate
     """
     return os.environ[constants.LOCAL_REST_CERT_FILE_KEY]
-
-
-def get_rest_cert_content():
-    """
-    Returns the content of the REST SSL certificate
-    """
-    return os.environ[constants.REST_CERT_CONTENT_KEY]
 
 
 def _get_current_context():
