@@ -45,8 +45,7 @@ class CloudifyContextTest(testtools.TestCase):
 
         state.current_ctx.set(context.CloudifyContext, {})
 
-        resources_path = os.path.join(dirname(tests_path.__file__),
-                                      "resources")
+        resources_path = os.path.join(dirname(tests_path.__file__))
 
         from cloudify.tests.file_server import FileServer
         from cloudify.tests.file_server import PORT
