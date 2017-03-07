@@ -47,7 +47,6 @@ broker_hostname = config.get('broker_hostname', 'localhost')
 DEFAULT_HEARTBEAT = 30 if config.get('cluster') else None
 broker_heartbeat = config.get('broker_heartbeat', DEFAULT_HEARTBEAT)
 
-
 if broker_ssl_enabled:
     BROKER_USE_SSL = {
         'ca_certs': broker_cert_path,
@@ -72,6 +71,9 @@ if config.get('cluster'):
                                               port=broker_port,
                                               options=options)
                           for node in config['cluster'])
+    if broker_port == constants.BROKER_PORT_SSL:
+        BROKER_USE_SSL['cert_reqs'] = ssl.CERT_NONE
+
 else:
     BROKER_URL = URL_TEMPLATE.format(
         username=broker_username,

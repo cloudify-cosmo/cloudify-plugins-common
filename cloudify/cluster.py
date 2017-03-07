@@ -142,6 +142,9 @@ class ClusterHTTPClient(HTTPClient):
 
         raise CloudifyClientError('No active node in the cluster!')
 
+    def get_request_verify(self):
+        return False
+
 
 class CloudifyClusterClient(CloudifyClient):
     client_class = ClusterHTTPClient

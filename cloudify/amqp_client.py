@@ -42,7 +42,8 @@ class AMQPClient(object):
                  amqp_pass='guest',
                  amqp_host='localhost',
                  ssl_enabled=False,
-                 ssl_cert_path=''):
+                 ssl_cert_path='',
+                 ssl_cert_reqs=None):
         self.connection = None
         self.channel = None
         self._is_closed = False
@@ -52,6 +53,10 @@ class AMQPClient(object):
         amqp_port, ssl_options = utils.internal.get_broker_ssl_and_port(
             ssl_enabled=ssl_enabled,
             cert_path=ssl_cert_path)
+
+        if ssl_cert_reqs is not None:
+            ssl_options['cert_reqs'] = ssl_cert_reqs
+
         self._connection_parameters = pika.ConnectionParameters(
             host=amqp_host,
             port=amqp_port,
@@ -123,15 +128,19 @@ def create_client(amqp_host=broker_config.broker_hostname,
                   amqp_user=broker_config.broker_username,
                   amqp_pass=broker_config.broker_password,
                   ssl_enabled=broker_config.broker_ssl_enabled,
-                  ssl_cert_path=broker_config.broker_cert_path):
+                  ssl_cert_path=broker_config.broker_cert_path,
+                  ssl_cert_reqs=None):
     thread = threading.current_thread()
+    if ssl_cert_reqs is None and ssl_enabled:
+        ssl_cert_reqs = broker_config.BROKER_USE_SSL['cert_reqs']
 
     amqp_settings = {
         'amqp_user': amqp_user,
         'amqp_host': amqp_host,
         'amqp_pass': amqp_pass,
         'ssl_enabled': ssl_enabled,
-        'ssl_cert_path': ssl_cert_path
+        'ssl_cert_path': ssl_cert_path,
+        'ssl_cert_reqs': ssl_cert_reqs
     }
     amqp_settings.update(cluster.get_cluster_amqp_settings())
 
