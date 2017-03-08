@@ -25,7 +25,7 @@ import tempfile
 import traceback
 import StringIO
 
-from cloudify import constants
+from cloudify import cluster, constants
 from cloudify.exceptions import (
     CommandExecutionException,
     NonRecoverableError,
@@ -134,6 +134,12 @@ def get_manager_file_server_url():
     """
     Returns the manager file server base url.
     """
+    if cluster.is_cluster_configured():
+        active_node = cluster.get_cluster_active() or {}
+        active_node_ip = active_node.get('broker_ip')
+        port = get_manager_rest_service_port()
+        if active_node_ip:
+            return 'https://{0}:{1}/resources'.format(active_node_ip, port)
     return os.environ[constants.MANAGER_FILE_SERVER_URL_KEY]
 
 
@@ -148,6 +154,11 @@ def get_broker_ssl_cert_path():
     """
     Returns location of the broker certificate on the agent
     """
+    if cluster.is_cluster_configured():
+        active_node = cluster.get_cluster_active() or {}
+        broker_ssl_cert_path = active_node.get('broker_ssl_cert_path')
+        if broker_ssl_cert_path:
+            return broker_ssl_cert_path
     return os.environ[constants.BROKER_SSL_CERT_PATH]
 
 
@@ -166,6 +177,11 @@ def get_local_rest_certificate():
     """
     Returns the path to the local copy of the server's public certificate
     """
+    if cluster.is_cluster_configured():
+        active_node = cluster.get_cluster_active() or {}
+        rest_cert_path = active_node.get('rest_cert_path')
+        if rest_cert_path:
+            return rest_cert_path
     return os.environ[constants.LOCAL_REST_CERT_FILE_KEY]
 
 
