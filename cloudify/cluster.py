@@ -37,7 +37,6 @@ def get_cluster_settings():
     filename = _get_cluster_settings_file()
     if not filename:
         return None
-
     try:
         with open(filename) as f:
             return json.load(f)
@@ -49,6 +48,9 @@ def set_cluster_settings(settings):
     filename = _get_cluster_settings_file()
     if not filename:
         return None
+    dirname = os.path.dirname(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
 
     with open(filename, 'w') as f:
         json.dump(settings, f, indent=4, sort_keys=True)
@@ -63,6 +65,19 @@ def get_cluster_nodes():
 
 def set_cluster_nodes(nodes):
     settings = get_cluster_settings() or {}
+
+    certs_dir = os.path.dirname(_get_cluster_settings_file())
+    for node in nodes:
+        node_ip = node['broker_ip']
+        for key in ['broker_ssl_cert', 'rest_cert']:
+            cert_content = node.get(key)
+            if cert_content:
+                cert_filename = os.path.join(
+                    certs_dir, '{0}_{1}.crt'.format(key, node_ip))
+                with open(cert_filename, 'w') as f:
+                    f.write(cert_content)
+                node['{0}_path'.format(key)] = cert_filename
+
     settings['nodes'] = nodes
     set_cluster_settings(settings)
 
@@ -84,11 +99,15 @@ def get_cluster_amqp_settings():
     active = get_cluster_active()
     if not active:
         return {}
-    return {
+    settings = {
         'amqp_host': active.get('broker_ip'),
         'amqp_user': active.get('broker_user'),
-        'amqp_pass': active.get('broker_pass')
+        'amqp_pass': active.get('broker_pass'),
     }
+    ssl_cert_path = active.get('broker_ssl_cert_path')
+    if ssl_cert_path:
+        settings['ssl_cert_path'] = ssl_cert_path
+    return settings
 
 
 def is_cluster_configured():
@@ -107,7 +126,7 @@ def _parse_url(broker_url):
 def config_from_broker_urls(active, nodes):
     settings = {
         'active': _parse_url(active),
-        'nodes': [_parse_url(node) for node in nodes]
+        'nodes': [_parse_url(node) for node in nodes if node]
     }
     set_cluster_settings(settings)
 
@@ -130,7 +149,7 @@ class ClusterHTTPClient(HTTPClient):
         for retry in range(self.retries):
             active = get_cluster_active()
             if active is not None:
-                self.host = active['broker_ip']
+                self._use_node(active)
             if copied_data is not None:
                 kwargs['data'] = copied_data[retry]
 
@@ -141,6 +160,10 @@ class ClusterHTTPClient(HTTPClient):
                     continue
 
         raise CloudifyClientError('No active node in the cluster!')
+
+    def _use_node(self, node):
+        self.host = node['broker_ip']
+        self.cert = node.get('rest_cert_path')
 
 
 class CloudifyClusterClient(CloudifyClient):

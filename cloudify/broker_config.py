@@ -81,6 +81,14 @@ else:
         options=options
     )
 
+# celery will not use the failover strategy if there is only one broker url;
+# we need it to try and failover even with one initial manager, because
+# another node might've been added dynamically, while the worker was already
+# running; we add an empty broker url so that celery always sees at least two -
+# the failover strategy we're using (defined in cloudify_agent.app) filters out
+# the empty one
+BROKER_URL += ';'
+
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_TASK_RESULT_EXPIRES = 600
