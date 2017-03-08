@@ -86,7 +86,16 @@ def get_cluster_active():
     settings = get_cluster_settings()
     if not settings:
         return None
-    return settings.get('active')
+
+    active = settings.get('active')
+    if active:
+        return active
+    # when we don't know which node is the active, try the first one on the
+    # list - if it's a replica, we'll failover normally
+    nodes = get_cluster_nodes()
+    if nodes:
+        set_cluster_active(nodes[0])
+    return nodes[0]
 
 
 def set_cluster_active(node):
