@@ -190,6 +190,41 @@ class TestDispatchTaskHandler(testtools.TestCase):
             workflow_handler._func = _normal_func
             workflow_handler._ctx = _normal_ctx
 
+    @patch('cloudify.dispatch.sleep')
+    @patch('cloudify.dispatch.amqp_client_utils')
+    @patch('cloudify.dispatch.get_rest_client')
+    @patch('cloudify.dispatch.update_execution_status')
+    def test_workflow_update_execution_status_set_to_false(
+            self, mock_update_execution_status, *args, **kwargs):
+        workflow_handler = dispatch.WorkflowHandler(
+                cloudify_context={
+                    'task_name': 'test',
+                    'update_execution_status': False
+                },
+                args=(), kwargs={})
+        _normal_func = workflow_handler._func
+        _normal_ctx = workflow_handler._ctx
+        workflow_handler._func = func2
+        workflow_handler._ctx = type('MockWorkflowContext', (object,), {
+            'local': False,
+            'logger': MagicMock(),
+            'internal': MagicMock(),
+            'execution_id': 'test_execution_id',
+            'workflow_id': 'test_workflow_id'})
+
+        # this is for making the implementation go the "local" way despite
+        # ctx.local == false as execution status is only updated in remote
+        # mode.
+        workflow_handler._handle_remote_workflow = \
+            workflow_handler._handle_local_workflow
+
+        try:
+            workflow_handler.handle()
+            self.assertEqual(0, mock_update_execution_status.call_count)
+        finally:
+            workflow_handler._func = _normal_func
+            workflow_handler._ctx = _normal_ctx
+
     def _test_dispatch_to_subprocess_logging(
             self, func, logpath_func, env_func=None,
             expect_error=False):
