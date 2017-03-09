@@ -394,6 +394,10 @@ class WorkflowHandler(TaskHandler):
             return self._handle_local_workflow()
         return self._handle_remote_workflow()
 
+    @property
+    def update_execution_status(self):
+        return self.cloudify_context.get('update_execution_status', True)
+
     def _handle_remote_workflow(self):
         rest = get_rest_client()
         amqp_client_utils.init_amqp_client()
@@ -541,7 +545,7 @@ class WorkflowHandler(TaskHandler):
                 self.ctx.workflow_id))
 
     def _update_execution_status(self, status, error=None):
-        if self.ctx.local:
+        if self.ctx.local or not self.update_execution_status:
             return
 
         caught_error = None
