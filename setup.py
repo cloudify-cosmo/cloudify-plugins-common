@@ -16,7 +16,7 @@
 from setuptools import setup
 
 install_requires = [
-    'cloudify-rest-client==4.0a15',
+    'cloudify-rest-client==4.0rc1',
     'pika==0.9.14',
     'networkx==1.8.1',
     'proxy_tools==0.1.0',
@@ -43,7 +43,7 @@ except ImportError:
 
 setup(
     name='cloudify-plugins-common',
-    version='4.0a15',
+    version='4.0rc1',
     author='cosmo-admin',
     author_email='cosmo-admin@gigaspaces.com',
     packages=['cloudify',
