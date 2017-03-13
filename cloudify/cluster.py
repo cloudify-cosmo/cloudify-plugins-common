@@ -17,24 +17,51 @@ import os
 import json
 import pika
 import types
+import shutil
 import requests
+import tempfile
 import itertools
+
+from cloudify import constants
 
 from cloudify_rest_client import CloudifyClient
 from cloudify_rest_client.client import HTTPClient
 from cloudify_rest_client.exceptions import (CloudifyClientError,
                                              NotClusterMaster)
 
+try:
+    # use a fasteners interprocess lock to serialize concurrent access to the
+    # settings file from multiple celery workers. Fasteners is only installed
+    # as a cloudify-agent dependency - but it is only useful in the agent,
+    # so we can skip it otherwise
+    from fasteners import interprocess_locked
+except ImportError:
+    def settings_lock(f):
+        return f
+else:
+    settings_lock = interprocess_locked(
+        os.path.join(tempfile.gettempdir(), 'cluster.lock'))
 
-def _get_cluster_settings_file():
-    filename = os.path.expanduser('~/.cfy-agent/cloudify-cluster')
-    if not filename:
+
+def _get_cluster_settings_file(filename=None):
+    if filename is None \
+            and constants.CLUSTER_SETTINGS_PATH_KEY not in os.environ:
         return None
-    return filename
+    return filename or os.environ[constants.CLUSTER_SETTINGS_PATH_KEY]
 
 
-def get_cluster_settings():
-    filename = _get_cluster_settings_file()
+def _get_certs_dir(filename=None):
+    settings_file = _get_cluster_settings_file(filename=filename)
+    if not settings_file:
+        return None
+    basedir, filename = os.path.split(settings_file)
+    name, ext = os.path.splitext(filename)
+    return os.path.join(basedir, '{0}_certs'.format(name))
+
+
+@settings_lock
+def get_cluster_settings(filename=None):
+    filename = _get_cluster_settings_file(filename=filename)
     if not filename:
         return None
     try:
@@ -44,32 +71,34 @@ def get_cluster_settings():
         return None
 
 
-def set_cluster_settings(settings):
-    filename = _get_cluster_settings_file()
+@settings_lock
+def set_cluster_settings(settings, filename=None):
+    filename = _get_cluster_settings_file(filename=filename)
     if not filename:
         return None
     dirname = os.path.dirname(filename)
-    if not os.path.exists(dirname):
+    if dirname and not os.path.exists(dirname):
         os.makedirs(dirname)
 
     with open(filename, 'w') as f:
         json.dump(settings, f, indent=4, sort_keys=True)
 
 
-def get_cluster_nodes():
-    settings = get_cluster_settings()
+def get_cluster_nodes(filename=None):
+    settings = get_cluster_settings(filename=filename)
     if not settings:
         return None
     return settings.get('nodes')
 
 
-def set_cluster_nodes(nodes):
-    settings = get_cluster_settings() or {}
-
-    certs_dir = os.path.dirname(_get_cluster_settings_file())
+def set_cluster_nodes(nodes, filename=None):
+    settings = get_cluster_settings(filename=filename) or {}
+    certs_dir = _get_certs_dir(filename=filename)
+    if not os.path.isdir(certs_dir):
+        os.makedirs(certs_dir)
     for node in nodes:
         node_ip = node['broker_ip']
-        for key in ['broker_ssl_cert', 'rest_cert']:
+        for key in ['rest_cert', 'broker_ssl_cert']:
             cert_content = node.get(key)
             if cert_content:
                 cert_filename = os.path.join(
@@ -79,11 +108,15 @@ def set_cluster_nodes(nodes):
                 node['{0}_path'.format(key)] = cert_filename
 
     settings['nodes'] = nodes
-    set_cluster_settings(settings)
+    set_cluster_settings(settings, filename=filename)
+    active = get_cluster_active(filename=filename)
+    if active is None:
+        set_cluster_active(nodes[0], filename=filename)
+    return nodes
 
 
-def get_cluster_active():
-    settings = get_cluster_settings()
+def get_cluster_active(filename=None):
+    settings = get_cluster_settings(filename=filename)
     if not settings:
         return None
 
@@ -92,16 +125,16 @@ def get_cluster_active():
         return active
     # when we don't know which node is the active, try the first one on the
     # list - if it's a replica, we'll failover normally
-    nodes = get_cluster_nodes()
+    nodes = get_cluster_nodes(filename=filename)
     if nodes:
-        set_cluster_active(nodes[0])
+        set_cluster_active(nodes[0], filename=filename)
     return nodes[0]
 
 
-def set_cluster_active(node):
-    settings = get_cluster_settings() or {}
+def set_cluster_active(node, filename=None):
+    settings = get_cluster_settings(filename=filename) or {}
     settings['active'] = node
-    set_cluster_settings(settings)
+    set_cluster_settings(settings, filename=filename)
 
 
 def get_cluster_amqp_settings():
@@ -112,11 +145,22 @@ def get_cluster_amqp_settings():
         'amqp_host': active.get('broker_ip'),
         'amqp_user': active.get('broker_user'),
         'amqp_pass': active.get('broker_pass'),
+        'ssl_enabled': False
     }
     ssl_cert_path = active.get('broker_ssl_cert_path')
     if ssl_cert_path:
         settings['ssl_cert_path'] = ssl_cert_path
+        settings['ssl_enabled'] = True
     return settings
+
+
+def delete_cluster_settings(filename=None):
+    nodes = get_cluster_nodes(filename=filename)
+    if nodes:
+        certs_dir = _get_certs_dir(filename=filename)
+        if os.path.isdir(certs_dir):
+            shutil.rmtree(certs_dir)
+    os.remove(filename)
 
 
 def is_cluster_configured():
