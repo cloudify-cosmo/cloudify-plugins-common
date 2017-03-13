@@ -219,10 +219,10 @@ def get_resource_from_manager(resource_path, base_url=None):
     headers = {}
     try:
         headers[constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER] = \
-            ctx.rest_token
+            str(ctx.rest_token)
     except NotInContext:
         headers[constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER] = \
-            workflow_ctx.rest_token
+            str(workflow_ctx.rest_token)
     response = requests.get(url, verify=verify, headers=headers)
     if not response.ok:
         raise HttpException(url, response.status_code, response.reason)
@@ -292,15 +292,19 @@ def get_resource(blueprint_id, deployment_id, tenant_name, resource_path):
     return resource
 
 
-def get_node_instance(node_instance_id):
+def get_node_instance(node_instance_id, evaluate_functions=False):
     """
     Read node instance data from the storage.
 
     :param node_instance_id: the node instance id
+    :param evaluate_functions: Evaluate intrinsic functions
     :rtype: NodeInstance
     """
     client = get_rest_client()
-    instance = client.node_instances.get(node_instance_id)
+    instance = client.node_instances.get(
+        node_instance_id,
+        evaluate_functions=evaluate_functions
+    )
     return NodeInstance(node_instance_id,
                         instance.node_id,
                         runtime_properties=instance.runtime_properties,
