@@ -119,21 +119,31 @@ class AMQPClient(object):
                              'reported error: {1}'.format(thread, repr(e)))
 
 
-def create_client(amqp_host=broker_config.broker_hostname,
-                  amqp_user=broker_config.broker_username,
-                  amqp_pass=broker_config.broker_password,
-                  ssl_enabled=broker_config.broker_ssl_enabled,
-                  ssl_cert_path=broker_config.broker_cert_path):
+def create_client(amqp_host=None,
+                  amqp_user=None,
+                  amqp_pass=None,
+                  ssl_enabled=None,
+                  ssl_cert_path=None):
     thread = threading.current_thread()
 
-    amqp_settings = {
-        'amqp_user': amqp_user,
-        'amqp_host': amqp_host,
-        'amqp_pass': amqp_pass,
-        'ssl_enabled': ssl_enabled,
-        'ssl_cert_path': ssl_cert_path
+    # there's 3 possible sources of the amqp settings: passed in arguments,
+    # current cluster active manager (if any), and broker_config; use the first
+    # that is defined, in that order
+    defaults = {
+        'amqp_host': broker_config.broker_hostname,
+        'amqp_user': broker_config.broker_username,
+        'amqp_pass': broker_config.broker_password,
+        'ssl_enabled': broker_config.broker_ssl_enabled,
+        'ssl_cert_path': broker_config.broker_cert_path
     }
-    amqp_settings.update(cluster.get_cluster_amqp_settings())
+    defaults.update(cluster.get_cluster_amqp_settings())
+    amqp_settings = {
+        'amqp_user': amqp_user or defaults['amqp_user'],
+        'amqp_host': amqp_host or defaults['amqp_host'],
+        'amqp_pass': amqp_pass or defaults['amqp_pass'],
+        'ssl_enabled': ssl_enabled or defaults['ssl_enabled'],
+        'ssl_cert_path': ssl_cert_path or defaults['ssl_cert_path']
+    }
 
     try:
         logger.debug(
