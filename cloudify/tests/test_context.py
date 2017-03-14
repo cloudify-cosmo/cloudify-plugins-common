@@ -43,7 +43,7 @@ class CloudifyContextTest(testtools.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        state.current_ctx.set(context.CloudifyContext, {})
+        state.current_ctx.set(context.CloudifyContext({}), {})
 
         resources_path = os.path.join(dirname(tests_path.__file__))
 
