@@ -219,10 +219,10 @@ def get_resource_from_manager(resource_path, base_url=None):
     headers = {}
     try:
         headers[constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER] = \
-            str(ctx.rest_token)
+            ctx.rest_token
     except NotInContext:
         headers[constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER] = \
-            str(workflow_ctx.rest_token)
+            workflow_ctx.rest_token
     response = requests.get(url, verify=verify, headers=headers)
     if not response.ok:
         raise HttpException(url, response.status_code, response.reason)
