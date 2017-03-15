@@ -292,15 +292,19 @@ def get_resource(blueprint_id, deployment_id, tenant_name, resource_path):
     return resource
 
 
-def get_node_instance(node_instance_id):
+def get_node_instance(node_instance_id, evaluate_functions=False):
     """
     Read node instance data from the storage.
 
     :param node_instance_id: the node instance id
+    :param evaluate_functions: Evaluate intrinsic functions
     :rtype: NodeInstance
     """
     client = get_rest_client()
-    instance = client.node_instances.get(node_instance_id)
+    instance = client.node_instances.get(
+        node_instance_id,
+        evaluate_functions=evaluate_functions
+    )
     return NodeInstance(node_instance_id,
                         instance.node_id,
                         runtime_properties=instance.runtime_properties,
