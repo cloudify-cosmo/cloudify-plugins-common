@@ -155,12 +155,26 @@ def get_cluster_amqp_settings():
 
 
 def delete_cluster_settings(filename=None):
+    """Remove all cluster settings.
+
+    Delete the settings file, and also all stored certificates - find the
+    certs dir first.
+    """
+    filename = _get_cluster_settings_file(filename)
+    if not filename:
+        return
+
     nodes = get_cluster_nodes(filename=filename)
     if nodes:
         certs_dir = _get_certs_dir(filename=filename)
         if os.path.isdir(certs_dir):
             shutil.rmtree(certs_dir)
-    os.remove(filename)
+
+    try:
+        os.remove(filename)
+    except (OSError, IOError):
+        # the file doesn't exist?
+        pass
 
 
 def is_cluster_configured():
