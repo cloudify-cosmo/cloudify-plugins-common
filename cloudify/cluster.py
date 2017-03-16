@@ -34,13 +34,11 @@ try:
     # settings file from multiple celery workers. Fasteners is only installed
     # as a cloudify-agent dependency - but it is only useful in the agent,
     # so we can skip it otherwise
-    from fasteners import interprocess_locked
+    from fasteners import InterProcessLock
 except ImportError:
-    def settings_lock(f):
-        return f
+    LOCKFILE = None
 else:
-    settings_lock = interprocess_locked(
-        os.path.join(tempfile.gettempdir(), 'cluster.lock'))
+    LOCKFILE = os.path.join(tempfile.gettempdir(), 'cluster.lock')
 
 
 def _get_cluster_settings_file(filename=None):
@@ -59,19 +57,18 @@ def _get_certs_dir(filename=None):
     return os.path.join(basedir, '{0}_certs'.format(name))
 
 
-@settings_lock
 def get_cluster_settings(filename=None):
     filename = _get_cluster_settings_file(filename=filename)
     if not filename:
         return None
-    try:
-        with open(filename) as f:
-            return json.load(f)
-    except (IOError, ValueError):
-        return None
+    with InterProcessLock(LOCKFILE):
+        try:
+            with open(filename) as f:
+                return json.load(f)
+        except (IOError, ValueError):
+            return None
 
 
-@settings_lock
 def set_cluster_settings(settings, filename=None):
     filename = _get_cluster_settings_file(filename=filename)
     if not filename:
@@ -93,25 +90,28 @@ def get_cluster_nodes(filename=None):
 
 def set_cluster_nodes(nodes, filename=None):
     settings = get_cluster_settings(filename=filename) or {}
-    certs_dir = _get_certs_dir(filename=filename)
-    if not os.path.isdir(certs_dir):
-        os.makedirs(certs_dir)
-    for node in nodes:
-        node_ip = node['broker_ip']
-        cert_content = node.get('internal_cert')
-        if cert_content:
-            cert_filename = os.path.join(
-                certs_dir, '{0}.crt'.format(node_ip))
-            with open(cert_filename, 'w') as f:
-                f.write(cert_content)
-            node['internal_cert_path'] = cert_filename
+    if not settings and not nodes:
+        return
+    with InterProcessLock(LOCKFILE):
+        certs_dir = _get_certs_dir(filename=filename)
+        if not os.path.isdir(certs_dir):
+            os.makedirs(certs_dir)
+        for node in nodes:
+            node_ip = node['broker_ip']
+            cert_content = node.get('internal_cert')
+            if cert_content:
+                cert_filename = os.path.join(
+                    certs_dir, '{0}.crt'.format(node_ip))
+                with open(cert_filename, 'w') as f:
+                    f.write(cert_content)
+                node['internal_cert_path'] = cert_filename
 
-    settings['nodes'] = nodes
-    set_cluster_settings(settings, filename=filename)
-    active = get_cluster_active(filename=filename)
-    if active is None:
-        set_cluster_active(nodes[0], filename=filename)
-    return nodes
+        settings['nodes'] = nodes
+        set_cluster_settings(settings, filename=filename)
+        active = get_cluster_active(filename=filename)
+        if active is None:
+            set_cluster_active(nodes[0], filename=filename)
+        return nodes
 
 
 def get_cluster_active(filename=None):
@@ -132,8 +132,11 @@ def get_cluster_active(filename=None):
 
 def set_cluster_active(node, filename=None):
     settings = get_cluster_settings(filename=filename) or {}
-    settings['active'] = node
-    set_cluster_settings(settings, filename=filename)
+    if not settings and not node:
+        return
+    with InterProcessLock(LOCKFILE):
+        settings['active'] = node
+        set_cluster_settings(settings, filename=filename)
 
 
 def get_cluster_amqp_settings():
