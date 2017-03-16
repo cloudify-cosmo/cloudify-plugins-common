@@ -156,7 +156,7 @@ def get_broker_ssl_cert_path():
     """
     if cluster.is_cluster_configured():
         active_node = cluster.get_cluster_active() or {}
-        broker_ssl_cert_path = active_node.get('broker_ssl_cert_path')
+        broker_ssl_cert_path = active_node.get('internal_cert_path')
         if broker_ssl_cert_path:
             return broker_ssl_cert_path
     return os.environ[constants.BROKER_SSL_CERT_PATH]
@@ -179,7 +179,7 @@ def get_local_rest_certificate():
     """
     if cluster.is_cluster_configured():
         active_node = cluster.get_cluster_active() or {}
-        rest_cert_path = active_node.get('rest_cert_path')
+        rest_cert_path = active_node.get('internal_cert_path')
         if rest_cert_path:
             return rest_cert_path
     return os.environ[constants.LOCAL_REST_CERT_FILE_KEY]
