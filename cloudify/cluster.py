@@ -98,14 +98,13 @@ def set_cluster_nodes(nodes, filename=None):
         os.makedirs(certs_dir)
     for node in nodes:
         node_ip = node['broker_ip']
-        for key in ['rest_cert', 'broker_ssl_cert']:
-            cert_content = node.get(key)
-            if cert_content:
-                cert_filename = os.path.join(
-                    certs_dir, '{0}_{1}.crt'.format(key, node_ip))
-                with open(cert_filename, 'w') as f:
-                    f.write(cert_content)
-                node['{0}_path'.format(key)] = cert_filename
+        cert_content = node.get('internal_cert')
+        if cert_content:
+            cert_filename = os.path.join(
+                certs_dir, '{0}.crt'.format(node_ip))
+            with open(cert_filename, 'w') as f:
+                f.write(cert_content)
+            node['internal_cert_path'] = cert_filename
 
     settings['nodes'] = nodes
     set_cluster_settings(settings, filename=filename)
@@ -147,7 +146,7 @@ def get_cluster_amqp_settings():
         'amqp_pass': active.get('broker_pass'),
         'ssl_enabled': False
     }
-    ssl_cert_path = active.get('broker_ssl_cert_path')
+    ssl_cert_path = active.get('internal_cert_path')
     if ssl_cert_path:
         settings['ssl_cert_path'] = ssl_cert_path
         settings['ssl_enabled'] = True
@@ -230,7 +229,7 @@ class ClusterHTTPClient(HTTPClient):
 
     def _use_node(self, node):
         self.host = node['broker_ip']
-        self.cert = node.get('rest_cert_path')
+        self.cert = node.get('internal_cert_path')
 
 
 class CloudifyClusterClient(CloudifyClient):
