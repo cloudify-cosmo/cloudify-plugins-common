@@ -143,6 +143,13 @@ def get_manager_file_server_url():
     return os.environ[constants.MANAGER_FILE_SERVER_URL_KEY]
 
 
+def get_manager_file_server_root():
+    """
+    Returns the host the manager REST service is running on.
+    """
+    return os.environ[constants.MANAGER_FILE_SERVER_ROOT_KEY]
+
+
 def get_manager_rest_service_host():
     """
     Returns the host the manager REST service is running on.
