@@ -14,8 +14,8 @@
 #    * limitations under the License.
 
 import os
-from posixpath import join as urljoin
 import requests
+from urlparse import urljoin
 
 import utils
 from cloudify_rest_client import CloudifyClient
@@ -258,23 +258,29 @@ def get_resource(blueprint_id, deployment_id, tenant_name, resource_path):
 
     resource = None
     if deployment_id is not None:
-        deployment_base_url = urljoin(
-            utils.get_manager_file_server_url(),
+        relative_deployment_path = os.path.join(
             constants.FILE_SERVER_RESOURCES_FOLDER,
             constants.FILE_SERVER_DEPLOYMENTS_FOLDER,
             tenant_name,
             deployment_id
         )
+        deployment_base_url = urljoin(
+            utils.get_manager_file_server_url(),
+            relative_deployment_path
+        ).replace('\\', '/')
         resource = _get_resource(deployment_base_url)
 
     if resource is None:
-        blueprint_base_url = urljoin(
-            utils.get_manager_file_server_url(),
+        relative_blueprint_path = os.path.join(
             constants.FILE_SERVER_RESOURCES_FOLDER,
             constants.FILE_SERVER_BLUEPRINTS_FOLDER,
             tenant_name,
             blueprint_id
         )
+        blueprint_base_url = urljoin(
+            utils.get_manager_file_server_url(),
+            relative_blueprint_path
+        ).replace('\\', '/')
         resource = _get_resource(blueprint_base_url)
         if resource is None:
             if deployment_id is None:
