@@ -37,11 +37,12 @@ class Event(object):
         if info:  # spacing in between of the info and the message
             info += ' '
 
-        return '{0} {1} {2} {3}{4}'.format(printable_timestamp,
-                                           event_type_indicator,
-                                           deployment_id,
-                                           info,
-                                           message)
+        return '{0}  {1} {2} {3}{4}'.format(
+            printable_timestamp,
+            event_type_indicator,
+            deployment_id,
+            info,
+            message)
 
     @property
     def has_output(self):
@@ -103,7 +104,7 @@ class Event(object):
 
     @property
     def printable_timestamp(self):
-        return self.timestamp.replace('T', ' ').replace('Z', ' ')
+        return self.timestamp.replace('T', ' ').replace('Z', '')
 
     @property
     def event_type_indicator(self):
