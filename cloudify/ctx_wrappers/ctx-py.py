@@ -131,7 +131,7 @@ class CtxInstanceRuntimeProperties(MutableMapping):
         self.relationship = relationship
 
     def __getitem__(self, property_name):
-        cmd = ['ctx', '-j', 'instance', 'runtime_properties', property_name]
+        cmd = ['ctx', 'instance', 'runtime_properties', property_name]
         if self.relationship:
             cmd.insert(2, self.relationship)
         try:
@@ -145,8 +145,7 @@ class CtxInstanceRuntimeProperties(MutableMapping):
 
     def __setitem__(self, property_name, value):
         cmd = ['ctx', 'instance', 'runtime_properties', property_name,
-               value if isinstance(value, (basestring, str, unicode))
-               else '@"{0}"'.format(value)]
+               json.dumps(value)]
         if self.relationship:
             cmd.insert(1, self.relationship)
         return check_output(cmd)
