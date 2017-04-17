@@ -66,6 +66,13 @@ class MockContext(dict):
         return self[item]
 
 
+class MockCloudifyAgent(MockContext):
+
+    @property
+    def agent_key_path(self):
+        return self._cloudify_agent.get('agent_key_path')
+
+
 class MockCloudifyContext(CloudifyContext):
     """
     Cloudify context mock that can be used when testing Cloudify plugins.
