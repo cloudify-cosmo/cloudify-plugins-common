@@ -366,12 +366,12 @@ class OperationHandler(TaskHandler):
             result = self.func(*self.args, **kwargs)
         finally:
             amqp_client_utils.close_amqp_client()
-            state.current_ctx.clear()
             if ctx.type == context.NODE_INSTANCE:
                 ctx.instance.update()
             elif ctx.type == context.RELATIONSHIP_INSTANCE:
                 ctx.source.instance.update()
                 ctx.target.instance.update()
+            state.current_ctx.clear()
         if ctx.operation._operation_retry:
             raise ctx.operation._operation_retry
         return result
@@ -390,9 +390,14 @@ class WorkflowHandler(TaskHandler):
                 'func not found: {0}'.format(self.cloudify_context))
 
         self.kwargs['ctx'] = self.ctx
-        if self.ctx.local:
-            return self._handle_local_workflow()
-        return self._handle_remote_workflow()
+
+        state.current_workflow_ctx.set(self.ctx, self.kwargs)
+        try:
+            if self.ctx.local:
+                return self._handle_local_workflow()
+            return self._handle_remote_workflow()
+        finally:
+            state.current_workflow_ctx.clear()
 
     def _handle_remote_workflow(self):
         rest = get_rest_client()
@@ -467,6 +472,7 @@ class WorkflowHandler(TaskHandler):
         # the actual execution of the workflow will run in another thread.
         # this method is the entry point for that thread, and takes care of
         # forwarding the result or error back to the parent thread
+        state.current_workflow_ctx.set(self.ctx, self.kwargs)
         try:
             self.ctx.internal.start_event_monitor()
             workflow_result = self._execute_workflow_function()
@@ -483,6 +489,7 @@ class WorkflowHandler(TaskHandler):
             }
             queue.put({'error': err})
         finally:
+            state.current_workflow_ctx.clear()
             self.ctx.internal.stop_event_monitor()
 
     def _handle_local_workflow(self):
@@ -500,7 +507,6 @@ class WorkflowHandler(TaskHandler):
     def _execute_workflow_function(self):
         try:
             self.ctx.internal.start_local_tasks_processing()
-            state.current_workflow_ctx.set(self.ctx, self.kwargs)
             result = self.func(*self.args, **self.kwargs)
             if not self.ctx.internal.graph_mode:
                 tasks = list(self.ctx.internal.task_graph.tasks_iter())
@@ -509,7 +515,6 @@ class WorkflowHandler(TaskHandler):
             return result
         finally:
             self.ctx.internal.stop_local_tasks_processing()
-            state.current_workflow_ctx.clear()
 
     def _workflow_started(self):
         self._update_execution_status(Execution.STARTED)
