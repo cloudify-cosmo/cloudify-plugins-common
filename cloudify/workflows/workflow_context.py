@@ -907,8 +907,15 @@ class CloudifySystemWideWorkflowContext(_WorkflowContextBase):
                 def lazily_loaded_ctx(dep_ctx):
                     def lazy_ctx():
                         if not hasattr(lazy_ctx, '_cached_ctx'):
+                            # creating a _ManagedWorkflowCtx will .set/.clear
+                            # the current workflow ctx, so let's make sure we
+                            # keep the current one
+                            stored_ctx = current_workflow_ctx.get_ctx()
+                            stored_params = \
+                                current_workflow_ctx.get_parameters()
                             lazy_ctx._cached_ctx = \
                                 self._ManagedCloudifyWorkflowContext(dep_ctx)
+                            current_workflow_ctx.set(stored_ctx, stored_params)
                         return lazy_ctx._cached_ctx
 
                     return proxy(lazy_ctx)
