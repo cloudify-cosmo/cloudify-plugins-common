@@ -1,0 +1,1 @@
+Test resources_to_copy of workflow_test decorator

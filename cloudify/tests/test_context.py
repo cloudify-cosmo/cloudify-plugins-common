@@ -211,6 +211,18 @@ class NodeContextTests(testtools.TestCase):
                              instance.runtime_properties['type_hierarchy'])
 
 
+class ResourcesToCopyTests(testtools.TestCase):
+    test_blueprint_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        "resources/blueprints/test-resources-to-copy.yaml")
+
+    @workflow_test(blueprint_path=test_blueprint_path,
+                   resources_to_copy=[('resources/test-resources-to-copy.txt',
+                                       'resources')])
+    def test_resources_to_copy(self, cfy_local):
+        cfy_local.execute('install')
+
+
 class PluginContextTests(testtools.TestCase):
     # workdir is tested separately for local and remote workflows
 

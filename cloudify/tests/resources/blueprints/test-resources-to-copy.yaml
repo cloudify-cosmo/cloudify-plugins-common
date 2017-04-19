@@ -1,0 +1,27 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+plugins:
+  default_workflows:
+    executor: central_deployment_agent
+    install: false
+
+node_types:
+  mock_type:
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: {}
+        configure: {}
+        start: {}
+        stop: {}
+        delete: {}
+      cloudify.interfaces.monitoring:
+        start: {}
+        stop: {}
+
+node_templates:
+  node1:
+    type: mock_type
+
+
+workflows:
+  install: default_workflows.cloudify.plugins.workflows.install
