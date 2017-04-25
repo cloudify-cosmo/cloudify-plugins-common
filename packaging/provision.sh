@@ -69,7 +69,7 @@ function wagon_create_package(){
 
 
 # VERSION/PRERELEASE/BUILD must be exported as they is being read as an env var by the cloudify-agent-packager
-CORE_TAG_NAME="4.0m13"
+CORE_TAG_NAME="4.0.1"
 curl https://raw.githubusercontent.com/cloudify-cosmo/cloudify-packager/$CORE_TAG_NAME/common/provision.sh -o ./common-provision.sh &&
 source common-provision.sh
 
@@ -90,6 +90,6 @@ print_plugins_params
 install_dependencies &&
 install_wagon &&
 wagon_create_package &&
-#create_md5 "wgn" &&
+create_md5 "wgn" &&
 [ -z ${AWS_ACCESS_KEY} ] || upload_to_s3 "wgn" && upload_to_s3 "md5"
 
