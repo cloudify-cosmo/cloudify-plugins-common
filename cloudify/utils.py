@@ -25,7 +25,7 @@ import tempfile
 import traceback
 import StringIO
 
-from cloudify import constants
+from cloudify import cluster, constants
 from cloudify.exceptions import (
     CommandExecutionException,
     NonRecoverableError,
@@ -130,60 +130,24 @@ def setup_logger(logger_name,
     return logger
 
 
-def get_manager_file_server_host():
-    """
-    Returns the host the manager file server is running on.
-    """
-    return os.environ[constants.FILE_SERVER_HOST_KEY]
-
-
-def get_manager_file_server_port():
-    """
-    Returns the port the manager file server is running on.
-    """
-    return int(os.environ[constants.FILE_SERVER_PORT_KEY])
-
-
-def get_manager_file_server_protocol():
-    """
-    Returns the protocol of the manager file server
-    """
-    return os.environ[constants.FILE_SERVER_PROTOCOL_KEY]
-
-
-def get_manager_file_server_blueprints_root_url():
-    """
-    Returns the blueprints root url in the file server.
-    """
-    return os.environ[constants.MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY]
-
-
-def get_manager_file_server_deployments_root_url():
-    """
-    Returns the deployments root url in the file server.
-    """
-    return os.environ[constants.MANAGER_FILE_SERVER_DEPLOYMENTS_ROOT_URL_KEY]
-
-
 def get_manager_file_server_url():
     """
     Returns the manager file server base url.
     """
+    if cluster.is_cluster_configured():
+        active_node = cluster.get_cluster_active() or {}
+        active_node_ip = active_node.get('broker_ip')
+        port = get_manager_rest_service_port()
+        if active_node_ip:
+            return 'https://{0}:{1}/resources'.format(active_node_ip, port)
     return os.environ[constants.MANAGER_FILE_SERVER_URL_KEY]
 
 
-def is_security_enabled():
+def get_manager_file_server_root():
     """
-    Returns True if REST security is enabled, False otherwise
+    Returns the host the manager REST service is running on.
     """
-    return os.environ[constants.SECURITY_ENABLED_KEY].lower() == 'true'
-
-
-def is_ssl_enabled():
-    """
-    Returns True if SSL is enabled, False otherwise
-    """
-    return os.environ[constants.SSL_ENABLED_KEY].lower() == 'true'
+    return os.environ[constants.MANAGER_FILE_SERVER_ROOT_KEY]
 
 
 def get_manager_rest_service_host():
@@ -193,17 +157,15 @@ def get_manager_rest_service_host():
     return os.environ[constants.REST_HOST_KEY]
 
 
-def get_agent_rest_cert_path():
-    """
-    Returns location of the rest certificate on the agent
-    """
-    return os.environ[constants.AGENT_REST_CERT_PATH]
-
-
 def get_broker_ssl_cert_path():
     """
     Returns location of the broker certificate on the agent
     """
+    if cluster.is_cluster_configured():
+        active_node = cluster.get_cluster_active() or {}
+        broker_ssl_cert_path = active_node.get('internal_cert_path')
+        if broker_ssl_cert_path:
+            return broker_ssl_cert_path
     return os.environ[constants.BROKER_SSL_CERT_PATH]
 
 
@@ -218,33 +180,16 @@ def get_manager_rest_service_port():
     return int(os.environ[constants.REST_PORT_KEY])
 
 
-def get_manager_rest_service_protocol():
-    """
-    Returns the protocol the manager REST service is running on.
-    """
-    return os.environ[constants.REST_PROTOCOL_KEY]
-
-
-def is_verify_rest_certificate():
-    """
-    Returns True if the rest client should verify the server's SSL
-     certificate, False otherwise.
-    """
-    return os.environ[constants.VERIFY_REST_CERTIFICATE_KEY].lower() == 'true'
-
-
 def get_local_rest_certificate():
     """
     Returns the path to the local copy of the server's public certificate
     """
+    if cluster.is_cluster_configured():
+        active_node = cluster.get_cluster_active() or {}
+        rest_cert_path = active_node.get('internal_cert_path')
+        if rest_cert_path:
+            return rest_cert_path
     return os.environ[constants.LOCAL_REST_CERT_FILE_KEY]
-
-
-def get_rest_cert_content():
-    """
-    Returns the content of the REST SSL certificate
-    """
-    return os.environ[constants.REST_CERT_CONTENT_KEY]
 
 
 def _get_current_context():

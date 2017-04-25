@@ -62,7 +62,7 @@ class MockNodesClient(object):
 
 class MockNodeInstancesClient(object):
 
-    def get(self, node_instance_id):
+    def get(self, node_instance_id, evaluate_functions=False):
         if node_instance_id not in node_instances:
             raise RuntimeError(
                 'No info for node with id {0}'.format(node_instance_id))

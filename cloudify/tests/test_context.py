@@ -25,15 +25,13 @@ from os.path import dirname
 import testtools
 from mock import patch, MagicMock
 
-from cloudify import constants
-from cloudify import context
-from cloudify import exceptions
-from cloudify import conflict_handlers
+from cloudify_rest_client.exceptions import CloudifyClientError
+
 from cloudify.utils import create_temp_folder
 from cloudify.decorators import operation
 from cloudify.manager import NodeInstance
 from cloudify.workflows import local
-from cloudify_rest_client.exceptions import CloudifyClientError
+from cloudify import constants, state, context, exceptions, conflict_handlers
 
 import cloudify.tests as tests_path
 from cloudify.test_utils import workflow_test
@@ -45,8 +43,9 @@ class CloudifyContextTest(testtools.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        resources_path = os.path.join(dirname(tests_path.__file__),
-                                      "resources")
+        state.current_ctx.set(context.CloudifyContext({}), {})
+
+        resources_path = os.path.join(dirname(tests_path.__file__))
 
         from cloudify.tests.file_server import FileServer
         from cloudify.tests.file_server import PORT
@@ -54,13 +53,9 @@ class CloudifyContextTest(testtools.TestCase):
         cls.file_server_process = FileServer(resources_path)
         cls.file_server_process.start()
 
-        os.environ[constants.MANAGER_FILE_SERVER_BLUEPRINTS_ROOT_URL_KEY] \
-            = "http://localhost:{0}/blueprints".format(PORT)
-        os.environ[constants.MANAGER_FILE_SERVER_DEPLOYMENTS_ROOT_URL_KEY] \
-            = "http://localhost:{0}/deployments".format(PORT)
         os.environ[constants.MANAGER_FILE_SERVER_URL_KEY] = \
             "http://localhost:{0}".format(PORT)
-        os.environ[constants.VERIFY_REST_CERTIFICATE_KEY] = 'false'
+        _, os.environ[constants.LOCAL_REST_CERT_FILE_KEY] = tempfile.mkstemp()
         cls.context = context.CloudifyContext({
             'blueprint_id': '',
             'tenant_name': 'default_tenant'
@@ -72,6 +67,7 @@ class CloudifyContextTest(testtools.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.file_server_process.stop()
+        state.current_ctx.clear()
 
     def setup_tenant_context(self):
         self.context = context.CloudifyContext(

@@ -14,12 +14,14 @@
 #    * limitations under the License.
 
 import os
-
 import requests
+from urlparse import urljoin
 
 import utils
-import constants
 from cloudify_rest_client import CloudifyClient
+
+from cloudify import constants
+from cloudify.state import ctx, workflow_ctx, NotInContext
 from cloudify.cluster import CloudifyClusterClient, get_cluster_settings
 from cloudify.exceptions import HttpException, NonRecoverableError
 
@@ -129,41 +131,20 @@ def get_rest_client():
     else:
         client_class = CloudifyClient
 
-    rest_host = utils.get_manager_rest_service_host()
-    rest_port = utils.get_manager_rest_service_port()
-    rest_protocol = constants.DEFAULT_PROTOCOL
-
-    # handle maintenance mode
+    # Handle maintenance mode
     headers = {}
     if utils.get_is_bypass_maintenance():
         headers['X-BYPASS-MAINTENANCE'] = 'True'
-    headers[constants.CLOUDIFY_TENANT_HEADER] = utils.get_tenant_name()
 
-    # handle security
-    if not utils.is_security_enabled():
-        rest_client = client_class(rest_host,
-                                   rest_port,
-                                   rest_protocol,
-                                   headers=headers)
-    else:
-        # security enabled
-        token = utils.get_rest_token()
-        headers.update({constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER: token})
-        rest_port = utils.get_manager_rest_service_port()
-        rest_protocol = utils.get_manager_rest_service_protocol()
-
-        if utils.is_verify_rest_certificate():
-            trust_all = False
-            cert_path = utils.get_local_rest_certificate()
-        else:
-            trust_all = True
-            cert_path = None
-
-        rest_client = client_class(host=rest_host, port=rest_port,
-                                   protocol=rest_protocol, headers=headers,
-                                   cert=cert_path, trust_all=trust_all)
-
-    return rest_client
+    return client_class(
+        headers=headers,
+        host=utils.get_manager_rest_service_host(),
+        port=utils.get_manager_rest_service_port(),
+        tenant=utils.get_tenant_name(),
+        token=utils.get_rest_token(),
+        protocol=constants.SECURED_PROTOCOL,
+        cert=utils.get_local_rest_certificate()
+    )
 
 
 def _save_resource(logger, resource, resource_path, target_path):
@@ -233,12 +214,16 @@ def get_resource_from_manager(resource_path, base_url=None):
         base_url = utils.get_manager_file_server_url()
 
     url = '{0}/{1}'.format(base_url, resource_path)
-    if utils.is_verify_rest_certificate():
-        verify = utils.get_local_rest_certificate() or True
-    else:
-        verify = False
+    verify = utils.get_local_rest_certificate()
 
-    response = requests.get(url, verify=verify)
+    headers = {}
+    try:
+        headers[constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER] = \
+            ctx.rest_token
+    except NotInContext:
+        headers[constants.CLOUDIFY_TOKEN_AUTHENTICATION_HEADER] = \
+            workflow_ctx.rest_token
+    response = requests.get(url, verify=verify, headers=headers)
     if not response.ok:
         raise HttpException(url, response.status_code, response.reason)
     return response.content
@@ -273,17 +258,29 @@ def get_resource(blueprint_id, deployment_id, tenant_name, resource_path):
 
     resource = None
     if deployment_id is not None:
-        deployment_base_url = '{0}/{1}/{2}'.format(
-            utils.get_manager_file_server_deployments_root_url(),
+        relative_deployment_path = os.path.join(
+            constants.FILE_SERVER_RESOURCES_FOLDER,
+            constants.FILE_SERVER_DEPLOYMENTS_FOLDER,
             tenant_name,
-            deployment_id)
+            deployment_id
+        )
+        deployment_base_url = urljoin(
+            utils.get_manager_file_server_url(),
+            relative_deployment_path
+        ).replace('\\', '/')
         resource = _get_resource(deployment_base_url)
 
     if resource is None:
-        blueprint_base_url = '{0}/{1}/{2}'.format(
-            utils.get_manager_file_server_blueprints_root_url(),
+        relative_blueprint_path = os.path.join(
+            constants.FILE_SERVER_RESOURCES_FOLDER,
+            constants.FILE_SERVER_BLUEPRINTS_FOLDER,
             tenant_name,
-            blueprint_id)
+            blueprint_id
+        )
+        blueprint_base_url = urljoin(
+            utils.get_manager_file_server_url(),
+            relative_blueprint_path
+        ).replace('\\', '/')
         resource = _get_resource(blueprint_base_url)
         if resource is None:
             if deployment_id is None:
@@ -295,15 +292,19 @@ def get_resource(blueprint_id, deployment_id, tenant_name, resource_path):
     return resource
 
 
-def get_node_instance(node_instance_id):
+def get_node_instance(node_instance_id, evaluate_functions=False):
     """
     Read node instance data from the storage.
 
     :param node_instance_id: the node instance id
+    :param evaluate_functions: Evaluate intrinsic functions
     :rtype: NodeInstance
     """
     client = get_rest_client()
-    instance = client.node_instances.get(node_instance_id)
+    instance = client.node_instances.get(
+        node_instance_id,
+        evaluate_functions=evaluate_functions
+    )
     return NodeInstance(node_instance_id,
                         instance.node_id,
                         runtime_properties=instance.runtime_properties,

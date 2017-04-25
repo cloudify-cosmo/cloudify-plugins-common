@@ -419,6 +419,10 @@ class WorkflowHandler(TaskHandler):
                 return self._handle_local_workflow()
             return self._handle_remote_workflow()
 
+    @property
+    def update_execution_status(self):
+        return self.cloudify_context.get('update_execution_status', True)
+
     def _handle_remote_workflow(self):
         rest = get_rest_client()
         amqp_client_utils.init_amqp_client()
@@ -565,21 +569,21 @@ class WorkflowHandler(TaskHandler):
                 self.ctx.workflow_id))
 
     def _update_execution_status(self, status, error=None):
-        if self.ctx.local:
+        if self.ctx.local or not self.update_execution_status:
             return
-        while True:
+
+        caught_error = None
+        for _ in range(3):
             try:
                 return update_execution_status(
                     self.ctx.execution_id, status, error)
-            except InvalidExecutionUpdateStatus as exc:
+            except Exception as e:
                 self.ctx.logger.exception(
-                    'update execution status is invalid: {0}'.format(exc))
-                raise
-            except Exception as exc:
-                self.ctx.logger.exception(
-                    'update execution status got unexpected rest error: {0}'
-                    .format(exc))
-            sleep(5)
+                    'Update execution status got unexpected rest error: %s', e)
+                caught_error = e
+                sleep(5)
+        else:
+            raise caught_error
 
 
 TASK_HANDLERS = {

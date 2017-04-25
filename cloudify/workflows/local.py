@@ -88,7 +88,8 @@ class _Environment(object):
             outputs_def=self.plan['outputs'],
             get_node_instances_method=self.storage.get_node_instances,
             get_node_instance_method=self.storage.get_node_instance,
-            get_node_method=self.storage.get_node)
+            get_node_method=self.storage.get_node,
+            get_secret_method=self.storage.get_secret)
 
     def evaluate_functions(self, payload, context):
         return dsl_functions.evaluate_functions(
@@ -96,7 +97,8 @@ class _Environment(object):
             context=context,
             get_node_instances_method=self.storage.get_node_instances,
             get_node_instance_method=self.storage.get_node_instance,
-            get_node_method=self.storage.get_node)
+            get_node_method=self.storage.get_node,
+            get_secret_method=self.storage.get_secret)
 
     def execute(self,
                 workflow,
@@ -443,6 +445,9 @@ class _Storage(object):
         return self._locks[node_instance_id]
 
     def get_workdir(self):
+        raise NotImplementedError()
+
+    def get_secret(self):
         raise NotImplementedError()
 
 
