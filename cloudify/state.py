@@ -79,7 +79,14 @@ class CurrentContext(threading.local):
         try:
             yield self
         finally:
-            self.set(previous_ctx, previous_parameters)
+            try:
+                self.set(previous_ctx, previous_parameters)
+            except:
+                # this can only happen during interpreter shutdown, if running
+                # inside a daemon thread; in that case, things can fail
+                # semi-randomly, and we should just ignore the exceptions
+                # (see CFY-6802)
+                pass
 
 
 current_ctx = CurrentContext()
