@@ -120,8 +120,9 @@ class NodeInstance(object):
         return self._relationships
 
 
-def get_rest_client():
+def get_rest_client(tenant=None):
     """
+    :param tenant: optional tenant name to connect as
     :returns: A REST client configured to connect to the manager in context
     :rtype: cloudify_rest_client.CloudifyClient
     """
@@ -130,6 +131,9 @@ def get_rest_client():
         client_class = CloudifyClusterClient
     else:
         client_class = CloudifyClient
+
+    if not tenant:
+        tenant = utils.get_tenant_name()
 
     # Handle maintenance mode
     headers = {}
@@ -140,7 +144,7 @@ def get_rest_client():
         headers=headers,
         host=utils.get_manager_rest_service_host(),
         port=utils.get_manager_rest_service_port(),
-        tenant=utils.get_tenant_name(),
+        tenant=tenant,
         token=utils.get_rest_token(),
         protocol=constants.SECURED_PROTOCOL,
         cert=utils.get_local_rest_certificate()
