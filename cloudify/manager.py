@@ -16,6 +16,7 @@
 import os
 import requests
 from urlparse import urljoin
+from collections import MutableMapping, MutableSequence
 
 import utils
 from cloudify_rest_client import CloudifyClient
@@ -381,42 +382,12 @@ def get_provider_context():
     return context['context']
 
 
-class DirtyTrackingDict(dict):
-
-    def __init__(self, *args, **kwargs):
-        super(DirtyTrackingDict, self).__init__(*args, **kwargs)
+class _DirtyTrackingContainerBase(object):
+    def __init__(self, properties, parent=None):
+        self._properties = properties
         self.modifiable = True
         self.dirty = False
-
-    def __setitem__(self, key, value):
-        r = super(DirtyTrackingDict, self).__setitem__(key, value)
-        self._set_changed()
-        return r
-
-    def __delitem__(self, key):
-        r = super(DirtyTrackingDict, self).__delitem__(key)
-        self._set_changed()
-        return r
-
-    def update(self, E=None, **F):
-        r = super(DirtyTrackingDict, self).update(E, **F)
-        self._set_changed()
-        return r
-
-    def clear(self):
-        r = super(DirtyTrackingDict, self).clear()
-        self._set_changed()
-        return r
-
-    def pop(self, k, d=None):
-        r = super(DirtyTrackingDict, self).pop(k, d)
-        self._set_changed()
-        return r
-
-    def popitem(self):
-        r = super(DirtyTrackingDict, self).popitem()
-        self._set_changed()
-        return r
+        self._parent = parent
 
     def _set_changed(self):
         # python 2.6 doesn't have modifiable during copy.deepcopy
@@ -424,3 +395,37 @@ class DirtyTrackingDict(dict):
             raise NonRecoverableError('Cannot modify runtime properties of'
                                       ' relationship node instances')
         self.dirty = True
+        if self._parent is not None:
+            self._parent._set_changed()
+
+    def __getitem__(self, key):
+        value = self._properties[key]
+        if isinstance(value, dict):
+            value = self._properties[key] = DirtyTrackingDict(
+                value, parent=self)
+        if isinstance(value, list):
+            value = DirtyTrackingList(value, parent=self)
+            if not isinstance(key, slice):
+                self._properties[key] = value
+        return value
+
+    def __setitem__(self, key, value):
+        self._properties[key] = value
+        self._set_changed()
+
+    def __delitem__(self, key):
+        del self._properties[key]
+        self._set_changed()
+
+    def __len__(self):
+        return len(self._properties)
+
+
+class DirtyTrackingList(_DirtyTrackingContainerBase, MutableSequence):
+    def insert(self, index, value):
+        self._properties.insert(index, value)
+
+
+class DirtyTrackingDict(_DirtyTrackingContainerBase, MutableMapping):
+    def __iter__(self):
+        return iter(self._properties)
