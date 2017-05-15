@@ -132,6 +132,7 @@ def get_cluster_amqp_settings():
         'amqp_host': active.get('broker_ip'),
         'amqp_user': active.get('broker_user'),
         'amqp_pass': active.get('broker_pass'),
+        'amqp_vhost': active.get('broker_vhost'),
         'ssl_enabled': False
     }
     ssl_cert_path = active.get('internal_cert_path')
@@ -176,7 +177,8 @@ def _parse_url(broker_url):
     return {
         'broker_user': params.credentials.username,
         'broker_pass': params.credentials.password,
-        'broker_ip': params.host
+        'broker_ip': params.host,
+        'broker_vhost': params.virtual_host
     }
 
 

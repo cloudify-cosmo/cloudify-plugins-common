@@ -386,16 +386,19 @@ class Internal(object):
         """Get broker credentials or their defaults if not set."""
         default_user = 'guest'
         default_pass = 'guest'
+        default_vhost = '/'
 
         try:
             broker_user = cloudify_agent.broker_user or default_user
             broker_pass = cloudify_agent.broker_pass or default_pass
+            broker_vhost = cloudify_agent.broker_vhost or default_vhost
         except AttributeError:
             # Handle non-agent from non-manager (e.g. for manual tests)
             broker_user = default_user
             broker_pass = default_pass
+            broker_vhost = default_vhost
 
-        return broker_user, broker_pass
+        return broker_user, broker_pass, broker_vhost
 
     @staticmethod
     def plugin_prefix(package_name=None, package_version=None,

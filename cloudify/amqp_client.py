@@ -146,11 +146,6 @@ def create_client(amqp_host=None,
     }
 
     try:
-        logger.debug(
-            'Creating a new AMQP client for thread {0} '
-            '[hostname={1}, username={2}, ssl_enabled={3}, cert_path={4}]'
-            .format(thread, amqp_host, amqp_user, ssl_enabled,
-                    ssl_cert_path))
         client = AMQPClient(**amqp_settings)
         logger.debug('AMQP client created for thread {0}'.format(thread))
     except Exception as e:
