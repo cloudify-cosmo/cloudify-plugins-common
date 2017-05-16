@@ -434,6 +434,10 @@ class DirtyTrackingList(_DirtyTrackingContainerBase, MutableSequence):
     def insert(self, index, value):
         self._properties.insert(index, value)
 
+    def sort(self, *args, **kwargs):
+        self._properties.sort(*args, **kwargs)
+        self._set_changed()
+
 
 class DirtyTrackingDict(_DirtyTrackingContainerBase, MutableMapping):
     def __iter__(self):
