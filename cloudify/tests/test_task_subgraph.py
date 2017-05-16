@@ -172,13 +172,13 @@ class TaskSubgraphWorkflowTests(testtools.TestCase):
         self._run('subgraph')
         invocations = self.invocations
         self.assertEqual(len(invocations), 4)
-        self.assertEqual(invocations, sorted(invocations))
+        self.assertEqual(sorted(invocations), list(invocations))
 
     def test_nested_task_subgraph(self):
         self._run('nested_subgraph')
         invocations = self.invocations
         self.assertEqual(len(invocations), 8)
-        self.assertEqual(invocations, sorted(invocations))
+        self.assertEqual(sorted(invocations), list(invocations))
 
     def test_empty_subgraph(self):
         self._run('empty_subgraph')
@@ -187,7 +187,7 @@ class TaskSubgraphWorkflowTests(testtools.TestCase):
         self._run('task_in_subgraph_retry')
         invocations = self.invocations
         self.assertEqual(len(invocations), 8)
-        self.assertEqual(invocations, sorted(invocations))
+        self.assertEqual(sorted(invocations), list(invocations))
         for i in range(4):
             self.assertEqual(invocations[2*i], invocations[2*i+1])
 
