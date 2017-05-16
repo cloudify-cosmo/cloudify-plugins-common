@@ -15,8 +15,9 @@
 
 import os
 import requests
-from urlparse import urljoin
+from copy import copy, deepcopy
 from collections import MutableMapping, MutableSequence
+from urlparse import urljoin
 
 import utils
 from cloudify_rest_client import CloudifyClient
@@ -419,6 +420,14 @@ class _DirtyTrackingContainerBase(object):
 
     def __len__(self):
         return len(self._properties)
+
+    def __copy__(self):
+        return type(self)(copy(self._properties))
+
+    def __deepcopy__(self, memo):
+        return type(self)(deepcopy(self._properties, memo))
+
+    copy = __copy__
 
 
 class DirtyTrackingList(_DirtyTrackingContainerBase, MutableSequence):
