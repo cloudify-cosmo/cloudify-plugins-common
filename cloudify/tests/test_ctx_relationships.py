@@ -65,9 +65,10 @@ class TestContextRelationship(testtools.TestCase):
             rel1 = node1[0]
             self.assertEqual(rel1['type'],
                              'cloudify.relationships.contained_in2')
-            self.assertEqual(rel1['type_hierarchy'],
-                             ['cloudify.relationships.contained_in',
-                              'cloudify.relationships.contained_in2'])
+            self.assertEqual(
+                    ['cloudify.relationships.contained_in',
+                     'cloudify.relationships.contained_in2'],
+                    list(rel1['type_hierarchy']))
             self.assertEqual(rel1['target_node']['id'], 'node2')
             self.assertEqual(rel1['target_node']['prop'],
                              'node2_static_prop_value')
@@ -80,10 +81,11 @@ class TestContextRelationship(testtools.TestCase):
         self.assertEqual(len(relationships), 1)
         rel2 = relationships[0]
         self.assertEqual(rel2['type'], 'cloudify.relationships.contained_in3')
-        self.assertEqual(rel2['type_hierarchy'],
-                         ['cloudify.relationships.contained_in',
-                          'cloudify.relationships.contained_in2',
-                          'cloudify.relationships.contained_in3'])
+        self.assertEqual(
+                ['cloudify.relationships.contained_in',
+                 'cloudify.relationships.contained_in2',
+                 'cloudify.relationships.contained_in3'],
+                list(rel2['type_hierarchy']))
         self.assertEqual(rel2['target_node']['id'], 'node3')
         self.assertEqual(rel2['target_node']['prop'],
                          'node3_static_prop_value')

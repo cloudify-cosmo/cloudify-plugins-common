@@ -207,8 +207,9 @@ class NodeContextTests(testtools.TestCase):
             instance = cfy_local.storage.get_node_instances(node_id=node)[0]
             self.assertEqual(expected[node][0],
                              instance.runtime_properties['type'])
-            self.assertEqual(expected[node][1],
-                             instance.runtime_properties['type_hierarchy'])
+            self.assertEqual(
+                    expected[node][1],
+                    list(instance.runtime_properties['type_hierarchy']))
 
 
 class PluginContextTests(testtools.TestCase):
