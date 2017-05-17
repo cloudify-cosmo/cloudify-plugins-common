@@ -42,6 +42,7 @@ broker_cert_path = config.get('broker_cert_path', '')
 broker_username = config.get('broker_username', 'guest')
 broker_password = config.get('broker_password', 'guest')
 broker_hostname = config.get('broker_hostname', 'localhost')
+broker_vhost = config.get('broker_vhost', '/')
 
 # only enable heartbeat by default for agents connected to a cluster
 DEFAULT_HEARTBEAT = 30 if config.get('cluster') else None
@@ -64,12 +65,14 @@ else:
 
 # BROKER_URL is held in the config to avoid the password appearing
 # in ps listings
-URL_TEMPLATE = 'amqp://{username}:{password}@{hostname}:{port}//{options}'
+URL_TEMPLATE = \
+    'amqp://{username}:{password}@{hostname}:{port}/{vhost}{options}'
 if config.get('cluster'):
     BROKER_URL = ';'.join(URL_TEMPLATE.format(username=node['broker_user'],
                                               password=node['broker_pass'],
                                               hostname=node['broker_ip'],
                                               port=broker_port,
+                                              vhost=node['broker_vhost'],
                                               options=options)
                           for node in config['cluster'])
 else:
@@ -78,6 +81,7 @@ else:
         password=broker_password,
         hostname=broker_hostname,
         port=broker_port,
+        vhost=broker_vhost,
         options=options
     )
 
