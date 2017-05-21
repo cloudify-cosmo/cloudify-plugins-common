@@ -37,7 +37,6 @@ else:
         config = {}
 
 # Provided as variables for retrieval by amqp_client and logger as required
-broker_ssl_enabled = config.get('broker_ssl_enabled', False)
 broker_cert_path = config.get('broker_cert_path', '')
 broker_username = config.get('broker_username', 'guest')
 broker_password = config.get('broker_password', 'guest')
@@ -49,14 +48,10 @@ DEFAULT_HEARTBEAT = 30 if config.get('cluster') else None
 broker_heartbeat = config.get('broker_heartbeat', DEFAULT_HEARTBEAT)
 
 
-if broker_ssl_enabled:
-    BROKER_USE_SSL = {
-        'ca_certs': broker_cert_path,
-        'cert_reqs': ssl.CERT_REQUIRED,
-    }
-    broker_port = constants.BROKER_PORT_SSL
-else:
-    broker_port = constants.BROKER_PORT_NO_SSL
+BROKER_USE_SSL = {
+    'ca_certs': broker_cert_path,
+    'cert_reqs': ssl.CERT_REQUIRED,
+}
 
 if broker_heartbeat:
     options = '?heartbeat={heartbeat}'.format(heartbeat=broker_heartbeat)
@@ -71,7 +66,7 @@ if config.get('cluster'):
     BROKER_URL = ';'.join(URL_TEMPLATE.format(username=node['broker_user'],
                                               password=node['broker_pass'],
                                               hostname=node['broker_ip'],
-                                              port=broker_port,
+                                              port=constants.BROKER_PORT_SSL,
                                               vhost=node['broker_vhost'],
                                               options=options)
                           for node in config['cluster'])
@@ -80,7 +75,7 @@ else:
         username=broker_username,
         password=broker_password,
         hostname=broker_hostname,
-        port=broker_port,
+        port=constants.BROKER_PORT_SSL,
         vhost=broker_vhost,
         options=options
     )
@@ -93,7 +88,6 @@ else:
 # the empty one
 BROKER_URL += ';'
 
-CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_TASK_RESULT_EXPIRES = 600
 CELERYD_PREFETCH_MULTIPLIER = 0

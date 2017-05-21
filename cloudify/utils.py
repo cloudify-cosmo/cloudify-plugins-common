@@ -358,28 +358,20 @@ class Internal(object):
             return properties.get('agent_config', {}).get('install_method')
 
     @staticmethod
-    def get_broker_ssl_and_port(ssl_enabled, cert_path):
+    def get_broker_ssl_and_port(cert_path):
         # Input vars may be None if not set. Explicitly defining defaults.
-        ssl_enabled = ssl_enabled or False
         cert_path = cert_path or ''
 
-        if ssl_enabled:
-            if not cert_path:
-                raise NonRecoverableError(
-                    "Broker SSL enabled but no SSL cert was provided. "
-                    "If rabbitmq_ssl_enabled is True in the inputs, "
-                    "rabbitmq_cert_public (and private) must be populated."
-                )
-            port = constants.BROKER_PORT_SSL
-            ssl_options = {
-                'ca_certs': cert_path,
-                'cert_reqs': ssl.CERT_REQUIRED,
-            }
-        else:
-            port = constants.BROKER_PORT_NO_SSL
-            ssl_options = {}
-
-        return port, ssl_options
+        if not cert_path:
+            raise NonRecoverableError(
+                "Broker SSL enabled but no SSL cert was provided. "
+                "rabbitmq_cert_public (and private) must be populated."
+            )
+        ssl_options = {
+            'ca_certs': cert_path,
+            'cert_reqs': ssl.CERT_REQUIRED,
+        }
+        return ssl_options
 
     @staticmethod
     def get_broker_credentials(cloudify_agent):
