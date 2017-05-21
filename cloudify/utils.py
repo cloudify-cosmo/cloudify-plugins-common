@@ -209,6 +209,13 @@ def get_rest_token():
     return _get_current_context().rest_token
 
 
+def get_tenant():
+    """
+    Returns a dict with the details of the current tenant
+    """
+    return _get_current_context().tenant
+
+
 def get_tenant_name():
     """
     Returns the tenant name to use when calling the REST service

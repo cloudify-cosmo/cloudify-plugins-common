@@ -480,7 +480,7 @@ class _WorkflowContextBase(object):
     @property
     def tenant_name(self):
         """Cloudify tenant name"""
-        return self._context.get('tenant_name')
+        return self.tenant.get('name')
 
     @property
     def local(self):
@@ -493,6 +493,11 @@ class _WorkflowContextBase(object):
         if self._logger is None:
             self._logger = self._init_cloudify_logger()
         return self._logger
+
+    @property
+    def tenant(self):
+        """Cloudify tenant"""
+        return self._context.get('tenant', {})
 
     def _init_cloudify_logger(self):
         logger_name = self.execution_id
@@ -1202,7 +1207,7 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         return {'local': False,
                 'bypass_maintenance': utils.get_is_bypass_maintenance(),
                 'rest_token': utils.get_rest_token(),
-                'tenant_name': utils.get_tenant_name()
+                'tenant': utils.get_tenant()
                 }
 
     def get_set_state_task(self,
