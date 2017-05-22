@@ -17,6 +17,7 @@
 from cloudify import logs
 from cloudify.exceptions import OperationRetry
 from cloudify.workflows import tasks as tasks_api
+from cloudify.celery.celery_app import celery_app
 
 
 class Monitor(object):
@@ -65,9 +66,9 @@ class Monitor(object):
                                 event)
             task.set_state(state)
 
-    def capture(self):
-        # Only called when running within an agent, so import here
-        from cloudify_agent.app import app
+    def capture(self, tenant=None):
+        app = celery_app(tenant=tenant)
+
         with app.connection() as connection:
             self._receiver = app.events.Receiver(connection, handlers={
                 'task-sent': self.task_sent,
@@ -78,14 +79,9 @@ class Monitor(object):
                 'task-revoked': self.task_revoked,
                 'task-retried': self.task_retried
             })
-            for _ in self._receiver.itercapture(limit=None,
-                                                timeout=None,
-                                                wakeup=True):
-                if self._should_stop:
-                    return
+            self._receiver.capture(limit=None, timeout=None, wakeup=True)
 
     def stop(self):
-        self._should_stop = True
         self._receiver.should_stop = True
 
 

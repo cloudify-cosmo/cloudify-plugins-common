@@ -693,7 +693,7 @@ class CloudifyContext(CommonContext):
     @property
     def tenant(self):
         """Cloudify tenant"""
-        return self._context.get('tenant')
+        return self._context.get('tenant', {})
 
     @property
     def task_id(self):

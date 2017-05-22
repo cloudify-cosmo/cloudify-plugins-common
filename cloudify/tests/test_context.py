@@ -58,7 +58,7 @@ class CloudifyContextTest(testtools.TestCase):
         _, os.environ[constants.LOCAL_REST_CERT_FILE_KEY] = tempfile.mkstemp()
         cls.context = context.CloudifyContext({
             'blueprint_id': '',
-            'tenant_name': 'default_tenant'
+            'tenant': {'name': 'default_tenant'}
         })
         # the context logger will try to publish messages to rabbit, which is
         # not available here. instead, we redirect the output to stdout.
@@ -72,7 +72,7 @@ class CloudifyContextTest(testtools.TestCase):
     def setup_tenant_context(self):
         self.context = context.CloudifyContext(
             {'blueprint_id': 'test_blueprint',
-             'tenant_name': 'default_tenant'})
+             'tenant': {'name': 'default_tenant'}})
         self.redirect_log_to_stdout(self.context.logger)
 
     @staticmethod
@@ -223,7 +223,7 @@ class PluginContextTests(testtools.TestCase):
         self.tenant_name = 'default_tenant'
         self.ctx = context.CloudifyContext({
             'deployment_id': self.deployment_id,
-            'tenant_name': self.tenant_name,
+            'tenant': {'name': self.tenant_name},
             'plugin': {
                 'name': self.plugin_name,
                 'package_name': self.plugin_pacakge_name,

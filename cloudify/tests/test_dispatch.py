@@ -289,7 +289,8 @@ class TestDispatchTaskHandler(testtools.TestCase):
             'type': 'operation',
             'execution_env': execution_env,
             'socket_url': socket_url,
-            'deployment_id': deployment_id
+            'deployment_id': deployment_id,
+            'tenant': {'name': 'default_tenant'}
         }, args=args or [], kwargs=kwargs or {})
 
 
