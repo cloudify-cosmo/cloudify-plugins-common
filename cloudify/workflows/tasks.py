@@ -21,7 +21,7 @@ import Queue
 from cloudify import utils
 from cloudify import exceptions
 from cloudify.workflows import api
-from cloudify.celery.celery_app import celery_app
+from cloudify.celery.app import get_celery_app
 
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
@@ -420,7 +420,7 @@ class RemoteWorkflowTask(WorkflowTask):
 
     def _get_registered(self):
         tenant = self.workflow_context.tenant
-        app = celery_app(tenant=tenant, target=self.target)
+        app = get_celery_app(tenant=tenant, target=self.target)
 
         worker_name = 'celery@{0}'.format(self.target)
         inspect = app.control.inspect(destination=[worker_name],

@@ -16,8 +16,8 @@
 
 from cloudify import logs
 from cloudify.exceptions import OperationRetry
+from cloudify.celery.app import get_celery_app
 from cloudify.workflows import tasks as tasks_api
-from cloudify.celery.celery_app import celery_app
 
 
 class Monitor(object):
@@ -67,7 +67,7 @@ class Monitor(object):
             task.set_state(state)
 
     def capture(self, tenant=None):
-        app = celery_app(tenant=tenant)
+        app = get_celery_app(tenant=tenant)
 
         with app.connection() as connection:
             self._receiver = app.events.Receiver(connection, handlers={

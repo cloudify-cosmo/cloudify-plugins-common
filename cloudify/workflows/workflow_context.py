@@ -44,7 +44,7 @@ from cloudify.constants import MGMTWORKER_QUEUE
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify import logs
-from cloudify.celery.celery_app import celery_app
+from cloudify.celery.app import get_celery_app
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            SystemWideWorkflowLoggingHandler,
@@ -1205,7 +1205,7 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         # Import here because this only applies to remote tasks execution
         # environment
         import celery
-        app = celery_app(tenant=tenant, target=target)
+        app = get_celery_app(tenant=tenant, target=target)
 
         return celery.subtask('cloudify.dispatch.dispatch',
                               kwargs=kwargs,
