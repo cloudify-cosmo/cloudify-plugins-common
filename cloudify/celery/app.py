@@ -13,36 +13,43 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-import os
 import ssl
 
 from cloudify import broker_config
-from cloudify.constants import CELERY_TASK_RESULT_EXPIRES
-from cloudify.constants import MGMTWORKER_QUEUE, BROKER_PORT_SSL
+from cloudify.constants import (CELERY_TASK_RESULT_EXPIRES,
+                                MGMTWORKER_QUEUE,
+                                BROKER_PORT_SSL,
+                                BROKER_PORT_NO_SSL)
 
 
 def get_celery_app(broker_url=None,
                    broker_ssl_cert_path=None,
+                   broker_ssl_enabled=None,
                    max_retries=None,
                    tenant=None,
                    target=None):
     """
     Return a Celery app
-    
-    :param broker_url: If supplied, will be used as the broker URL 
+
+    :param broker_url: If supplied, will be used as the broker URL
     :param broker_ssl_cert_path: If not supplied, default is in broker_config
+    :param broker_ssl_enabled: Decides whether SSL should be enabled
     :param tenant: If supplied, and if target isn't the mgmtworker queue,
     the broker URL will be derived from the data kept in it
     :param target: The target queue; see `tenant`
-    :param max_retries: 
+    :param max_retries:
     :return: A celery.Celery object
     """
     # celery is imported locally since it's not used by any other method, and
     # we want this utils module to be usable even if celery is not available
     from celery import Celery
 
-    broker_url = broker_url or _get_broker_url(tenant, target)
+    if broker_ssl_enabled is None:
+        broker_ssl_enabled = broker_config.broker_ssl_enabled
 
+    broker_url = broker_url or _get_broker_url(tenant,
+                                               target,
+                                               broker_ssl_enabled)
     celery_client = Celery()
     celery_client.conf.update(
         BROKER_URL=broker_url,
@@ -50,11 +57,12 @@ def get_celery_app(broker_url=None,
         CELERY_TASK_RESULT_EXPIRES=CELERY_TASK_RESULT_EXPIRES
     )
 
-    ssl_cert_path = broker_ssl_cert_path or broker_config.broker_cert_path
-    celery_client.conf.BROKER_USE_SSL = {
-        'ca_certs': ssl_cert_path,
-        'cert_reqs': ssl.CERT_REQUIRED,
-    }
+    if broker_ssl_enabled:
+        ssl_cert_path = broker_ssl_cert_path or broker_config.broker_cert_path
+        celery_client.conf.BROKER_USE_SSL = {
+            'ca_certs': ssl_cert_path,
+            'cert_reqs': ssl.CERT_REQUIRED,
+        }
 
     # Connect eagerly to error out as early as possible, and to force choosing
     # the broker if multiple urls were passed.
@@ -66,13 +74,14 @@ def get_celery_app(broker_url=None,
     return celery_client
 
 
-def get_cluster_celery_app(broker_urls, cluster):
+def get_cluster_celery_app(broker_urls, cluster, ssl_enabled):
     err = None
     for broker_url, node in zip(broker_urls, cluster):
         try:
             return get_celery_app(
                 broker_url=broker_url,
                 broker_ssl_cert_path=node.get('internal_cert_path'),
+                broker_ssl_enabled=ssl_enabled,
                 max_retries=1)
         except Exception as err:
             continue
@@ -80,7 +89,7 @@ def get_cluster_celery_app(broker_urls, cluster):
         raise err
 
 
-def _get_broker_url(tenant, target):
+def _get_broker_url(tenant, target, broker_ssl_enabled):
     """
     If the target is the mgmtworker queue, or if no tenants was passed use
     the default broker URL. Otherwise, create a tenant-specific one
@@ -88,19 +97,15 @@ def _get_broker_url(tenant, target):
     if target == MGMTWORKER_QUEUE or not tenant:
         return broker_config.BROKER_URL
     else:
-        # The celery configuration set in the env var supersedes
-        # the `broker_url` param, but here we connect with
-        # credentials other than the default ones for the mgmtworker
-        os.environ['CELERY_CONFIG_MODULE'] = ''
-        return _get_tenant_broker_url(tenant)
+        return _get_tenant_broker_url(tenant, broker_ssl_enabled)
 
 
-def _get_tenant_broker_url(tenant):
+def _get_tenant_broker_url(tenant, broker_ssl_enabled):
     return broker_config.URL_TEMPLATE.format(
         username=tenant['rabbitmq_username'],
         password=tenant['rabbitmq_password'],
         hostname=broker_config.broker_hostname,
-        port=BROKER_PORT_SSL,
+        port=BROKER_PORT_SSL if broker_ssl_enabled else BROKER_PORT_NO_SSL,
         vhost=tenant['rabbitmq_vhost'],
         options=''
     )

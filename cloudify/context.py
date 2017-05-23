@@ -192,6 +192,13 @@ class BootstrapContext(object):
             return self._cloudify_agent.get('broker_vhost')
 
         @property
+        def broker_ssl_enabled(self):
+            """
+            Returns whether SSL is enabled for connecting to rabbit.
+            """
+            return self._cloudify_agent.get('broker_ssl_enabled')
+
+        @property
         def cluster(self):
             """
             Returns the cluster configuration.
@@ -242,6 +249,7 @@ class BootstrapContext(object):
             utils.internal.get_broker_credentials(bootstrap_agent)
 
         attributes['broker_ip'] = bootstrap_agent.broker_ip
+        attributes['broker_ssl_enabled'] = bootstrap_agent.broker_ssl_enabled
         attributes['broker_user'] = broker_user
         attributes['broker_pass'] = broker_pass
         attributes['broker_vhost'] = broker_vhost

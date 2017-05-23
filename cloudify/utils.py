@@ -26,11 +26,8 @@ import traceback
 import StringIO
 
 from cloudify import cluster, constants
-from cloudify.exceptions import (
-    CommandExecutionException,
-    NonRecoverableError,
-)
 from cloudify.state import workflow_ctx, ctx
+from cloudify.exceptions import CommandExecutionException
 
 
 class ManagerVersion(object):
@@ -365,19 +362,14 @@ class Internal(object):
             return properties.get('agent_config', {}).get('install_method')
 
     @staticmethod
-    def get_broker_ssl_and_port(cert_path):
-        # Input vars may be None if not set. Explicitly defining defaults.
-        cert_path = cert_path or ''
-
-        if not cert_path:
-            raise NonRecoverableError(
-                "Broker SSL enabled but no SSL cert was provided. "
-                "rabbitmq_cert_public (and private) must be populated."
-            )
-        ssl_options = {
-            'ca_certs': cert_path,
-            'cert_reqs': ssl.CERT_REQUIRED,
-        }
+    def get_broker_ssl_options(ssl_enabled, cert_path):
+        if ssl_enabled:
+            ssl_options = {
+                'ca_certs': cert_path,
+                'cert_reqs': ssl.CERT_REQUIRED,
+            }
+        else:
+            ssl_options = {}
         return ssl_options
 
     @staticmethod

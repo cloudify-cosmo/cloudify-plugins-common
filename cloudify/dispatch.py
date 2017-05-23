@@ -242,12 +242,14 @@ class TaskHandler(object):
         package_version = plugin.get('package_version')
         deployment_id = self.cloudify_context.get('deployment_id',
                                                   SYSTEM_DEPLOYMENT)
+        tenant = self.cloudify_context.get('tenant', {})
+        tenant_name = tenant.get('name')
         return utils.internal.plugin_prefix(
             package_name=package_name,
             package_version=package_version,
             deployment_id=deployment_id,
             plugin_name=plugin_name,
-            tenant_name=self.cloudify_context['tenant']['name'],
+            tenant_name=tenant_name,
             sys_prefix_fallback=False)
 
     def setup_logging(self):

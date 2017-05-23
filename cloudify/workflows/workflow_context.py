@@ -1199,7 +1199,7 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         kwargs['__cloudify_context']['task_queue'] = queue
         kwargs['__cloudify_context']['task_target'] = target
 
-        tenant = workflow_task.cloudify_context['tenant']
+        tenant = workflow_task.cloudify_context.get('tenant')
 
         # Remote task
         # Import here because this only applies to remote tasks execution
