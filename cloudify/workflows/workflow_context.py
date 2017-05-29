@@ -979,6 +979,16 @@ class CloudifyWorkflowContextInternal(object):
     def graph_mode(self, graph_mode):
         self._graph_mode = graph_mode
 
+    def start_ampp_client(self, monitor):
+        try:
+            thread = AMQPWrappedThread(target=monitor.capture,
+                                       name='Event-Monitor')
+            thread.start()
+            thread.started_amqp_client.get(timeout=30)
+            return thread
+        except Queue.Empty:
+            return None
+
     def start_event_monitor(self):
         """
         Start an event monitor in its own thread for handling task events
@@ -986,10 +996,12 @@ class CloudifyWorkflowContextInternal(object):
 
         """
         monitor = events.Monitor(self.task_graph)
-        thread = AMQPWrappedThread(target=monitor.capture,
-                                   name='Event-Monitor')
-        thread.start()
-        thread.started_amqp_client.get(timeout=30)
+        for _ in xrange(10):
+            thread = self.start_ampp_client(monitor)
+            if thread:
+                break
+        else:
+            raise Exception('Failed to start event monitor')
         self._event_monitor = monitor
         self._event_monitor_thread = thread
 
@@ -1021,25 +1033,38 @@ class LocalTasksProcessing(object):
         self._local_tasks_queue = Queue.Queue()
         self._local_task_processing_pool = []
         self._is_local_context = workflow_ctx.local
-        for i in range(thread_pool_size):
-            name = 'Task-Processor-{0}'.format(i + 1)
+        self._workflow_ctx = workflow_ctx
+        self._thread_pool_size = thread_pool_size
+        self.stopped = False
+
+    def start(self):
+        self.start_ampp_clients()
+
+    def start_task_worker(self, name, workflow_ctx):
+        try:
             if self._is_local_context:
                 thread = threading.Thread(target=self._process_local_task,
-                                          name=name, args=(workflow_ctx, ))
+                                          name=name, args=(workflow_ctx,))
                 thread.daemon = True
             else:
                 # this is a remote workflow, use an AMQPWrappedThread
                 thread = AMQPWrappedThread(target=self._process_local_task,
-                                           name=name, args=(workflow_ctx, ))
-            self._local_task_processing_pool.append(thread)
-        self.stopped = False
-
-    def start(self):
-        for thread in self._local_task_processing_pool:
+                                           name=name, args=(workflow_ctx,))
             thread.start()
-        if not self._is_local_context:
-            for thread in self._local_task_processing_pool:
+            if not self._is_local_context:
                 thread.started_amqp_client.get(timeout=30)
+            return thread
+        except Queue.Empty:
+            return None
+
+    def start_ampp_clients(self):
+        for i in range(self._thread_pool_size):
+            name = 'Task-Processor-{0}'.format(i + 1)
+            for _ in xrange(10):
+                if self.start_task_worker(name, self._workflow_ctx):
+                    break
+            else:
+                raise Exception('Failed to start task worker: {0}'.format(name))
 
     def stop(self):
         self.stopped = True

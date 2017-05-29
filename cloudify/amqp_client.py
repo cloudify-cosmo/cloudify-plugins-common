@@ -151,6 +151,6 @@ def create_client(amqp_host=None,
     except Exception as e:
         logger.warning(
             'Failed to create AMQP client for thread: {0} ({1}: {2})'
-            .format(thread, type(e).__name__, e))
+            .format(thread, type(e).__name__, e), exc_info=True)
         raise
     return client
