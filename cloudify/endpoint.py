@@ -231,7 +231,8 @@ class ManagerEndpoint(Endpoint):
             base_workdir, 'deployments', self.ctx.tenant_name)
         # Exists on management worker, doesn't exist on host agents
         if os.path.exists(deployments_workdir):
-            return os.path.join(deployments_workdir, self.ctx.deployment.id)
+            return os.path.join(deployments_workdir, self.ctx.blueprint.id,
+                                self.ctx.deployment.id)
         else:
             return base_workdir
 
