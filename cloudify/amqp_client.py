@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 class AMQPClient(object):
 
     EVENTS_EXCHANGE_NAME = 'cloudify-events'
+    SOCKET_TIMEOUT = 5
+    CONNECTION_ATTEMPTS = 3
     LOGS_EXCHANGE_NAME = 'cloudify-logs'
     channel_settings = {
         'auto_delete': False,
@@ -55,6 +57,8 @@ class AMQPClient(object):
         self._connection_parameters = pika.ConnectionParameters(
             host=amqp_host,
             port=amqp_port,
+            socket_timeout=self.SOCKET_TIMEOUT,
+            connection_attempts=self.CONNECTION_ATTEMPTS,
             credentials=credentials,
             ssl=ssl_enabled,
             ssl_options=ssl_options)
