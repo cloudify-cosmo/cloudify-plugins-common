@@ -21,7 +21,7 @@ import json
 import os
 import ssl
 
-from cloudify import constants
+from cloudify.constants import BROKER_PORT_SSL, BROKER_PORT_NO_SSL
 
 workdir_path = os.getenv('CELERY_WORK_DIR')
 if workdir_path is None:
@@ -37,26 +37,23 @@ else:
         config = {}
 
 # Provided as variables for retrieval by amqp_client and logger as required
-broker_ssl_enabled = config.get('broker_ssl_enabled', False)
 broker_cert_path = config.get('broker_cert_path', '')
 broker_username = config.get('broker_username', 'guest')
 broker_password = config.get('broker_password', 'guest')
 broker_hostname = config.get('broker_hostname', 'localhost')
 broker_vhost = config.get('broker_vhost', '/')
+broker_ssl_enabled = config.get('broker_ssl_enabled', False)
+broker_port = BROKER_PORT_SSL if broker_ssl_enabled else BROKER_PORT_NO_SSL
 
 # only enable heartbeat by default for agents connected to a cluster
 DEFAULT_HEARTBEAT = 30 if config.get('cluster') else None
 broker_heartbeat = config.get('broker_heartbeat', DEFAULT_HEARTBEAT)
-
 
 if broker_ssl_enabled:
     BROKER_USE_SSL = {
         'ca_certs': broker_cert_path,
         'cert_reqs': ssl.CERT_REQUIRED,
     }
-    broker_port = constants.BROKER_PORT_SSL
-else:
-    broker_port = constants.BROKER_PORT_NO_SSL
 
 if broker_heartbeat:
     options = '?heartbeat={heartbeat}'.format(heartbeat=broker_heartbeat)
@@ -93,7 +90,6 @@ else:
 # the empty one
 BROKER_URL += ';'
 
-CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_RESULT_BACKEND = BROKER_URL
 CELERY_TASK_RESULT_EXPIRES = 600
 CELERYD_PREFETCH_MULTIPLIER = 0

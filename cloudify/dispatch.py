@@ -242,12 +242,14 @@ class TaskHandler(object):
         package_version = plugin.get('package_version')
         deployment_id = self.cloudify_context.get('deployment_id',
                                                   SYSTEM_DEPLOYMENT)
+        tenant = self.cloudify_context.get('tenant', {})
+        tenant_name = tenant.get('name')
         return utils.internal.plugin_prefix(
             package_name=package_name,
             package_version=package_version,
             deployment_id=deployment_id,
             plugin_name=plugin_name,
-            tenant_name=self.cloudify_context.get('tenant_name'),
+            tenant_name=tenant_name,
             sys_prefix_fallback=False)
 
     def setup_logging(self):
@@ -498,7 +500,7 @@ class WorkflowHandler(TaskHandler):
         # forwarding the result or error back to the parent thread
         with state.current_workflow_ctx.push(self.ctx, self.kwargs):
             try:
-                self.ctx.internal.start_event_monitor()
+                self.ctx.internal.start_event_monitors()
                 workflow_result = self._execute_workflow_function()
                 queue.put({'result': workflow_result})
             except api.ExecutionCancelled:
@@ -513,7 +515,7 @@ class WorkflowHandler(TaskHandler):
                 }
                 queue.put({'error': err})
             finally:
-                self.ctx.internal.stop_event_monitor()
+                self.ctx.internal.stop_event_monitors()
 
     def _handle_local_workflow(self):
         try:

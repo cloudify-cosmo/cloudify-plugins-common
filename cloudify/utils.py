@@ -26,11 +26,8 @@ import traceback
 import StringIO
 
 from cloudify import cluster, constants
-from cloudify.exceptions import (
-    CommandExecutionException,
-    NonRecoverableError,
-)
 from cloudify.state import workflow_ctx, ctx
+from cloudify.exceptions import CommandExecutionException
 
 
 class ManagerVersion(object):
@@ -209,6 +206,13 @@ def get_rest_token():
     return _get_current_context().rest_token
 
 
+def get_tenant():
+    """
+    Returns a dict with the details of the current tenant
+    """
+    return _get_current_context().tenant
+
+
 def get_tenant_name():
     """
     Returns the tenant name to use when calling the REST service
@@ -358,28 +362,15 @@ class Internal(object):
             return properties.get('agent_config', {}).get('install_method')
 
     @staticmethod
-    def get_broker_ssl_and_port(ssl_enabled, cert_path):
-        # Input vars may be None if not set. Explicitly defining defaults.
-        ssl_enabled = ssl_enabled or False
-        cert_path = cert_path or ''
-
+    def get_broker_ssl_options(ssl_enabled, cert_path):
         if ssl_enabled:
-            if not cert_path:
-                raise NonRecoverableError(
-                    "Broker SSL enabled but no SSL cert was provided. "
-                    "If rabbitmq_ssl_enabled is True in the inputs, "
-                    "rabbitmq_cert_public (and private) must be populated."
-                )
-            port = constants.BROKER_PORT_SSL
             ssl_options = {
                 'ca_certs': cert_path,
                 'cert_reqs': ssl.CERT_REQUIRED,
             }
         else:
-            port = constants.BROKER_PORT_NO_SSL
             ssl_options = {}
-
-        return port, ssl_options
+        return ssl_options
 
     @staticmethod
     def get_broker_credentials(cloudify_agent):

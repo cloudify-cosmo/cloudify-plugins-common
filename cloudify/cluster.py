@@ -126,19 +126,19 @@ def set_cluster_active(node, filename=None):
 
 def get_cluster_amqp_settings():
     active = get_cluster_active()
-    if not active:
-        return {}
-    settings = {
-        'amqp_host': active.get('broker_ip'),
-        'amqp_user': active.get('broker_user'),
-        'amqp_pass': active.get('broker_pass'),
-        'amqp_vhost': active.get('broker_vhost'),
-        'ssl_enabled': False
-    }
-    ssl_cert_path = active.get('internal_cert_path')
-    if ssl_cert_path:
-        settings['ssl_cert_path'] = ssl_cert_path
-        settings['ssl_enabled'] = True
+    if active:
+        ssl_cert_path = active.get('internal_cert_path')
+        settings = {
+            'amqp_host': active.get('broker_ip'),
+            'amqp_user': active.get('broker_user'),
+            'amqp_pass': active.get('broker_pass'),
+            'amqp_vhost': active.get('broker_vhost'),
+            'ssl_enabled': bool(ssl_cert_path)
+        }
+        if ssl_cert_path:
+            settings['ssl_cert_path'] = ssl_cert_path
+    else:
+        settings = {}
     return settings
 
 

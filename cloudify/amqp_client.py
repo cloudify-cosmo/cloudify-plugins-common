@@ -24,6 +24,7 @@ from cloudify import broker_config
 from cloudify import cluster
 from cloudify import exceptions
 from cloudify import utils
+from cloudify.constants import BROKER_PORT_SSL, BROKER_PORT_NO_SSL
 
 logger = logging.getLogger(__name__)
 
@@ -40,27 +41,28 @@ class AMQPClient(object):
     }
 
     def __init__(self,
-                 amqp_user='guest',
-                 amqp_pass='guest',
-                 amqp_host='localhost',
-                 ssl_enabled=False,
-                 ssl_cert_path=''):
+                 amqp_user,
+                 amqp_pass,
+                 amqp_host,
+                 amqp_vhost,
+                 ssl_enabled,
+                 ssl_cert_path):
         self.connection = None
         self.channel = None
         self._is_closed = False
         credentials = pika.credentials.PlainCredentials(
             username=amqp_user,
             password=amqp_pass)
-        amqp_port, ssl_options = utils.internal.get_broker_ssl_and_port(
-            ssl_enabled=ssl_enabled,
-            cert_path=ssl_cert_path)
+        ssl_options = utils.internal.get_broker_ssl_options(ssl_enabled,
+                                                            ssl_cert_path)
         self._connection_parameters = pika.ConnectionParameters(
             host=amqp_host,
-            port=amqp_port,
+            port=BROKER_PORT_SSL if ssl_enabled else BROKER_PORT_NO_SSL,
+            virtual_host=amqp_vhost,
             socket_timeout=self.SOCKET_TIMEOUT,
             connection_attempts=self.CONNECTION_ATTEMPTS,
             credentials=credentials,
-            ssl=ssl_enabled,
+            ssl=bool(ssl_enabled),
             ssl_options=ssl_options)
         self._connect()
 
@@ -126,6 +128,7 @@ class AMQPClient(object):
 def create_client(amqp_host=None,
                   amqp_user=None,
                   amqp_pass=None,
+                  amqp_vhost=None,
                   ssl_enabled=None,
                   ssl_cert_path=None):
     thread = threading.current_thread()
@@ -137,6 +140,7 @@ def create_client(amqp_host=None,
         'amqp_host': broker_config.broker_hostname,
         'amqp_user': broker_config.broker_username,
         'amqp_pass': broker_config.broker_password,
+        'amqp_vhost': broker_config.broker_vhost,
         'ssl_enabled': broker_config.broker_ssl_enabled,
         'ssl_cert_path': broker_config.broker_cert_path
     }
@@ -145,6 +149,7 @@ def create_client(amqp_host=None,
         'amqp_user': amqp_user or defaults['amqp_user'],
         'amqp_host': amqp_host or defaults['amqp_host'],
         'amqp_pass': amqp_pass or defaults['amqp_pass'],
+        'amqp_vhost': amqp_vhost or defaults['amqp_vhost'],
         'ssl_enabled': ssl_enabled or defaults['ssl_enabled'],
         'ssl_cert_path': ssl_cert_path or defaults['ssl_cert_path']
     }

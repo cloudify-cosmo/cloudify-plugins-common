@@ -40,9 +40,11 @@ from cloudify import utils
 from cloudify import exceptions
 from cloudify.state import current_workflow_ctx
 from cloudify.workflows import events
+from cloudify.constants import MGMTWORKER_QUEUE
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify import logs
+from cloudify.celery.app import get_celery_app
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            SystemWideWorkflowLoggingHandler,
@@ -480,7 +482,7 @@ class _WorkflowContextBase(object):
     @property
     def tenant_name(self):
         """Cloudify tenant name"""
-        return self._context.get('tenant_name')
+        return self.tenant.get('name')
 
     @property
     def local(self):
@@ -493,6 +495,11 @@ class _WorkflowContextBase(object):
         if self._logger is None:
             self._logger = self._init_cloudify_logger()
         return self._logger
+
+    @property
+    def tenant(self):
+        """Cloudify tenant"""
+        return self._context.get('tenant', {})
 
     def _init_cloudify_logger(self):
         logger_name = self.execution_id
@@ -887,11 +894,11 @@ class CloudifySystemWideWorkflowContext(_WorkflowContextBase):
     class _ManagedCloudifyWorkflowContext(CloudifyWorkflowContext):
         def __enter__(self):
             self.internal.start_local_tasks_processing()
-            self.internal.start_event_monitor()
+            self.internal.start_event_monitors()
 
         def __exit__(self, *args, **kwargs):
             self.internal.stop_local_tasks_processing()
-            self.internal.stop_event_monitor()
+            self.internal.stop_event_monitors()
 
     @property
     def deployments_contexts(self):
@@ -932,8 +939,7 @@ class CloudifyWorkflowContextInternal(object):
             default_subgraph_task_config=subgraph_task_config)
 
         # events related
-        self._event_monitor = None
-        self._event_monitor_thread = None
+        self._event_monitors = []
 
         # local task processing
         thread_pool_size = self.workflow_context._local_task_thread_pool_size
@@ -979,22 +985,30 @@ class CloudifyWorkflowContextInternal(object):
     def graph_mode(self, graph_mode):
         self._graph_mode = graph_mode
 
-    def start_event_monitor(self):
+    def start_event_monitors(self):
         """
         Start an event monitor in its own thread for handling task events
-        defined in the task dependency graph
+        defined in the task dependency graph.
+
+        We start two event monitors - one for the mgmtworker queue, and one
+        for the agent queue. Each one will be started in its own thread
 
         """
+        self._start_event_monitor()
+        self._start_event_monitor(self.task_graph.ctx.tenant)
+
+    def _start_event_monitor(self, tenant=None):
         monitor = events.Monitor(self.task_graph)
         thread = AMQPWrappedThread(target=monitor.capture,
+                                   args=(tenant, ),
                                    name='Event-Monitor')
         thread.start()
         thread.started_amqp_client.get(timeout=30)
-        self._event_monitor = monitor
-        self._event_monitor_thread = thread
+        self._event_monitors.append(monitor)
 
-    def stop_event_monitor(self):
-        self._event_monitor.stop()
+    def stop_event_monitors(self):
+        for monitor in self._event_monitors:
+            monitor.stop()
 
     def send_task_event(self, state, task, event=None):
         send_task_event_func = self.handler.get_send_task_event_func(task)
@@ -1172,7 +1186,7 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
                     runtime_props.append(cloudify_agent)
                 return runtime_props[0][property_name]
             else:
-                return 'cloudify.management'
+                return MGMTWORKER_QUEUE
 
         if queue is None:
             queue = _derive('queue')
@@ -1185,16 +1199,18 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         kwargs['__cloudify_context']['task_queue'] = queue
         kwargs['__cloudify_context']['task_target'] = target
 
+        tenant = workflow_task.cloudify_context.get('tenant')
+
         # Remote task
         # Import here because this only applies to remote tasks execution
         # environment
         import celery
-        from cloudify_agent import app
+        app = get_celery_app(tenant=tenant, target=target)
 
         return celery.subtask('cloudify.dispatch.dispatch',
                               kwargs=kwargs,
                               queue=queue,
-                              app=app.app,
+                              app=app,
                               immutable=True), queue, target
 
     @property
@@ -1202,7 +1218,7 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         return {'local': False,
                 'bypass_maintenance': utils.get_is_bypass_maintenance(),
                 'rest_token': utils.get_rest_token(),
-                'tenant_name': utils.get_tenant_name()
+                'tenant': utils.get_tenant()
                 }
 
     def get_set_state_task(self,

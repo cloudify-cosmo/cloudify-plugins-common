@@ -105,15 +105,18 @@ class MockCloudifyContext(CloudifyContext):
                  target=None,
                  operation=None,
                  resources=None,
+                 tenant=None,
                  provider_context=None,
                  bootstrap_context=None):
+        tenant = tenant or {}
         super(MockCloudifyContext, self).__init__({
             'blueprint_id': blueprint_id,
             'deployment_id': deployment_id,
             'node_id': node_id,
             'node_name': node_name,
             'node_properties': properties,
-            'operation': operation})
+            'operation': operation,
+            'tenant': tenant})
         self._node_id = node_id
         self._node_name = node_name
         self._deployment_id = deployment_id

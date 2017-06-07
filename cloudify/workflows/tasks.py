@@ -13,7 +13,6 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
 import sys
 import time
 import uuid
@@ -22,6 +21,7 @@ import Queue
 from cloudify import utils
 from cloudify import exceptions
 from cloudify.workflows import api
+from cloudify.celery.app import get_celery_app
 
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
@@ -419,9 +419,8 @@ class RemoteWorkflowTask(WorkflowTask):
                             self._get_registered)
 
     def _get_registered(self):
-        # import here because this only applies in remote execution
-        # environments
-        from cloudify_agent.app import app
+        tenant = self.workflow_context.tenant
+        app = get_celery_app(tenant=tenant, target=self.target)
 
         worker_name = 'celery@{0}'.format(self.target)
         inspect = app.control.inspect(destination=[worker_name],

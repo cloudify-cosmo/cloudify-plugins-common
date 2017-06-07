@@ -249,16 +249,11 @@ class BootstrapContext(object):
             utils.internal.get_broker_credentials(bootstrap_agent)
 
         attributes['broker_ip'] = bootstrap_agent.broker_ip
+        attributes['broker_ssl_enabled'] = bootstrap_agent.broker_ssl_enabled
         attributes['broker_user'] = broker_user
         attributes['broker_pass'] = broker_pass
         attributes['broker_vhost'] = broker_vhost
-        attributes['broker_ssl_enabled'] = bootstrap_agent.broker_ssl_enabled
         attributes['cluster'] = bootstrap_agent.cluster
-        if bootstrap_agent.broker_ssl_enabled:
-            broker_port = constants.BROKER_PORT_SSL
-        else:
-            broker_port = constants.BROKER_PORT_NO_SSL
-        attributes['broker_port'] = broker_port
         return attributes
 
 
@@ -700,8 +695,13 @@ class CloudifyContext(CommonContext):
 
     @property
     def tenant_name(self):
+        """Cloudify tenant name"""
+        return self.tenant.get('name')
+
+    @property
+    def tenant(self):
         """Cloudify tenant"""
-        return self._context.get('tenant_name')
+        return self._context.get('tenant', {})
 
     @property
     def task_id(self):
