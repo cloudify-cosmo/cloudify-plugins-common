@@ -285,7 +285,7 @@ def _send_event(ctx, context_type, event_type,
 
 def populate_base_item(item, message_type):
     # Adding 'Z' to match ISO format
-    timestamp = '{0}Z'.format(datetime.datetime.now().isoformat()[:-3])
+    timestamp = '{0}Z'.format(datetime.datetime.utcnow().isoformat()[:-3])
     item['timestamp'] = timestamp
     item['message_code'] = None
     item['type'] = message_type
