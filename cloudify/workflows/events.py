@@ -70,6 +70,8 @@ class Monitor(object):
         app = get_celery_app(tenant=tenant)
 
         with app.connection() as connection:
+            if self._should_stop:
+                return
             self._receiver = app.events.Receiver(connection, handlers={
                 'task-sent': self.task_sent,
                 'task-received': self.task_received,
@@ -82,7 +84,9 @@ class Monitor(object):
             self._receiver.capture(limit=None, timeout=None, wakeup=True)
 
     def stop(self):
-        self._receiver.should_stop = True
+        self._should_stop = True
+        if self._receiver is not None:
+            self._receiver.should_stop = True
 
 
 def send_task_event_func_remote(task, event_type, message,
