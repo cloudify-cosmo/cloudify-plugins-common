@@ -462,6 +462,13 @@ class WorkflowHandler(TaskHandler):
                             error['traceback'])
                 except Queue.Empty:
                     pass
+
+                # A very hacky way to solve an edge case when trying to poll
+                # for the execution status while the DB is downgraded during
+                # a snapshot restore
+                if self.cloudify_context['workflow_id'] == 'restore_snapshot':
+                    continue
+
                 # check for 'cancel' requests
                 execution = rest.executions.get(self.ctx.execution_id,
                                                 _include=['status'])
