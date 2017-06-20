@@ -25,7 +25,7 @@ from cloudify.constants import (CELERY_TASK_RESULT_EXPIRES,
 def get_celery_app(broker_url=None,
                    broker_ssl_cert_path=None,
                    broker_ssl_enabled=None,
-                   max_retries=None,
+                   max_retries=3,
                    tenant=None,
                    target=None):
     """
