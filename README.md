@@ -1,6 +1,6 @@
 # Cloudify Plugins Common
 
-[![Build Status](https://travis-ci.org/cloudify-cosmo/cloudify-plugins-common.svg?branch=master)](https://travis-ci.org/cloudify-cosmo/cloudify-plugins-common)  [![Circle CI](https://circleci.com/gh/cloudify-cosmo/cloudify-plugins-common/tree/master.svg?&style=shield)](https://circleci.com/gh/cloudify-cosmo/cloudify-plugins-common/tree/master)
+[![Circle CI](https://circleci.com/gh/cloudify-cosmo/cloudify-plugins-common/tree/master.svg?&style=shield)](https://circleci.com/gh/cloudify-cosmo/cloudify-plugins-common/tree/master)
 [![PyPI](http://img.shields.io/pypi/dm/cloudify-plugins-common.svg)](http://img.shields.io/pypi/dm/cloudify-plugins-common.svg)
 [![PypI](http://img.shields.io/pypi/v/cloudify-plugins-common.svg)](http://img.shields.io/pypi/v/cloudify-plugins-common.svg)
 
