@@ -13,9 +13,8 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-import ssl
-
 from cloudify import broker_config
+from cloudify.utils import internal
 from cloudify.constants import (CELERY_TASK_RESULT_EXPIRES,
                                 MGMTWORKER_QUEUE,
                                 BROKER_PORT_SSL,
@@ -50,19 +49,18 @@ def get_celery_app(broker_url=None,
     broker_url = broker_url or _get_broker_url(tenant,
                                                target,
                                                broker_ssl_enabled)
+    broker_ssl_options = internal.get_broker_ssl_options(
+        ssl_enabled=broker_ssl_enabled,
+        cert_path=broker_ssl_cert_path or broker_config.broker_cert_path
+    )
+
     celery_client = Celery()
     celery_client.conf.update(
         BROKER_URL=broker_url,
         CELERY_RESULT_BACKEND=broker_url,
+        BROKER_USE_SSL=broker_ssl_options,
         CELERY_TASK_RESULT_EXPIRES=CELERY_TASK_RESULT_EXPIRES
     )
-
-    if broker_ssl_enabled:
-        ssl_cert_path = broker_ssl_cert_path or broker_config.broker_cert_path
-        celery_client.conf.BROKER_USE_SSL = {
-            'ca_certs': ssl_cert_path,
-            'cert_reqs': ssl.CERT_REQUIRED,
-        }
 
     # Connect eagerly to error out as early as possible, and to force choosing
     # the broker if multiple urls were passed.
