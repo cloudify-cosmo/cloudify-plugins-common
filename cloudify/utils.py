@@ -25,6 +25,8 @@ import tempfile
 import traceback
 import StringIO
 
+from distutils.version import LooseVersion
+
 from cloudify import cluster, constants
 from cloudify.state import workflow_ctx, ctx
 from cloudify.exceptions import CommandExecutionException
@@ -392,24 +394,35 @@ class Internal(object):
         return broker_user, broker_pass, broker_vhost
 
     @staticmethod
+    def _get_package_version(plugins_dir, package_name):
+        # get all plugin dirs
+        subdirs = next(os.walk(plugins_dir))[1]
+        # filter by package name
+        package_dirs = [dir for dir in subdirs if dir.startswith(package_name)]
+        # cut package name prefix
+        versions = [dir[len(package_name) + 1:] for dir in package_dirs]
+        # sort versions from new to old
+        versions.sort(key=lambda version: LooseVersion(version), reverse=True)
+        # return the latest
+        return versions[0]
+
+    @staticmethod
     def plugin_prefix(package_name=None, package_version=None,
                       deployment_id=None, plugin_name=None, tenant_name=None,
                       sys_prefix_fallback=True):
         tenant_name = tenant_name or ''
-        plugins_dir = os.path.join(sys.prefix, 'plugins')
+        plugins_dir = os.path.join(sys.prefix, 'plugins', tenant_name)
         prefix = None
-        if package_name and package_version:
+        if package_name:
+            package_version = package_version or Internal._get_package_version(
+                plugins_dir, package_name)
             wagon_dir = os.path.join(
-                plugins_dir,
-                tenant_name,
-                '{0}-{1}'.format(package_name, package_version))
+                plugins_dir, '{0}-{1}'.format(package_name, package_version))
             if os.path.isdir(wagon_dir):
                 prefix = wagon_dir
         if prefix is None and deployment_id and plugin_name:
             source_dir = os.path.join(
-                plugins_dir,
-                tenant_name,
-                '{0}-{1}'.format(deployment_id, plugin_name))
+                plugins_dir, '{0}-{1}'.format(deployment_id, plugin_name))
             if os.path.isdir(source_dir):
                 prefix = source_dir
         if prefix is None and sys_prefix_fallback:
