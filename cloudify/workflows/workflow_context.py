@@ -905,9 +905,12 @@ class CloudifySystemWideWorkflowContext(_WorkflowContextBase):
         if self._dep_contexts is None:
             self._dep_contexts = {}
 
-            rest = get_rest_client()
+            rest = get_rest_client(tenant=self.tenant_name)
             for dep in rest.deployments.list():
-                dep_ctx = self._context.copy()
+                # Failure to deepcopy will cause snapshot restore context hack
+                # to be reset just before it's needed.
+                dep_ctx = copy.deepcopy(self._context)
+                dep_ctx['tenant']['name'] = self.tenant_name
                 dep_ctx['deployment_id'] = dep.id
                 dep_ctx['blueprint_id'] = dep.blueprint_id
 

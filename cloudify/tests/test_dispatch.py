@@ -179,6 +179,8 @@ class TestDispatchTaskHandler(testtools.TestCase):
             'internal': MagicMock(),
             'execution_id': 'test_execution_id',
             'workflow_id': 'test_workflow_id'})
+        workflow_handler._ctx._context = {'tenant': {'name': 'yes'}}
+        workflow_handler._ctx.tenant_name = 'yes'
 
         try:
             workflow_handler.handle()
@@ -186,6 +188,78 @@ class TestDispatchTaskHandler(testtools.TestCase):
                 'test_execution_id', 'started', None)
             mock_workflow_cancelled.assert_called_with()
             self.assertEqual(3, mock_update_execution_status.call_count)
+        finally:
+            workflow_handler._func = _normal_func
+            workflow_handler._ctx = _normal_ctx
+
+    @patch('cloudify.dispatch.sleep')
+    @patch('cloudify.dispatch.amqp_client_utils')
+    @patch('cloudify.dispatch.get_rest_client')
+    @patch('cloudify.dispatch.WorkflowHandler._workflow_cancelled')
+    @patch('cloudify.dispatch.update_execution_status',
+           side_effect=[Exception('first loop'), Exception('second loop'),
+                        InvalidExecutionUpdateStatus('test invalid update')])
+    def test_workflow_starting_without_masked_tenant(
+            self, mock_update_execution_status, mock_workflow_cancelled,
+            mock_rest_client, *args, **kwargs):
+        workflow_handler = dispatch.WorkflowHandler(
+            cloudify_context={'task_name': 'test'},
+            args=(), kwargs={})
+        _normal_func = workflow_handler._func
+        _normal_ctx = workflow_handler._ctx
+        workflow_handler._func = type('MockFunc', (object,), {
+            'workflow_system_wide': True,
+            '__call__': func2})
+        workflow_handler._ctx = type('MockWorkflowContext', (object,), {
+            'local': False,
+            'logger': MagicMock(),
+            'internal': MagicMock(),
+            'execution_id': 'test_execution_id',
+            'workflow_id': 'test_workflow_id'})
+        workflow_handler._ctx._context = {'tenant': {'name': 'yes'}}
+        workflow_handler._ctx.tenant_name = 'yes'
+
+        try:
+            workflow_handler.handle()
+            mock_rest_client.assert_called_once_with(tenant='yes')
+        finally:
+            workflow_handler._func = _normal_func
+            workflow_handler._ctx = _normal_ctx
+
+    @patch('cloudify.dispatch.sleep')
+    @patch('cloudify.dispatch.amqp_client_utils')
+    @patch('cloudify.dispatch.get_rest_client')
+    @patch('cloudify.dispatch.WorkflowHandler._workflow_cancelled')
+    @patch('cloudify.dispatch.update_execution_status',
+           side_effect=[Exception('first loop'), Exception('second loop'),
+                        InvalidExecutionUpdateStatus('test invalid update')])
+    def test_workflow_starting_with_masked_tenant(
+            self, mock_update_execution_status, mock_workflow_cancelled,
+            mock_rest_client, *args, **kwargs):
+        workflow_handler = dispatch.WorkflowHandler(
+            cloudify_context={'task_name': 'test'},
+            args=(), kwargs={})
+        _normal_func = workflow_handler._func
+        _normal_ctx = workflow_handler._ctx
+        workflow_handler._func = type('MockFunc', (object,), {
+            'workflow_system_wide': True,
+            '__call__': func2})
+        workflow_handler._ctx = type('MockWorkflowContext', (object,), {
+            'local': False,
+            'logger': MagicMock(),
+            'internal': MagicMock(),
+            'execution_id': 'test_execution_id',
+            'workflow_id': 'test_workflow_id'})
+        workflow_handler._ctx._context = {'tenant': {
+            'name': 'yes',
+            'original_name': 'masquerade',
+            }
+        }
+        workflow_handler._ctx.tenant_name = 'yes'
+
+        try:
+            workflow_handler.handle()
+            mock_rest_client.assert_called_once_with(tenant='masquerade')
         finally:
             workflow_handler._func = _normal_func
             workflow_handler._ctx = _normal_ctx

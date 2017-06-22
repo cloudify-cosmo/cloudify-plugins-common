@@ -426,7 +426,9 @@ class WorkflowHandler(TaskHandler):
         return self.cloudify_context.get('update_execution_status', True)
 
     def _handle_remote_workflow(self):
-        rest = get_rest_client()
+        tenant = self.ctx._context['tenant'].get('original_name',
+                                                 self.ctx.tenant_name)
+        rest = get_rest_client(tenant=tenant)
         amqp_client_utils.init_amqp_client()
         try:
             try:
