@@ -54,7 +54,26 @@ def get_amqp_client():
     return getattr(thread_storage, 'amqp_client', None)
 
 
+def get_event_amqp_client(create=True):
+    """
+    Returns an amqp client for publishing events/logs
+    :param create: If set to True, a new client object will be created if one
+    does not exist
+    """
+    client = getattr(thread_storage, 'event_amqp_client', None)
+    if not client and create:
+        # Explicitly setting the vhost to the default vhost, in order to reach
+        # the events/logs queues that the mgmtworker is listening for
+        thread_storage.event_amqp_client = amqp_client.create_client(
+            amqp_vhost='/'
+        )
+    return client
+
+
 def close_amqp_client():
     client = get_amqp_client()
     if client:
         client.close()
+    event_client = get_event_amqp_client(create=False)
+    if event_client:
+        event_client.close()
