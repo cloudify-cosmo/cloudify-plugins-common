@@ -67,6 +67,7 @@ def get_event_amqp_client(create=True):
         thread_storage.event_amqp_client = amqp_client.create_client(
             amqp_vhost='/'
         )
+        client = thread_storage.event_amqp_client
     return client
 
 
