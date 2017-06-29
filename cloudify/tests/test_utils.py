@@ -13,12 +13,14 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import os
+import mock
 import logging
+import tempfile
 import unittest
 
-from cloudify.utils import setup_logger
-from cloudify.utils import LocalCommandRunner
 from cloudify.exceptions import CommandExecutionException
+from cloudify.utils import setup_logger, get_exec_tempdir, LocalCommandRunner
 
 
 class LocalCommandRunnerTest(unittest.TestCase):
@@ -49,3 +51,13 @@ class LocalCommandRunnerTest(unittest.TestCase):
         response = self.runner.run('env',
                                    execution_env={'TEST_KEY': 'TEST_VALUE'})
         self.assertTrue('TEST_KEY=TEST_VALUE' in response.std_out)
+
+
+class TempdirTest(unittest.TestCase):
+    def test_executable_no_override(self):
+        sys_default_tempdir = tempfile.gettempdir()
+        self.assertEqual(sys_default_tempdir, get_exec_tempdir())
+
+    @mock.patch.dict(os.environ, {'CFY_EXEC_TEMP': '/fake/temp'})
+    def test_executable_override(self):
+        self.assertEqual('/fake/temp', get_exec_tempdir())
