@@ -32,6 +32,9 @@ from cloudify.state import workflow_ctx, ctx
 from cloudify.exceptions import CommandExecutionException
 
 
+CFY_EXEC_TEMPDIR_ENVVAR = 'CFY_EXEC_TEMP'
+
+
 class ManagerVersion(object):
     """Cloudify manager version helper class."""
 
@@ -234,6 +237,16 @@ def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     Generate and return a random string using upper case letters and digits.
     """
     return ''.join(random.choice(chars) for _ in range(size))
+
+
+def get_exec_tempdir():
+    """
+    Returns the directory to use for temporary files, when the intention
+    is to place an executable file there.
+    This is needed because some production systems disallow executions from
+    the default temporary directory.
+    """
+    return os.environ.get(CFY_EXEC_TEMPDIR_ENVVAR) or tempfile.gettempdir()
 
 
 def create_temp_folder():
