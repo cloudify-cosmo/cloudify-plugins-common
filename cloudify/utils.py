@@ -13,6 +13,7 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+from contextlib import contextmanager
 import logging
 import os
 import random
@@ -441,6 +442,31 @@ class Internal(object):
         if prefix is None and sys_prefix_fallback:
             prefix = sys.prefix
         return prefix
+
+    @staticmethod
+    @contextmanager
+    def _change_tenant(ctx, tenant):
+        """
+            Temporarily change the tenant the context is pretending to be.
+            This is not supported for anything other than snapshot restores.
+            If you are thinking of using this for something, it would be
+            better not to.
+        """
+        if 'original_name' in ctx._context['tenant']:
+            raise RuntimeError(
+                'Overriding tenant name cannot happen while tenant name is '
+                'already being overridden.'
+            )
+
+        try:
+            ctx._context['tenant']['original_name'] = ctx.tenant_name
+            ctx._context['tenant']['name'] = tenant
+            yield
+        finally:
+            ctx._context['tenant']['name'] = (
+                ctx._context['tenant']['original_name']
+            )
+            ctx._context['tenant'].pop('original_name')
 
 
 internal = Internal()
