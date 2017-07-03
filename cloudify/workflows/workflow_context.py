@@ -642,6 +642,7 @@ class _WorkflowContextBase(object):
             'task_name': task_name,
             'execution_id': self.execution_id,
             'workflow_id': self.workflow_id,
+            'tenant': self.tenant
         }
         context.update(node_context)
         context.update(self.internal.handler.operation_cloudify_context)
@@ -1220,9 +1221,7 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
     def operation_cloudify_context(self):
         return {'local': False,
                 'bypass_maintenance': utils.get_is_bypass_maintenance(),
-                'rest_token': utils.get_rest_token(),
-                'tenant': utils.get_tenant()
-                }
+                'rest_token': utils.get_rest_token()}
 
     def get_set_state_task(self,
                            workflow_node_instance,
