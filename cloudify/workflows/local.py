@@ -167,7 +167,7 @@ def load_env(name, storage, resolver=None):
                         resolver=resolver)
 
 
-def _parse_plan(blueprint_path, inputs, ignored_modules, resolver,
+def _parse_plan(blueprint_path, inputs, ignored_modules, resolver, storage,
                 validate_version):
     if dsl_parser is None:
         raise ImportError('cloudify-dsl-parser must be installed to '
