@@ -67,21 +67,20 @@ class Monitor(object):
             task.set_state(state)
 
     def capture(self, tenant=None):
-        app = get_celery_app(tenant=tenant)
-
-        with app.connection() as connection:
-            if self._should_stop:
-                return
-            self._receiver = app.events.Receiver(connection, handlers={
-                'task-sent': self.task_sent,
-                'task-received': self.task_received,
-                'task-started': self.task_started,
-                'task-succeeded': self.task_succeeded,
-                'task-failed': self.task_failed,
-                'task-revoked': self.task_revoked,
-                'task-retried': self.task_retried
-            })
-            self._receiver.capture(limit=None, timeout=None, wakeup=True)
+        with get_celery_app(tenant=tenant) as app:
+            with app.connection() as connection:
+                if self._should_stop:
+                    return
+                self._receiver = app.events.Receiver(connection, handlers={
+                    'task-sent': self.task_sent,
+                    'task-received': self.task_received,
+                    'task-started': self.task_started,
+                    'task-succeeded': self.task_succeeded,
+                    'task-failed': self.task_failed,
+                    'task-revoked': self.task_revoked,
+                    'task-retried': self.task_retried
+                })
+                self._receiver.capture(limit=None, timeout=None, wakeup=True)
 
     def stop(self):
         self._should_stop = True
