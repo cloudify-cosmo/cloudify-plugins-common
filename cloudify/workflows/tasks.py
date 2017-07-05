@@ -363,6 +363,9 @@ class RemoteWorkflowTask(WorkflowTask):
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
             self.set_state(TASK_SENT)
             async_result = task.apply_async(task_id=self.id)
+            # task.apply_async implicitly makes a rabbitmq connection,
+            # we need to close it
+            task._app.close()
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except (exceptions.NonRecoverableError,
                 exceptions.RecoverableError) as e:
