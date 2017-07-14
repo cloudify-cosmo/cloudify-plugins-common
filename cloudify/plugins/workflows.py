@@ -252,8 +252,7 @@ def _get_all_host_instances(ctx):
 
 @workflow
 def install_new_agents(ctx, install_agent_timeout, node_ids,
-                       node_instance_ids, validate=True, install=True,
-                       install_script=None, **_):
+                       node_instance_ids, validate=True, install=True, **_):
     if node_ids or node_instance_ids:
         filtered_node_instances = _filter_node_instances(
             ctx=ctx,
@@ -299,7 +298,6 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
                     'cloudify.interfaces.cloudify_agent.validate_amqp',
                     kwargs={
                         'fail_on_agent_not_installable': True,
-                        'install_script': install_script
                     }),
                 host.send_event('Validation done'))
     if install:
@@ -312,7 +310,6 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
                     'cloudify.interfaces.cloudify_agent.create_amqp',
                     kwargs={
                         'install_agent_timeout': install_agent_timeout,
-                        'install_script': install_script
                     },
                     allow_kwargs_override=True),
                 host.send_event('New agent installed.'),
@@ -320,7 +317,6 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
                     'cloudify.interfaces.cloudify_agent.validate_amqp',
                     kwargs={
                         'fail_on_agent_dead': True,
-                        'install_script': install_script
                     }),
                 *lifecycle.prepare_running_agent(host)
             )
