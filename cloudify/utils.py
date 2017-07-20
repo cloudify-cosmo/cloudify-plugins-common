@@ -254,7 +254,7 @@ def create_temp_folder():
     """
     Create a temporary folder.
     """
-    path_join = os.path.join(tempfile.gettempdir(), id_generator(5))
+    path_join = os.path.join(get_exec_tempdir(), id_generator(5))
     os.makedirs(path_join)
     return path_join
 
