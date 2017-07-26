@@ -17,6 +17,7 @@ import os
 
 import jinja2
 
+from cloudify import constants
 from cloudify import manager
 from cloudify import logs
 from cloudify.logs import CloudifyPluginLoggingHandler
@@ -125,11 +126,10 @@ class Endpoint(object):
     def _evaluate_functions_impl(self,
                                  payload,
                                  evaluate_functions_method):
-        from cloudify import context
         evaluation_context = {}
-        if self.ctx.type == context.NODE_INSTANCE:
+        if self.ctx.type == constants.NODE_INSTANCE:
             evaluation_context['self'] = self.ctx.instance.id
-        elif self.ctx.type == context.RELATIONSHIP_INSTANCE:
+        elif self.ctx.type == constants.RELATIONSHIP_INSTANCE:
             evaluation_context.update({
                 'source': self.ctx.source.instance.id,
                 'target': self.ctx.target.instance.id

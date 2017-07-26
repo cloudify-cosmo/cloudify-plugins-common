@@ -391,9 +391,9 @@ class OperationHandler(TaskHandler):
                 result = self.func(*self.args, **kwargs)
             finally:
                 amqp_client_utils.close_amqp_client()
-                if ctx.type == context.NODE_INSTANCE:
+                if ctx.type == constants.NODE_INSTANCE:
                     ctx.instance.update()
-                elif ctx.type == context.RELATIONSHIP_INSTANCE:
+                elif ctx.type == constants.RELATIONSHIP_INSTANCE:
                     ctx.source.instance.update()
                     ctx.target.instance.update()
 

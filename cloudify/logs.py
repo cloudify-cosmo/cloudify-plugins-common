@@ -20,6 +20,7 @@ import json
 import datetime
 from functools import wraps
 
+from cloudify import constants
 from cloudify import amqp_client
 from cloudify import event as _event
 from cloudify.exceptions import ClosedAMQPClientException
@@ -31,7 +32,6 @@ EVENT_VERBOSITY_LEVEL = _event.NO_VERBOSE
 
 def message_context_from_cloudify_context(ctx):
     """Build a message context from a CloudifyContext instance"""
-    from cloudify.context import NODE_INSTANCE, RELATIONSHIP_INSTANCE
 
     context = {
         'blueprint_id': ctx.blueprint.id,
@@ -45,10 +45,10 @@ def message_context_from_cloudify_context(ctx):
         'operation': ctx.operation.name,
         'plugin': ctx.plugin,
     }
-    if ctx.type == NODE_INSTANCE:
+    if ctx.type == constants.NODE_INSTANCE:
         context['node_id'] = ctx.instance.id
         context['node_name'] = ctx.node.name
-    elif ctx.type == RELATIONSHIP_INSTANCE:
+    elif ctx.type == constants.RELATIONSHIP_INSTANCE:
         context['source_id'] = ctx.source.instance.id
         context['source_name'] = ctx.source.node.name
         context['target_id'] = ctx.target.instance.id

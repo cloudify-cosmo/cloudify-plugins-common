@@ -19,7 +19,7 @@ from os import path
 
 import testtools
 
-from cloudify import context
+from cloudify import constants
 from cloudify.decorators import operation
 from cloudify.decorators import workflow
 from cloudify import ctx as operation_ctx
@@ -259,9 +259,9 @@ def execute_task(task, **_):
 
 @operation
 def update_runtime_properties(runtime_properties, rel, **_):
-    if operation_ctx.type == context.NODE_INSTANCE:
+    if operation_ctx.type == constants.NODE_INSTANCE:
         instance = operation_ctx.instance
-    elif operation_ctx.type == context.RELATIONSHIP_INSTANCE:
+    elif operation_ctx.type == constants.RELATIONSHIP_INSTANCE:
         if rel == 'source':
             instance = operation_ctx.source.instance
         elif rel == 'target':
@@ -275,9 +275,9 @@ def update_runtime_properties(runtime_properties, rel, **_):
 
 @operation
 def assert_relationships(rel, **_):
-    if operation_ctx.type == context.NODE_INSTANCE:
+    if operation_ctx.type == constants.NODE_INSTANCE:
         instance = operation_ctx.instance
-    elif operation_ctx.type == context.RELATIONSHIP_INSTANCE:
+    elif operation_ctx.type == constants.RELATIONSHIP_INSTANCE:
         if rel == 'source':
             instance = operation_ctx.source.instance
         elif rel == 'target':
@@ -334,9 +334,9 @@ def assert_capabilities(rel=None, **_):
 
 @operation
 def assert_modifiable(**_):
-    if operation_ctx.type == context.NODE_INSTANCE:
+    if operation_ctx.type == constants.NODE_INSTANCE:
         operation_ctx.instance.runtime_properties['new_prop'] = 'new_value'
-    elif operation_ctx.type == context.RELATIONSHIP_INSTANCE:
+    elif operation_ctx.type == constants.RELATIONSHIP_INSTANCE:
         operation_ctx.source.instance.runtime_properties[
             'new_source_prop'] = 'new_source_value'
         operation_ctx.target.instance.runtime_properties[
@@ -347,11 +347,11 @@ def assert_modifiable(**_):
 
 @operation
 def assert_not_modifiable(rel=None, **_):
-    if operation_ctx.type == context.NODE_INSTANCE:
+    if operation_ctx.type == constants.NODE_INSTANCE:
         for relationship in operation_ctx.instance.relationships:
             relationship.target.instance.runtime_properties[
                 'should_not'] = 'work'
-    elif operation_ctx.type == context.RELATIONSHIP_INSTANCE:
+    elif operation_ctx.type == constants.RELATIONSHIP_INSTANCE:
         if rel == 'source':
             for relationship in operation_ctx.source.instance.relationships:
                 relationship.target.instance.runtime_properties[
