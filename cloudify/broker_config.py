@@ -65,11 +65,11 @@ else:
 URL_TEMPLATE = \
     'amqp://{username}:{password}@{hostname}:{port}/{vhost}{options}'
 if config.get('cluster'):
-    BROKER_URL = ';'.join(URL_TEMPLATE.format(username=node['broker_user'],
-                                              password=node['broker_pass'],
+    BROKER_URL = ';'.join(URL_TEMPLATE.format(username=broker_username,
+                                              password=broker_password,
                                               hostname=node['broker_ip'],
                                               port=broker_port,
-                                              vhost=node['broker_vhost'],
+                                              vhost=broker_vhost,
                                               options=options)
                           for node in config['cluster'])
 else:
