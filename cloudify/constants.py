@@ -55,3 +55,6 @@ LOGGING_CONFIG_FILE = '/etc/cloudify/logging.conf'
 CLUSTER_SETTINGS_PATH_KEY = 'CLOUDIFY_CLUSTER_SETTINGS_PATH'
 
 MGMTWORKER_QUEUE = 'cloudify.management'
+DEPLOYMENT = 'deployment'
+NODE_INSTANCE = 'node-instance'
+RELATIONSHIP_INSTANCE = 'relationship-instance'

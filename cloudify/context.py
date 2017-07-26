@@ -16,6 +16,7 @@
 import errno
 import os
 import warnings
+from contextlib import contextmanager
 
 from cloudify_rest_client.exceptions import CloudifyClientError
 from cloudify.endpoint import ManagerEndpoint, LocalEndpoint
@@ -23,11 +24,7 @@ from cloudify.logs import init_cloudify_logger
 from cloudify import constants
 from cloudify import exceptions
 from cloudify import utils
-
-
-DEPLOYMENT = 'deployment'
-NODE_INSTANCE = 'node-instance'
-RELATIONSHIP_INSTANCE = 'relationship-instance'
+from constants import DEPLOYMENT, NODE_INSTANCE, RELATIONSHIP_INSTANCE
 
 
 class ContextCapabilities(object):
@@ -955,19 +952,52 @@ class CloudifyAgentContext(object):
 
     def __init__(self, context):
         self.context = context
+        self._script_path = None
+
+    @property
+    def script_path(self):
+        return self._script_path
+
+    @script_path.setter
+    def script_path(self, value):
+        self._script_path = value
+
+    def clean_script(self):
+        if self.script_path and os.path.exists(self.script_path):
+            os.remove(self.script_path)
+        self.script_path = None
+
+    @staticmethod
+    def _validate_agent_env():
+        try:
+            from cloudify_agent.installer import script  # NOQA
+        except ImportError as e:
+            raise exceptions.NonRecoverableError(
+                'init_script/install_script cannot be used '
+                'outside of an agent environment: ImportError: {0}'.format(e))
 
     def init_script(self, agent_config=None):
         if (utils.internal.get_install_method(
                 self.context.node.properties) not in
                 constants.AGENT_INSTALL_METHODS_SCRIPTS):
             return None
-        try:
-            from cloudify_agent.installer import script
-        except ImportError as e:
-            raise exceptions.NonRecoverableError(
-                'init_script cannot be used outside of an agent environment: '
-                'ImportError: {0}'.format(e))
+        self._validate_agent_env()
+        from cloudify_agent.installer import script
         return script.init_script(cloudify_agent=agent_config)
+
+    @contextmanager
+    def install_script_download_link(self, agent_config=None, clean=True):
+        self._validate_agent_env()
+        from cloudify_agent.installer import script
+        try:
+            script_path, script_url = script.install_script_download_link(
+                cloudify_agent=agent_config
+            )
+            self.script_path = script_path
+            yield script_url
+        finally:
+            if clean:
+                self.clean_script()
 
 
 # inherits from `str` to maintain backwards compatibility

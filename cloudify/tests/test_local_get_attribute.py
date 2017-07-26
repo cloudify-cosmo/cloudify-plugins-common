@@ -20,7 +20,7 @@ import tempfile
 
 import testtools
 
-from cloudify import context
+from cloudify import constants
 from cloudify.workflows import local
 from cloudify.decorators import operation
 from cloudify.decorators import workflow
@@ -108,7 +108,7 @@ def op(self_ref=None,
        target_ref=None,
        static=None,
        **_):
-    if operation_ctx.type == context.NODE_INSTANCE:
+    if operation_ctx.type == constants.NODE_INSTANCE:
         assert self_ref == 'self_ref_value', \
             'self: {0}'.format(self_ref)
         assert node_ref == 'node_ref_value', \
