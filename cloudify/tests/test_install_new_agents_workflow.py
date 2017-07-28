@@ -32,13 +32,11 @@ _VALIDATION_FAIL = {
 
 
 @operation
-def validate_amqp(ctx, fail_on_agent_dead=False,
-                  fail_on_agent_not_installable=False, **_):
+def validate_amqp(ctx, current_amqp=True, **_):
     status = ctx.node.properties['validation_result']
     if status:
         ctx.instance.runtime_properties['agent_status'] = status
-        if fail_on_agent_not_installable and \
-                not status['agent_alive_crossbroker']:
+        if not current_amqp and not status['agent_alive_crossbroker']:
             raise NonRecoverableError()
 
 

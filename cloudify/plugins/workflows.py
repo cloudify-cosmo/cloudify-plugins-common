@@ -296,9 +296,7 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
                 host.send_event('Validating agent connection.'),
                 host.execute_operation(
                     'cloudify.interfaces.cloudify_agent.validate_amqp',
-                    kwargs={
-                        'fail_on_agent_not_installable': True,
-                    }),
+                    kwargs={'current_amqp': False}),
                 host.send_event('Validation done'))
     if install:
         install_subgraph = graph.subgraph('install')
@@ -315,9 +313,7 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
                 host.send_event('New agent installed.'),
                 host.execute_operation(
                     'cloudify.interfaces.cloudify_agent.validate_amqp',
-                    kwargs={
-                        'fail_on_agent_dead': True,
-                    }),
+                    kwargs={'current_amqp': True}),
                 *lifecycle.prepare_running_agent(host)
             )
             for subnode in host.get_contained_subgraph():
