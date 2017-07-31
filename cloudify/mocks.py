@@ -106,6 +106,7 @@ class MockCloudifyContext(CloudifyContext):
                  operation=None,
                  resources=None,
                  tenant=None,
+                 rest_token=None,
                  provider_context=None,
                  bootstrap_context=None):
         tenant = tenant or {}
@@ -116,7 +117,9 @@ class MockCloudifyContext(CloudifyContext):
             'node_name': node_name,
             'node_properties': properties,
             'operation': operation,
-            'tenant': tenant})
+            'tenant': tenant,
+            'rest_token': rest_token
+        })
         self._node_id = node_id
         self._node_name = node_name
         self._deployment_id = deployment_id

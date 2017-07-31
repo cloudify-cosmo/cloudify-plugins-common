@@ -168,9 +168,9 @@ class CloudifyContextTest(testtools.TestCase):
 
     def test_ctx_type(self):
         ctx = context.CloudifyContext({})
-        self.assertEqual(context.DEPLOYMENT, ctx.type)
+        self.assertEqual(constants.DEPLOYMENT, ctx.type)
         ctx = context.CloudifyContext({'node_id': 'node-instance-id'})
-        self.assertEqual(context.NODE_INSTANCE, ctx.type)
+        self.assertEqual(constants.NODE_INSTANCE, ctx.type)
         ctx = context.CloudifyContext({
             'node_id': 'node-instance-id',
             'related': {
@@ -179,7 +179,7 @@ class CloudifyContextTest(testtools.TestCase):
             },
             'relationships': ['related-instance-id']
         })
-        self.assertEqual(context.RELATIONSHIP_INSTANCE, ctx.type)
+        self.assertEqual(constants.RELATIONSHIP_INSTANCE, ctx.type)
 
 
 class NodeContextTests(testtools.TestCase):

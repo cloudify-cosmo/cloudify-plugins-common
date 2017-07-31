@@ -18,7 +18,7 @@ import testtools
 
 from cloudify import decorators
 from cloudify import exceptions
-from cloudify import context
+from cloudify import constants
 from cloudify import ctx
 
 from cloudify.test_utils import workflow_test
@@ -30,7 +30,7 @@ invocations = []
 @decorators.operation
 def operation(descriptor, **_):
     current_op = ctx.operation.name.split('.')[-1]
-    if ctx.type == context.NODE_INSTANCE:
+    if ctx.type == constants.NODE_INSTANCE:
         node = ctx.node
         instance = ctx.instance
     else:
