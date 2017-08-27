@@ -430,9 +430,12 @@ def _host_post_start(host_node_instance):
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.create')
                 ]
-            if install_method != constants.AGENT_INSTALL_METHOD_REMOTE:
+            # In remote mode the `create` operation configures/starts the agent
+            if install_method in [constants.AGENT_INSTALL_METHOD_PLUGIN,
+                                  constants.AGENT_INSTALL_METHOD_INIT_SCRIPT]:
                 tasks += [
-                    host_node_instance.send_event('Starting Agent'),
+                    host_node_instance.send_event('Waiting for '
+                                                  'Agent to start'),
                     host_node_instance.execute_operation(
                         'cloudify.interfaces.cloudify_agent.start')
                 ]
