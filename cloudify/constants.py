@@ -61,3 +61,5 @@ MGMTWORKER_QUEUE = 'cloudify.management'
 DEPLOYMENT = 'deployment'
 NODE_INSTANCE = 'node-instance'
 RELATIONSHIP_INSTANCE = 'relationship-instance'
+
+DEFAULT_NETWORK_NAME = 'default'
