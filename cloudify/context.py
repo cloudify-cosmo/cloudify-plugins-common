@@ -202,6 +202,10 @@ class BootstrapContext(object):
             """
             return self._cloudify_agent.get('cluster')
 
+        @property
+        def networks(self):
+            return self._cloudify_agent.get('networks')
+
     def __init__(self, bootstrap_context):
         self._bootstrap_context = bootstrap_context
 
