@@ -67,11 +67,11 @@ URL_TEMPLATE = \
 if config.get('cluster'):
     BROKER_URL = ';'.join(URL_TEMPLATE.format(username=broker_username,
                                               password=broker_password,
-                                              hostname=node['broker_ip'],
+                                              hostname=node_ip,
                                               port=broker_port,
                                               vhost=broker_vhost,
                                               options=options)
-                          for node in config['cluster'])
+                          for node_ip in config['cluster'])
 else:
     BROKER_URL = URL_TEMPLATE.format(
         username=broker_username,

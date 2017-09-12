@@ -138,8 +138,7 @@ def get_manager_file_server_url():
     Returns the manager file server base url.
     """
     if cluster.is_cluster_configured():
-        active_node = cluster.get_cluster_active() or {}
-        active_node_ip = active_node.get('broker_ip')
+        active_node_ip = cluster.get_cluster_active()
         port = get_manager_rest_service_port()
         if active_node_ip:
             return 'https://{0}:{1}/resources'.format(active_node_ip, port)
@@ -187,11 +186,6 @@ def get_local_rest_certificate():
     """
     Returns the path to the local copy of the server's public certificate
     """
-    if cluster.is_cluster_configured():
-        active_node = cluster.get_cluster_active() or {}
-        rest_cert_path = active_node.get('internal_cert_path')
-        if rest_cert_path:
-            return rest_cert_path
     return os.environ[constants.LOCAL_REST_CERT_FILE_KEY]
 
 
