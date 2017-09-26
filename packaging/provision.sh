@@ -28,8 +28,8 @@ function install_dependencies(){
         return
     fi
     curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | sudo python &&
-    sudo pip install pip==7.1.2 --upgrade
-    sudo pip install virtualenv
+    sudo pip install --upgrade
+    pip install virtualenv
 }
 
 function install_wagon(){
@@ -43,7 +43,7 @@ function install_wagon(){
     else
         echo 'probably windows machine'
     fi
-    pip install wagon==0.3.2
+    pip install wagon==0.6.0
 }
 
 function wagon_create_package(){
@@ -60,9 +60,9 @@ function wagon_create_package(){
             fi
         popd
         mkdir create_wagon ; cd create_wagon
-        wagon create -s ../$PLUGIN_NAME/
+        wagon create ../$PLUGIN_NAME/
     else
-        wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f
+        wagon create https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f
     fi
 }
 
