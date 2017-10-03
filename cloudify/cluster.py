@@ -17,7 +17,6 @@ import os
 import json
 import pika
 import types
-import shutil
 import requests
 import itertools
 
@@ -34,15 +33,6 @@ def _get_cluster_settings_file(filename=None):
             and constants.CLUSTER_SETTINGS_PATH_KEY not in os.environ:
         return None
     return filename or os.environ[constants.CLUSTER_SETTINGS_PATH_KEY]
-
-
-def _get_certs_dir(filename=None):
-    settings_file = _get_cluster_settings_file(filename=filename)
-    if not settings_file:
-        return None
-    basedir, filename = os.path.split(settings_file)
-    name, ext = os.path.splitext(filename)
-    return os.path.join(basedir, '{0}_certs'.format(name))
 
 
 def get_cluster_settings(filename=None):
@@ -79,19 +69,6 @@ def set_cluster_nodes(nodes, filename=None):
     settings = get_cluster_settings(filename=filename) or {}
     if not settings and not nodes:
         return
-    certs_dir = _get_certs_dir(filename=filename)
-    if not os.path.isdir(certs_dir):
-        os.makedirs(certs_dir)
-    for node in nodes:
-        node_ip = node['broker_ip']
-        cert_content = node.get('internal_cert')
-        if cert_content:
-            cert_filename = os.path.join(
-                certs_dir, '{0}.crt'.format(node_ip))
-            with open(cert_filename, 'w') as f:
-                f.write(cert_content)
-            node['internal_cert_path'] = cert_filename
-
     settings['nodes'] = nodes
     set_cluster_settings(settings, filename=filename)
     active = get_cluster_active(filename=filename)
@@ -127,19 +104,9 @@ def set_cluster_active(node, filename=None):
 def get_cluster_amqp_settings():
     active = get_cluster_active()
     if active:
-        ssl_cert_path = active.get('internal_cert_path')
-        settings = {
-            'amqp_host': active.get('broker_ip'),
-            'amqp_user': active.get('broker_user'),
-            'amqp_pass': active.get('broker_pass'),
-            'amqp_vhost': active.get('broker_vhost'),
-            'ssl_enabled': bool(ssl_cert_path)
-        }
-        if ssl_cert_path:
-            settings['ssl_cert_path'] = ssl_cert_path
+        return {'amqp_host': active}
     else:
-        settings = {}
-    return settings
+        return {}
 
 
 def delete_cluster_settings(filename=None):
@@ -151,13 +118,6 @@ def delete_cluster_settings(filename=None):
     filename = _get_cluster_settings_file(filename)
     if not filename:
         return
-
-    nodes = get_cluster_nodes(filename=filename)
-    if nodes:
-        certs_dir = _get_certs_dir(filename=filename)
-        if os.path.isdir(certs_dir):
-            shutil.rmtree(certs_dir)
-
     try:
         os.remove(filename)
     except (OSError, IOError):
@@ -174,12 +134,7 @@ def is_cluster_configured(filename=None):
 
 def _parse_url(broker_url):
     params = pika.URLParameters(broker_url)
-    return {
-        'broker_user': params.credentials.username,
-        'broker_pass': params.credentials.password,
-        'broker_ip': params.host,
-        'broker_vhost': params.virtual_host
-    }
+    return params.host
 
 
 def config_from_broker_urls(active, nodes):
@@ -220,9 +175,8 @@ class ClusterHTTPClient(HTTPClient):
 
         raise CloudifyClientError('No active node in the cluster!')
 
-    def _use_node(self, node):
-        self.host = node['broker_ip']
-        self.cert = node.get('internal_cert_path')
+    def _use_node(self, node_ip):
+        self.host = node_ip
 
 
 class CloudifyClusterClient(CloudifyClient):
