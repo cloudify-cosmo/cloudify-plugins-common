@@ -91,8 +91,6 @@ class _GlobalAMQPClient(object):
 
     def _disconnect(self):
         self._queue.put(_STOP)
-        self._client.close()
-        self.client_started.clear()
 
     def _handle_publish_message(self):
         while True:
@@ -105,6 +103,8 @@ class _GlobalAMQPClient(object):
                 with self._connect_lock:
                     self._client = self._make_client()
                 self._client.publish_message(*request)
+        self._client.close()
+        self.client_started.clear()
 
 
 def init_amqp_client():
