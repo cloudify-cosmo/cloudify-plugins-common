@@ -109,6 +109,7 @@ class _GlobalAMQPClient(object):
 
 def init_amqp_client():
     global_amqp_client.register_caller()
+    global_event_amqp_client.register_caller()
 
 
 def get_amqp_client():
