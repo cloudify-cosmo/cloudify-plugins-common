@@ -63,6 +63,7 @@ class _GlobalAMQPClient(object):
             self._callers -= 1
             if self._callers == 0:
                 self._disconnect()
+                self._thread.join()
 
     def __enter__(self):
         self.register_caller()
@@ -86,7 +87,6 @@ class _GlobalAMQPClient(object):
         self._client = self._make_client()
         self.client_started.set()
         self._thread = Thread(target=self._handle_publish_message)
-        self._thread.daemon = True
         self._thread.start()
 
     def _disconnect(self):
