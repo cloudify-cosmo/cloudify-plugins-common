@@ -71,6 +71,7 @@ class Monitor(object):
             with app.connection() as connection:
                 if self._should_stop:
                     return
+                connection.clone = lambda: connection
                 self._receiver = app.events.Receiver(connection, handlers={
                     'task-sent': self.task_sent,
                     'task-received': self.task_received,
