@@ -21,10 +21,9 @@ import datetime
 from functools import wraps
 
 from cloudify import constants
-from cloudify import amqp_client
+from cloudify import amqp_client_utils
 from cloudify import event as _event
 from cloudify.exceptions import ClosedAMQPClientException
-from cloudify.amqp_client_utils import get_event_amqp_client
 
 EVENT_CLASS = _event.Event
 EVENT_VERBOSITY_LEVEL = _event.NO_VERBOSE
@@ -327,25 +326,10 @@ def create_event_message_prefix(event):
 def with_amqp_client(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        """
-        Calls the wrapped func with an AMQP client instance.
-        Attempts to use a thread-local AMQP client, if exists; otherwise
-        creates a new client and closes it after use.
-        """
-        # get an amqp client from the thread (might create a new one)
-        fresh_client = False
-        client = get_event_amqp_client()
+        """Calls the wrapped func with an AMQP client instance."""
         # call the wrapped func with the amqp client
-        try:
-            func(client, *args, **kwargs)
-        except ClosedAMQPClientException:
-            # the client has been closed, create a new one and call again
-            client = amqp_client.create_client(amqp_vhost='/')
-            fresh_client = True
-            func(client, *args, **kwargs)
-        finally:
-            if fresh_client:
-                client.close()
+        with amqp_client_utils.get_event_amqp_client() as client:
+            return func(client, *args, **kwargs)
 
     return wrapper
 

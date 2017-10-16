@@ -1003,11 +1003,11 @@ class CloudifyWorkflowContextInternal(object):
 
     def _start_event_monitor(self, tenant=None):
         monitor = events.Monitor(self.task_graph)
-        thread = AMQPWrappedThread(target=monitor.capture,
-                                   args=(tenant, ),
-                                   name='Event-Monitor')
+        thread = threading.Thread(target=monitor.capture,
+                                  args=(tenant, ),
+                                  name='Event-Monitor')
+        thread.daemon = True
         thread.start()
-        thread.started_amqp_client.get(timeout=30)
         self._event_monitors.append(monitor)
 
     def stop_event_monitors(self):
@@ -1057,7 +1057,7 @@ class LocalTasksProcessing(object):
             thread.start()
         if not self._is_local_context:
             for thread in self._local_task_processing_pool:
-                thread.started_amqp_client.get(timeout=30)
+                thread.started_amqp_client.wait(timeout=30)
 
     def stop(self):
         self.stopped = True
