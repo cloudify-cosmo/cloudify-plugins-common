@@ -60,17 +60,18 @@ function wagon_create_package(){
             fi
         popd
         mkdir create_wagon ; cd create_wagon
-        wagon create -s ../$PLUGIN_NAME/
+        wagon create ../$PLUGIN_NAME/
     else
-        wagon create -s https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f
+        wagon create https://github.com/cloudify-cosmo/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f
     fi
 }
 
 
 
 # VERSION/PRERELEASE/BUILD must be exported as they is being read as an env var by the cloudify-agent-packager
-CORE_TAG_NAME="4.2"
-curl https://raw.githubusercontent.com/cloudify-cosmo/cloudify-packager/$CORE_TAG_NAME/common/provision.sh -o ./common-provision.sh &&
+export CORE_TAG_NAME="4.2"
+export CORE_BRANCH="master"
+curl https://raw.githubusercontent.com/cloudify-cosmo/cloudify-packager/$CORE_BRANCH/common/provision.sh -o ./common-provision.sh &&
 source common-provision.sh
 
 
