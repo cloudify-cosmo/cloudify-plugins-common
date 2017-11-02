@@ -591,7 +591,7 @@ class WorkflowTaskResult(object):
                 result = self._get()
                 if handler_result.action != HandlerResult.HANDLER_RETRY:
                     return result
-            except:
+            except Exception:
                 if (not retry_on_failure or
                         handler_result.action == HandlerResult.HANDLER_FAIL):
                     raise
