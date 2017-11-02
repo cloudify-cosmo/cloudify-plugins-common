@@ -1074,7 +1074,7 @@ class LocalTasksProcessing(object):
                     task()
                 # may seem too general, but daemon threads are just great.
                 # anyway, this is properly unit tested, so we should be good.
-                except:
+                except Exception:
                     pass
 
 # Local/Remote Handlers

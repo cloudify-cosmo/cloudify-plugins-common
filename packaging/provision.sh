@@ -27,8 +27,8 @@ function install_dependencies(){
         pip install virtualenv
         return
     fi
-    curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | sudo python &&
-    sudo pip install pip==7.1.2 --upgrade
+    #curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | sudo python &&
+    #sudo pip install pip==7.1.2 --upgrade
     sudo pip install virtualenv
 }
 
@@ -43,7 +43,7 @@ function install_wagon(){
     else
         echo 'probably windows machine'
     fi
-    pip install wagon[venv]==0.6.1
+    pip install wagon[venv]==0.3.2
 }
 
 function wagon_create_package(){
@@ -69,8 +69,9 @@ function wagon_create_package(){
 
 
 # VERSION/PRERELEASE/BUILD must be exported as they is being read as an env var by the cloudify-agent-packager
-CORE_TAG_NAME="4.2"
-curl https://raw.githubusercontent.com/cloudify-cosmo/cloudify-packager/$CORE_TAG_NAME/common/provision.sh -o ./common-provision.sh &&
+export CORE_TAG_NAME="4.2"
+export CORE_BRANCH="master"
+curl https://raw.githubusercontent.com/cloudify-cosmo/cloudify-packager/$CORE_BRANCH/common/provision.sh -o ./common-provision.sh &&
 source common-provision.sh
 
 
@@ -82,7 +83,7 @@ PLUGIN_NAME=$5
 PLUGIN_TAG_NAME=$6
 PLUGIN_S3_FOLDER=$7
 
-export AWS_S3_BUCKET="gigaspaces-repository-eu"
+export AWS_S3_BUCKET="cloudify-release-eu"
 export AWS_S3_PATH="cloudify/wagons/$PLUGIN_NAME/$PLUGIN_S3_FOLDER"
 
 install_common_prereqs &&
