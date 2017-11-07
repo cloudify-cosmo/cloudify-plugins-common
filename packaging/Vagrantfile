@@ -23,6 +23,8 @@ GITHUB_PASSWORD = ENV['GITHUB_PASSWORD']
 PLUGIN_NAME = ENV['PLUGIN_NAME']
 PLUGIN_TAG_NAME = ENV['PLUGIN_TAG_NAME']
 PLUGIN_S3_FOLDER = ENV['PLUGIN_S3_FOLDER']
+GITHUB_ORGANIZATION = ENV['GITHUB_ORGANIZATION']
+CONSTRAINTS_FILE = ENV['CONSTRAINTS_FILE']
 
 CENTOS_FINAL_BOX_NAME = 'chef/centos-6.5'
 CENTOS7_OFFICIAL_BOX_URL = 'http://cloud.centos.org/centos/7/vagrant/x86_64/images/CentOS-7.box'
@@ -30,7 +32,7 @@ CENTOS7_OFFICIAL_BOX_URL = 'http://cloud.centos.org/centos/7/vagrant/x86_64/imag
 
 Vagrant.configure('2') do |config|
 
-  config.vm.define "centos_final_plugin_wheel" do |centos_final|
+  config.vm.define "centos_6_5" do |centos_final|
     #dummy box, will be overriden
     centos_final.vm.box = "dummy"
     centos_final.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
@@ -52,12 +54,12 @@ Vagrant.configure('2') do |config|
     centos_final.vm.synced_folder "../", "/packaging", create: true
     centos_final.vm.provision "shell" do |s|
       s.path = "provision.sh"
-      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER} #{GITHUB_ORGANIZATION} #{CONSTRAINTS_FILE}"
       s.privileged = false
     end
   end
 
-  config.vm.define "centos_core_plugin_wheel" do |centos_core|
+  config.vm.define "centos_7" do |centos_core|
     #dummy box, will be overriden
     centos_core.vm.box = "dummy"
     centos_core.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
@@ -77,16 +79,16 @@ Vagrant.configure('2') do |config|
     centos_core.vm.synced_folder "../", "/packaging", create: true
     centos_core.vm.provision "shell" do |s|
       s.path = "provision.sh"
-      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER} #{GITHUB_ORGANIZATION} #{CONSTRAINTS_FILE}"
       s.privileged = false
     end
   end
 
-  config.vm.define "redhat7_plugin_wheel" do |redhat7|
+  config.vm.define "redhat_7" do |redhat_maipo|
     #dummy box, will be overriden
-    redhat7.vm.box = "dummy"
-    redhat7.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
-    redhat7.vm.provider :aws do |aws, override|
+    redhat_maipo.vm.box = "dummy"
+    redhat_maipo.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
+    redhat_maipo.vm.provider :aws do |aws, override|
       aws.access_key_id = AWS_ACCESS_KEY_ID
       aws.secret_access_key = AWS_ACCESS_KEY
       aws.ami = "ami-c1c699a7"
@@ -100,15 +102,15 @@ Vagrant.configure('2') do |config|
       aws.tags = { "Name" => "vagrant redhat 7.1 plugin build" }
       aws.security_groups = "vagrant_linux_build"
     end
-    redhat7.vm.synced_folder "../", "/packaging", create: true
-    redhat7.vm.provision "shell" do |s|
+    redhat_maipo.vm.synced_folder "../", "/packaging", create: true
+    redhat_maipo.vm.provision "shell" do |s|
       s.path = "provision.sh"
-      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER} #{GITHUB_ORGANIZATION} #{CONSTRAINTS_FILE}"
       s.privileged = false
     end
   end
 
-  config.vm.define "ubuntu_trusty_plugin_wheel" do |ubuntu_trusty|
+  config.vm.define "ubuntu_14_04" do |ubuntu_trusty|
     # dummy box, will be overriden
     ubuntu_trusty.vm.box = "dummy"
     ubuntu_trusty.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
@@ -129,12 +131,12 @@ Vagrant.configure('2') do |config|
     ubuntu_trusty.vm.synced_folder "../", "/packaging", create: true
     ubuntu_trusty.vm.provision "shell" do |s|
       s.path = "provision.sh"
-      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER} #{GITHUB_ORGANIZATION} #{CONSTRAINTS_FILE}"
       s.privileged = false
     end
   end
 
-  config.vm.define "ubuntu_precise_plugin_wheel" do |ubuntu_precise|
+  config.vm.define "ubuntu_12_04" do |ubuntu_precise|
     # dummy box, will be overriden
     ubuntu_precise.vm.box = "dummy"
     ubuntu_precise.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
@@ -155,12 +157,12 @@ Vagrant.configure('2') do |config|
     ubuntu_precise.vm.synced_folder "../", "/packaging", create: true
     ubuntu_precise.vm.provision "shell" do |s|
       s.path = "provision.sh"
-      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER} #{GITHUB_ORGANIZATION} #{CONSTRAINTS_FILE}"
       s.privileged = false
     end
   end
 
-  config.vm.define "windows_agent_plugin_wheel" do |windows|
+  config.vm.define "windows" do |windows|
     windows.vm.box = "dummy"
     windows.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
     windows.vm.guest = :windows
@@ -182,7 +184,7 @@ Vagrant.configure('2') do |config|
     # shell provisioning uses bash, so use cmd to run batch script
     windows.vm.provision "shell" do |shell|
       shell.path = 'provision.sh'
-      shell.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      shell.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER} #{GITHUB_ORGANIZATION} #{CONSTRAINTS_FILE}"
       shell.privileged = false
     end
   end
