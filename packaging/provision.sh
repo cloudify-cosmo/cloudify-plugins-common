@@ -43,6 +43,7 @@ function install_wagon(){
     else
         echo 'probably windows machine'
     fi
+    pip install -U pip
     pip install wagon==0.3.2
 }
 
