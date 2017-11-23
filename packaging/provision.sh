@@ -50,6 +50,7 @@ function install_wagon(){
 function wagon_create_package(){
 
     echo "## wagon create package"
+    echo "manylinux1_compatible = False" > "_manylinux.py"
     if [[ "$PLUGIN_NAME" =~ "softlayer" ]]; then
         echo "git clone https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/$GITHUB_ORGANIZATION/$PLUGIN_NAME.git"
         git clone https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/$GITHUB_ORGANIZATION/$PLUGIN_NAME.git
