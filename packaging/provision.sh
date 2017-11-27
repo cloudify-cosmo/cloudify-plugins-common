@@ -44,7 +44,7 @@ function install_wagon(){
         echo 'probably windows machine'
     fi
     pip install --upgrade pip==9.0.1
-    pip install --upgrade cryptography==1.8.2
+    #pip install --upgrade cryptography==1.8.2
     pip install wagon==0.3.2
 }
 
