@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -e -x
 
 SUDO=""
 
@@ -50,25 +50,21 @@ function install_wagon(){
 function wagon_create_package(){
 
     echo "## wagon create package"
-    echo "manylinux1_compatible = False" > "_manylinux.py"
-    if [[ "$PLUGIN_NAME" =~ "softlayer" ]]; then
-        echo "git clone https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/$GITHUB_ORGANIZATION/$PLUGIN_NAME.git"
-        git clone https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/$GITHUB_ORGANIZATION/$PLUGIN_NAME.git
-        pushd $PLUGIN_NAME
-            if [ "$PLUGIN_TAG_NAME" == "master" ];then
-                git checkout master
-            else
-                git checkout -b $PLUGIN_TAG_NAME origin/$PLUGIN_TAG_NAME
-            fi
-        popd
-        mkdir create_wagon ; cd create_wagon
-        wagon create -s ../$PLUGIN_NAME/
-    else
-        if [ ! -z "$CONSTRAINTS_FILE" ] && [ -f "/vagrant/$CONSTRAINTS_FILE" ];then
-            wagon create -s https://github.com/$GITHUB_ORGANIZATION/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f -a '--no-cache-dir -c /vagrant/'$CONSTRAINTS_FILE''
+    echo "git clone https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/$GITHUB_ORGANIZATION/$PLUGIN_NAME.git"
+    git clone https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/$GITHUB_ORGANIZATION/$PLUGIN_NAME.git
+    pushd $PLUGIN_NAME
+        if [ "$PLUGIN_TAG_NAME" == "master" ];then
+            git checkout master
         else
-            wagon create -s https://github.com/$GITHUB_ORGANIZATION/$PLUGIN_NAME/archive/$PLUGIN_TAG_NAME.tar.gz --validate -v -f
-        fi     
+            git checkout -b $PLUGIN_TAG_NAME origin/$PLUGIN_TAG_NAME
+        fi
+        echo "manylinux1_compatible = False" > "_manylinux.py"
+    popd
+    mkdir create_wagon ; cd create_wagon
+    if [ ! -z "$CONSTRAINTS_FILE" ] && [ -f "/vagrant/$CONSTRAINTS_FILE" ];then
+        wagon create -s ../$PLUGIN_NAME/ --validate -v -f -a '--no-cache-dir -c /vagrant/'$CONSTRAINTS_FILE''
+    else
+        wagon create -s ../$PLUGIN_NAME/ --validate -v -f
     fi
 }
 
