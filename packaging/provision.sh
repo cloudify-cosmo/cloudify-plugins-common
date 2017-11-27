@@ -58,8 +58,8 @@ function wagon_create_package(){
         else
             git checkout -b $PLUGIN_TAG_NAME origin/$PLUGIN_TAG_NAME
         fi
-        echo "manylinux1_compatible = False" > "_manylinux.py"
     popd
+    echo "manylinux1_compatible = False" > "env/bin/_manylinux.py"
     mkdir create_wagon ; cd create_wagon
     if [ ! -z "$CONSTRAINTS_FILE" ] && [ -f "/vagrant/$CONSTRAINTS_FILE" ];then
         wagon create -s ../$PLUGIN_NAME/ --validate -v -f -a '--no-cache-dir -c /vagrant/'$CONSTRAINTS_FILE''
