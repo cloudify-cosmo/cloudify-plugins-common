@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash -e
 
 SUDO=""
 
@@ -27,8 +27,6 @@ function install_dependencies(){
         pip install virtualenv
         return
     fi
-    #curl --silent --show-error --retry 5 https://bootstrap.pypa.io/get-pip.py | sudo python &&
-    #sudo pip install pip==7.1.2 --upgrade
     sudo pip install virtualenv
 }
 
@@ -44,7 +42,6 @@ function install_wagon(){
         echo 'probably windows machine'
     fi
     pip install --upgrade pip==9.0.1
-    pip install --upgrade paramiko==1.18.3
     pip install wagon==0.3.2
 }
 
