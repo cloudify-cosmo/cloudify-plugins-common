@@ -60,9 +60,9 @@ function wagon_create_package(){
     echo "manylinux1_compatible = False" > "env/bin/_manylinux.py"
     mkdir create_wagon ; cd create_wagon
     if [ ! -z "$CONSTRAINTS_FILE" ] && [ -f "/vagrant/$CONSTRAINTS_FILE" ];then
-        wagon create -s ../$PLUGIN_NAME/ --validate -v -f -a '--no-cache-dir -c /vagrant/'$CONSTRAINTS_FILE''
+        wagon create ../$PLUGIN_NAME/ --validate -v -f -a '--no-cache-dir -c /vagrant/'$CONSTRAINTS_FILE''
     else
-        wagon create -s ../$PLUGIN_NAME/ --validate -v -f
+        wagon create ../$PLUGIN_NAME/ --validate -v -f
     fi
 }
 
