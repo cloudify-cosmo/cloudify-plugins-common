@@ -42,7 +42,7 @@ function install_wagon(){
         echo 'probably windows machine'
     fi
     pip install --upgrade pip==9.0.1
-    pip install wagon[venv]==0.6.1
+    pip install wagon==0.6.1
 }
 
 function wagon_create_package(){
