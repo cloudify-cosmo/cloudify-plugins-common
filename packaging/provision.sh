@@ -42,7 +42,7 @@ function install_wagon(){
         echo 'probably windows machine'
     fi
     pip install --upgrade pip==9.0.1 setuptools
-    pip install wagon==0.7.0
+    pip install wagon==0.3.2
 }
 
 function wagon_create_package(){
@@ -60,9 +60,9 @@ function wagon_create_package(){
     echo "manylinux1_compatible = False" > "env/bin/_manylinux.py"
     mkdir create_wagon ; cd create_wagon
     if [ ! -z "$CONSTRAINTS_FILE" ] && [ -f "/vagrant/$CONSTRAINTS_FILE" ];then
-        wagon create ../$PLUGIN_NAME/ -v -f -a '--no-cache-dir -c /vagrant/'$CONSTRAINTS_FILE''
+        wagon create -s ../$PLUGIN_NAME/ -v -f -a '--no-cache-dir -c /vagrant/'$CONSTRAINTS_FILE''
     else
-        wagon create ../$PLUGIN_NAME/ -v -f
+        wagon create -s ../$PLUGIN_NAME/ -v -f
     fi
 }
 
