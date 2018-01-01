@@ -42,7 +42,6 @@ class ManagerVersion(object):
     def __init__(self, raw_version):
         """Raw version, for example: 3.4.0-m1, 3.3, 3.2.1, 3.3-rc1."""
 
-        #components = [int(x) for x in raw_version.split('-')[0].split('.')]
         components = []
         for x in raw_version.split('-')[0].split('.'):
             try:
