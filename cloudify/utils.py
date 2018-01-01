@@ -47,7 +47,7 @@ class ManagerVersion(object):
         for x in raw_version.split('-')[0].split('.'):
             try:
                 components += [int(x)]
-            except:
+            except ValueError:
                 pass
         if len(components) == 2:
             components.append(0)
