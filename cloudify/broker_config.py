@@ -45,9 +45,8 @@ broker_vhost = config.get('broker_vhost', '/')
 broker_ssl_enabled = config.get('broker_ssl_enabled', False)
 broker_port = BROKER_PORT_SSL if broker_ssl_enabled else BROKER_PORT_NO_SSL
 
-# only enable heartbeat by default for agents connected to a cluster
-DEFAULT_HEARTBEAT = 30 if config.get('cluster') else None
-broker_heartbeat = config.get('broker_heartbeat', DEFAULT_HEARTBEAT)
+DEFAULT_HEARTBEAT = 30
+broker_heartbeat = config.get('broker_heartbeat') or DEFAULT_HEARTBEAT
 
 if broker_ssl_enabled:
     BROKER_USE_SSL = {
