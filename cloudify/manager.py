@@ -19,6 +19,7 @@ from urlparse import urljoin
 
 import utils
 from cloudify_rest_client import CloudifyClient
+from cloudify_rest_client.constants import VisibilityState
 
 from cloudify import constants
 from cloudify.state import ctx, workflow_ctx, NotInContext
@@ -275,6 +276,12 @@ def get_resource(blueprint_id, deployment_id, tenant_name, resource_path):
         resource = _get_resource(deployment_base_url)
 
     if resource is None:
+        client = get_rest_client()
+        blueprint = client.blueprints.get(blueprint_id)
+
+        if blueprint['visibility'] == VisibilityState.GLOBAL:
+            tenant_name = blueprint['tenant_name']
+
         relative_blueprint_path = os.path.join(
             constants.FILE_SERVER_RESOURCES_FOLDER,
             constants.FILE_SERVER_BLUEPRINTS_FOLDER,
