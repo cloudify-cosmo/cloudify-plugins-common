@@ -13,11 +13,14 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import time
 from threading import Thread, RLock, Event
 from Queue import Queue
 
 from cloudify import amqp_client
-from cloudify.exceptions import ClosedAMQPClientException
+
+
+RETRY_INTERVAL = 20
 
 
 class AMQPWrappedThread(Thread):
@@ -97,12 +100,18 @@ class _GlobalAMQPClient(object):
             request = self._queue.get()
             if request is _STOP:
                 break
-            try:
-                self._client.publish_message(*request)
-            except ClosedAMQPClientException:
-                with self._connect_lock:
-                    self._client = self._make_client()
-                self._client.publish_message(*request)
+            # retry sending each message indefinitely - if a event was not
+            # sent, the agent must not continue to the next task
+            while True:
+                try:
+                    self._client.publish_message(*request)
+                except Exception:
+                    with self._connect_lock:
+                        self._client = self._make_client()
+                    time.sleep(RETRY_INTERVAL)
+                    self._client.publish_message(*request)
+                else:
+                    break
         self._client.close()
         self.client_started.clear()
 
