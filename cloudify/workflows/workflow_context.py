@@ -12,13 +12,14 @@
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
-
+from __future__ import absolute_import
 
 import functools
 import copy
 import uuid
 import threading
 import Queue
+import time
 
 from proxy_tools import proxy
 
@@ -29,7 +30,9 @@ from cloudify.manager import (get_node_instance,
                               get_bootstrap_context,
                               get_rest_client,
                               download_resource)
-from cloudify.workflows.tasks import (RemoteWorkflowTask,
+from cloudify.workflows.tasks import (TASK_FAILED,
+                                      TASK_SUCCEEDED,
+                                      RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
@@ -37,10 +40,8 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       DEFAULT_SEND_TASK_EVENTS,
                                       DEFAULT_SUBGRAPH_TOTAL_RETRIES)
 from cloudify import utils
-from cloudify import exceptions
 from cloudify.state import current_workflow_ctx
 from cloudify.workflows import events
-from cloudify.constants import MGMTWORKER_QUEUE
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify import logs
@@ -1146,7 +1147,107 @@ class CloudifyWorkflowContextHandler(object):
         raise NotImplementedError('Implemented by subclasses')
 
 
+class _CeleryAppController(object):
+    """Create celery apps, and poll results of their tasks.
+
+    Tasks that are sent using the `send_task` method will be polled
+    for completion, and when they are done, their status will be set
+    to either TASK_SUCCEEDED or TASK_FAILED.
+
+    Note: public methods are thread-safe
+    """
+
+    POLL_INTERVAL = 0.5
+
+    def __init__(self):
+        self._started = False
+        self._poller = None
+        self._lock = threading.Lock()
+        self._polling = {}
+        self._apps = {}
+
+    def make_subtask(self, tenant, target, *args, **kwargs):
+        # Import here because this only applies to remote tasks execution
+        # environment
+        import celery
+
+        app = self.celery_app(tenant, target)
+        kwargs.setdefault('app', app)
+        return celery.subtask(*args, **kwargs)
+
+    def celery_app(self, tenant, target):
+        key = (tenant['name'], target)
+        with self._lock:
+            if key not in self._apps:
+                self._apps[key] = get_celery_app(tenant=tenant, target=target)
+        return self._apps[key]
+
+    def send_task(self, workflow_task, task):
+        with self._lock:
+            async_result = task.apply_async(task_id=workflow_task.id)
+        self._add_polling(task._app, workflow_task, async_result)
+        return async_result
+
+    def _add_polling(self, app, workflow_task, result):
+        self._polling.setdefault(app, set()).add((workflow_task, result))
+        if not self._started:
+            self._poller = threading.Thread(target=self._poll)
+            self._poller.daemon = True
+            self._poller.start()
+
+    def _poll(self):
+        self._started = True
+        while self._polling:
+            # apps that have no tasks left will be stored here, and if
+            # after the delay they still have no tasks, they will be closed
+            empty_apps = set()
+
+            with self._lock:
+                for app, results in self._polling.items():
+                    self._remove_finished_tasks(results)
+                    if not results:
+                        empty_apps.add(app)
+
+            time.sleep(self.POLL_INTERVAL)
+
+            with self._lock:
+                for app in empty_apps:
+                    if not self._polling[app]:
+                        self._stop_idle_app(app)
+
+        self._started = False
+
+    def _remove_finished_tasks(self, results):
+        """Remove tasks that are finished from `results`"""
+        for item in list(results):
+            workflow_task, async_result = item
+            if async_result.ready():
+                results.remove(item)
+                if async_result.successful():
+                    workflow_task.set_state(TASK_SUCCEEDED)
+                elif async_result.failed():
+                    workflow_task.set_state(TASK_FAILED)
+                else:
+                    raise ValueError(
+                        'Unknown result {0} state: {1} (for task {2})'
+                        .format(async_result, async_result.state,
+                                workflow_task))
+
+    def _stop_idle_app(self, app):
+        """Close the app, and remove it from local cache"""
+        app.close()
+        self._polling.pop(app)
+        # remove from self._apps - the app is a value in that dict
+        for key in self._apps:
+            if app is self._apps[key]:
+                self._apps.pop(key)
+                break
+
+
 class RemoteContextHandler(CloudifyWorkflowContextHandler):
+    def __init__(self, *args, **kwargs):
+        super(RemoteContextHandler, self).__init__(*args, **kwargs)
+        self._celery_apps = _CeleryAppController()
 
     @property
     def bootstrap_context(self):
@@ -1171,51 +1272,16 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         return send_event_task
 
     def get_task(self, workflow_task, queue=None, target=None):
-
-        runtime_props = []
-
-        def _derive(property_name):
-            executor = workflow_task.cloudify_context['executor']
-            host_id = workflow_task.cloudify_context['host_id']
-            if executor == 'host_agent':
-                if len(runtime_props) == 0:
-                    host_node_instance = get_node_instance(host_id)
-                    cloudify_agent = host_node_instance.runtime_properties.get(
-                        'cloudify_agent', {})
-                    if property_name not in cloudify_agent:
-                        raise exceptions.NonRecoverableError(
-                            'Missing cloudify_agent.{0} runtime information. '
-                            'This most likely means that the Compute node was '
-                            'never started successfully'.format(property_name))
-                    runtime_props.append(cloudify_agent)
-                return runtime_props[0][property_name]
-            else:
-                return MGMTWORKER_QUEUE
-
-        if queue is None:
-            queue = _derive('queue')
-
-        if target is None:
-            target = _derive('name')
-
-        kwargs = workflow_task.kwargs
         # augment cloudify context with target and queue
-        kwargs['__cloudify_context']['task_queue'] = queue
-        kwargs['__cloudify_context']['task_target'] = target
-
         tenant = workflow_task.cloudify_context.get('tenant')
 
         # Remote task
-        # Import here because this only applies to remote tasks execution
-        # environment
-        import celery
-        with get_celery_app(tenant=tenant, target=target) as app:
+        return self._celery_apps.make_subtask(
+            tenant, target, 'cloudify.dispatch.dispatch',
+            kwargs=workflow_task.kwargs, queue=queue, immutable=True)
 
-            return celery.subtask('cloudify.dispatch.dispatch',
-                                  kwargs=kwargs,
-                                  queue=queue,
-                                  app=app,
-                                  immutable=True), queue, target
+    def send_task(self, workflow_task, task):
+        return self._celery_apps.send_task(workflow_task, task)
 
     @property
     def operation_cloudify_context(self):
