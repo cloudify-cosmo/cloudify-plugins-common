@@ -1223,6 +1223,8 @@ class _CeleryAppController(object):
             workflow_task, async_result = item
             if async_result.ready():
                 results.remove(item)
+                if workflow_task.is_terminated:
+                    continue
                 if async_result.successful():
                     workflow_task.set_state(TASK_SUCCEEDED)
                 elif async_result.failed():
