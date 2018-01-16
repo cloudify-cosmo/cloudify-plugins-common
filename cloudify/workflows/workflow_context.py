@@ -1257,6 +1257,9 @@ class _CeleryAppController(object):
 
 
 class RemoteContextHandler(CloudifyWorkflowContextHandler):
+    def __init__(self, *args, **kwargs):
+        super(RemoteContextHandler, self).__init__(*args, **kwargs)
+        self._celery_apps = _CeleryAppController()
 
     @property
     def bootstrap_context(self):
@@ -1285,16 +1288,12 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         tenant = workflow_task.cloudify_context.get('tenant')
 
         # Remote task
-        # Import here because this only applies to remote tasks execution
-        # environment
-        import celery
-        with get_celery_app(tenant=tenant, target=target) as app:
+        return self._celery_apps.make_subtask(
+            tenant, target, 'cloudify.dispatch.dispatch',
+            kwargs=workflow_task.kwargs, queue=queue, immutable=True)
 
-            return celery.subtask('cloudify.dispatch.dispatch',
-                                  kwargs=kwargs,
-                                  queue=queue,
-                                  app=app,
-                                  immutable=True), queue, target
+    def send_task(self, workflow_task, task):
+        return self._celery_apps.send_task(workflow_task, task)
 
     @property
     def operation_cloudify_context(self):
