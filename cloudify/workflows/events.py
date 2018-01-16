@@ -13,6 +13,7 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import Queue
 
 from cloudify import logs
 from cloudify.exceptions import OperationRetry
@@ -64,7 +65,11 @@ class Monitor(object):
             if send_event:
                 send_task_event(state, task, send_task_event_func_remote,
                                 event)
-            task.set_state(state)
+            if not task.is_terminated:
+                try:
+                    task.set_state(state)
+                except Queue.Full:
+                    pass
 
     def capture(self, tenant=None):
         with get_celery_app(tenant=tenant) as app:
