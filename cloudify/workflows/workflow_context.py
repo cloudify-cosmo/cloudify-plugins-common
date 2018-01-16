@@ -1171,8 +1171,9 @@ class _CeleryAppController(object):
         # environment
         import celery
 
-        app = self.celery_app(tenant, target)
-        kwargs.setdefault('app', app)
+        if 'app' not in kwargs:
+            app = self.celery_app(tenant, target)
+            kwargs['app'] = app
         return celery.subtask(*args, **kwargs)
 
     def celery_app(self, tenant, target):
