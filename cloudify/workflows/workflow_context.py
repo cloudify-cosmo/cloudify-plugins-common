@@ -37,10 +37,8 @@ from cloudify.workflows.tasks import (RemoteWorkflowTask,
                                       DEFAULT_SEND_TASK_EVENTS,
                                       DEFAULT_SUBGRAPH_TOTAL_RETRIES)
 from cloudify import utils
-from cloudify import exceptions
 from cloudify.state import current_workflow_ctx
 from cloudify.workflows import events
-from cloudify.constants import MGMTWORKER_QUEUE
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify import logs
@@ -1171,38 +1169,7 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         return send_event_task
 
     def get_task(self, workflow_task, queue=None, target=None):
-
-        runtime_props = []
-
-        def _derive(property_name):
-            executor = workflow_task.cloudify_context['executor']
-            host_id = workflow_task.cloudify_context['host_id']
-            if executor == 'host_agent':
-                if len(runtime_props) == 0:
-                    host_node_instance = get_node_instance(host_id)
-                    cloudify_agent = host_node_instance.runtime_properties.get(
-                        'cloudify_agent', {})
-                    if property_name not in cloudify_agent:
-                        raise exceptions.NonRecoverableError(
-                            'Missing cloudify_agent.{0} runtime information. '
-                            'This most likely means that the Compute node was '
-                            'never started successfully'.format(property_name))
-                    runtime_props.append(cloudify_agent)
-                return runtime_props[0][property_name]
-            else:
-                return MGMTWORKER_QUEUE
-
-        if queue is None:
-            queue = _derive('queue')
-
-        if target is None:
-            target = _derive('name')
-
-        kwargs = workflow_task.kwargs
         # augment cloudify context with target and queue
-        kwargs['__cloudify_context']['task_queue'] = queue
-        kwargs['__cloudify_context']['task_target'] = target
-
         tenant = workflow_task.cloudify_context.get('tenant')
 
         # Remote task
