@@ -1171,9 +1171,10 @@ class _CeleryAppController(object):
         # environment
         import celery
 
-        if 'app' not in kwargs:
-            app = self.celery_app(tenant, target)
-            kwargs['app'] = app
+        if 'app' in kwargs:
+            raise RuntimeError('`app` must not be already provided: {0}'
+                               .format(kwargs))
+        kwargs['app'] = self.celery_app(tenant, target)
         return celery.subtask(*args, **kwargs)
 
     def celery_app(self, tenant, target):
