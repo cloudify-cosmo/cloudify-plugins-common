@@ -12,13 +12,14 @@
 #    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
-
+from __future__ import absolute_import
 
 import functools
 import copy
 import uuid
 import threading
 import Queue
+import time
 
 from proxy_tools import proxy
 
@@ -29,7 +30,9 @@ from cloudify.manager import (get_node_instance,
                               get_bootstrap_context,
                               get_rest_client,
                               download_resource)
-from cloudify.workflows.tasks import (RemoteWorkflowTask,
+from cloudify.workflows.tasks import (TASK_FAILED,
+                                      TASK_SUCCEEDED,
+                                      RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
@@ -1142,6 +1145,115 @@ class CloudifyWorkflowContextHandler(object):
 
     def scaling_groups(self):
         raise NotImplementedError('Implemented by subclasses')
+
+
+class _CeleryAppController(object):
+    """Create celery apps, and poll results of their tasks.
+
+    Tasks that are sent using the `send_task` method will be polled
+    for completion, and when they are done, their status will be set
+    to either TASK_SUCCEEDED or TASK_FAILED.
+
+    Note: public methods are thread-safe
+    """
+
+    POLL_INTERVAL = 0.5
+
+    def __init__(self):
+        self._started = False
+        self._poller = None
+        self._lock = threading.Lock()
+        self._polling = {}
+        self._apps = {}
+
+    def make_subtask(self, tenant, target, *args, **kwargs):
+        # Import here because this only applies to remote tasks execution
+        # environment
+        import celery
+
+        app = self.celery_app(tenant, target)
+        kwargs.setdefault('app', app)
+        return celery.subtask(*args, **kwargs)
+
+    def celery_app(self, tenant, target):
+        key = (tenant['name'], target)
+        with self._lock:
+            if key not in self._apps:
+                self._apps[key] = get_celery_app(tenant=tenant, target=target)
+        return self._apps[key]
+
+    def send_task(self, workflow_task, task):
+        with self._lock:
+            async_result = task.apply_async(task_id=workflow_task.id)
+        self._add_polling(task._app, workflow_task, async_result)
+        return async_result
+
+    def _add_polling(self, app, workflow_task, result):
+        self._polling.setdefault(app, set()).add((workflow_task, result))
+        if not self._started:
+            self._poller = threading.Thread(target=self._poll)
+            self._poller.daemon = True
+            self._poller.start()
+
+    def _poll(self):
+        self._started = True
+        while self._polling:
+            # apps that have no tasks left will be stored here, and if
+            # after the delay they still have no tasks, they will be closed
+            empty_apps = set()
+
+            with self._lock:
+                for app, results in self._polling.items():
+                    self._remove_finished_tasks(results)
+                    if not results:
+                        empty_apps.add(app)
+
+            time.sleep(self.POLL_INTERVAL)
+
+            with self._lock:
+                for app in empty_apps:
+                    if not self._polling[app]:
+                        self._stop_idle_app(app)
+
+        self._started = False
+
+    def _remove_finished_tasks(self, results):
+        """Remove tasks that are finished from `results`"""
+        for item in list(results):
+            workflow_task, async_result = item
+            if async_result.ready():
+                results.remove(item)
+                self._update_task_state(async_result, workflow_task)
+
+    def _update_task_state(self, async_result, workflow_task):
+        if workflow_task.is_terminated:
+            return
+        if async_result.successful():
+            state = TASK_SUCCEEDED
+            workflow_task.set_state()
+        elif async_result.failed():
+            state = TASK_FAILED
+        else:
+            raise ValueError(
+                'Unknown result {0} state: {1} (for task {2})'
+                .format(async_result, async_result.state,
+                        workflow_task))
+        try:
+            workflow_task.set_state(state)
+        except Queue.Full:
+            # the task must have already concurrently been updated by
+            # the events monitor
+            pass
+
+    def _stop_idle_app(self, app):
+        """Close the app, and remove it from local cache"""
+        app.close()
+        self._polling.pop(app)
+        # remove from self._apps - the app is a value in that dict
+        for key in self._apps:
+            if app is self._apps[key]:
+                self._apps.pop(key)
+                break
 
 
 class RemoteContextHandler(CloudifyWorkflowContextHandler):
