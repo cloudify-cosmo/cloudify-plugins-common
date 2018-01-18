@@ -24,6 +24,7 @@ import time
 from proxy_tools import proxy
 
 from cloudify import context
+from cloudify.exceptions import OperationRetry
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
                               update_execution_status,
@@ -32,6 +33,7 @@ from cloudify.manager import (get_node_instance,
                               download_resource)
 from cloudify.workflows.tasks import (TASK_FAILED,
                                       TASK_SUCCEEDED,
+                                      TASK_RESCHEDULED,
                                       RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
@@ -1233,7 +1235,10 @@ class _CeleryAppController(object):
         if async_result.successful():
             state = TASK_SUCCEEDED
         elif async_result.failed():
-            state = TASK_FAILED
+            if isinstance(async_result.result, OperationRetry):
+                state = TASK_RESCHEDULED
+            else:
+                state = TASK_FAILED
         else:
             raise ValueError(
                 'Unknown result {0} state: {1} (for task {2})'
