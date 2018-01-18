@@ -1232,7 +1232,6 @@ class _CeleryAppController(object):
             return
         if async_result.successful():
             state = TASK_SUCCEEDED
-            workflow_task.set_state()
         elif async_result.failed():
             state = TASK_FAILED
         else:
