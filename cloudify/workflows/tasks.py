@@ -22,6 +22,9 @@ from cloudify import utils
 from cloudify import exceptions
 from cloudify.workflows import api
 from cloudify.celery.app import get_celery_app
+from cloudify.manager import get_node_instance
+from cloudify.constants import MGMTWORKER_QUEUE
+
 
 INFINITE_TOTAL_RETRIES = -1
 DEFAULT_TOTAL_RETRIES = INFINITE_TOTAL_RETRIES
@@ -346,6 +349,7 @@ class RemoteWorkflowTask(WorkflowTask):
         self._task_queue = task_queue
         self._kwargs = kwargs
         self._cloudify_context = cloudify_context
+        self._cloudify_agent = None
 
     def apply_async(self):
         """
@@ -355,18 +359,16 @@ class RemoteWorkflowTask(WorkflowTask):
         :return: a RemoteWorkflowTaskResult instance wrapping the
                  celery async result
         """
+        self._set_queue_kwargs()
         try:
-            task, self._task_queue, self._task_target = \
-                self.workflow_context.internal.handler.get_task(
-                    self, queue=self._task_queue, target=self._task_target)
             self._verify_worker_alive()
+            task = self.workflow_context.internal.handler.get_task(
+                self, queue=self._task_queue, target=self._task_target)
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
-            self.set_state(TASK_SENT)
-            async_result = task.apply_async(task_id=self.id)
-            # task.apply_async implicitly makes a rabbitmq connection,
-            # we need to close it
-            task._app.close()
+            async_result = self.workflow_context.internal.handler.send_task(
+                self, task)
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
+            self.set_state(TASK_SENT)
         except (exceptions.NonRecoverableError,
                 exceptions.RecoverableError) as e:
             self.set_state(TASK_FAILED)
@@ -432,6 +434,32 @@ class RemoteWorkflowTask(WorkflowTask):
         if registered is None or worker_name not in registered:
             return None
         return set(registered[worker_name])
+
+    def _set_queue_kwargs(self):
+        if self._task_queue is None:
+            self._task_queue = self._derive('queue')
+        if self._task_target is None:
+            self._task_target = self._derive('name')
+        self.kwargs['__cloudify_context']['task_queue'] = self._task_queue
+        self.kwargs['__cloudify_context']['task_target'] = self._task_target
+
+    def _derive(self, property_name):
+        executor = self.cloudify_context['executor']
+        host_id = self.cloudify_context['host_id']
+        if executor == 'host_agent':
+            if self._cloudify_agent is None:
+                host_node_instance = get_node_instance(host_id)
+                cloudify_agent = host_node_instance.runtime_properties.get(
+                    'cloudify_agent', {})
+                if property_name not in cloudify_agent:
+                    raise exceptions.NonRecoverableError(
+                        'Missing cloudify_agent.{0} runtime information. '
+                        'This most likely means that the Compute node was '
+                        'never started successfully'.format(property_name))
+                self._cloudify_agent = cloudify_agent
+            return self._cloudify_agent[property_name]
+        else:
+            return MGMTWORKER_QUEUE
 
 
 class LocalWorkflowTask(WorkflowTask):
