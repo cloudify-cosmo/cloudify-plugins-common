@@ -562,13 +562,24 @@ class _WorkflowContextBase(object):
         else:
             total_retries = operation_total_retries
 
+        if plugin and plugin['package_name']:
+            client = get_rest_client()
+            filter_plugin = {'package_name': plugin.get('package_name'),
+                             'package_version': plugin.get('package_version')}
+            managed_plugins = client.plugins.list(**filter_plugin)
+            if managed_plugins:
+                plugin['visibility'] = managed_plugins[0]['visibility']
+                plugin['tenant_name'] = managed_plugins[0]['tenant_name']
+
         node_context = {
             'node_id': node_instance.id,
             'node_name': node_instance.node_id,
             'plugin': {
                 'name': plugin_name,
                 'package_name': plugin.get('package_name'),
-                'package_version': plugin.get('package_version')
+                'package_version': plugin.get('package_version'),
+                'visibility': plugin.get('visibility'),
+                'tenant_name': plugin.get('tenant_name')
             },
             'operation': {
                 'name': operation,
