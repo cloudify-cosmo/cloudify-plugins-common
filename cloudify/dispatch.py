@@ -30,6 +30,7 @@ import Queue
 from time import sleep
 
 from cloudify_rest_client.executions import Execution
+from cloudify_rest_client.constants import VisibilityState
 from cloudify_rest_client.exceptions import InvalidExecutionUpdateStatus
 
 from cloudify import logs
@@ -244,6 +245,11 @@ class TaskHandler(object):
                                                   SYSTEM_DEPLOYMENT)
         tenant = self.cloudify_context.get('tenant', {})
         tenant_name = tenant.get('name')
+        plugin_visibility = plugin.get('visibility')
+
+        if plugin_visibility == VisibilityState.GLOBAL:
+            tenant_name = plugin.get('tenant_name')
+
         return utils.internal.plugin_prefix(
             package_name=package_name,
             package_version=package_version,
