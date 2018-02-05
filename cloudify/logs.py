@@ -139,6 +139,23 @@ class CloudifyWorkflowNodeLoggingHandler(CloudifyBaseLoggingHandler):
             message_context_from_workflow_node_instance_context)
 
 
+class CloudifyCtxLoggingHandler(logging.Handler):
+    """
+    A logging handler for Cloudify's context logger.
+    A logger attached to this handler will result in logging being passed
+    through to the Cloudify logger.
+    This is useful for plugins that would like to have underlying APIs'
+    loggers flow through to the Cloudify context logger.
+    """
+    def __init__(self, ctx):
+        logging.Handler.__init__(self)
+        self.ctx = ctx
+
+    def emit(self, record):
+        message = self.format(record)
+        self.ctx.logger.log(record.levelno, message)
+
+
 def init_cloudify_logger(handler, logger_name,
                          logging_level=logging.DEBUG):
     """
