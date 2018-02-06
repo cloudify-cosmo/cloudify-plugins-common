@@ -46,7 +46,11 @@ broker_ssl_enabled = config.get('broker_ssl_enabled', False)
 broker_port = BROKER_PORT_SSL if broker_ssl_enabled else BROKER_PORT_NO_SSL
 
 DEFAULT_HEARTBEAT = 30
-broker_heartbeat = config.get('broker_heartbeat') or DEFAULT_HEARTBEAT
+if os.name == 'nt':
+    # celery doesn't support broker_heartbeat on windows
+    broker_heartbeat = None
+else:
+    broker_heartbeat = config.get('broker_heartbeat') or DEFAULT_HEARTBEAT
 
 if broker_ssl_enabled:
     BROKER_USE_SSL = {
