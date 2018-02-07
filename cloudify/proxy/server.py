@@ -28,6 +28,7 @@ from wsgiref.simple_server import make_server as make_wsgi_server
 import bottle
 
 from cloudify.proxy.client import ScriptException
+from cloudify.state import current_ctx
 
 
 class CtxProxy(object):
@@ -131,11 +132,12 @@ class HTTPCtxProxy(CtxProxy):
 
     def _request_handler(self):
         request = bottle.request.body.read()
-        response = self.process(request)
-        return bottle.LocalResponse(
-            body=response,
-            status=200,
-            headers={'content-type': 'application/json'})
+        with current_ctx.push(self.ctx):
+            response = self.process(request)
+            return bottle.LocalResponse(
+                body=response,
+                status=200,
+                headers={'content-type': 'application/json'})
 
 
 class ZMQCtxProxy(CtxProxy):
