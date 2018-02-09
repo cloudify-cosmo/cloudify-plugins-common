@@ -46,7 +46,7 @@ broker_ssl_enabled = config.get('broker_ssl_enabled', False)
 broker_port = BROKER_PORT_SSL if broker_ssl_enabled else BROKER_PORT_NO_SSL
 
 # only enable heartbeat by default for agents connected to a cluster
-DEFAULT_HEARTBEAT = 30 if config.get('cluster') else None
+DEFAULT_HEARTBEAT = 30
 if os.name == 'nt':
     # celery doesn't support broker_heartbeat on windows
     broker_heartbeat = None
