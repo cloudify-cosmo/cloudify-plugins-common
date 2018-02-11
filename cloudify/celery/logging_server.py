@@ -172,7 +172,9 @@ class ZMQLoggingServer(object):
         handler.emit(Record(entry['message']))
 
     def _get_handler(self, handler_context):
-        logfile = os.path.join(self.logdir, '{0}.log'.format(handler_context))
+        tenant_name, deployment_id = handler_context
+        logdir = os.path.join(self.logdir, tenant_name) if tenant_name else self.logdir
+        logfile = os.path.join(logdir, '{0}.log'.format(deployment_id))
         handler = self.handler_func(logfile)
         handler.setFormatter(Formatter)
         return handler

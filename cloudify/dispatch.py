@@ -266,13 +266,13 @@ class TaskHandler(object):
             self._zmq_socket = self._zmq_context.socket(zmq.PUSH)
             self._zmq_socket.connect(socket_url)
             try:
-                handler_context = self.ctx.deployment.id
+                handler_context = self.ctx.tenant_name, self.ctx.deployment.id
             except AttributeError:
-                handler_context = SYSTEM_DEPLOYMENT
+                handler_context = None, SYSTEM_DEPLOYMENT
             else:
                 # an operation may originate from a system wide workflow.
                 # in that case, the deployment id will be None
-                handler_context = handler_context or SYSTEM_DEPLOYMENT
+                handler_context = handler_context or (None, SYSTEM_DEPLOYMENT)
             fallback_logger = self._create_fallback_logger(handler_context)
             handler = logs.ZMQLoggingHandler(context=handler_context,
                                              socket=self._zmq_socket,
@@ -310,8 +310,10 @@ class TaskHandler(object):
         elif os.environ.get('CELERY_WORK_DIR'):
             log_dir = os.environ['CELERY_WORK_DIR']
         if log_dir:
-            log_path = os.path.join(log_dir, '{0}.log.fallback'
-                                    .format(handler_context))
+            tenant_name, _handler_context = handler_context
+            log_path = os.path.join(log_dir, tenant_name,
+                                    '{0}.log.fallback'
+                                    .format(_handler_context))
             fallback_handler = logging.FileHandler(log_path, delay=True)
             self._fallback_handler = fallback_handler
         else:
