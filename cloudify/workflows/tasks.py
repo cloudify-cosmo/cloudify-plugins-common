@@ -601,6 +601,24 @@ class NOPLocalWorkflowTask(LocalWorkflowTask):
         return True
 
 
+# Dry run tasks class
+class DryRunLocalWorkflowTask(LocalWorkflowTask):
+
+    def apply_async(self):
+        self.workflow_context.internal.send_task_event(TASK_SENDING, self)
+        self.workflow_context.internal.send_task_event(TASK_STARTED, self)
+        self.workflow_context.internal.send_task_event(
+            TASK_SUCCEEDED,
+            self,
+            event={'result': 'dry run'}
+        )
+        self.set_state(TASK_SUCCEEDED)
+        return LocalWorkflowTaskResult(self)
+
+    def is_nop(self):
+        return True
+
+
 class WorkflowTaskResult(object):
     """A base wrapper for workflow task results"""
 
