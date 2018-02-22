@@ -418,7 +418,6 @@ class BaseWorkflowTest(testtools.TestCase):
 
 @nose.tools.nottest
 class LocalWorkflowTest(BaseWorkflowTest):
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_workflow_and_operation_logging_and_events(self, _):
 
         def assert_task_events(indexes, events):
@@ -649,7 +648,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         self._execute_workflow(blueprint_model)
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_operation_capabilities(self, _):
         def the_workflow(ctx, **_):
             instance = _instance(ctx, 'node')
@@ -669,7 +667,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         self._execute_workflow(the_workflow, operation_methods=[op0, op1])
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_operation_runtime_properties(self, _):
         def runtime_properties(ctx, **_):
             instance = _instance(ctx, 'node')
@@ -685,7 +682,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
         self._execute_workflow(runtime_properties, operation_methods=[
             op0, op1])
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_operation_related_properties(self, _):
         def the_workflow(ctx, **_):
             instance = _instance(ctx, 'node')
@@ -704,7 +700,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
                 self.fail('unexpected: {0}'.format(ctx.target.instance.id))
         self._execute_workflow(the_workflow, operation_methods=[op])
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_operation_related_runtime_properties(self, _):
         def related_runtime_properties(ctx, **_):
             instance = _instance(ctx, 'node')
@@ -737,7 +732,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
         self._execute_workflow(related_runtime_properties, operation_methods=[
             op0, op1])
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_operation_ctx_properties_and_methods(self, _):
         def flow(ctx, **_):
             instance = _instance(ctx, 'node')
@@ -781,7 +775,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
                 self.assertEqual('content', f.read())
         self._execute_workflow(flow, operation_methods=[ctx_properties])
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_ctx_host_ip(self, _):
         def op0(ctx, **_):
             ctx.instance.runtime_properties['ip'] = '2.2.2.2'
@@ -814,7 +807,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
 
         self._execute_workflow(flow, operation_methods=[op0, op1])
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_operation_bootstrap_context(self, _):
         bootstrap_context = {'stub': 'prop'}
         provider_context = {
@@ -828,7 +820,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
         self._execute_workflow(operation_methods=[contexts],
                                provider_context=provider_context)
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_workflow_graph_mode(self, _):
         def flow(ctx, **_):
             instance = _instance(ctx, 'node')
@@ -941,7 +932,6 @@ class LocalWorkflowTest(BaseWorkflowTest):
                                                   ".*does not exist.*"):
             self._execute_workflow(flow)
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_operation_retry_configuration(self, _):
         self._test_retry_configuration_impl(
             global_retries=100,
@@ -983,7 +973,6 @@ class FileStorageTest(BaseWorkflowTest):
         self.assertTrue(os.path.isdir(
             os.path.join(self.storage_dir, self._testMethodName)))
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_persistency(self, _):
         bootstrap_context = {'stub': 'prop'}
         provider_context = {'cloudify': bootstrap_context}
@@ -1015,7 +1004,6 @@ class FileStorageTest(BaseWorkflowTest):
         self._execute_workflow(workflow_name='workflow1',
                                setup_env=False, load_env=True)
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_path_agnostic_persistency(self, _):
         # tests file storage isn't dependent on the blueprint directory
         # for resources (but stores its own copies instead)
@@ -1043,7 +1031,6 @@ class FileStorageTest(BaseWorkflowTest):
             pass
         self._setup_env(workflow_methods=[flow])
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_workdir(self, _):
         content = 'CONTENT'
 
@@ -1088,14 +1075,12 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         super(LocalWorkflowEnvironmentTest, self).setUp()
         self.storage_cls = local.InMemoryStorage
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_inputs(self, _):
         def op(ctx, **_):
             self.assertEqual('new_input', ctx.node.properties['from_input'])
         self._execute_workflow(operation_methods=[op],
                                inputs={'from_input': 'new_input'})
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_outputs(self, _):
         def op(ctx, **_):
             pass
@@ -1399,7 +1384,6 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
         else:
             self.fail()
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_global_retry_configuration(self, _):
         self._test_retry_configuration_impl(
             global_retries=1,
@@ -1433,7 +1417,6 @@ class LocalWorkflowEnvironmentTest(BaseWorkflowTest):
             is_missing_module=True,
             test_type='operation')
 
-    @patch('cloudify.workflows.workflow_context.get_rest_client')
     def test_no_operation_module_ignored(self, _):
         def op1(ctx, **_):
             pass

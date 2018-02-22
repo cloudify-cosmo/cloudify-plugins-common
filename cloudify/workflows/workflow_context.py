@@ -562,7 +562,7 @@ class _WorkflowContextBase(object):
         else:
             total_retries = operation_total_retries
 
-        if plugin and plugin['package_name']:
+        if plugin and plugin['package_name'] and not self.local:
             client = get_rest_client()
             filter_plugin = {'package_name': plugin.get('package_name'),
                              'package_version': plugin.get('package_version')}
