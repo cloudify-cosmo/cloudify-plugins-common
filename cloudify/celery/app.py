@@ -94,9 +94,27 @@ def _get_broker_url(tenant, target, broker_ssl_enabled):
     the default broker URL. Otherwise, create a tenant-specific one
     """
     if target == MGMTWORKER_QUEUE or not tenant:
-        return broker_config.BROKER_URL
+        return _get_mgmtworker_broker_url()
     else:
         return _get_tenant_broker_url(tenant, broker_ssl_enabled)
+
+
+def _get_mgmtworker_broker_url():
+    """Get the main broker url for the mgmtworker queue.
+
+    AMQP heartbeat is not supported for this use of celery, so it needs
+    to be stripped from the options declared in the broker url.
+    Additionally, we will sidestep the multiple-brokers feature that is
+    used in clustering, because it's not needed on the mgmtworker anyway
+    (multiple broker urls separated by semicolons).
+    """
+    return broker_config.URL_TEMPLATE.format(
+        username=broker_config.broker_username,
+        password=broker_config.broker_password,
+        hostname=broker_config.broker_hostname,
+        port=broker_config.broker_port,
+        vhost=broker_config.broker_vhost,
+        options='')
 
 
 def _get_tenant_broker_url(tenant, broker_ssl_enabled):
