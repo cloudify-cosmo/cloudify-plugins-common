@@ -37,6 +37,7 @@ from cloudify.workflows.tasks import (TASK_FAILED,
                                       RemoteWorkflowTask,
                                       LocalWorkflowTask,
                                       NOPLocalWorkflowTask,
+                                      DryRunLocalWorkflowTask,
                                       DEFAULT_TOTAL_RETRIES,
                                       DEFAULT_RETRY_INTERVAL,
                                       DEFAULT_SEND_TASK_EVENTS,
@@ -493,6 +494,10 @@ class _WorkflowContextBase(object):
         return self._context.get('local', False)
 
     @property
+    def dry_run(self):
+        return self._context.get('dry_run', False)
+
+    @property
     def logger(self):
         """A logger for this workflow"""
         if self._logger is None:
@@ -688,6 +693,14 @@ class _WorkflowContextBase(object):
             task_name,
             node_context)
         kwargs['__cloudify_context'] = cloudify_context
+
+        if self.dry_run:
+            return DryRunLocalWorkflowTask(
+                local_task=lambda: None,
+                workflow_context=self,
+                name=task_name,
+                kwargs=kwargs
+            )
 
         if local:
             # oh sweet circular dependency

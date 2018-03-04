@@ -178,7 +178,9 @@ class TestDispatchTaskHandler(testtools.TestCase):
             'logger': MagicMock(),
             'internal': MagicMock(),
             'execution_id': 'test_execution_id',
-            'workflow_id': 'test_workflow_id'})
+            'workflow_id': 'test_workflow_id',
+            'dry_run': False
+        })
         workflow_handler._ctx._context = {'tenant': {'name': 'yes'}}
         workflow_handler._ctx.tenant_name = 'yes'
 
@@ -215,7 +217,9 @@ class TestDispatchTaskHandler(testtools.TestCase):
             'logger': MagicMock(),
             'internal': MagicMock(),
             'execution_id': 'test_execution_id',
-            'workflow_id': 'test_workflow_id'})
+            'workflow_id': 'test_workflow_id',
+            'dry_run': False
+        })
         workflow_handler._ctx._context = {'tenant': {'name': 'yes'}}
         workflow_handler._ctx.tenant_name = 'yes'
 
@@ -249,7 +253,9 @@ class TestDispatchTaskHandler(testtools.TestCase):
             'logger': MagicMock(),
             'internal': MagicMock(),
             'execution_id': 'test_execution_id',
-            'workflow_id': 'test_workflow_id'})
+            'workflow_id': 'test_workflow_id',
+            'dry_run': False
+        })
         workflow_handler._ctx._context = {'tenant': {
             'name': 'yes',
             'original_name': 'masquerade',
@@ -284,7 +290,9 @@ class TestDispatchTaskHandler(testtools.TestCase):
             'logger': MagicMock(),
             'internal': MagicMock(),
             'execution_id': 'test_execution_id',
-            'workflow_id': 'test_workflow_id'})
+            'workflow_id': 'test_workflow_id',
+            'dry_run': False
+        })
 
         # this is for making the implementation go the "local" way despite
         # ctx.local == false as execution status is only updated in remote

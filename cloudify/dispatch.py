@@ -423,7 +423,7 @@ class WorkflowHandler(TaskHandler):
         self.kwargs['ctx'] = self.ctx
 
         with state.current_workflow_ctx.push(self.ctx, self.kwargs):
-            if self.ctx.local:
+            if self.ctx.local or self.ctx.dry_run:
                 return self._handle_local_workflow()
             return self._handle_remote_workflow()
 
@@ -558,17 +558,19 @@ class WorkflowHandler(TaskHandler):
 
     def _workflow_started(self):
         self._update_execution_status(Execution.STARTED)
+        dry_run = ' (dry run)' if self.ctx.dry_run else ''
         self.ctx.internal.send_workflow_event(
             event_type='workflow_started',
-            message="Starting '{0}' workflow execution".format(
-                self.ctx.workflow_id))
+            message="Starting '{0}' workflow execution{1}".format(
+                self.ctx.workflow_id, dry_run))
 
     def _workflow_succeeded(self):
         self._update_execution_status(Execution.TERMINATED)
+        dry_run = ' (dry run)' if self.ctx.dry_run else ''
         self.ctx.internal.send_workflow_event(
             event_type='workflow_succeeded',
-            message="'{0}' workflow execution succeeded".format(
-                self.ctx.workflow_id))
+            message="'{0}' workflow execution succeeded{1}".format(
+                self.ctx.workflow_id, dry_run))
 
     def _workflow_failed(self, exception, error_traceback):
         self._update_execution_status(Execution.FAILED, error_traceback)
