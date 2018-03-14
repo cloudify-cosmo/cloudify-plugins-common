@@ -155,6 +155,8 @@ class WorkflowTask(object):
                          TASK_RESCHEDULED, TASK_SUCCEEDED, TASK_FAILED]:
             raise RuntimeError('Illegal state set on task: {0} '
                                '[task={1}]'.format(state, str(self)))
+        if self._state in TERMINATED_STATES:
+            return
         self._state = state
         if state in TERMINATED_STATES:
             self.is_terminated = True
@@ -363,9 +365,9 @@ class RemoteWorkflowTask(WorkflowTask):
             task = self.workflow_context.internal.handler.get_task(
                 self, queue=self._task_queue, target=self._task_target)
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
-            self.set_state(TASK_SENT)
             async_result = self.workflow_context.internal.handler.send_task(
                 self, task)
+            self.set_state(TASK_SENT)
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except (exceptions.NonRecoverableError,
                 exceptions.RecoverableError) as e:
