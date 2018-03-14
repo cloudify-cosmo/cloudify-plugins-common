@@ -1202,7 +1202,7 @@ class _TaskDispatcher(object):
             'target': target,
             'queue': queue,
             'args': args,
-            '__cloudify_context': kwargs,
+            'cloudify_task': kwargs,
         }
 
     def _make_key(self, task):
