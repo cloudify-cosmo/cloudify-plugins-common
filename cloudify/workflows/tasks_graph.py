@@ -177,7 +177,7 @@ class TaskDependencyGraph(object):
         :return: An iterator for terminated tasks
         """
         all_tasks = self.tasks_iter()
-        states = [t.get_state() for t in tasks]
+        states = [t.get_state() for t in all_tasks]
         term_tasks = (task for task in all_tasks
                       if task.get_state() in tasks.TERMINATED_STATES)
         debuglog('tasks', all_tasks, states)
