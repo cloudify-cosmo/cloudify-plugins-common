@@ -1308,8 +1308,7 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
 
         # Remote task
         return self._dispatcher.make_subtask(
-            tenant, target, 'cloudify.dispatch.dispatch',
-            kwargs=workflow_task.kwargs, queue=queue, immutable=True)
+            tenant, target, kwargs=workflow_task.kwargs, queue=queue)
 
     def send_task(self, workflow_task, task):
         return self._dispatcher.send_task(workflow_task, task)
