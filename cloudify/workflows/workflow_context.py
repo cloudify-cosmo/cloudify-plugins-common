@@ -1214,14 +1214,25 @@ class _TaskDispatcher(object):
         if key not in self._clients:
             client = _AMQPClient(task, key)
             client.connect()
+            result_exchange = '{0}_result'.format(task['target'])
+            result_queue = '{0}_result'.format(task['queue'])
             client.channel.exchange_declare(
                 exchange=task['target'],
                 type='direct',
                 auto_delete=False,
                 durable=True)
+            client.channel.exchange_declare(
+                exchange=result_exchange,
+                type='direct',
+                auto_delete=False,
+                durable=True)
+            client.channel.queue_bind(
+                exchange=result_exchange,
+                queue=result_queue,
+                routing_key='')
             client.channel.basic_consume(
                 functools.partial(self._received, client),
-                queue=task['queue'])
+                queue=result_queue)
             self._clients[key] = client
         return self._clients[key]
 
