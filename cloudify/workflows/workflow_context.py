@@ -1231,6 +1231,10 @@ class _TaskDispatcher(object):
                 type='direct',
                 auto_delete=False,
                 durable=True)
+            client.channel.queue_declare(
+                queue=result_queue,
+                durable=True,
+                auto_delete=False)
             client.channel.queue_bind(
                 exchange=result_exchange,
                 queue=result_queue,
