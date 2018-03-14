@@ -1226,19 +1226,10 @@ class _TaskDispatcher(object):
                 type='direct',
                 auto_delete=False,
                 durable=True)
-            client.channel.exchange_declare(
-                exchange=result_exchange,
-                type='direct',
-                auto_delete=False,
-                durable=True)
             client.channel.queue_declare(
                 queue=result_queue,
                 durable=True,
                 auto_delete=False)
-            client.channel.queue_bind(
-                exchange=result_exchange,
-                queue=result_queue,
-                routing_key='')
             client.channel.basic_consume(
                 functools.partial(self._received, client),
                 queue=result_queue)
