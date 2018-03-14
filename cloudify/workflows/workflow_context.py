@@ -1215,10 +1215,6 @@ class _TaskDispatcher(object):
                 type='direct',
                 auto_delete=False,
                 durable=True)
-            client.channel.queue_bind(
-                exchange=task['target'],
-                queue=task['queue'],
-                routing_key='')
             client.channel.basic_consume(
                 functools.partial(self._received, client),
                 queue=task['queue'])
