@@ -68,6 +68,11 @@ except ImportError:
 DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
 
 
+def debuglog(*args):
+    with open('/tmp/foo.log', 'a') as f:
+        f.write('{0!r}\n'.format(args))
+
+
 class CloudifyWorkflowRelationshipInstance(object):
     """
     A node instance relationship instance
@@ -1233,6 +1238,7 @@ class _TaskDispatcher(object):
             client.channel.basic_consume(
                 functools.partial(self._received, client),
                 queue=result_queue)
+            debuglog('result queue', result_exchange, result_queue)
             self._clients[key] = client
         return self._clients[key]
 
@@ -1259,11 +1265,15 @@ class _TaskDispatcher(object):
             (workflow_task, task, result)
         self._threads[client] = threading.Thread(
             target=self._consume, args=(client, ))
+        debuglog('start thread')
         self._threads[client].daemon = True
         self._threads[client].start()
+        debuglog('started thread')
 
     def _consume(self, client):
+        debuglog('start consume')
         client.start_consuming()
+        debuglog('done consume')
 
     def _received(self, client, channel, method, properties, body):
         response = json.loads(body)
