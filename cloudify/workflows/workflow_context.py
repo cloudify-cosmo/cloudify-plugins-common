@@ -16,15 +16,15 @@ from __future__ import absolute_import
 
 import functools
 import copy
+import json
 import uuid
 import threading
 import Queue
-import time
+import pika
 
 from proxy_tools import proxy
 
 from cloudify import context
-from cloudify.exceptions import OperationRetry
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
                               update_execution_status,
@@ -32,6 +32,7 @@ from cloudify.manager import (get_node_instance,
                               get_rest_client,
                               download_resource)
 from cloudify.workflows.tasks import (TASK_FAILED,
+                                      TASK_STARTED,
                                       TASK_SUCCEEDED,
                                       TASK_RESCHEDULED,
                                       RemoteWorkflowTask,
@@ -42,13 +43,13 @@ from cloudify.workflows.tasks import (TASK_FAILED,
                                       DEFAULT_RETRY_INTERVAL,
                                       DEFAULT_SEND_TASK_EVENTS,
                                       DEFAULT_SUBGRAPH_TOTAL_RETRIES)
-from cloudify import utils
+from cloudify.constants import BROKER_PORT_SSL
+from cloudify import utils, broker_config
 from cloudify.state import current_workflow_ctx
 from cloudify.workflows import events
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.amqp_client_utils import AMQPWrappedThread
 from cloudify import logs
-from cloudify.celery.app import get_celery_app
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            SystemWideWorkflowLoggingHandler,
@@ -922,11 +923,9 @@ class CloudifySystemWideWorkflowContext(_WorkflowContextBase):
     class _ManagedCloudifyWorkflowContext(CloudifyWorkflowContext):
         def __enter__(self):
             self.internal.start_local_tasks_processing()
-            self.internal.start_event_monitors()
 
         def __exit__(self, *args, **kwargs):
             self.internal.stop_local_tasks_processing()
-            self.internal.stop_event_monitors()
 
     @property
     def deployments_contexts(self):
@@ -973,9 +972,6 @@ class CloudifyWorkflowContextInternal(object):
             workflow_context=workflow_context,
             default_subgraph_task_config=subgraph_task_config)
 
-        # events related
-        self._event_monitors = []
-
         # local task processing
         thread_pool_size = self.workflow_context._local_task_thread_pool_size
         self.local_tasks_processor = LocalTasksProcessing(
@@ -1019,31 +1015,6 @@ class CloudifyWorkflowContextInternal(object):
     @graph_mode.setter
     def graph_mode(self, graph_mode):
         self._graph_mode = graph_mode
-
-    def start_event_monitors(self):
-        """
-        Start an event monitor in its own thread for handling task events
-        defined in the task dependency graph.
-
-        We start two event monitors - one for the mgmtworker queue, and one
-        for the agent queue. Each one will be started in its own thread
-
-        """
-        self._start_event_monitor()
-        self._start_event_monitor(self.task_graph.ctx.tenant)
-
-    def _start_event_monitor(self, tenant=None):
-        monitor = events.Monitor(self.task_graph)
-        thread = threading.Thread(target=monitor.capture,
-                                  args=(tenant, ),
-                                  name='Event-Monitor')
-        thread.daemon = True
-        thread.start()
-        self._event_monitors.append(monitor)
-
-    def stop_event_monitors(self):
-        for monitor in self._event_monitors:
-            monitor.stop()
 
     def send_task_event(self, state, task, event=None):
         send_task_event_func = self.handler.get_send_task_event_func(task)
@@ -1177,123 +1148,137 @@ class CloudifyWorkflowContextHandler(object):
         raise NotImplementedError('Implemented by subclasses')
 
 
-class _CeleryAppController(object):
-    """Create celery apps, and poll results of their tasks.
+class _AMQPClient(object):
+    def __init__(self, task, key):
+        self.key = key
+        tenant = task['tenant']
+        self.credentials = pika.credentials.PlainCredentials(
+            username=tenant['rabbitmq_username'],
+            password=tenant['rabbitmq_password'])
+        self.ssl_options = utils.internal.get_broker_ssl_options(
+            True, broker_config.broker_cert_path)
+        self.connection_parameters = pika.ConnectionParameters(
+            host=broker_config.broker_hostname,
+            port=BROKER_PORT_SSL,
+            virtual_host=tenant['rabbitmq_vhost'],
+            credentials=self.credentials,
+            ssl=True,
+            ssl_options=self.ssl_options)
+        self.connection = None
+        self.channel = None
 
-    Tasks that are sent using the `send_task` method will be polled
-    for completion, and when they are done, their status will be set
-    to either TASK_SUCCEEDED or TASK_FAILED.
+    def connect(self):
+        self.connection = pika.BlockingConnection(self.connection_parameters)
+        self.channel = self.connection.channel()
+        self.channel.confirm_delivery()
 
-    Note: public methods are thread-safe
-    """
+    def disconnect(self):
+        self.connection.close()
 
-    POLL_INTERVAL = 0.5
 
+class _TaskDispatcher(object):
     def __init__(self):
-        self._started = False
-        self._poller = None
         self._lock = threading.Lock()
         self._polling = {}
-        self._apps = {}
+        self._clients = {}
+        self._tasks = {}
 
-    def make_subtask(self, tenant, target, *args, **kwargs):
-        # Import here because this only applies to remote tasks execution
-        # environment
-        import celery
+    def make_subtask(self, tenant, target, queue, *args, **kwargs):
+        return {
+            'id': uuid.uuid4().hex,
+            'tenant': tenant,
+            'target': target,
+            'queue': queue,
+            'args': args,
+            'kwargs': kwargs,
+        }
 
-        if 'app' in kwargs:
-            raise RuntimeError('`app` must not be already provided: {0}'
-                               .format(kwargs))
-        kwargs['app'] = self.celery_app(tenant, target)
-        return celery.subtask(*args, **kwargs)
+    def _make_key(self, task):
+        tenant = task['tenant']
+        return (tenant['name'], task['queue'], task['target'])
 
-    def celery_app(self, tenant, target):
-        key = (tenant['name'], target)
-        with self._lock:
-            if key not in self._apps:
-                self._apps[key] = get_celery_app(tenant=tenant, target=target)
-        return self._apps[key]
+    def _get_client(self, task):
+        key = self._make_key(task)
+        if key not in self._clients:
+            client = _AMQPClient(task, key)
+            client.channel.exchange_declare(
+                exchange=task['target'],
+                type='direct',
+                auto_delete=False,
+                durable=True)
+            client.channel.queue_bind(
+                exchange=task['target'],
+                queue=task['queue'],
+                routing_key='')
+            client.channel.basic_consume(
+                self._received,
+                queue=task['queue'],
+                arguments={'client': client})
+            self._clients[key] = client
+        return self._clients[key]
 
     def send_task(self, workflow_task, task):
         with self._lock:
+            client = self._get_client(task['tenant'])
+            client.channel.basic_publish(
+                exchange=task['target'],
+                routing_key='',
+                body=json.dumps(task))
+            self._start_polling(client, workflow_task, task)
             async_result = task.apply_async(task_id=workflow_task.id)
-        self._add_polling(task._app, workflow_task, async_result)
+            self._set_task_state(workflow_task, TASK_STARTED)
         return async_result
 
-    def _add_polling(self, app, workflow_task, result):
-        self._polling.setdefault(app, set()).add((workflow_task, result))
-        if not self._started:
-            self._poller = threading.Thread(target=self._poll)
-            self._poller.daemon = True
-            self._poller.start()
+    def _set_task_state(self, workflow_task, state):
+        workflow_task.set_state(state)
+        event = {}
+        events.send_task_event(
+            state, workflow_task, events.send_task_event_func_remote, event)
 
-    def _poll(self):
-        self._started = True
-        while self._polling:
-            # apps that have no tasks left will be stored here, and if
-            # after the delay they still have no tasks, they will be closed
-            empty_apps = set()
+    def _start_polling(self, client, workflow_task, task):
+        self._tasks.setdefault(client, {})[task['id']] = (workflow_task, task)
+        self._threads[client] = threading.Thread(
+            target=self._consume, args=(client, ))
+        self._threads[client].daemon = True
+        self._threads[client].start()
 
-            with self._lock:
-                for app, results in self._polling.items():
-                    self._remove_finished_tasks(results)
-                    if not results:
-                        empty_apps.add(app)
+    def _consume(self, client):
+        client.start_consuming()
 
-            time.sleep(self.POLL_INTERVAL)
-
-            with self._lock:
-                for app in empty_apps:
-                    if not self._polling[app]:
-                        self._stop_idle_app(app)
-
-        self._started = False
-
-    def _remove_finished_tasks(self, results):
-        """Remove tasks that are finished from `results`"""
-        for item in list(results):
-            workflow_task, async_result = item
-            if async_result.ready():
-                results.remove(item)
-                self._update_task_state(async_result, workflow_task)
-
-    def _update_task_state(self, async_result, workflow_task):
+    def _received(self, channel, method, properties, body, client):
+        response = json.loads(body)
+        try:
+            workflow_task, task = self._tasks[client].pop(response['id'])
+        except KeyError:
+            return
         if workflow_task.is_terminated:
             return
-        if async_result.successful():
-            state = TASK_SUCCEEDED
-        elif async_result.failed():
-            if isinstance(async_result.result, OperationRetry):
-                state = TASK_RESCHEDULED
-            else:
-                state = TASK_FAILED
+        error = response.get('error')
+        retry = response.get('retry')
+        if error:
+            state = TASK_FAILED
+        elif retry:
+            state = TASK_RESCHEDULED
         else:
-            raise ValueError(
-                'Unknown result {0} state: {1} (for task {2})'
-                .format(async_result, async_result.state,
-                        workflow_task))
-        try:
-            workflow_task.set_state(state)
-        except Queue.Full:
-            # the task must have already concurrently been updated by
-            # the events monitor
-            pass
+            state = TASK_SUCCEEDED
+        with self._lock:
+            self._set_task_state(workflow_task, state)
+            self._maybe_stop_client(client)
 
-    def _stop_idle_app(self, app):
-        """Close the app, and remove it from local cache"""
-        app.close()
-        self._polling.pop(app)
-        # remove from self._apps - the app is a value in that dict
-        for key in self._apps:
-            if app is self._apps[key]:
-                self._apps.pop(key)
-                break
+    def _maybe_stop_client(self, client):
+        if self._tasks[client]:
+            return
+        client.channel.stop_consuming()
+        self._tasks.pop(client)
+        self._threads.pop(client)
+        self._clients.pop(client.key)
+        client.disconnect()
 
 
 class RemoteContextHandler(CloudifyWorkflowContextHandler):
     def __init__(self, *args, **kwargs):
         super(RemoteContextHandler, self).__init__(*args, **kwargs)
-        self._celery_apps = _CeleryAppController()
+        self._dispatcher = _TaskDispatcher()
 
     @property
     def bootstrap_context(self):
@@ -1322,12 +1307,12 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
         tenant = workflow_task.cloudify_context.get('tenant')
 
         # Remote task
-        return self._celery_apps.make_subtask(
+        return self._dispatcher.make_subtask(
             tenant, target, 'cloudify.dispatch.dispatch',
             kwargs=workflow_task.kwargs, queue=queue, immutable=True)
 
     def send_task(self, workflow_task, task):
-        return self._celery_apps.send_task(workflow_task, task)
+        return self._dispatcher.send_task(workflow_task, task)
 
     @property
     def operation_cloudify_context(self):

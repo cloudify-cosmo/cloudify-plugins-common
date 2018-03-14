@@ -13,85 +13,8 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-import Queue
-
 from cloudify import logs, utils
-from cloudify.exceptions import OperationRetry
-from cloudify.celery.app import get_celery_app
 from cloudify.workflows import tasks as tasks_api
-
-
-class Monitor(object):
-    """Monitor with handlers for different celery events"""
-
-    def __init__(self, tasks_graph):
-        """
-        :param tasks_graph: The task graph. Used to extract tasks based on the
-                            events task id.
-        """
-        self.tasks_graph = tasks_graph
-        self._receiver = None
-        self._should_stop = False
-
-    def task_sent(self, event):
-        pass
-
-    def task_received(self, event):
-        pass
-
-    def task_started(self, event):
-        self._handle(tasks_api.TASK_STARTED, event, send_event=True)
-
-    def task_succeeded(self, event):
-        self._handle(tasks_api.TASK_SUCCEEDED, event, send_event=True)
-
-    def task_failed(self, event):
-        if event.get('exception', '').startswith(OperationRetry.__name__):
-            state = tasks_api.TASK_RESCHEDULED
-        else:
-            state = tasks_api.TASK_FAILED
-        self._handle(state, event, send_event=False)
-
-    def task_revoked(self, event):
-        pass
-
-    def task_retried(self, event):
-        pass
-
-    def _handle(self, state, event, send_event):
-        task_id = event['uuid']
-        task = self.tasks_graph.get_task(task_id)
-        if task is not None:
-            if send_event:
-                send_task_event(state, task, send_task_event_func_remote,
-                                event)
-            if not task.is_terminated:
-                try:
-                    task.set_state(state)
-                except Queue.Full:
-                    pass
-
-    def capture(self, tenant=None):
-        with get_celery_app(tenant=tenant) as app:
-            with app.connection() as connection:
-                if self._should_stop:
-                    return
-                connection.clone = lambda: connection
-                self._receiver = app.events.Receiver(connection, handlers={
-                    'task-sent': self.task_sent,
-                    'task-received': self.task_received,
-                    'task-started': self.task_started,
-                    'task-succeeded': self.task_succeeded,
-                    'task-failed': self.task_failed,
-                    'task-revoked': self.task_revoked,
-                    'task-retried': self.task_retried
-                })
-                self._receiver.capture(limit=None, timeout=None, wakeup=True)
-
-    def stop(self):
-        self._should_stop = True
-        if self._receiver is not None:
-            self._receiver.should_stop = True
 
 
 def send_task_event_func_remote(task, event_type, message,

@@ -515,7 +515,6 @@ class WorkflowHandler(TaskHandler):
         # forwarding the result or error back to the parent thread
         with state.current_workflow_ctx.push(self.ctx, self.kwargs):
             try:
-                self.ctx.internal.start_event_monitors()
                 workflow_result = self._execute_workflow_function()
                 queue.put({'result': workflow_result})
             except api.ExecutionCancelled:
@@ -529,8 +528,6 @@ class WorkflowHandler(TaskHandler):
                     'traceback': tb.getvalue()
                 }
                 queue.put({'error': err})
-            finally:
-                self.ctx.internal.stop_event_monitors()
 
     def _handle_local_workflow(self):
         try:

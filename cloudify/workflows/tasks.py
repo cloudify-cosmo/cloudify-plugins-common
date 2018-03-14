@@ -21,7 +21,6 @@ import Queue
 from cloudify import utils
 from cloudify import exceptions
 from cloudify.workflows import api
-from cloudify.celery.app import get_celery_app
 from cloudify.manager import get_node_instance
 from cloudify.constants import MGMTWORKER_QUEUE
 
@@ -417,23 +416,6 @@ class RemoteWorkflowTask(WorkflowTask):
     def kwargs(self):
         """kwargs to pass when invoking the task"""
         return self._kwargs
-
-    def _verify_worker_alive(self):
-        verify_worker_alive(self.name,
-                            self.target,
-                            self._get_registered)
-
-    def _get_registered(self):
-        tenant = self.workflow_context.tenant
-        with get_celery_app(tenant=tenant, target=self.target) as app:
-
-            worker_name = 'celery@{0}'.format(self.target)
-            inspect = app.control.inspect(destination=[worker_name],
-                                          timeout=INSPECT_TIMEOUT)
-            registered = inspect.registered()
-        if registered is None or worker_name not in registered:
-            return None
-        return set(registered[worker_name])
 
     def _set_queue_kwargs(self):
         if self._task_queue is None:
