@@ -1256,7 +1256,7 @@ class _TaskDispatcher(object):
         self._threads[client].start()
 
     def _consume(self, client):
-        client.start_consuming()
+        client.channel.start_consuming()
 
     def _received(self, client, channel, method, properties, body):
         response = json.loads(body)
