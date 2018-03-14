@@ -1282,6 +1282,7 @@ class _TaskDispatcher(object):
     def _received(self, client, channel, method, properties, body):
         response = json.loads(body)
         debuglog('received', response)
+        client.channel.basic_ack(method.delivery_tag)
         try:
             workflow_task, task, result = \
                 self._tasks[client].pop(response['id'])
