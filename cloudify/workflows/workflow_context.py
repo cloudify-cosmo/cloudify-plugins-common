@@ -1212,9 +1212,8 @@ class _TaskDispatcher(object):
                 queue=task['queue'],
                 routing_key='')
             client.channel.basic_consume(
-                self._received,
-                queue=task['queue'],
-                arguments={'client': client})
+                functools.partial(self._received, client),
+                queue=task['queue'])
             self._clients[key] = client
         return self._clients[key]
 
@@ -1246,7 +1245,7 @@ class _TaskDispatcher(object):
     def _consume(self, client):
         client.start_consuming()
 
-    def _received(self, channel, method, properties, body, client):
+    def _received(self, client, channel, method, properties, body):
         response = json.loads(body)
         try:
             workflow_task, task = self._tasks[client].pop(response['id'])
