@@ -1280,32 +1280,36 @@ class _TaskDispatcher(object):
         debuglog('done consume')
 
     def _received(self, client, channel, method, properties, body):
-        response = json.loads(body)
-        debuglog('received', response)
-        client.channel.basic_ack(method.delivery_tag)
         try:
-            workflow_task, task, result = \
-                self._tasks[client].pop(response['id'])
-        except KeyError as e:
-            debuglog('keyerror', e)
-            return
-        if workflow_task.is_terminated:
-            return
-        result.result = response
-        debuglog('set result')
-        error = response.get('error')
-        retry = response.get('retry')
-        if error:
-            state = TASK_FAILED
-        elif retry:
-            state = TASK_RESCHEDULED
-        else:
-            state = TASK_SUCCEEDED
-        with self._lock:
-            debuglog('setting state')
-            self._set_task_state(workflow_task, state)
-            self._maybe_stop_client(client)
-            debuglog('set state')
+            response = json.loads(body)
+            debuglog('received', response)
+            client.channel.basic_ack(method.delivery_tag)
+            try:
+                workflow_task, task, result = \
+                    self._tasks[client].pop(response['id'])
+            except KeyError as e:
+                debuglog('keyerror', e)
+                return
+            if workflow_task.is_terminated:
+                return
+            result.result = response
+            debuglog('set result')
+            error = response.get('error')
+            retry = response.get('retry')
+            if error:
+                state = TASK_FAILED
+            elif retry:
+                state = TASK_RESCHEDULED
+            else:
+                state = TASK_SUCCEEDED
+            with self._lock:
+                debuglog('setting state')
+                self._set_task_state(workflow_task, state)
+                self._maybe_stop_client(client)
+                debuglog('set state')
+        except Exception as e:
+            debuglog('err', e)
+            raise
 
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
