@@ -1251,7 +1251,9 @@ class _TaskDispatcher(object):
                 exchange=task['target'],
                 routing_key='',
                 body=json.dumps(task))
+            debuglog('published')
             self._set_task_state(workflow_task, TASK_STARTED)
+            debuglog('set state started')
         return result
 
     def _set_task_state(self, workflow_task, state):
@@ -1289,7 +1291,7 @@ class _TaskDispatcher(object):
             if workflow_task.is_terminated:
                 return
             result.result = response
-            debuglog('set result')
+            debuglog('set result', response)
             error = response.get('error')
             retry = response.get('retry')
             if error:
@@ -1298,6 +1300,7 @@ class _TaskDispatcher(object):
                 state = TASK_RESCHEDULED
             else:
                 state = TASK_SUCCEEDED
+            debuglog('state', state)
             with self._lock:
                 debuglog('setting state')
                 self._set_task_state(workflow_task, state)
