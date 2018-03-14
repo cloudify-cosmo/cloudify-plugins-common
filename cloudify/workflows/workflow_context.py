@@ -1175,7 +1175,7 @@ class _AMQPClient(object):
 class _TaskDispatcher(object):
     def __init__(self):
         self._lock = threading.Lock()
-        self._polling = {}
+        self._threads = {}
         self._clients = {}
         self._tasks = {}
 
