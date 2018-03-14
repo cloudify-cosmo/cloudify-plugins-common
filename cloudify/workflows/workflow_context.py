@@ -21,6 +21,7 @@ import uuid
 import threading
 import Queue
 import pika
+import time
 
 from proxy_tools import proxy
 
@@ -1148,6 +1149,17 @@ class CloudifyWorkflowContextHandler(object):
         raise NotImplementedError('Implemented by subclasses')
 
 
+class _AsyncResult(object):
+    def __init__(self, task):
+        self._task = task
+        self.result = None
+
+    def get(self):
+        while self.result is None:
+            time.sleep(0.5)
+        return self.result
+
+
 class _AMQPClient(object):
     def __init__(self, task, key):
         self.key = key
@@ -1220,14 +1232,14 @@ class _TaskDispatcher(object):
     def send_task(self, workflow_task, task):
         with self._lock:
             client = self._get_client(task)
+            result = _AsyncResult(task)
             client.channel.basic_publish(
                 exchange=task['target'],
                 routing_key='',
                 body=json.dumps(task))
-            self._start_polling(client, workflow_task, task)
-            async_result = task.apply_async(task_id=workflow_task.id)
+            self._start_polling(client, workflow_task, task, result)
             self._set_task_state(workflow_task, TASK_STARTED)
-        return async_result
+        return result
 
     def _set_task_state(self, workflow_task, state):
         workflow_task.set_state(state)
@@ -1235,8 +1247,9 @@ class _TaskDispatcher(object):
         events.send_task_event(
             state, workflow_task, events.send_task_event_func_remote, event)
 
-    def _start_polling(self, client, workflow_task, task):
-        self._tasks.setdefault(client, {})[task['id']] = (workflow_task, task)
+    def _start_polling(self, client, workflow_task, task, result):
+        self._tasks.setdefault(client, {})[task['id']] = \
+            (workflow_task, task, result)
         self._threads[client] = threading.Thread(
             target=self._consume, args=(client, ))
         self._threads[client].daemon = True
@@ -1248,11 +1261,13 @@ class _TaskDispatcher(object):
     def _received(self, client, channel, method, properties, body):
         response = json.loads(body)
         try:
-            workflow_task, task = self._tasks[client].pop(response['id'])
+            workflow_task, task, result = \
+                self._tasks[client].pop(response['id'])
         except KeyError:
             return
         if workflow_task.is_terminated:
             return
+        result.result = response
         error = response.get('error')
         retry = response.get('retry')
         if error:
