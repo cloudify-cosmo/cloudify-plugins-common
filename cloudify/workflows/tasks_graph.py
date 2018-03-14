@@ -24,6 +24,11 @@ from cloudify.workflows import api
 from cloudify.workflows import tasks
 
 
+def debuglog(*args):
+    with open('/tmp/foo.log', 'a') as f:
+        f.write('{0!r}\n'.format(args))
+
+
 class TaskDependencyGraph(object):
     """
     A task graph builder
@@ -171,8 +176,12 @@ class TaskDependencyGraph(object):
 
         :return: An iterator for terminated tasks
         """
-        return (task for task in self.tasks_iter()
-                if task.get_state() in tasks.TERMINATED_STATES)
+        all_tasks = self.tasks_iter()
+        states = [t.get_state() for t in tasks]
+        term_tasks = (task for task in all_tasks
+                      if task.get_state() in tasks.TERMINATED_STATES)
+        debuglog('tasks', all_tasks, states)
+        return term_tasks
 
     def _task_has_dependencies(self, task):
         """
