@@ -1242,9 +1242,8 @@ class _TaskDispatcher(object):
             body=json.dumps(task))
         return result
 
-    def _set_task_state(self, workflow_task, state):
+    def _set_task_state(self, workflow_task, state, event):
         workflow_task.set_state(state)
-        event = {}
         events.send_task_event(
             state, workflow_task, events.send_task_event_func_remote, event)
 
@@ -1267,8 +1266,8 @@ class _TaskDispatcher(object):
 
     def _received(self, client, channel, method, properties, body):
         debuglog('received', body)
-        response = json.loads(body)
         client.channel.basic_ack(method.delivery_tag)
+        response = json.loads(body)
         try:
             workflow_task, task, result = \
                 self._tasks[client].pop(response['id'])
@@ -1281,11 +1280,14 @@ class _TaskDispatcher(object):
         retry = response.get('retry')
         if error:
             state = TASK_FAILED
+            event = {'exception': error, 'causes': None}
         elif retry:
             state = TASK_RESCHEDULED
+            event = {}
         else:
             state = TASK_SUCCEEDED
-        self._set_task_state(workflow_task, state)
+            event = {'result': response.get('result')}
+        self._set_task_state(workflow_task, state, event)
         self._maybe_stop_client(client)
 
     def _maybe_stop_client(self, client):
