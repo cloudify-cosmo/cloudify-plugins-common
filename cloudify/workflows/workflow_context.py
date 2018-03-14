@@ -1219,7 +1219,7 @@ class _TaskDispatcher(object):
 
     def send_task(self, workflow_task, task):
         with self._lock:
-            client = self._get_client(task['tenant'])
+            client = self._get_client(task)
             client.channel.basic_publish(
                 exchange=task['target'],
                 routing_key='',
