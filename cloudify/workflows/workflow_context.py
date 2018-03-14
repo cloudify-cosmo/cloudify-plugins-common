@@ -1187,7 +1187,6 @@ class _AMQPClient(object):
     def connect(self):
         self.connection = pika.BlockingConnection(self.connection_parameters)
         self.channel = self.connection.channel()
-        self.channel.confirm_delivery()
 
     def disconnect(self):
         self.connection.close()
