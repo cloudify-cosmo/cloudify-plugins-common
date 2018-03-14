@@ -1201,6 +1201,7 @@ class _TaskDispatcher(object):
         key = self._make_key(task)
         if key not in self._clients:
             client = _AMQPClient(task, key)
+            client.connect()
             client.channel.exchange_declare(
                 exchange=task['target'],
                 type='direct',
