@@ -68,11 +68,6 @@ except ImportError:
 DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
 
 
-def debuglog(*args):
-    with open('/tmp/foo.log', 'a') as f:
-        f.write('{0!r}\n'.format(args))
-
-
 class CloudifyWorkflowRelationshipInstance(object):
     """
     A node instance relationship instance
@@ -1219,7 +1214,6 @@ class _TaskDispatcher(object):
         if key not in self._clients:
             client = _AMQPClient(task, key)
             client.connect()
-            result_exchange = '{0}_result'.format(task['target'])
             result_queue = '{0}_result'.format(task['queue'])
             client.channel.exchange_declare(
                 exchange=task['target'],
@@ -1233,7 +1227,6 @@ class _TaskDispatcher(object):
             client.channel.basic_consume(
                 functools.partial(self._received, client),
                 queue=result_queue)
-            debuglog('result queue', result_exchange, result_queue)
             self._clients[key] = client
         return self._clients[key]
 
@@ -1242,12 +1235,10 @@ class _TaskDispatcher(object):
         result = _AsyncResult(task)
         self._start_polling(client, workflow_task, task, result)
         self._set_task_state(workflow_task, TASK_STARTED)
-        debuglog('set state started')
         client.channel.basic_publish(
             exchange=task['target'],
             routing_key='',
             body=json.dumps(task))
-        debuglog('published')
         return result
 
     def _set_task_state(self, workflow_task, state):
@@ -1261,46 +1252,33 @@ class _TaskDispatcher(object):
             (workflow_task, task, result)
         self._threads[client] = threading.Thread(
             target=self._consume, args=(client, ))
-        debuglog('start thread')
         self._threads[client].daemon = True
         self._threads[client].start()
-        debuglog('started thread')
 
     def _consume(self, client):
-        debuglog('start consume')
         client.start_consuming()
-        debuglog('done consume')
 
     def _received(self, client, channel, method, properties, body):
+        response = json.loads(body)
+        client.channel.basic_ack(method.delivery_tag)
         try:
-            debuglog('received', body)
-            response = json.loads(body)
-            client.channel.basic_ack(method.delivery_tag)
-            try:
-                workflow_task, task, result = \
-                    self._tasks[client].pop(response['id'])
-            except KeyError as e:
-                debuglog('keyerror', e)
-                return
-            if workflow_task.is_terminated:
-                return
-            result.result = response
-            debuglog('set result', response)
-            error = response.get('error')
-            retry = response.get('retry')
-            if error:
-                state = TASK_FAILED
-            elif retry:
-                state = TASK_RESCHEDULED
-            else:
-                state = TASK_SUCCEEDED
-            debuglog('state', state)
-            self._set_task_state(workflow_task, state)
-            self._maybe_stop_client(client)
-            debuglog('set state')
-        except Exception as e:
-            debuglog('err', e)
-            raise
+            workflow_task, task, result = \
+                self._tasks[client].pop(response['id'])
+        except KeyError:
+            return
+        if workflow_task.is_terminated:
+            return
+        result.result = response
+        error = response.get('error')
+        retry = response.get('retry')
+        if error:
+            state = TASK_FAILED
+        elif retry:
+            state = TASK_RESCHEDULED
+        else:
+            state = TASK_SUCCEEDED
+        self._set_task_state(workflow_task, state)
+        self._maybe_stop_client(client)
 
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
