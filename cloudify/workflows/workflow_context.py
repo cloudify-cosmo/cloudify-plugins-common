@@ -1250,13 +1250,13 @@ class _TaskDispatcher(object):
             client = self._get_client(task)
             result = _AsyncResult(task)
             self._start_polling(client, workflow_task, task, result)
+            self._set_task_state(workflow_task, TASK_STARTED)
+            debuglog('set state started')
             client.channel.basic_publish(
                 exchange=task['target'],
                 routing_key='',
                 body=json.dumps(task))
             debuglog('published')
-            self._set_task_state(workflow_task, TASK_STARTED)
-            debuglog('set state started')
         return result
 
     def _set_task_state(self, workflow_task, state):
@@ -1282,8 +1282,8 @@ class _TaskDispatcher(object):
 
     def _received(self, client, channel, method, properties, body):
         try:
+            debuglog('received', body)
             response = json.loads(body)
-            debuglog('received', response)
             client.channel.basic_ack(method.delivery_tag)
             try:
                 workflow_task, task, result = \
