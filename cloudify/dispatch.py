@@ -124,7 +124,8 @@ class TaskHandler(object):
                     'kwargs': self.kwargs
                 }, f)
             env = self._build_subprocess_env()
-            command_args = [sys.executable, __file__, dispatch_dir]
+            command_args = [sys.executable, '-m', 'cloudify.dispatch',
+                            dispatch_dir]
             try:
                 subprocess.check_call(command_args,
                                       env=env,
