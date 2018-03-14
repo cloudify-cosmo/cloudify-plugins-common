@@ -360,7 +360,6 @@ class RemoteWorkflowTask(WorkflowTask):
         """
         try:
             self._set_queue_kwargs()
-            self._verify_worker_alive()
             task = self.workflow_context.internal.handler.get_task(
                 self, queue=self._task_queue, target=self._task_target)
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
