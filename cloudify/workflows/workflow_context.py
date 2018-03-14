@@ -1284,10 +1284,10 @@ class _TaskDispatcher(object):
         retry = response.get('retry')
         if error:
             state = TASK_FAILED
-            event = {'exception': error, 'causes': None}
+            event = {'exception': error, 'causes': ['0']}
         elif retry:
             state = TASK_RESCHEDULED
-            event = {}
+            event = {'exception': retry, 'causes': ['0']}
         else:
             state = TASK_SUCCEEDED
             event = {'result': response.get('result')}
