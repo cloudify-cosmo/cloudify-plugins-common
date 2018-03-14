@@ -65,6 +65,11 @@ except ImportError:
     from ordereddict import OrderedDict
 
 
+def debuglog(*a):
+    with open('/tmp/foo.log', 'a') as f:
+        f.write('{0!r}\n'.format(a))
+
+
 DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
 
 
@@ -1259,6 +1264,7 @@ class _TaskDispatcher(object):
         client.channel.start_consuming()
 
     def _received(self, client, channel, method, properties, body):
+        debuglog('received', body)
         response = json.loads(body)
         client.channel.basic_ack(method.delivery_tag)
         try:
