@@ -1286,11 +1286,13 @@ class _TaskDispatcher(object):
         try:
             workflow_task, task, result = \
                 self._tasks[client].pop(response['id'])
-        except KeyError:
+        except KeyError as e:
+            debuglog('keyerror', e)
             return
         if workflow_task.is_terminated:
             return
         result.result = response
+        debuglog('set result')
         error = response.get('error')
         retry = response.get('retry')
         if error:
@@ -1300,8 +1302,10 @@ class _TaskDispatcher(object):
         else:
             state = TASK_SUCCEEDED
         with self._lock:
+            debuglog('setting state')
             self._set_task_state(workflow_task, state)
             self._maybe_stop_client(client)
+            debuglog('set state')
 
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
