@@ -146,7 +146,7 @@ class TaskDependencyGraph(object):
                 return
             # sleep some and do it all over again
             else:
-                time.sleep(0.1)
+                time.sleep(5)
 
     @staticmethod
     def _is_execution_cancelled():
@@ -176,11 +176,11 @@ class TaskDependencyGraph(object):
 
         :return: An iterator for terminated tasks
         """
-        all_tasks = self.tasks_iter()
-        states = [t.get_state() for t in all_tasks]
+        all_tasks = list(self.tasks_iter())
+        states = [(t, t.get_state()) for t in all_tasks]
         term_tasks = (task for task in all_tasks
                       if task.get_state() in tasks.TERMINATED_STATES)
-        debuglog('tasks', all_tasks, states)
+        debuglog('tasks', states)
         return term_tasks
 
     def _task_has_dependencies(self, task):
