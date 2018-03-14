@@ -1250,11 +1250,11 @@ class _TaskDispatcher(object):
         with self._lock:
             client = self._get_client(task)
             result = _AsyncResult(task)
+            self._start_polling(client, workflow_task, task, result)
             client.channel.basic_publish(
                 exchange=task['target'],
                 routing_key='',
                 body=json.dumps(task))
-            self._start_polling(client, workflow_task, task, result)
             self._set_task_state(workflow_task, TASK_STARTED)
         return result
 
