@@ -1239,7 +1239,7 @@ class _TaskDispatcher(object):
         client = self._get_client(task)
         result = _AsyncResult(task)
         self._start_polling(client, workflow_task, task, result)
-        self._set_task_state(workflow_task, TASK_STARTED)
+        self._set_task_state(workflow_task, TASK_STARTED, {})
         client.channel.basic_publish(
             exchange=task['target'],
             routing_key='',
