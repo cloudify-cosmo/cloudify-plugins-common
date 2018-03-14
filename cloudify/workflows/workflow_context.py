@@ -1261,7 +1261,13 @@ class _TaskDispatcher(object):
         self._threads[client].start()
 
     def _consume(self, client):
-        client.channel.start_consuming()
+        debuglog('consume start')
+        try:
+            client.channel.start_consuming()
+            debuglog('consume end')
+        except Exception as e:
+            debuglog('consume err', e)
+            raise
 
     def _received(self, client, channel, method, properties, body):
         debuglog('received', body)
