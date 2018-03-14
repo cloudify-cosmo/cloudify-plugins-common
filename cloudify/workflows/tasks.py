@@ -681,8 +681,6 @@ class RemoteWorkflowErrorTaskResult(WorkflowTaskResult):
 
 
 class RemoteWorkflowTaskResult(WorkflowTaskResult):
-    """A wrapper for celery's AsyncResult"""
-
     def __init__(self, task, async_result):
         super(RemoteWorkflowTaskResult, self).__init__(task)
         self.async_result = async_result
@@ -691,7 +689,7 @@ class RemoteWorkflowTaskResult(WorkflowTaskResult):
         return self.async_result.get()
 
     def _refresh_state(self):
-        self.async_result = self.task.async_result.async_result
+        pass
 
     @property
     def result(self):
