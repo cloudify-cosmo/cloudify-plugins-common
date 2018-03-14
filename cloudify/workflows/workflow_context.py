@@ -1247,17 +1247,16 @@ class _TaskDispatcher(object):
         return self._clients[key]
 
     def send_task(self, workflow_task, task):
-        with self._lock:
-            client = self._get_client(task)
-            result = _AsyncResult(task)
-            self._start_polling(client, workflow_task, task, result)
-            self._set_task_state(workflow_task, TASK_STARTED)
-            debuglog('set state started')
-            client.channel.basic_publish(
-                exchange=task['target'],
-                routing_key='',
-                body=json.dumps(task))
-            debuglog('published')
+        client = self._get_client(task)
+        result = _AsyncResult(task)
+        self._start_polling(client, workflow_task, task, result)
+        self._set_task_state(workflow_task, TASK_STARTED)
+        debuglog('set state started')
+        client.channel.basic_publish(
+            exchange=task['target'],
+            routing_key='',
+            body=json.dumps(task))
+        debuglog('published')
         return result
 
     def _set_task_state(self, workflow_task, state):
@@ -1305,11 +1304,9 @@ class _TaskDispatcher(object):
             else:
                 state = TASK_SUCCEEDED
             debuglog('state', state)
-            with self._lock:
-                debuglog('setting state')
-                self._set_task_state(workflow_task, state)
-                self._maybe_stop_client(client)
-                debuglog('set state')
+            self._set_task_state(workflow_task, state)
+            self._maybe_stop_client(client)
+            debuglog('set state')
         except Exception as e:
             debuglog('err', e)
             raise
