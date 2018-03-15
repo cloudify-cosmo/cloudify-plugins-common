@@ -65,6 +65,7 @@ except ImportError:
     from ordereddict import OrderedDict
 
 
+# TODO: Remove debug logs
 def debuglog(*a):
     with open('/tmp/foo.log', 'a') as f:
         f.write('{0!r}\n'.format(a))
