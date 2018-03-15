@@ -53,9 +53,9 @@ if os.name == 'nt':
 else:
     broker_heartbeat = config.get('broker_heartbeat', DEFAULT_HEARTBEAT)
 
-
+broker_ssl_options = {}
 if broker_ssl_enabled:
-    BROKER_USE_SSL = {
+    broker_ssl_options = {
         'ca_certs': broker_cert_path,
         'cert_reqs': ssl.CERT_REQUIRED,
     }
