@@ -1162,8 +1162,7 @@ class _AsyncResult(object):
 
 
 class _AMQPClient(object):
-    def __init__(self, task, key):
-        self.key = key
+    def __init__(self, task):
         tenant = task['tenant']
         self.credentials = pika.credentials.PlainCredentials(
             username=tenant['rabbitmq_username'],
@@ -1197,7 +1196,6 @@ class _TaskDispatcher(object):
     def __init__(self):
         self._lock = threading.Lock()
         self._threads = {}
-        self._clients = {}
         self._tasks = {}
 
     def make_subtask(self, tenant, target, queue, *args, **kwargs):
@@ -1212,38 +1210,36 @@ class _TaskDispatcher(object):
 
     def _make_key(self, task):
         tenant = task['tenant']
-        return (tenant['name'], task['queue'], task['target'])
+        return (tenant['name'], task['queue'], task['target'], task['id'])
 
     def _get_client(self, task):
         key = self._make_key(task)
-        if key not in self._clients:
-            client = _AMQPClient(task, key)
-            client.connect()
-            result_exchange = '{0}_result'.format(task['queue'])
-            result_queue = '{0}_result'.format(task['queue'])
-            client.channel.exchange_declare(
-                exchange=task['target'],
-                type='direct',
-                auto_delete=False,
-                durable=True)
-            client.channel.exchange_declare(
-                exchange=result_exchange,
-                type='direct',
-                auto_delete=False,
-                durable=True)
-            client.channel.queue_declare(
-                queue=result_queue,
-                durable=True,
-                auto_delete=False)
-            client.channel.queue_bind(
-                queue=result_queue,
-                exchange=result_exchange,
-                routing_key='')
-            client.channel.basic_consume(
-                functools.partial(self._received, client),
-                queue=result_queue)
-            self._clients[key] = client
-        return self._clients[key]
+        client = _AMQPClient(task, key)
+        client.connect()
+        result_exchange = '{0}_result'.format(task['queue'])
+        result_queue = '{0}_result'.format(task['id'])
+        client.channel.exchange_declare(
+            exchange=task['target'],
+            type='direct',
+            auto_delete=False,
+            durable=True)
+        client.channel.exchange_declare(
+            exchange=result_exchange,
+            type='direct',
+            auto_delete=False,
+            durable=True)
+        client.channel.queue_declare(
+            queue=result_queue,
+            durable=True,
+            auto_delete=False)
+        client.channel.queue_bind(
+            queue=result_queue,
+            exchange=result_exchange,
+            routing_key=task['id'])
+        client.channel.basic_consume(
+            functools.partial(self._received, result_queue, client),
+            queue=result_queue)
+        return client
 
     def send_task(self, workflow_task, task):
         client = self._get_client(task)
@@ -1274,7 +1270,8 @@ class _TaskDispatcher(object):
     def _consume(self, client):
         client.channel.start_consuming()
 
-    def _received(self, client, channel, method, properties, body):
+    def _received(self, client, result_queue, channel,
+                  method, properties, body):
         client.channel.basic_ack(method.delivery_tag)
         response = json.loads(body)
         debuglog('received', response)
@@ -1300,6 +1297,7 @@ class _TaskDispatcher(object):
             event = {'result': response.get('result')}
         self._set_task_state(workflow_task, state, event)
         self._maybe_stop_client(client)
+        client.channel.queue_delete(result_queue)
 
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
@@ -1307,7 +1305,6 @@ class _TaskDispatcher(object):
         client.channel.stop_consuming()
         self._tasks.pop(client)
         self._threads.pop(client)
-        self._clients.pop(client.key)
         client.disconnect()
 
 
