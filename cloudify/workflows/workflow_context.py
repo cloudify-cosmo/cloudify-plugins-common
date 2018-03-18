@@ -44,7 +44,7 @@ from cloudify.workflows.tasks import (TASK_FAILED,
                                       DEFAULT_RETRY_INTERVAL,
                                       DEFAULT_SEND_TASK_EVENTS,
                                       DEFAULT_SUBGRAPH_TOTAL_RETRIES)
-from cloudify.constants import BROKER_PORT_SSL
+from cloudify.constants import BROKER_PORT_SSL, MGMTWORKER_QUEUE
 from cloudify import utils, broker_config
 from cloudify.state import current_workflow_ctx
 from cloudify.workflows import events
@@ -1175,10 +1175,14 @@ class _AMQPClient(object):
             password=tenant['rabbitmq_password'])
         self.ssl_options = utils.internal.get_broker_ssl_options(
             True, broker_config.broker_cert_path)
+        if task['queue'] == MGMTWORKER_QUEUE:
+            vhost = broker_config.broker_vhost
+        else:
+            vhost = tenant['rabbitmq_vhost']
         self.connection_parameters = pika.ConnectionParameters(
             host=broker_config.broker_hostname,
             port=BROKER_PORT_SSL,
-            virtual_host=tenant['rabbitmq_vhost'],
+            virtual_host=vhost,
             credentials=self.credentials,
             ssl=True,
             ssl_options=self.ssl_options)
