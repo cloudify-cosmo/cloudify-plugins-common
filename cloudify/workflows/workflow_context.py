@@ -69,6 +69,7 @@ except ImportError:
 DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
 
 
+logging.basicConfig(filename='/tmp/mgmtworker.log')
 logger = logging.getLogger()
 
 
