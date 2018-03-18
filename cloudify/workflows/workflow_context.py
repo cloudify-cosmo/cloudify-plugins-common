@@ -1240,7 +1240,7 @@ class _TaskDispatcher(object):
             exchange=result_exchange,
             routing_key=task['id'])
         client.channel.basic_consume(
-            functools.partial(self._received, client),
+            functools.partial(self._received, client, result_exchange),
             queue=self.result_queue)
         return client
 
@@ -1275,7 +1275,8 @@ class _TaskDispatcher(object):
         client.channel.start_consuming()
         debuglog('_consume end')
 
-    def _received(self, client, channel, method, properties, body):
+    def _received(self, client, result_exchange, channel, method,
+                  properties, body):
         debuglog('received', body)
         try:
             debuglog('acking!', method.delivery_tag)
@@ -1306,7 +1307,8 @@ class _TaskDispatcher(object):
                 event = {'result': response.get('result')}
             self._set_task_state(workflow_task, state, event)
             client.channel.queue_unbind(
-                queue=self.result_queue, routing_key=response['id'])
+                queue=self.result_queue, routing_key=response['id'],
+                exchange=result_exchange)
             self._maybe_stop_client(client)
         except Exception as e:
             debuglog('err', e)
