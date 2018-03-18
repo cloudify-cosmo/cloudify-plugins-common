@@ -1267,13 +1267,15 @@ class _TaskDispatcher(object):
         self._threads[client].start()
 
     def _consume(self, client):
+        debuglog('_consume start')
         client.channel.start_consuming()
+        debuglog('_consume end')
 
     def _received(self, client, result_queue, channel,
                   method, properties, body):
+        debuglog('received', body)
         client.channel.basic_ack(method.delivery_tag)
         response = json.loads(body)
-        debuglog('received', response)
         if not response:
             return
         debuglog(response['id'], 'received', response)
@@ -1297,8 +1299,8 @@ class _TaskDispatcher(object):
             state = TASK_SUCCEEDED
             event = {'result': response.get('result')}
         self._set_task_state(workflow_task, state, event)
-        self._maybe_stop_client(client)
         client.channel.queue_delete(result_queue)
+        self._maybe_stop_client(client)
 
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
