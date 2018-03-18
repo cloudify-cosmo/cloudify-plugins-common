@@ -1274,6 +1274,8 @@ class _TaskDispatcher(object):
         client.channel.basic_ack(method.delivery_tag)
         response = json.loads(body)
         debuglog('received', response)
+        if not response:
+            return
         debuglog(response['id'], 'received', response)
         try:
             workflow_task, task, result = \
