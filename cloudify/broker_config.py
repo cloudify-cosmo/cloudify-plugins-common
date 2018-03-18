@@ -31,8 +31,7 @@ else:
     conf_file_path = os.path.join(workdir_path, 'broker_config.json')
     if os.path.isfile(conf_file_path):
         with open(conf_file_path) as conf_handle:
-            conf_file = conf_handle.read()
-            config = json.loads(conf_file)
+            config = json.load(conf_handle)
     else:
         config = {}
 
