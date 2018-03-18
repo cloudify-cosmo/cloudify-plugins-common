@@ -1236,7 +1236,7 @@ class _TaskDispatcher(object):
             exchange=result_exchange,
             routing_key=task['id'])
         client.channel.basic_consume(
-            functools.partial(self._received, result_queue, client),
+            functools.partial(self._received, client, result_queue),
             queue=result_queue)
         return client
 
@@ -1275,7 +1275,9 @@ class _TaskDispatcher(object):
                   method, properties, body):
         debuglog('received', body)
         try:
+            debuglog('acking!', method.delivery_tag)
             client.channel.basic_ack(method.delivery_tag)
+            debuglog('acked!')
             response = json.loads(body)
             if not response:
                 return
