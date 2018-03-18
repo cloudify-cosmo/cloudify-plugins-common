@@ -1274,33 +1274,37 @@ class _TaskDispatcher(object):
     def _received(self, client, result_queue, channel,
                   method, properties, body):
         debuglog('received', body)
-        client.channel.basic_ack(method.delivery_tag)
-        response = json.loads(body)
-        if not response:
-            return
-        debuglog(response['id'], 'received', response)
         try:
-            workflow_task, task, result = \
-                self._tasks[client].pop(response['id'])
-        except KeyError:
-            return
-        if workflow_task.is_terminated:
-            return
-        result.result = response
-        error = response.get('error')
-        retry = response.get('retry')
-        if error:
-            state = TASK_FAILED
-            event = {'exception': error, 'causes': ['0']}
-        elif retry:
-            state = TASK_RESCHEDULED
-            event = {'exception': retry, 'causes': ['0']}
-        else:
-            state = TASK_SUCCEEDED
-            event = {'result': response.get('result')}
-        self._set_task_state(workflow_task, state, event)
-        client.channel.queue_delete(result_queue)
-        self._maybe_stop_client(client)
+            client.channel.basic_ack(method.delivery_tag)
+            response = json.loads(body)
+            if not response:
+                return
+            debuglog(response['id'], 'received', response)
+            try:
+                workflow_task, task, result = \
+                    self._tasks[client].pop(response['id'])
+            except KeyError:
+                return
+            if workflow_task.is_terminated:
+                return
+            result.result = response
+            error = response.get('error')
+            retry = response.get('retry')
+            if error:
+                state = TASK_FAILED
+                event = {'exception': error, 'causes': ['0']}
+            elif retry:
+                state = TASK_RESCHEDULED
+                event = {'exception': retry, 'causes': ['0']}
+            else:
+                state = TASK_SUCCEEDED
+                event = {'result': response.get('result')}
+            self._set_task_state(workflow_task, state, event)
+            client.channel.queue_delete(result_queue)
+            self._maybe_stop_client(client)
+        except Exception as e:
+            debuglog('err', e)
+            raise
 
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
