@@ -1213,8 +1213,7 @@ class _TaskDispatcher(object):
         return (tenant['name'], task['queue'], task['target'], task['id'])
 
     def _get_client(self, task):
-        key = self._make_key(task)
-        client = _AMQPClient(task, key)
+        client = _AMQPClient(task)
         client.connect()
         result_exchange = '{0}_result'.format(task['queue'])
         result_queue = '{0}_result'.format(task['id'])
