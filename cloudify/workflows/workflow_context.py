@@ -18,6 +18,7 @@ import functools
 import copy
 import json
 import uuid
+import logging
 import threading
 import Queue
 import pika
@@ -65,13 +66,10 @@ except ImportError:
     from ordereddict import OrderedDict
 
 
-# TODO: Remove debug logs
-def debuglog(*a):
-    with open('/tmp/foo.log', 'a') as f:
-        f.write('{0!r}\n'.format(a))
-
-
 DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
+
+
+logger = logging.getLogger()
 
 
 class CloudifyWorkflowRelationshipInstance(object):
@@ -1251,10 +1249,12 @@ class _TaskDispatcher(object):
         result = _AsyncResult(task)
         self._start_polling(client, workflow_task, task, result)
         self._set_task_state(workflow_task, TASK_STARTED, {})
+        logger.info('sending %r', task)
         client.channel.basic_publish(
             exchange=task['target'],
             routing_key='',
             body=json.dumps(task))
+        logger.info('...sent')
         return result
 
     def _set_task_state(self, workflow_task, state, event):
@@ -1271,18 +1271,12 @@ class _TaskDispatcher(object):
         self._threads[client].start()
 
     def _consume(self, client):
-        debuglog('consume start')
-        try:
-            client.channel.start_consuming()
-            debuglog('consume end')
-        except Exception as e:
-            debuglog('consume err', e)
-            raise
+        client.channel.start_consuming()
 
     def _received(self, client, channel, method, properties, body):
-        debuglog('received', body)
         client.channel.basic_ack(method.delivery_tag)
         response = json.loads(body)
+        logger.info('received %r', response)
         try:
             workflow_task, task, result = \
                 self._tasks[client].pop(response['id'])
