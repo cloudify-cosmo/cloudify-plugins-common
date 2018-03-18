@@ -14,6 +14,7 @@
 #    * limitations under the License.
 from __future__ import absolute_import
 
+import os
 import functools
 import copy
 import json
@@ -1212,11 +1213,14 @@ class _TaskDispatcher(object):
         tenant = task['tenant']
         return (tenant['name'], task['queue'], task['target'], task['id'])
 
+    @property
+    def result_queue(self):
+        return 'cloudify.result_{0}'.format(os.getpid())
+
     def _get_client(self, task):
         client = _AMQPClient(task)
         client.connect()
         result_exchange = '{0}_result'.format(task['queue'])
-        result_queue = '{0}_result'.format(task['id'])
         client.channel.exchange_declare(
             exchange=task['target'],
             type='direct',
@@ -1228,16 +1232,16 @@ class _TaskDispatcher(object):
             auto_delete=False,
             durable=True)
         client.channel.queue_declare(
-            queue=result_queue,
+            queue=self.result_queue,
             durable=True,
             auto_delete=False)
         client.channel.queue_bind(
-            queue=result_queue,
+            queue=self.result_queue,
             exchange=result_exchange,
             routing_key=task['id'])
         client.channel.basic_consume(
-            functools.partial(self._received, client, result_queue),
-            queue=result_queue)
+            functools.partial(self._received, client),
+            queue=self.result_queue)
         return client
 
     def send_task(self, workflow_task, task):
@@ -1271,8 +1275,7 @@ class _TaskDispatcher(object):
         client.channel.start_consuming()
         debuglog('_consume end')
 
-    def _received(self, client, result_queue, channel,
-                  method, properties, body):
+    def _received(self, client, channel, method, properties, body):
         debuglog('received', body)
         try:
             debuglog('acking!', method.delivery_tag)
@@ -1302,7 +1305,8 @@ class _TaskDispatcher(object):
                 state = TASK_SUCCEEDED
                 event = {'result': response.get('result')}
             self._set_task_state(workflow_task, state, event)
-            client.channel.queue_delete(result_queue)
+            client.channel.queue_unbind(
+                queue=self.result_queue, routing_key=response['id'])
             self._maybe_stop_client(client)
         except Exception as e:
             debuglog('err', e)
@@ -1311,7 +1315,6 @@ class _TaskDispatcher(object):
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
             return
-        client.channel.stop_consuming()
         self._tasks.pop(client)
         self._threads.pop(client)
         client.disconnect()
