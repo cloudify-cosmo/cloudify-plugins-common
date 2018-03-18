@@ -18,7 +18,6 @@ import functools
 import copy
 import json
 import uuid
-import logging
 import threading
 import Queue
 import pika
@@ -69,8 +68,9 @@ except ImportError:
 DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
 
 
-logging.basicConfig(filename='/tmp/mgmtworker.log')
-logger = logging.getLogger()
+def debuglog(*a):
+    with open('/tmp/foo.log', 'a') as f:
+        f.write('{0}\n'.format(repr(a)))
 
 
 class CloudifyWorkflowRelationshipInstance(object):
@@ -1250,12 +1250,12 @@ class _TaskDispatcher(object):
         result = _AsyncResult(task)
         self._start_polling(client, workflow_task, task, result)
         self._set_task_state(workflow_task, TASK_STARTED, {})
-        logger.info('sending %r', task)
+        debuglog('sending %r', task)
         client.channel.basic_publish(
             exchange=task['target'],
             routing_key='',
             body=json.dumps(task))
-        logger.info('...sent')
+        debuglog('...sent')
         return result
 
     def _set_task_state(self, workflow_task, state, event):
@@ -1277,7 +1277,7 @@ class _TaskDispatcher(object):
     def _received(self, client, channel, method, properties, body):
         client.channel.basic_ack(method.delivery_tag)
         response = json.loads(body)
-        logger.info('received %r', response)
+        debuglog('received %r', response)
         try:
             workflow_task, task, result = \
                 self._tasks[client].pop(response['id'])
