@@ -1188,9 +1188,11 @@ class _AMQPClient(object):
         self._start_polling()
 
     def _start_polling(self):
+        debuglog('starting thread')
         self._polling_thread = threading.Thread(target=self._consume)
         self._polling_thread.daemon = True
         self._polling_thread.start()
+        debuglog('started thread')
 
     def _consume(self):
         debuglog('start_consuming')
