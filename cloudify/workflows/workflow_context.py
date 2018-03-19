@@ -1179,10 +1179,8 @@ class _AMQPClient(object):
         self.connection = None
         self.channel = None
         self._polling_thread = None
-        self.closed = False
 
     def connect(self):
-        self.closed = False
         self.connection = pika.BlockingConnection(self.connection_parameters)
         self.channel = self.connection.channel()
         self.channel.confirm_delivery()
@@ -1194,11 +1192,10 @@ class _AMQPClient(object):
         self._polling_thread.start()
 
     def _consume(self):
-        while not self.closed:
-            self.connection.process_data_events()
+        self.channel.start_consuming()
 
     def disconnect(self):
-        self.closed = True
+        self.channel.stop_consuming()
         self.connection.close()
 
 
