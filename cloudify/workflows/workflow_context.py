@@ -1183,6 +1183,7 @@ class _AMQPClient(object):
     def connect(self):
         self.connection = pika.BlockingConnection(self.connection_parameters)
         self.channel = self.connection.channel()
+        self.channel.basic_qos(prefetch_count=1)
         self.channel.confirm_delivery()
         self._start_polling()
 
