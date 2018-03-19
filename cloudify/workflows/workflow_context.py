@@ -1178,26 +1178,28 @@ class _AMQPClient(object):
             ssl_options=self.ssl_options)
         self.connection = None
         self.channel = None
-        self._polling_thread = None
+        self._consumer_thread = None
 
     def connect(self):
         self.connection = pika.BlockingConnection(self.connection_parameters)
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
         self.channel.confirm_delivery()
-        self._start_polling()
 
-    def _start_polling(self):
+    def start_consuming(self):
+        if self._consumer_thread:
+            return
         debuglog('starting thread')
-        self._polling_thread = threading.Thread(target=self._consume)
-        self._polling_thread.daemon = True
-        self._polling_thread.start()
+        self._consumer_thread = threading.Thread(target=self._consume)
+        self._consumer_thread.daemon = True
+        self._consumer_thread.start()
         debuglog('started thread')
 
     def _consume(self):
         debuglog('start_consuming')
         self.channel.start_consuming()
         debuglog('end start_consuming')
+        self._consumer_thread = None
 
     def disconnect(self):
         self.channel.stop_consuming()
@@ -1249,6 +1251,7 @@ class _TaskDispatcher(object):
         client.channel.basic_consume(
             functools.partial(self._received, client),
             queue=result_queue.method.queue)
+        client.start_consuming()
         result = _AsyncResult(task)
         self._tasks.setdefault(client, {})[task['id']] = \
             (workflow_task, task, result)
