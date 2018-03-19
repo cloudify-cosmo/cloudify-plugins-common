@@ -14,7 +14,6 @@
 #    * limitations under the License.
 from __future__ import absolute_import
 
-import os
 import functools
 import copy
 import json
@@ -1163,17 +1162,13 @@ class _AsyncResult(object):
 
 
 class _AMQPClient(object):
-    def __init__(self, task):
-        tenant = task['tenant']
+    def __init__(self, username, password, vhost):
+        self.vhost = vhost
         self.credentials = pika.credentials.PlainCredentials(
-            username=tenant['rabbitmq_username'],
-            password=tenant['rabbitmq_password'])
+            username=username,
+            password=password)
         self.ssl_options = utils.internal.get_broker_ssl_options(
             True, broker_config.broker_cert_path)
-        if task['queue'] == MGMTWORKER_QUEUE:
-            vhost = broker_config.broker_vhost
-        else:
-            vhost = tenant['rabbitmq_vhost']
         self.connection_parameters = pika.ConnectionParameters(
             host=broker_config.broker_hostname,
             port=BROKER_PORT_SSL,
@@ -1183,21 +1178,35 @@ class _AMQPClient(object):
             ssl_options=self.ssl_options)
         self.connection = None
         self.channel = None
+        self._polling_thread = None
+        self.closed = False
 
     def connect(self):
+        self.closed = False
         self.connection = pika.BlockingConnection(self.connection_parameters)
         self.channel = self.connection.channel()
         self.channel.confirm_delivery()
+        self._start_polling()
+
+    def _start_polling(self):
+        self._polling_thread = threading.Thread(target=self._consume)
+        self._polling_thread.daemon = True
+        self._polling_thread.start()
+
+    def _consume(self):
+        while not self.closed:
+            self.connection.process_data_events()
 
     def disconnect(self):
+        self.closed = True
         self.connection.close()
 
 
 class _TaskDispatcher(object):
     def __init__(self):
         self._lock = threading.Lock()
-        self._threads = {}
         self._tasks = {}
+        self._clients = {}
 
     def make_subtask(self, tenant, target, queue, *args, **kwargs):
         return {
@@ -1209,50 +1218,46 @@ class _TaskDispatcher(object):
             'cloudify_task': kwargs,
         }
 
-    def _make_key(self, task):
-        tenant = task['tenant']
-        return (tenant['name'], task['queue'], task['target'], task['id'])
-
-    @property
-    def result_queue(self):
-        return 'cloudify.result_{0}'.format(os.getpid())
+    def _get_vhost(self, task):
+        if task['queue'] == MGMTWORKER_QUEUE:
+            return broker_config.broker_vhost
+        else:
+            return task['tenant']['rabbitmq_vhost']
 
     def _get_client(self, task):
-        client = _AMQPClient(task)
-        client.connect()
-        result_exchange = '{0}_result'.format(task['queue'])
+        vhost = self._get_vhost(task)
+        if vhost not in self._clients:
+            tenant = task['tenant']
+            client = _AMQPClient(
+                username=tenant['rabbitmq_username'],
+                password=tenant['rabbitmq_password'],
+                vhost=vhost)
+            client.connect()
+            self._clients[vhost] = client
+        return self._clients[vhost]
+
+    def send_task(self, workflow_task, task):
+        client = self._get_client(task)
         client.channel.exchange_declare(
             exchange=task['target'],
             type='direct',
             auto_delete=False,
             durable=True)
-        client.channel.exchange_declare(
-            exchange=result_exchange,
-            type='direct',
-            auto_delete=False,
-            durable=True)
-        client.channel.queue_declare(
-            queue=self.result_queue,
-            durable=True,
-            auto_delete=False)
-        client.channel.queue_bind(
-            queue=self.result_queue,
-            exchange=result_exchange,
-            routing_key=task['id'])
+        result_queue = client.channel.queue_declare(exclusive=True)
         client.channel.basic_consume(
-            functools.partial(self._received, client, result_exchange),
-            queue=self.result_queue)
-        return client
-
-    def send_task(self, workflow_task, task):
-        client = self._get_client(task)
+            functools.partial(self._received, client),
+            queue=result_queue.method.queue)
         result = _AsyncResult(task)
-        self._start_polling(client, workflow_task, task, result)
+        self._tasks.setdefault(client, {})[task['id']] = \
+            (workflow_task, task, result)
         self._set_task_state(workflow_task, TASK_STARTED, {})
         debuglog(task['id'], 'sending', task)
         client.channel.basic_publish(
             exchange=task['target'],
             routing_key='',
+            properties=pika.BasicProperties(
+                reply_to=result_queue.method.queue,
+                correlation_id=task['id']),
             body=json.dumps(task))
         debuglog(task['id'], '...sent')
         return result
@@ -1262,33 +1267,16 @@ class _TaskDispatcher(object):
         events.send_task_event(
             state, workflow_task, events.send_task_event_func_remote, event)
 
-    def _start_polling(self, client, workflow_task, task, result):
-        self._tasks.setdefault(client, {})[task['id']] = \
-            (workflow_task, task, result)
-        self._threads[client] = threading.Thread(
-            target=self._consume, args=(client, ))
-        self._threads[client].daemon = True
-        self._threads[client].start()
-
-    def _consume(self, client):
-        debuglog('_consume start')
-        client.channel.start_consuming()
-        debuglog('_consume end')
-
-    def _received(self, client, result_exchange, channel, method,
-                  properties, body):
+    def _received(self, client, channel, method, properties, body):
         debuglog('received', body)
         try:
-            debuglog('acking!', method.delivery_tag)
-            client.channel.basic_ack(method.delivery_tag)
-            debuglog('acked!')
+            channel.basic_ack(method.delivery_tag)
             response = json.loads(body)
             if not response:
                 return
-            debuglog(response['id'], 'received', response)
             try:
                 workflow_task, task, result = \
-                    self._tasks[client].pop(response['id'])
+                    self._tasks[client].pop(properties.correlation_id)
             except KeyError:
                 return
             if workflow_task.is_terminated:
@@ -1306,9 +1294,6 @@ class _TaskDispatcher(object):
                 state = TASK_SUCCEEDED
                 event = {'result': response.get('result')}
             self._set_task_state(workflow_task, state, event)
-            client.channel.queue_unbind(
-                queue=self.result_queue, routing_key=response['id'],
-                exchange=result_exchange)
             self._maybe_stop_client(client)
         except Exception as e:
             debuglog('err', e)
@@ -1317,8 +1302,8 @@ class _TaskDispatcher(object):
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
             return
+        self._clients.pop(client.vhost)
         self._tasks.pop(client)
-        self._threads.pop(client)
         client.disconnect()
 
 
