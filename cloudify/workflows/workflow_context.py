@@ -1192,7 +1192,9 @@ class _AMQPClient(object):
         self._polling_thread.start()
 
     def _consume(self):
+        debuglog('start_consuming')
         self.channel.start_consuming()
+        debuglog('end start_consuming')
 
     def disconnect(self):
         self.channel.stop_consuming()
