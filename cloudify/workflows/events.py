@@ -15,7 +15,7 @@
 
 import Queue
 
-from cloudify import logs
+from cloudify import logs, utils
 from cloudify.exceptions import OperationRetry
 from cloudify.celery.app import get_celery_app
 from cloudify.workflows import tasks as tasks_api
@@ -150,7 +150,7 @@ def send_task_event(state, task, send_event_func, event):
         raise RuntimeError('Event for task {0} is None'.format(task.name))
 
     if event and event.get('exception'):
-        exception_str = str(event.get('exception'))
+        exception_str = utils.format_exception(event.get('exception'))
     else:
         exception_str = None
 
