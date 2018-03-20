@@ -680,7 +680,7 @@ def main():
         payload = {
             'traceback': trace_out,
             'exception_type': type(e).__name__,
-            'message': str(e),
+            'message': utils.format_exception(e),
             'known_exception_type': known_exception_type.__name__,
             'known_exception_type_args': known_exception_type_args,
             'known_exception_type_kwargs': {'causes': causes or []},
