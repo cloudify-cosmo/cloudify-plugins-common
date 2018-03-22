@@ -125,7 +125,8 @@ class MockCloudifyContext(CloudifyContext):
         self._deployment_id = deployment_id
         self._execution_id = execution_id
         self._properties = properties or {}
-        self._runtime_properties = runtime_properties or {}
+        self._runtime_properties = \
+            runtime_properties if runtime_properties is not None else {}
         self._resources = resources or {}
         self._source = source
         self._target = target
