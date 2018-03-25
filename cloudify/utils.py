@@ -304,13 +304,16 @@ class LocalCommandRunner(object):
         :rtype: cloudify.utils.CommandExecutionResponse
         """
 
-        self.logger.debug('[{0}] run: {1}'.format(self.host, command))
-        shlex_split = _shlex_split(command)
+        if isinstance(command, list):
+            popen_args = command
+        else:
+            popen_args = _shlex_split(command)
+        self.logger.debug('[{0}] run: {1}'.format(self.host, popen_args))
         stdout = subprocess.PIPE if stdout_pipe else None
         stderr = subprocess.PIPE if stderr_pipe else None
         command_env = os.environ.copy()
         command_env.update(execution_env or {})
-        p = subprocess.Popen(shlex_split, stdout=stdout,
+        p = subprocess.Popen(args=popen_args, stdout=stdout,
                              stderr=stderr, cwd=cwd, env=command_env)
         out, err = p.communicate()
         if out:
