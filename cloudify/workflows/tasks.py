@@ -432,7 +432,9 @@ class RemoteWorkflowTask(WorkflowTask):
         return inst
 
     def _is_resumable(self, task):
-        debuglog('is_resumable', task)
+        with open('/tmp/footask.log', 'w') as f:
+            f.write('{0!r}\n'.format(task))
+
         try:
             return task['kwargs']['__cloudify_context']['task_name'] \
                 in RESUMABLE_TASKS
