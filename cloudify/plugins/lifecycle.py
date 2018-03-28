@@ -19,6 +19,8 @@ from cloudify import utils
 from cloudify import constants
 from cloudify.workflows.tasks_graph import forkjoin
 from cloudify.workflows import tasks as workflow_tasks
+from cloudify.utils import store_graph, get_graph
+from cloudify.state import workflow_ctx
 
 
 def install_node_instances(graph, node_instances, related_nodes=None):
@@ -56,9 +58,9 @@ def execute_establish_relationships(graph,
                                     related_nodes=None,
                                     modified_relationship_ids=None):
     processor = LifecycleProcessor(
-            graph=graph,
-            related_nodes=node_instances,
-            modified_relationship_ids=modified_relationship_ids)
+        graph=graph,
+        related_nodes=node_instances,
+        modified_relationship_ids=modified_relationship_ids)
     processor.install()
 
 
@@ -67,9 +69,9 @@ def execute_unlink_relationships(graph,
                                  related_nodes=None,
                                  modified_relationship_ids=None):
     processor = LifecycleProcessor(
-            graph=graph,
-            related_nodes=node_instances,
-            modified_relationship_ids=modified_relationship_ids)
+        graph=graph,
+        related_nodes=node_instances,
+        modified_relationship_ids=modified_relationship_ids)
     processor.uninstall()
 
 
@@ -100,17 +102,21 @@ class LifecycleProcessor(object):
     def _process_node_instances(self,
                                 node_instance_subgraph_func,
                                 graph_finisher_func):
-        subgraphs = {}
-        for instance in self.node_instances:
-            subgraphs[instance.id] = \
-                node_instance_subgraph_func(
-                    instance, self.graph, ignore_failure=self.ignore_failure)
+        self.graph = get_graph(workflow_ctx.execution_id)
+        if not self.graph:
+            subgraphs = {}
+            for instance in self.node_instances:
+                subgraphs[instance.id] = \
+                    node_instance_subgraph_func(
+                        instance, self.graph,
+                        ignore_failure=self.ignore_failure)
 
-        for instance in self.intact_nodes:
-            subgraphs[instance.id] = self.graph.subgraph(
-                'stub_{0}'.format(instance.id))
+            for instance in self.intact_nodes:
+                subgraphs[instance.id] = self.graph.subgraph(
+                    'stub_{0}'.format(instance.id))
 
-        graph_finisher_func(subgraphs)
+            graph_finisher_func(subgraphs)
+            store_graph(workflow_ctx.execution_id, self.graph)
         self.graph.execute()
 
     def _finish_install(self, subgraphs):
@@ -429,7 +435,7 @@ def _host_post_start(host_node_instance):
                 host_node_instance.send_event('Creating Agent'),
                 host_node_instance.execute_operation(
                     'cloudify.interfaces.cloudify_agent.create')
-                ]
+            ]
             # In remote mode the `create` operation configures/starts the agent
             if install_method in [constants.AGENT_INSTALL_METHOD_PLUGIN,
                                   constants.AGENT_INSTALL_METHOD_INIT_SCRIPT]:
