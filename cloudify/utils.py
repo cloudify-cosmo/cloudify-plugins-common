@@ -519,7 +519,7 @@ def get_execution(execution_id):
     data = cur.fetchall()
     if not data:
         return None
-    return data[0][0]
+    return json.loads(data[0][0])
 
 
 def delete_execution_dir(execution_id):
@@ -542,7 +542,7 @@ def get_graph(execution_id):
     data = cur.fetchall()
     if not data:
         return None
-    data = data[0][0]
+    data = json.loads(data[0][0])
     return TaskDependencyGraph.deserialize(workflow_ctx, data)
 
 
