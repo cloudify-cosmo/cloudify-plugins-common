@@ -578,9 +578,10 @@ class LocalWorkflowTask(WorkflowTask):
         })
         return super_dump
 
-    def deserialize(self, ctx, data, **kwargs):
+    @classmethod
+    def deserialize(cls, ctx, data, **kwargs):
         data['local_task'] = lambda *a, **kw: None
-        return super(LocalWorkflowTask, self).deserialize(ctx, data, **kwargs)
+        return super(LocalWorkflowTask, cls).deserialize(ctx, data, **kwargs)
 
     def apply_async(self):
         """
