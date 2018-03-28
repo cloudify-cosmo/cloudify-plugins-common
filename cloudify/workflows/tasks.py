@@ -138,7 +138,7 @@ class WorkflowTask(object):
             'is_terminated': self.is_terminated,
             'current_retries': self.current_retries,
             'cls': self.__class__.__name__,
-            'containing_subgraph': self.containing_subgraph
+            'containing_subgraph': self.containing_subgraph.id
         }
 
     def _get_serialize_kwargs(self):
