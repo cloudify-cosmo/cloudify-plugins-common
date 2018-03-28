@@ -46,7 +46,8 @@ DISPATCH_TASK = 'cloudify.dispatch.dispatch'
 
 INSPECT_TIMEOUT = 30
 RESUMABLE_TASKS = {
-    'script_runner.tasks.run'
+    'script_runner.tasks.run',
+    'plug1.modu.funk'
 }
 
 
