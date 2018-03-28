@@ -189,11 +189,11 @@ class TaskDependencyGraph(object):
         """
         An iterator on tasks added to the graph
         """
-        for _, data in self.graph.nodes_iter(data=True):
+        for i, data in self.graph.nodes_iter(data=True):
             try:
                 yield data['task']
             except KeyError:
-                raise KeyError(data)
+                raise KeyError((i, data))
 
     def _handle_executable_task(self, task):
         """Handle executable task"""
@@ -245,19 +245,22 @@ class TaskDependencyGraph(object):
     def deserialize(cls, ctx, data):
         inst = cls(ctx)
 
+        f = open('/tmp/tasklog.log', 'w')
         graph_tasks = {}
         for task in data['tasks']:
             task = tasks.deserialize_task(ctx, task, graph=inst)
             graph_tasks[task.id] = task
-
+            f.write('{0} {1}\n'.format(task.id, task))
         for task in graph_tasks.values():
             if task.containing_subgraph:
                 subgraph = graph_tasks[task.containing_subgraph]
                 task.containing_subgraph = subgraph
                 subgraph.tasks[task.id] = task
             inst.add_task(task)
+
         for s, t in data['edges']:
             inst.graph.add_edge(s, t)
+        f.close()
         return inst
 
 
