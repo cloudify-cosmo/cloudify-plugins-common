@@ -16,6 +16,7 @@
 from contextlib import contextmanager
 import logging
 import os
+import json
 import random
 import shlex
 import ssl
@@ -24,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 import traceback
+import shutil
 import StringIO
 
 from distutils.version import LooseVersion
@@ -499,17 +501,19 @@ def store_execution(execution_id, body):
         json.dump(body, f, indent=4, sort_keys=True)
 
 
-def get_execution(execution_id)
+def get_execution(execution_id):
     d = os.path.join('/tmp/workflows', execution_id)
     with open(os.path.join(d, 'execution.json')) as f:
         return json.load(f)
+
 
 def delete_execution_dir(execution_id):
     d = os.path.join('/tmp/workflows', execution_id)
     shutil.rmtree(d)
 
 
-def get_graph(_id):
+def get_graph(execution_id):
+    from cloudify.workflows.tasks_graph import TaskDependencyGraph
     d = os.path.join('/tmp/workflows', execution_id)
     try:
         with open(os.path.join(d, 'graph.json')) as f:
@@ -518,7 +522,7 @@ def get_graph(_id):
         return None
 
 
-def store_graph(_id, graph):
+def store_graph(execution_id, graph):
     d = os.path.join('/tmp/workflows', execution_id)
     with open(os.path.join(d, 'graph.json'), 'wb') as f:
         json.dump(graph.serialize(), f, indent=4, sort_keys=True)
