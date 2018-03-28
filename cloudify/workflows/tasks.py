@@ -680,6 +680,12 @@ class NOPLocalWorkflowTask(LocalWorkflowTask):
         """The task name"""
         return 'NOP'
 
+    @classmethod
+    def deserialize(cls, *a, **kw):
+        inst = super(NOPLocalWorkflowTask, cls).deserialize(*a, **kw)
+        inst.async_result = inst.apply_async()
+        return inst
+
     def apply_async(self):
         self.set_state(TASK_SUCCEEDED)
         return LocalWorkflowTaskResult(self)
