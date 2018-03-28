@@ -1259,8 +1259,8 @@ class _TaskDispatcher(object):
                 reply_to=task['result_queue'],
                 correlation_id=task['id']),
             body=json.dumps(task))
-        self._set_task_state(workflow_task, TASK_STARTED, {})
         debuglog(task['id'], '...sent')
+        self._set_task_state(workflow_task, TASK_STARTED, {})
         return result
 
     def get_async_result(self, workflow_task, task):
