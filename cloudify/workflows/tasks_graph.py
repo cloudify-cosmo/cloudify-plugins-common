@@ -242,7 +242,7 @@ class TaskDependencyGraph(object):
         graph_tasks = {}
         subgraphs = []
         for task in data['tasks']:
-            task = tasks.deserialize_task(ctx, data, graph=inst)
+            task = tasks.deserialize_task(ctx, task, graph=inst)
             graph_tasks[task.id] = task
             if isinstance(task, SubgraphTask):
                 subgraphs.append(task)
