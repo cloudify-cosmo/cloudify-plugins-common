@@ -102,8 +102,8 @@ class LifecycleProcessor(object):
     def _process_node_instances(self,
                                 node_instance_subgraph_func,
                                 graph_finisher_func):
-        self.graph = get_graph(workflow_ctx.execution_id)
-        if not self.graph:
+        stored = get_graph(workflow_ctx.execution_id)
+        if not stored:
             subgraphs = {}
             for instance in self.node_instances:
                 subgraphs[instance.id] = \
@@ -117,6 +117,8 @@ class LifecycleProcessor(object):
 
             graph_finisher_func(subgraphs)
             store_graph(workflow_ctx.execution_id, self.graph)
+        else:
+            self.graph = stored
         self.graph.execute()
 
     def _finish_install(self, subgraphs):
