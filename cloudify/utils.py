@@ -25,7 +25,6 @@ import subprocess
 import sys
 import tempfile
 import traceback
-import shutil
 import StringIO
 
 from distutils.version import LooseVersion
@@ -493,45 +492,56 @@ class Internal(object):
 
 internal = Internal()
 
-WORKFLOWS_DIR = '/etc/cloudify/workflows'
+conn = None
+
+
+def _get_conn():
+    global conn
+    if conn is None:
+        conn = psycopg2.connect(dbname='cloudify_db', user='cloudify',password='cloudify', host='127.0.0.1') # NOQA
+    return conn
 
 
 def store_execution(execution_id, body):
-    d = os.path.join(WORKFLOWS_DIR, execution_id)
-    if not os.path.exists(d):
-        os.makedirs(d)
-    body['random'] = 'abc' * 4096
-    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
-        json.dump(body, f, indent=4, sort_keys=True)
-    os.rename(f.name, os.path.join(d, 'execution.json'))
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute('insert into mgmtworker_executions (id, body) values (%s, %s)',
+                (execution_id, json.dumps(body, indent=4, sort_keys=True)))
+    conn.commit()
 
 
 def get_execution(execution_id):
-    d = os.path.join(WORKFLOWS_DIR, execution_id)
-    with open(os.path.join(d, 'execution.json')) as f:
-        return json.load(f)
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute('select body from mgmtworker_executions where id=%s',
+                (execution_id, ))
+    return cur.fetchall()[0][0]
 
 
 def delete_execution_dir(execution_id):
-    d = os.path.join(WORKFLOWS_DIR, execution_id)
-    shutil.rmtree(d)
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute('delete from mgmtworker_graph where id=%s',
+                (execution_id, ))
+    cur.execute('delete from mgmtworker_executions where id=%s',
+                (execution_id, ))
+    conn.commit()
 
 
 def get_graph(execution_id):
     from cloudify.workflows.tasks_graph import TaskDependencyGraph
     from cloudify.state import workflow_ctx
-    d = os.path.join(WORKFLOWS_DIR, execution_id)
-    try:
-        with open(os.path.join(d, 'graph.json')) as f:
-            return TaskDependencyGraph.deserialize(workflow_ctx, json.load(f))
-    except IOError:
-        return None
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute('select body from mgmtworker_graph where id=%s',
+                (execution_id, ))
+    data = cur.fetchall()[0][0]
+    return TaskDependencyGraph.deserialize(workflow_ctx, data)
 
 
 def store_graph(execution_id, graph):
-    d = os.path.join(WORKFLOWS_DIR, execution_id)
-    if not os.path.exists(d):
-        os.makedirs(d)
-    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
-        json.dump(graph.serialize(), f, indent=4, sort_keys=True)
-    os.rename(f.name, os.path.join(d, 'graph.json'))
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute('insert into mgmtworker_graph (id, body) values (%s, %s)',
+                (execution_id, json.dumps(graph, indent=4, sort_keys=True)))
+    conn.commit()
