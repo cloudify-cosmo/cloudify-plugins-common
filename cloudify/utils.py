@@ -26,6 +26,7 @@ import sys
 import tempfile
 import traceback
 import StringIO
+import psycopg2
 
 from distutils.version import LooseVersion
 
