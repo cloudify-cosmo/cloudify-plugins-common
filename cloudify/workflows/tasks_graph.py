@@ -259,7 +259,8 @@ class TaskDependencyGraph(object):
             inst.add_task(task)
 
         for s, t in data['edges']:
-            inst.graph.add_edge(s, t)
+            if inst.graph.has_node(s) and inst.graph.has_node(t):
+                inst.graph.add_edge(s, t)
         f.close()
         return inst
 
