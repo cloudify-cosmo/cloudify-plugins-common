@@ -428,9 +428,7 @@ def _store_graph(_id, graph):
 
 
 @workflow
-def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
-                      run_by_dependency_order, type_names, node_ids,
-                      node_instance_ids, **kwargs):
+def execute_operation(ctx, **kwargs):
     graph = _get_graph(ctx.execution_id)
     if graph is None:
         graph = _make_execute_operation_graph(ctx, **kwargs)
