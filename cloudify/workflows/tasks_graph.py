@@ -350,7 +350,7 @@ class SubgraphTask(tasks.WorkflowTask):
 
     @classmethod
     def deserialize(cls, ctx, data, graph):
-        data['graph'] = graph
+        data['kwargs']['graph'] = graph
         inst = super(SubgraphTask, cls).deserialize(ctx, data, graph=graph)
         return inst
 
