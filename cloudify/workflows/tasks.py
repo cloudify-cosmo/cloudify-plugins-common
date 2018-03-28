@@ -60,6 +60,11 @@ def _workflow_meta(name, bases, attr):
     return cls
 
 
+def deserialize_task(ctx, data, **kwargs):
+    cls = _TASK_CLASSES[data['cls']]
+    return cls.deserialize(ctx, data, **kwargs)
+
+
 class WorkflowTask(object):
     """A base class for workflow tasks"""
     __metaclass__ = _workflow_meta
@@ -132,7 +137,8 @@ class WorkflowTask(object):
             'state': self._state,
             'is_terminated': self.is_terminated,
             'current_retries': self.current_retries,
-            'cls': self.__class__.__name__
+            'cls': self.__class__.__name__,
+            'containing_subgraph': self.containing_subgraph
         }
 
     def _get_serialize_kwargs(self):
@@ -141,10 +147,10 @@ class WorkflowTask(object):
             'info': self.info,
         }
 
-    @staticmethod
-    def deserialize(ctx, data):
-        cls = _TASK_CLASSES[data['cls']]
+    @classmethod
+    def deserialize(cls, ctx, data, **kwargs):
         inst = cls(workflow_context=ctx, **data['kwargs'])
+        inst.containing_subgraph = data['containing_subgraph']
         inst._state = data['state']
         inst.is_terminated = data['is_terminated']
         inst.current_retries = data['current_retries']
@@ -402,8 +408,8 @@ class RemoteWorkflowTask(WorkflowTask):
         return d
 
     @classmethod
-    def deserialize(cls, ctx, data):
-        inst = super(RemoteWorkflowTask, cls).deserialize(ctx, data)
+    def deserialize(cls, ctx, data, **kwargs):
+        inst = super(RemoteWorkflowTask, cls).deserialize(ctx, data, **kwargs)
         inst._task_queue = data['queue']
         inst._task_target = data['target']
         if not inst.is_terminated:
@@ -567,9 +573,9 @@ class LocalWorkflowTask(WorkflowTask):
         })
         return super_dump
 
-    def deserialize(self, ctx, data):
+    def deserialize(self, ctx, data, **kwargs):
         data['local_task'] = lambda *a, **kw: None
-        return super(LocalWorkflowTask, self).deserialize(ctx, data)
+        return super(LocalWorkflowTask, self).deserialize(ctx, data, **kwargs)
 
     def apply_async(self):
         """

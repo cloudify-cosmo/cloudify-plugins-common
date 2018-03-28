@@ -415,6 +415,8 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
 
     with open('/tmp/graph', 'w') as f:
         f.write(json.dumps(graph.serialize(), indent=4, sort_keys=True))
+    from cloudify.workflows.tasks_graph import TaskDependencyGraph
+    graph = TaskDependencyGraph.deserialize(ctx, graph.serialize())
     graph.execute()
 
 

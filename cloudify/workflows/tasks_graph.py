@@ -235,6 +235,28 @@ class TaskDependencyGraph(object):
             'edges': [[s, t] for s, t in self.graph.edges_iter()]
         }
 
+    @classmethod
+    def deserialize(cls, ctx, data):
+        inst = cls(ctx)
+
+        tasks = {}
+        subgraphs = []
+        for task in data['tasks']:
+            task = tasks.deserialize_task(ctx, data, graph=inst)
+            tasks[task.id] = task
+            if isinstance(task, SubgraphTask):
+                subgraphs.append(task)
+
+        for task in tasks.values():
+            if task.containing_subgraph:
+                subgraph = tasks[task.containing_subgraph]
+                task.containing_subgraph = subgraph
+                subgraph.tasks[task.id] = task
+            inst.add_task(task)
+        for s, t in data['edges']:
+            inst.graph.add_edge(s, t)
+        return inst
+
 
 class forkjoin(object):
     """
@@ -325,16 +347,10 @@ class SubgraphTask(tasks.WorkflowTask):
         d['name'] = self._name
         return d
 
-    def serialize(self):
-        d = super(SubgraphTask, self).serialize()
-        d['tasks'] = list(self.tasks.keys())
-        return d
-
     @classmethod
-    def deserialize(cls, ctx, data):
-        data['graph'] = ctx.graph_mode()
-        inst = super(SubgraphTask, cls).deserialize(ctx, data)
-        inst.tasks = dict.fromkeys(data['tasks'])
+    def deserialize(cls, ctx, data, graph):
+        data['graph'] = graph
+        inst = super(SubgraphTask, cls).deserialize(ctx, data, graph=graph)
         return inst
 
     @property
