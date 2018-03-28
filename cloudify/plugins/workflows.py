@@ -13,14 +13,11 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-import json
-import os
-
 from cloudify import constants, utils
 from cloudify.decorators import workflow
 from cloudify.plugins import lifecycle
 from cloudify.manager import get_rest_client
-from cloudify.workflows import tasks_graph
+from cloudify.utils import store_graph, get_graph
 
 
 @workflow
@@ -418,10 +415,10 @@ def _make_execute_operation_graph(
 
 @workflow
 def execute_operation(ctx, **kwargs):
-    graph = tasks_graph.get_graph(ctx.execution_id)
+    graph = get_graph(ctx.execution_id)
     if graph is None:
         graph = _make_execute_operation_graph(ctx, **kwargs)
-        tasks_graph.store_graph(ctx.execution_id, graph)
+        store_graph(ctx.execution_id, graph)
     graph.execute()
 
 

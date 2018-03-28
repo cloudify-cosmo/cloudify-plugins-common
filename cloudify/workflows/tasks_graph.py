@@ -22,6 +22,7 @@ import networkx as nx
 
 from cloudify.workflows import api
 from cloudify.workflows import tasks
+from cloudify.utils import store_graph
 
 
 class TaskDependencyGraph(object):
@@ -257,19 +258,6 @@ class TaskDependencyGraph(object):
         for s, t in data['edges']:
             inst.graph.add_edge(s, t)
         return inst
-
-
-def get_graph(_id):
-    try:
-        with open(os.path.join('/tmp/workflows', _id)) as f:
-            return TaskDependencyGraph.deserialize(json.load(f))
-    except IOError:
-        return None
-
-
-def store_graph(_id, graph):
-    with open(os.path.join('/tmp/workflows', _id), 'wb') as f:
-        json.dump(graph.serialize(), f)
 
 
 class forkjoin(object):
