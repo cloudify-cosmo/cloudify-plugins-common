@@ -54,10 +54,11 @@ def retry_failure_handler(task):
 _TASK_CLASSES = {}
 
 
-def _workflow_meta(name, bases, attr):
-    cls = type(name, bases, attr)
-    _TASK_CLASSES[name] = cls
-    return cls
+class _WorkflowTaskMeta(type):
+    def __new__(cls, name, bases, attr):
+        new_cls = super(_WorkflowTaskMeta, cls).__new__(cls, name, bases, attr)
+        _TASK_CLASSES[name] = new_cls
+        return new_cls
 
 
 def deserialize_task(ctx, data, **kwargs):
@@ -67,7 +68,7 @@ def deserialize_task(ctx, data, **kwargs):
 
 class WorkflowTask(object):
     """A base class for workflow tasks"""
-    __metaclass__ = _workflow_meta
+    __metaclass__ = _WorkflowTaskMeta
 
     def __init__(self,
                  workflow_context,
