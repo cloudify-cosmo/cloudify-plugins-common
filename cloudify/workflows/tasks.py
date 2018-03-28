@@ -158,7 +158,10 @@ class WorkflowTask(object):
 
     @classmethod
     def deserialize(cls, ctx, data, **kwargs):
-        inst = cls(workflow_context=ctx, **data['kwargs'])
+        try:
+            inst = cls(workflow_context=ctx, **data['kwargs'])
+        except TypeError:
+            raise TypeError('ad {0}'.format(cls))
         inst.containing_subgraph = data['containing_subgraph']
         inst._state = data['state']
         inst.is_terminated = data['is_terminated']
