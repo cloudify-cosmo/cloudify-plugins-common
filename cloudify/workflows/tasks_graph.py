@@ -193,7 +193,7 @@ class TaskDependencyGraph(object):
             try:
                 yield data['task']
             except KeyError:
-                raise KeyError((i, data))
+                continue
 
     def _handle_executable_task(self, task):
         """Handle executable task"""
