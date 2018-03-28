@@ -142,7 +142,7 @@ class TaskDependencyGraph(object):
             # sleep some and do it all over again
             else:
                 time.sleep(0.2)
-                store_graph(self.workflow_context.execution_id, self)
+                store_graph(self.ctx.execution_id, self)
 
     @staticmethod
     def _is_execution_cancelled():
