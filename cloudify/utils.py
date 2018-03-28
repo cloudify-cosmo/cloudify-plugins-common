@@ -502,6 +502,7 @@ def store_execution(execution_id, body):
         os.makedirs(d)
     with open(os.path.join(d, 'execution.json'), 'wb') as f:
         json.dump(body, f, indent=4, sort_keys=True)
+        os.fsync(f)
 
 
 def get_execution(execution_id):
@@ -532,3 +533,4 @@ def store_graph(execution_id, graph):
         os.makedirs(d)
     with open(os.path.join(d, 'graph.json'), 'wb') as f:
         json.dump(graph.serialize(), f, indent=4, sort_keys=True)
+        os.fsync(f)
