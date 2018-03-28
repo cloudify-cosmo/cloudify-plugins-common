@@ -320,7 +320,8 @@ class SubgraphTask(tasks.WorkflowTask):
                  on_failure=None,
                  total_retries=tasks.DEFAULT_SUBGRAPH_TOTAL_RETRIES,
                  retry_interval=tasks.DEFAULT_RETRY_INTERVAL,
-                 send_task_events=tasks.DEFAULT_SEND_TASK_EVENTS):
+                 send_task_events=tasks.DEFAULT_SEND_TASK_EVENTS,
+                 **kwargs):
         super(SubgraphTask, self).__init__(
             graph.ctx,
             task_id,
