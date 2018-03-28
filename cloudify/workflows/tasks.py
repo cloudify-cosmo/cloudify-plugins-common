@@ -417,7 +417,7 @@ class RemoteWorkflowTask(WorkflowTask):
         inst = super(RemoteWorkflowTask, cls).deserialize(ctx, data, **kwargs)
         inst._task_queue = data['queue']
         inst._task_target = data['target']
-        if not inst.is_terminated:
+        if inst._task_target and inst._task_queue:
             async_result = inst.workflow_context.internal.handler \
                 .get_async_result(inst, data['task'])
             inst.async_result = RemoteWorkflowTaskResult(inst, async_result)
