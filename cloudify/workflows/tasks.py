@@ -358,7 +358,8 @@ class RemoteWorkflowTask(WorkflowTask):
                  on_failure=retry_failure_handler,
                  total_retries=DEFAULT_TOTAL_RETRIES,
                  retry_interval=DEFAULT_RETRY_INTERVAL,
-                 send_task_events=DEFAULT_SEND_TASK_EVENTS):
+                 send_task_events=DEFAULT_SEND_TASK_EVENTS,
+                 **kw):
         """
         :param kwargs: The keyword argument this task will be invoked with
         :param cloudify_context: the cloudify context dict
@@ -547,7 +548,8 @@ class LocalWorkflowTask(WorkflowTask):
                  send_task_events=DEFAULT_SEND_TASK_EVENTS,
                  kwargs=None,
                  task_id=None,
-                 name=None):
+                 name=None,
+                 **kw):
         """
         :param local_task: A callable
         :param workflow_context: the CloudifyWorkflowContext instance
