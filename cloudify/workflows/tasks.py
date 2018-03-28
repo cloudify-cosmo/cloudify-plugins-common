@@ -49,6 +49,7 @@ RESUMABLE_TASKS = {
     'script_runner.tasks.run'
 }
 
+
 def retry_failure_handler(task):
     """Basic on_success/on_failure handler that always returns retry"""
     return HandlerResult.retry()
@@ -432,12 +433,8 @@ class RemoteWorkflowTask(WorkflowTask):
         return inst
 
     def _is_resumable(self, task):
-        with open('/tmp/footask.log', 'w') as f:
-            f.write('{0!r}\n'.format(task))
-
         try:
-            return task['kwargs']['__cloudify_context']['task_name'] \
-                in RESUMABLE_TASKS
+            return task['cloudify_task']['kwargs']['__cloudify_context']['task_name'] in RESUMABLE_TASKS  # NOQA
         except KeyError:
             return False
 
