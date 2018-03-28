@@ -51,9 +51,18 @@ def retry_failure_handler(task):
     """Basic on_success/on_failure handler that always returns retry"""
     return HandlerResult.retry()
 
+_TASK_CLASSES = {}
+
+
+def _workflow_meta(name, bases, attr):
+    cls = type(name, bases, attr)
+    _TASK_CLASSES[name] = cls
+    return cls
+
 
 class WorkflowTask(object):
     """A base class for workflow tasks"""
+    __metaclass__ = _workflow_meta
 
     def __init__(self,
                  workflow_context,
@@ -123,6 +132,7 @@ class WorkflowTask(object):
             'state': self._state,
             'is_terminated': self.is_terminated,
             'current_retries': self.current_retries,
+            'cls': self.__class__.__name__
         }
 
     def _get_serialize_kwargs(self):
@@ -131,8 +141,9 @@ class WorkflowTask(object):
             'info': self.info,
         }
 
-    @classmethod
-    def deserialize(cls, ctx, data):
+    @staticmethod
+    def deserialize(ctx, data):
+        cls = _TASK_CLASSES[data['cls']]
         inst = cls(workflow_context=ctx, **data['kwargs'])
         inst._state = data['state']
         inst.is_terminated = data['is_terminated']
