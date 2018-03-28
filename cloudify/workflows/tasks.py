@@ -435,7 +435,7 @@ class RemoteWorkflowTask(WorkflowTask):
             else:
                 inst.async_result = RemoteWorkflowErrorTaskResult(
                     inst, exceptions.NonRecoverableError(
-                        'not resumable: {0}'.format(data['task']['id'])))
+                        'not resumable: {0}'.format(data)))
                 inst.set_state(TASK_FAILED)
         return inst
 
