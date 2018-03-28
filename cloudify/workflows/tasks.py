@@ -664,7 +664,7 @@ class LocalWorkflowTask(WorkflowTask):
 # NOP tasks class
 class NOPLocalWorkflowTask(LocalWorkflowTask):
 
-    def __init__(self, workflow_context):
+    def __init__(self, workflow_context, **kwargs):
         super(NOPLocalWorkflowTask, self).__init__(lambda: None,
                                                    workflow_context)
 
