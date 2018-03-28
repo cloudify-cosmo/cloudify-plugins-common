@@ -14,6 +14,7 @@
 #    * limitations under the License.
 
 import json
+import os
 
 from cloudify import constants, utils
 from cloudify.decorators import workflow
@@ -348,12 +349,11 @@ def restart(ctx, stop_parms, start_parms, run_by_dependency_order, type_names,
           node_ids, node_instance_ids, **kwargs)
 
 
-@workflow
-def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
-                      run_by_dependency_order, type_names, node_ids,
-                      node_instance_ids, **kwargs):
+def _make_execute_operation_graph(
+        ctx, operation, operation_kwargs, allow_kwargs_override,
+        run_by_dependency_order, type_names, node_ids,
+        node_instance_ids, **kwargs):
     """ A generic workflow for executing arbitrary operations on nodes """
-
     graph = ctx.graph_mode()
     subgraphs = {}
 
@@ -413,10 +413,28 @@ def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
                 graph.add_dependency(subgraphs[instance.id],
                                      subgraphs[rel.target_id])
 
-    with open('/tmp/graph', 'w') as f:
-        f.write(json.dumps(graph.serialize(), indent=4, sort_keys=True))
-    from cloudify.workflows.tasks_graph import TaskDependencyGraph
-    graph = TaskDependencyGraph.deserialize(ctx, graph.serialize())
+
+def _get_graph(_id):
+    try:
+        with open(os.path.join('/tmp', _id)) as f:
+            return json.load(f)
+    except IOError:
+        return None
+
+
+def _store_graph(_id, graph):
+    with open(os.path.join('/tmp', _id), 'wb') as f:
+        json.dump(graph, f)
+
+
+@workflow
+def execute_operation(ctx, operation, operation_kwargs, allow_kwargs_override,
+                      run_by_dependency_order, type_names, node_ids,
+                      node_instance_ids, **kwargs):
+    graph = _get_graph(ctx.execution.id)
+    if graph is None:
+        graph = _make_execute_operation_graph(ctx, **kwargs)
+        _store_graph(ctx.execution.id, graph)
     graph.execute()
 
 
