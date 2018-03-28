@@ -132,13 +132,17 @@ class WorkflowTask(object):
         }
 
     def serialize(self):
+        if self.containing_subgraph:
+            subgraph_id = self.containing_subgraph.id
+        else:
+            subgraph_id = None
         return {
             'kwargs': self._get_serialize_kwargs(),
             'state': self._state,
             'is_terminated': self.is_terminated,
             'current_retries': self.current_retries,
             'cls': self.__class__.__name__,
-            'containing_subgraph': self.containing_subgraph.id
+            'containing_subgraph': subgraph_id
         }
 
     def _get_serialize_kwargs(self):
