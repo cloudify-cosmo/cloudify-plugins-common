@@ -239,19 +239,19 @@ class TaskDependencyGraph(object):
     def deserialize(cls, ctx, data):
         inst = cls(ctx)
 
-        tasks = {}
+        graph_tasks = {}
         subgraphs = []
         for task in data['tasks']:
             task = tasks.deserialize_task(ctx, data, graph=inst)
-            tasks[task.id] = task
+            graph_tasks[task.id] = task
             if isinstance(task, SubgraphTask):
                 subgraphs.append(task)
 
-        for task in tasks.values():
+        for task in graph_tasks.values():
             if task.containing_subgraph:
-                subgraph = tasks[task.containing_subgraph]
+                subgraph = graph_tasks[task.containing_subgraph]
                 task.containing_subgraph = subgraph
-                subgraph.tasks[task.id] = task
+                subgraph.graph_tasks[task.id] = task
             inst.add_task(task)
         for s, t in data['edges']:
             inst.graph.add_edge(s, t)
