@@ -430,7 +430,7 @@ class RemoteWorkflowTask(WorkflowTask):
         inst._task_target = data['target']
         if inst._task_target and inst._task_queue:
             if inst._is_resumable(data['task']):
-                if data['target'] == 'cloudify.management':
+                if data['target'] == 'cloudify.management' and inst.get_state() == TASK_SENT:  # NOQA
                     inst.apply_async()
                 else:
                     async_result = inst.workflow_context.internal.handler \
