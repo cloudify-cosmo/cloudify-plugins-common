@@ -1226,7 +1226,7 @@ class _TaskDispatcher(object):
             'cloudify_task': kwargs,
         }
         client = self._get_client(task)
-        result_queue = client.channel.queue_declare(exclusive=True)
+        result_queue = client.channel.queue_declare()
         task['result_queue'] = result_queue.method.queue
         return task
 
