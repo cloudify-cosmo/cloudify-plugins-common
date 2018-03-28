@@ -416,14 +416,14 @@ def _make_execute_operation_graph(
 
 def _get_graph(_id):
     try:
-        with open(os.path.join('/tmp', _id)) as f:
+        with open(os.path.join('/tmp/workflows', _id)) as f:
             return json.load(f)
     except IOError:
         return None
 
 
 def _store_graph(_id, graph):
-    with open(os.path.join('/tmp', _id), 'wb') as f:
+    with open(os.path.join('/tmp/workflows', _id), 'wb') as f:
         json.dump(graph, f)
 
 
@@ -432,7 +432,7 @@ def execute_operation(ctx, **kwargs):
     graph = _get_graph(ctx.execution_id)
     if graph is None:
         graph = _make_execute_operation_graph(ctx, **kwargs)
-        _store_graph(ctx.execution.id, graph)
+        _store_graph(ctx.execution_id, graph)
     graph.execute()
 
 
