@@ -516,7 +516,10 @@ def get_execution(execution_id):
     cur = conn.cursor()
     cur.execute('select body from mgmtworker_executions where id=%s',
                 (execution_id, ))
-    return cur.fetchall()[0][0]
+    data = cur.fetchall()
+    if not data:
+        return None
+    return data[0][0]
 
 
 def delete_execution_dir(execution_id):
@@ -536,7 +539,10 @@ def get_graph(execution_id):
     cur = conn.cursor()
     cur.execute('select body from mgmtworker_graph where id=%s',
                 (execution_id, ))
-    data = cur.fetchall()[0][0]
+    data = cur.fetchall()
+    if not data:
+        return None
+    data = data[0][0]
     return TaskDependencyGraph.deserialize(workflow_ctx, data)
 
 
