@@ -20,6 +20,7 @@ from cloudify import constants, utils
 from cloudify.decorators import workflow
 from cloudify.plugins import lifecycle
 from cloudify.manager import get_rest_client
+from cloudify.workflows import tasks_graph
 
 
 @workflow
@@ -418,14 +419,14 @@ def _make_execute_operation_graph(
 def _get_graph(_id):
     try:
         with open(os.path.join('/tmp/workflows', _id)) as f:
-            return json.load(f)
+            return tasks_graph.TaskDependencyGraph.deserialize(json.load(f))
     except IOError:
         return None
 
 
 def _store_graph(_id, graph):
     with open(os.path.join('/tmp/workflows', _id), 'wb') as f:
-        json.dump(graph, f)
+        json.dump(graph.serialize(), f)
 
 
 @workflow
