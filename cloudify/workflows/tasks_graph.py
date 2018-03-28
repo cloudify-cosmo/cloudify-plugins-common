@@ -229,6 +229,12 @@ class TaskDependencyGraph(object):
                 'tasks': [task.dump() for task in self.tasks_iter()],
                 'edges': [[s, t] for s, t in self.graph.edges_iter()]}))
 
+    def serialize(self):
+        return {
+            'tasks': [task.serialize() for task in self.tasks_iter()],
+            'edges': [[s, t] for s, t in self.graph.edges_iter()]
+        }
+
 
 class forkjoin(object):
     """
