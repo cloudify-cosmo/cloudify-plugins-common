@@ -117,6 +117,28 @@ class WorkflowTask(object):
             'cloudify_context': self.cloudify_context
         }
 
+    def serialize(self):
+        return {
+            'kwargs': self._get_serialize_kwargs(),
+            'state': self._state,
+            'is_terminated': self.is_terminated,
+            'current_retries': self.current_retries,
+        }
+
+    def _get_serialize_kwargs(self):
+        return {
+            'task_id': self.id,
+            'info': self.info,
+        }
+
+    @classmethod
+    def deserialize(cls, ctx, data):
+        inst = cls(workflow_context=ctx, **data['kwargs'])
+        inst._state = data['state']
+        inst.is_terminated = data['is_terminated']
+        inst.current_retries = data['current_retries']
+        return inst
+
     def is_remote(self):
         """
         :return: Is this a remote task
@@ -351,6 +373,33 @@ class RemoteWorkflowTask(WorkflowTask):
         self._kwargs = kwargs
         self._cloudify_context = cloudify_context
         self._cloudify_agent = None
+        self._task = None
+
+    def _get_serialize_kwargs(self):
+        d = super(RemoteWorkflowTask, self)._get_serialize_kwargs()
+        d.update({
+            'cloudify_context': self.cloudify_context,
+            'kwargs': self.kwargs
+        })
+        return d
+
+    def serialize(self):
+        d = super(RemoteWorkflowTask, self).serialize()
+        d['target'] = self.target
+        d['queue'] = self.queue
+        d['task'] = self._task
+        return d
+
+    @classmethod
+    def deserialize(cls, ctx, data):
+        inst = super(RemoteWorkflowTask, cls).deserialize(ctx, data)
+        inst._task_queue = data['queue']
+        inst._task_target = data['target']
+        if not inst.is_terminated:
+            async_result = inst.workflow_context.internal.handler \
+                .get_async_result(inst, data['task'])
+            inst.async_result = RemoteWorkflowTaskResult(inst, async_result)
+        return inst
 
     def apply_async(self):
         """
@@ -362,11 +411,11 @@ class RemoteWorkflowTask(WorkflowTask):
         """
         try:
             self._set_queue_kwargs()
-            task = self.workflow_context.internal.handler.get_task(
+            self._task = self.workflow_context.internal.handler.get_task(
                 self, queue=self._task_queue, target=self._task_target)
             self.workflow_context.internal.send_task_event(TASK_SENDING, self)
             async_result = self.workflow_context.internal.handler.send_task(
-                self, task)
+                self, self._task)
             self.set_state(TASK_SENT)
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except (exceptions.NonRecoverableError,
@@ -506,6 +555,10 @@ class LocalWorkflowTask(WorkflowTask):
             'name': self._name
         })
         return super_dump
+
+    def deserialize(self, ctx, data):
+        data['local_task'] = lambda *a, **kw: None
+        return super(LocalWorkflowTask, self).deserialize(ctx, data)
 
     def apply_async(self):
         """

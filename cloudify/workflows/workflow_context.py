@@ -1217,7 +1217,7 @@ class _TaskDispatcher(object):
         self._clients = {}
 
     def make_subtask(self, tenant, target, queue, *args, **kwargs):
-        return {
+        task = {
             'id': uuid.uuid4().hex,
             'tenant': tenant,
             'target': target,
@@ -1225,6 +1225,10 @@ class _TaskDispatcher(object):
             'args': args,
             'cloudify_task': kwargs,
         }
+        client = self._get_client()
+        result_queue = client.channel.queue_declare(exclusive=True)
+        task['result_queue'] = result_queue.method.queue
+        return task
 
     def _get_vhost(self, task):
         if task['queue'] == MGMTWORKER_QUEUE:
@@ -1245,30 +1249,35 @@ class _TaskDispatcher(object):
         return self._clients[vhost]
 
     def send_task(self, workflow_task, task):
+        result = self._get_async_result(workflow_task, task)
+        self._set_task_state(workflow_task, TASK_STARTED, {})
+        debuglog(task['id'], 'sending', task)
+        client = self._get_client(task)
+        client.channel.basic_publish(
+            exchange=task['target'],
+            routing_key='',
+            properties=pika.BasicProperties(
+                reply_to=task['result_queue'],
+                correlation_id=task['id']),
+            body=json.dumps(task))
+        debuglog(task['id'], '...sent')
+        return result
+
+    def get_async_result(self, workflow_task, task):
         client = self._get_client(task)
         client.channel.exchange_declare(
             exchange=task['target'],
             type='direct',
             auto_delete=False,
             durable=True)
-        result_queue = client.channel.queue_declare(exclusive=True)
+
         client.channel.basic_consume(
             functools.partial(self._received, client),
-            queue=result_queue.method.queue)
+            queue=task['result_queue'])
         client.start_consuming()
         result = _AsyncResult(task)
         self._tasks.setdefault(client, {})[task['id']] = \
             (workflow_task, task, result)
-        self._set_task_state(workflow_task, TASK_STARTED, {})
-        debuglog(task['id'], 'sending', task)
-        client.channel.basic_publish(
-            exchange=task['target'],
-            routing_key='',
-            properties=pika.BasicProperties(
-                reply_to=result_queue.method.queue,
-                correlation_id=task['id']),
-            body=json.dumps(task))
-        debuglog(task['id'], '...sent')
         return result
 
     def _set_task_state(self, workflow_task, state, event):
@@ -1353,6 +1362,9 @@ class RemoteContextHandler(CloudifyWorkflowContextHandler):
 
     def send_task(self, workflow_task, task):
         return self._dispatcher.send_task(workflow_task, task)
+
+    def get_async_result(self, workflow_task, task):
+        return self._dispatcher.get_async_result(workflow_task, task)
 
     @property
     def operation_cloudify_context(self):

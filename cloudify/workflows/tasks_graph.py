@@ -314,6 +314,23 @@ class SubgraphTask(tasks.WorkflowTask):
         raise NotImplementedError('self.retried_task should be set explicitly'
                                   ' in self.on_failure handler')
 
+    def _get_serialize_kwargs(self):
+        d = super(SubgraphTask, self)._get_serialize_kwargs()
+        d['name'] = self._name
+        return d
+
+    def serialize(self):
+        d = super(SubgraphTask, self).serialize()
+        d['tasks'] = list(self.tasks.keys())
+        return d
+
+    @classmethod
+    def deserialize(cls, ctx, data):
+        data['graph'] = ctx.graph_mode()
+        inst = super(SubgraphTask, cls).deserialize(ctx, data)
+        inst.tasks = dict.fromkeys(data['tasks'])
+        return inst
+
     @property
     def cloudify_context(self):
         return {}
