@@ -493,29 +493,31 @@ class Internal(object):
 
 internal = Internal()
 
+WORKFLOWS_DIR = '/opt/manager/workflows'
+
 
 def store_execution(execution_id, body):
-    d = os.path.join('/tmp/workflows', execution_id)
+    d = os.path.join(WORKFLOWS_DIR, execution_id)
     os.makedirs(d)
-    with open(os.path.join(d, 'execution.json'), 'w') as f:
+    with open(os.path.join(d, 'execution.json'), 'wb') as f:
         json.dump(body, f, indent=4, sort_keys=True)
 
 
 def get_execution(execution_id):
-    d = os.path.join('/tmp/workflows', execution_id)
+    d = os.path.join(WORKFLOWS_DIR, execution_id)
     with open(os.path.join(d, 'execution.json')) as f:
         return json.load(f)
 
 
 def delete_execution_dir(execution_id):
-    d = os.path.join('/tmp/workflows', execution_id)
+    d = os.path.join(WORKFLOWS_DIR, execution_id)
     shutil.rmtree(d)
 
 
 def get_graph(execution_id):
     from cloudify.workflows.tasks_graph import TaskDependencyGraph
     from cloudify.state import workflow_ctx
-    d = os.path.join('/tmp/workflows', execution_id)
+    d = os.path.join(WORKFLOWS_DIR, execution_id)
     try:
         with open(os.path.join(d, 'graph.json')) as f:
             return TaskDependencyGraph.deserialize(workflow_ctx, json.load(f))
@@ -524,6 +526,6 @@ def get_graph(execution_id):
 
 
 def store_graph(execution_id, graph):
-    d = os.path.join('/tmp/workflows', execution_id)
+    d = os.path.join(WORKFLOWS_DIR, execution_id)
     with open(os.path.join(d, 'graph.json'), 'wb') as f:
         json.dump(graph.serialize(), f, indent=4, sort_keys=True)
