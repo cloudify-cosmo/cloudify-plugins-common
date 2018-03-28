@@ -514,10 +514,11 @@ def delete_execution_dir(execution_id):
 
 def get_graph(execution_id):
     from cloudify.workflows.tasks_graph import TaskDependencyGraph
+    from cloudify.state import workflow_ctx
     d = os.path.join('/tmp/workflows', execution_id)
     try:
         with open(os.path.join(d, 'graph.json')) as f:
-            return TaskDependencyGraph.deserialize(json.load(f))
+            return TaskDependencyGraph.deserialize(workflow_ctx, json.load(f))
     except IOError:
         return None
 
