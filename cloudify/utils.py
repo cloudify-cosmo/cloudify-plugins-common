@@ -526,7 +526,7 @@ def get_execution(execution_id):
 def delete_execution_dir(execution_id):
     conn = _get_conn()
     cur = conn.cursor()
-    cur.execute('delete from mgmtworker_graph where id=%s',
+    cur.execute('delete from mgmtworker_executions where id=%s',
                 (execution_id, ))
     cur.execute('delete from mgmtworker_executions where id=%s',
                 (execution_id, ))
@@ -550,7 +550,7 @@ def get_graph(execution_id):
 def store_graph(execution_id, graph):
     conn = _get_conn()
     cur = conn.cursor()
-    cur.execute('delete from mgmtworker_graph where id=%s', execution_id)
+    cur.execute('delete from mgmtworker_graph where id=%s', (execution_id,))
     cur.execute('insert into mgmtworker_graph (id, body) values (%s, %s)',
                 (execution_id,
                     json.dumps(graph.serialize(), indent=4, sort_keys=True)))
