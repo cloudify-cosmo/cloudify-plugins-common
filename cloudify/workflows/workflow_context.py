@@ -1250,7 +1250,6 @@ class _TaskDispatcher(object):
 
     def send_task(self, workflow_task, task):
         result = self.get_async_result(workflow_task, task)
-        self._set_task_state(workflow_task, TASK_STARTED, {})
         debuglog(task['id'], 'sending', task)
         client = self._get_client(task)
         client.channel.basic_publish(
@@ -1260,6 +1259,7 @@ class _TaskDispatcher(object):
                 reply_to=task['result_queue'],
                 correlation_id=task['id']),
             body=json.dumps(task))
+        self._set_task_state(workflow_task, TASK_STARTED, {})
         debuglog(task['id'], '...sent')
         return result
 

@@ -132,10 +132,12 @@ class TaskDependencyGraph(object):
             # be the next one)
             for task in self._terminated_tasks():
                 self._handle_terminated_task(task)
+                store_graph(self.ctx.execution_id, self)
 
             # handle all executable tasks
             for task in self._executable_tasks():
                 self._handle_executable_task(task)
+                store_graph(self.ctx.execution_id, self)
 
             # no more tasks to process, time to move on
             if len(self.graph.node) == 0:
