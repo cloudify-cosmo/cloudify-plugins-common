@@ -251,7 +251,7 @@ class TaskDependencyGraph(object):
             if task.containing_subgraph:
                 subgraph = graph_tasks[task.containing_subgraph]
                 task.containing_subgraph = subgraph
-                subgraph.graph_tasks[task.id] = task
+                subgraph.tasks[task.id] = task
             inst.add_task(task)
         for s, t in data['edges']:
             inst.graph.add_edge(s, t)
