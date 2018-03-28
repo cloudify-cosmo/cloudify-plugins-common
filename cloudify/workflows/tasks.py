@@ -13,6 +13,8 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+from __future__ import absolute_import
+
 import sys
 import time
 import uuid
@@ -429,7 +431,7 @@ class RemoteWorkflowTask(WorkflowTask):
         if inst._task_target and inst._task_queue:
             if inst._is_resumable(data['task']):
                 if data['target'] == 'cloudify.management':
-                    inst.apply_async
+                    inst.apply_async()
                 else:
                     async_result = inst.workflow_context.internal.handler \
                         .get_async_result(inst, data['task'])
