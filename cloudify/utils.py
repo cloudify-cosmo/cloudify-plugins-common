@@ -527,5 +527,6 @@ def get_graph(execution_id):
 
 def store_graph(execution_id, graph):
     d = os.path.join(WORKFLOWS_DIR, execution_id)
+    os.makedirs(d)
     with open(os.path.join(d, 'graph.json'), 'wb') as f:
         json.dump(graph.serialize(), f, indent=4, sort_keys=True)
