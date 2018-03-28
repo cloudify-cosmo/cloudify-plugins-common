@@ -545,3 +545,10 @@ def store_graph(execution_id, graph):
     cur.execute('insert into mgmtworker_graph (id, body) values (%s, %s)',
                 (execution_id, json.dumps(graph, indent=4, sort_keys=True)))
     conn.commit()
+
+
+def get_stored_execution_ids():
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute('select id from mgmtworker_executions')
+    return [x[0] for x in cur.fetchall()]
