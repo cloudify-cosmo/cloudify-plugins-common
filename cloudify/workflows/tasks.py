@@ -442,7 +442,7 @@ class RemoteWorkflowTask(WorkflowTask):
     def _is_resumable(self, task):
         try:
             return task['cloudify_task']['kwargs']['__cloudify_context']['task_name'] in RESUMABLE_TASKS  # NOQA
-        except KeyError:
+        except (KeyError, TypeError):
             return False
 
     def apply_async(self):
