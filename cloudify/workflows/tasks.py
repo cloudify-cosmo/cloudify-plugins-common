@@ -463,9 +463,9 @@ class RemoteWorkflowTask(WorkflowTask):
             self._set_queue_kwargs()
             self._task = self.workflow_context.internal.handler.get_task(
                 self, queue=self._task_queue, target=self._task_target)
-            self.workflow_context.internal.send_task_event(TASK_SENDING, self)
             async_result = self.workflow_context.internal.handler.send_task(
                 self, self._task)
+            self.workflow_context.internal.send_task_event(TASK_SENDING, self)
             self.set_state(TASK_SENT)
             self.async_result = RemoteWorkflowTaskResult(self, async_result)
         except (exceptions.NonRecoverableError,
