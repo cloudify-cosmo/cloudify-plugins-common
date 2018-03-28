@@ -45,7 +45,9 @@ TERMINATED_STATES = [TASK_RESCHEDULED, TASK_SUCCEEDED, TASK_FAILED]
 DISPATCH_TASK = 'cloudify.dispatch.dispatch'
 
 INSPECT_TIMEOUT = 30
-
+RESUMABLE_TASKS = {
+    'script_runner.tasks.run'
+}
 
 def retry_failure_handler(task):
     """Basic on_success/on_failure handler that always returns retry"""
@@ -430,7 +432,11 @@ class RemoteWorkflowTask(WorkflowTask):
         return inst
 
     def _is_resumable(self, task):
-        return False
+        try:
+            return task['kwargs']['__cloudify_context']['task_name'] \
+                in RESUMABLE_TASKS
+        except KeyError:
+            return False
 
     def apply_async(self):
         """
