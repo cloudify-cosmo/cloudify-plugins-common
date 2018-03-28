@@ -412,6 +412,7 @@ def _make_execute_operation_graph(
             for rel in instance.relationships:
                 graph.add_dependency(subgraphs[instance.id],
                                      subgraphs[rel.target_id])
+    return graph
 
 
 def _get_graph(_id):
