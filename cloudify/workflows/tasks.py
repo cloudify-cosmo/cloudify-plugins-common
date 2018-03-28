@@ -418,10 +418,18 @@ class RemoteWorkflowTask(WorkflowTask):
         inst._task_queue = data['queue']
         inst._task_target = data['target']
         if inst._task_target and inst._task_queue:
-            async_result = inst.workflow_context.internal.handler \
-                .get_async_result(inst, data['task'])
-            inst.async_result = RemoteWorkflowTaskResult(inst, async_result)
+            if inst._is_resumable(data['task']):
+                async_result = inst.workflow_context.internal.handler \
+                    .get_async_result(inst, data['task'])
+                inst.async_result = RemoteWorkflowTaskResult(
+                    inst, async_result)
+            else:
+                inst.async_result = RemoteWorkflowErrorTaskResult(
+                    inst, exceptions.NonRecoverableError(data['task']['id']))
         return inst
+
+    def _is_resumable(self, task):
+        return False
 
     def apply_async(self):
         """
