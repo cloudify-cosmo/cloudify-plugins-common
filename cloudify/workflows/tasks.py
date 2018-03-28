@@ -81,7 +81,8 @@ class WorkflowTask(object):
                  on_failure=None,
                  total_retries=DEFAULT_TOTAL_RETRIES,
                  retry_interval=DEFAULT_RETRY_INTERVAL,
-                 send_task_events=DEFAULT_SEND_TASK_EVENTS):
+                 send_task_events=DEFAULT_SEND_TASK_EVENTS,
+                 **kwargs):
         """
         :param task_id: The id of this task (generated if none is provided)
         :param info: A short description of this task (for logging)
