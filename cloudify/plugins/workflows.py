@@ -416,25 +416,12 @@ def _make_execute_operation_graph(
     return graph
 
 
-def _get_graph(_id):
-    try:
-        with open(os.path.join('/tmp/workflows', _id)) as f:
-            return tasks_graph.TaskDependencyGraph.deserialize(json.load(f))
-    except IOError:
-        return None
-
-
-def _store_graph(_id, graph):
-    with open(os.path.join('/tmp/workflows', _id), 'wb') as f:
-        json.dump(graph.serialize(), f)
-
-
 @workflow
 def execute_operation(ctx, **kwargs):
-    graph = _get_graph(ctx.execution_id)
+    graph = tasks_graph.get_graph(ctx.execution_id)
     if graph is None:
         graph = _make_execute_operation_graph(ctx, **kwargs)
-        _store_graph(ctx.execution_id, graph)
+        tasks_graph.store_graph(ctx.execution_id, graph)
     graph.execute()
 
 

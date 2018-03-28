@@ -141,7 +141,8 @@ class TaskDependencyGraph(object):
                 return
             # sleep some and do it all over again
             else:
-                time.sleep(0.1)
+                time.sleep(0.2)
+                _store_graph(self.workflow_context.execution_id, self)
 
     @staticmethod
     def _is_execution_cancelled():
@@ -256,6 +257,19 @@ class TaskDependencyGraph(object):
         for s, t in data['edges']:
             inst.graph.add_edge(s, t)
         return inst
+
+
+def _get_graph(_id):
+    try:
+        with open(os.path.join('/tmp/workflows', _id)) as f:
+            return TaskDependencyGraph.deserialize(json.load(f))
+    except IOError:
+        return None
+
+
+def _store_graph(_id, graph):
+    with open(os.path.join('/tmp/workflows', _id), 'wb') as f:
+        json.dump(graph.serialize(), f)
 
 
 class forkjoin(object):
