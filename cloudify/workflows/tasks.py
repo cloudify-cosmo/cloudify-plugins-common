@@ -433,16 +433,16 @@ class RemoteWorkflowTask(WorkflowTask):
                 if data['target'] == 'cloudify.management':  # NOQA
                     if inst._is_resumable(data['task']):
                         inst.apply_async()
+                    else:
+                        inst.async_result = RemoteWorkflowErrorTaskResult(
+                            inst, exceptions.NonRecoverableError(
+                                'not resumable: {0}'.format(data)))
+                        inst.set_state(TASK_FAILED)
                 else:
                     async_result = inst.workflow_context.internal.handler \
                         .get_async_result(inst, data['task'])
                     inst.async_result = RemoteWorkflowTaskResult(
                         inst, async_result)
-            else:
-                inst.async_result = RemoteWorkflowErrorTaskResult(
-                    inst, exceptions.NonRecoverableError(
-                        'not resumable: {0}'.format(data)))
-                inst.set_state(TASK_FAILED)
         return inst
 
     def _is_resumable(self, task):
