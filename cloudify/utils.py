@@ -493,16 +493,16 @@ class Internal(object):
 
 internal = Internal()
 
-WORKFLOWS_DIR = '/opt/manager/workflows'
+WORKFLOWS_DIR = '/etc/cloudify/workflows'
 
 
 def store_execution(execution_id, body):
     d = os.path.join(WORKFLOWS_DIR, execution_id)
     if not os.path.exists(d):
         os.makedirs(d)
-    with open(os.path.join(d, 'execution.json'), 'wb') as f:
+    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
         json.dump(body, f, indent=4, sort_keys=True)
-        os.fsync(f)
+    os.rename(f.name, os.path.join(d, 'execution.json'))
 
 
 def get_execution(execution_id):
@@ -531,6 +531,6 @@ def store_graph(execution_id, graph):
     d = os.path.join(WORKFLOWS_DIR, execution_id)
     if not os.path.exists(d):
         os.makedirs(d)
-    with open(os.path.join(d, 'graph.json'), 'wb') as f:
+    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
         json.dump(graph.serialize(), f, indent=4, sort_keys=True)
-        os.fsync(f)
+    os.rename(f.name, os.path.join(d, 'graph.json'))
