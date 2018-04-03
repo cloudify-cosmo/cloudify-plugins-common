@@ -71,7 +71,8 @@ class AMQPClient(object):
         self.channel = self.connection.channel()
         self.channel.confirm_delivery()
         for exchange in [self.EVENTS_EXCHANGE_NAME, self.LOGS_EXCHANGE_NAME]:
-            self.channel.exchange_declare(exchange=exchange, type='fanout',
+            self.channel.exchange_declare(exchange=exchange,
+                                          exchange_type='fanout',
                                           **self.channel_settings)
 
     def publish_message(self, message, message_type):
