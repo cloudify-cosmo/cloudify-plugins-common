@@ -1247,7 +1247,6 @@ class _TaskDispatcher(object):
 
         client.channel.exchange_declare(
             exchange=task['target'],
-            type='direct',
             auto_delete=False,
             durable=True)
         result_queue = client.channel.queue_declare(exclusive=True)
