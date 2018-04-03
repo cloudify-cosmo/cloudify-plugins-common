@@ -1214,7 +1214,6 @@ class _TaskDispatcher(object):
     def __init__(self):
         self._lock = threading.Lock()
         self._tasks = {}
-        self._clients = {}
 
     def make_subtask(self, tenant, target, queue, *args, **kwargs):
         return {
@@ -1233,33 +1232,26 @@ class _TaskDispatcher(object):
             return task['tenant']['rabbitmq_vhost']
 
     def _get_client(self, task):
-        vhost = self._get_vhost(task)
-        if vhost not in self._clients:
-            tenant = task['tenant']
-            client = _AMQPClient(
-                username=tenant['rabbitmq_username'],
-                password=tenant['rabbitmq_password'],
-                vhost=vhost)
-            client.connect()
-            self._clients[vhost] = client
-        return self._clients[vhost]
+        tenant = task['tenant']
+        client = _AMQPClient(
+            username=tenant['rabbitmq_username'],
+            password=tenant['rabbitmq_password'],
+            vhost=self._get_vhost(task))
+        client.connect()
+        return client
 
     def send_task(self, workflow_task, task):
         client = self._get_client(task)
+
+        result = _AsyncResult(task)
+
         client.channel.exchange_declare(
             exchange=task['target'],
             type='direct',
             auto_delete=False,
             durable=True)
         result_queue = client.channel.queue_declare(exclusive=True)
-        client.channel.basic_consume(
-            functools.partial(self._received, client),
-            queue=result_queue.method.queue)
-        client.start_consuming()
-        result = _AsyncResult(task)
-        self._tasks.setdefault(client, {})[task['id']] = \
-            (workflow_task, task, result)
-        self._set_task_state(workflow_task, TASK_STARTED, {})
+
         debuglog(task['id'], 'sending', task)
         client.channel.basic_publish(
             exchange=task['target'],
@@ -1269,6 +1261,16 @@ class _TaskDispatcher(object):
                 correlation_id=task['id']),
             body=json.dumps(task))
         debuglog(task['id'], '...sent')
+
+        self._tasks.setdefault(client, {})[task['id']] = \
+            (workflow_task, task, result)
+        self._set_task_state(workflow_task, TASK_STARTED, {})
+
+        client.channel.basic_consume(
+            functools.partial(self._received, client),
+            queue=result_queue.method.queue)
+        client.start_consuming()
+
         return result
 
     def _set_task_state(self, workflow_task, state, event):
@@ -1311,7 +1313,6 @@ class _TaskDispatcher(object):
     def _maybe_stop_client(self, client):
         if self._tasks[client]:
             return
-        self._clients.pop(client.vhost)
         self._tasks.pop(client)
         client.disconnect()
 
