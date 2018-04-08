@@ -308,8 +308,8 @@ class TaskHandler(object):
         log_dir = None
         if os.environ.get('CELERY_LOG_DIR'):
             log_dir = os.path.join(os.environ['CELERY_LOG_DIR'], 'logs')
-        elif os.environ.get('CELERY_WORK_DIR'):
-            log_dir = os.environ['CELERY_WORK_DIR']
+        elif os.environ.get('AGENT_WORK_DIR'):
+            log_dir = os.environ['AGENT_WORK_DIR']
         if log_dir:
             log_path = os.path.join(log_dir, '{0}.log.fallback'
                                     .format(handler_context))
