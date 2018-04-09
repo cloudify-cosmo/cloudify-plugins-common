@@ -226,7 +226,7 @@ class ManagerEndpoint(Endpoint):
             raise NonRecoverableError(
                 'get_workdir is only implemented for operations that are '
                 'invoked as part of a deployment.')
-        base_workdir = os.environ['CELERY_WORK_DIR']
+        base_workdir = os.environ['AGENT_WORK_DIR']
         deployments_workdir = os.path.join(
             base_workdir, 'deployments', self.ctx.tenant_name)
         # Exists on management worker, doesn't exist on host agents

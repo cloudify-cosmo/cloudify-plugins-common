@@ -23,7 +23,7 @@ import ssl
 
 from cloudify.constants import BROKER_PORT_SSL, BROKER_PORT_NO_SSL
 
-workdir_path = os.getenv('CELERY_WORK_DIR')
+workdir_path = os.getenv('AGENT_WORK_DIR')
 if workdir_path is None:
     # We are not in an appropriately configured celery environment
     config = {}
@@ -85,16 +85,3 @@ else:
         vhost=broker_vhost,
         options=options
     )
-
-# celery will not use the failover strategy if there is only one broker url;
-# we need it to try and failover even with one initial manager, because
-# another node might've been added dynamically, while the worker was already
-# running; we add an empty broker url so that celery always sees at least two -
-# the failover strategy we're using (defined in cloudify_agent.app) filters out
-# the empty one
-BROKER_URL += ';'
-
-CELERY_RESULT_BACKEND = BROKER_URL
-CELERY_TASK_RESULT_EXPIRES = 600
-CELERYD_PREFETCH_MULTIPLIER = 1
-CELERY_ACKS_LATE = False
