@@ -1291,7 +1291,7 @@ class _TaskDispatcher(object):
                 return
             if workflow_task.is_terminated:
                 return
-            result.result = response
+            result.result = response.get('result')
             error = response.get('error')
             retry = response.get('retry')
             if error:
