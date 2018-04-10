@@ -45,12 +45,12 @@ from cloudify.workflows.tasks import (TASK_FAILED,
                                       DEFAULT_SEND_TASK_EVENTS,
                                       DEFAULT_SUBGRAPH_TOTAL_RETRIES)
 from cloudify.constants import BROKER_PORT_SSL, MGMTWORKER_QUEUE
-from cloudify import utils, broker_config
+from cloudify import utils, broker_config, logs, exceptions
 from cloudify.state import current_workflow_ctx
 from cloudify.workflows import events
+from cloudify.error_handling import deserialize_known_exception
 from cloudify.workflows.tasks_graph import TaskDependencyGraph
 from cloudify.amqp_client_utils import AMQPWrappedThread
-from cloudify import logs
 from cloudify.logs import (CloudifyWorkflowLoggingHandler,
                            CloudifyWorkflowNodeLoggingHandler,
                            SystemWideWorkflowLoggingHandler,
@@ -1291,19 +1291,23 @@ class _TaskDispatcher(object):
                 return
             if workflow_task.is_terminated:
                 return
-            result.result = response.get('result')
+
             error = response.get('error')
-            retry = response.get('retry')
             if error:
-                state = TASK_FAILED
-                event = {'exception': error, 'causes': {}}
-            elif retry:
-                state = TASK_RESCHEDULED
-                event = {'exception': retry, 'causes': {}}
+                exception = deserialize_known_exception(error)
+                if isinstance(exception, exceptions.OperationRetry):
+                    state = TASK_RESCHEDULED
+                else:
+                    state = TASK_FAILED
+                _result = exception
+                workflow_task.set_state(state)
             else:
                 state = TASK_SUCCEEDED
-                event = {'result': response.get('result')}
-            self._set_task_state(workflow_task, state, event)
+                _result = response.get('result')
+                self._set_task_state(workflow_task, state, {'result': _result})
+
+            result.result = _result
+
             self._maybe_stop_client(client)
         except Exception as e:
             debuglog('err', e)
