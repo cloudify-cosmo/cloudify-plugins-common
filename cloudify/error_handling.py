@@ -76,8 +76,7 @@ def deserialize_known_exception(error):
     """
     Deserialize a payload dict into a cloudify exception
     :param error: A payload dict
-    :return: A tuple of the type of the exception and the args and kwargs
-    needed to raise it
+    :return: A cloudify exception with the args and kwargs already present
     """
     tb = error['traceback']
     exception_type = error['exception_type']
@@ -101,8 +100,7 @@ def deserialize_known_exception(error):
         known_exception_type_args.append(message)
     else:
         known_exception_type_args.insert(0, message)
-    return (
-        known_exception_type,
-        known_exception_type_args,
-        known_exception_type_kwargs
+    return known_exception_type(
+        *known_exception_type_args,
+        **known_exception_type_kwargs
     )
