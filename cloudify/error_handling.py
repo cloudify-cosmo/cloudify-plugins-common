@@ -17,15 +17,15 @@ import StringIO
 import traceback
 
 from cloudify.utils import format_exception
-from cloudify.exceptions import (
-    OperationRetry,
-    RecoverableError,
-    NonRecoverableError,
-    ProcessExecutionError,
-    HttpException
-)
+from cloudify import exceptions
+
 
 def serialize_known_exception(e):
+    """
+    Serialize a cloudify exception into a dict
+    :param e: A cloudify exception
+    :return: A JSON serializable payload dict
+    """
     tb = StringIO.StringIO()
     traceback.print_exc(file=tb)
     trace_out = tb.getvalue()
@@ -35,25 +35,25 @@ def serialize_known_exception(e):
     # Convert exception to a know exception type that can be deserialized
     # by the calling process
     known_exception_type_args = []
-    if isinstance(e, ProcessExecutionError):
-        known_exception_type = ProcessExecutionError
+    if isinstance(e, exceptions.ProcessExecutionError):
+        known_exception_type = exceptions.ProcessExecutionError
         known_exception_type_args = [e.error_type, e.traceback]
         trace_out = e.traceback
-    elif isinstance(e, HttpException):
-        known_exception_type = HttpException
+    elif isinstance(e, exceptions.HttpException):
+        known_exception_type = exceptions.HttpException
         known_exception_type_args = [e.url, e.code]
         append_message = True
-    elif isinstance(e, NonRecoverableError):
-        known_exception_type = NonRecoverableError
-    elif isinstance(e, OperationRetry):
-        known_exception_type = OperationRetry
+    elif isinstance(e, exceptions.NonRecoverableError):
+        known_exception_type = exceptions.NonRecoverableError
+    elif isinstance(e, exceptions.OperationRetry):
+        known_exception_type = exceptions.OperationRetry
         known_exception_type_args = [e.retry_after]
-    elif isinstance(e, RecoverableError):
-        known_exception_type = RecoverableError
+    elif isinstance(e, exceptions.RecoverableError):
+        known_exception_type = exceptions.RecoverableError
         known_exception_type_args = [e.retry_after]
     else:
         # convert pure user exceptions to a RecoverableError
-        known_exception_type = RecoverableError
+        known_exception_type = exceptions.RecoverableError
 
     try:
         causes = e.causes
@@ -69,3 +69,40 @@ def serialize_known_exception(e):
         'known_exception_type_kwargs': {'causes': causes or []},
         'append_message': append_message,
     }
+    return payload
+
+
+def deserialize_known_exception(error):
+    """
+    Deserialize a payload dict into a cloudify exception
+    :param error: A payload dict
+    :return: A tuple of the type of the exception and the args and kwargs
+    needed to raise it
+    """
+    tb = error['traceback']
+    exception_type = error['exception_type']
+    message = error['message']
+
+    known_exception_type_kwargs = error[
+        'known_exception_type_kwargs']
+    causes = known_exception_type_kwargs.pop('causes', [])
+    causes.append({
+        'message': message,
+        'type': exception_type,
+        'traceback': tb
+    })
+    known_exception_type_kwargs['causes'] = causes
+
+    known_exception_type = getattr(exceptions,
+                                   error['known_exception_type'])
+    known_exception_type_args = error['known_exception_type_args']
+
+    if error['append_message']:
+        known_exception_type_args.append(message)
+    else:
+        known_exception_type_args.insert(0, message)
+    return (
+        known_exception_type,
+        known_exception_type_args,
+        known_exception_type_kwargs
+    )

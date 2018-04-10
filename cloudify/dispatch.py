@@ -41,11 +41,14 @@ from cloudify import utils
 from cloudify import amqp_client_utils
 from cloudify import constants
 from cloudify.amqp_client_utils import AMQPWrappedThread
-from cloudify.error_handling import serialize_known_exception
 from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import workflow_context
 from cloudify.workflows import api
 from cloudify.constants import LOGGING_CONFIG_FILE
+from cloudify.error_handling import (
+    serialize_known_exception,
+    deserialize_known_exception
+)
 
 CLOUDIFY_DISPATCH = 'CLOUDIFY_DISPATCH'
 
@@ -149,32 +152,9 @@ class TaskHandler(object):
             if dispatch_output['type'] == 'result':
                 return dispatch_output['payload']
             elif dispatch_output['type'] == 'error':
-                error = dispatch_output['payload']
-
-                tb = error['traceback']
-                exception_type = error['exception_type']
-                message = error['message']
-
-                known_exception_type_kwargs = error[
-                    'known_exception_type_kwargs']
-                causes = known_exception_type_kwargs.pop('causes', [])
-                causes.append({
-                    'message': message,
-                    'type': exception_type,
-                    'traceback': tb
-                })
-                known_exception_type_kwargs['causes'] = causes
-
-                known_exception_type = getattr(exceptions,
-                                               error['known_exception_type'])
-                known_exception_type_args = error['known_exception_type_args']
-
-                if error['append_message']:
-                    known_exception_type_args.append(message)
-                else:
-                    known_exception_type_args.insert(0, message)
-                raise known_exception_type(*known_exception_type_args,
-                                           **known_exception_type_kwargs)
+                e = dispatch_output['payload']
+                ex_type, ex_args, ex_kwargs = deserialize_known_exception(e)
+                raise ex_type(*ex_args, **ex_kwargs)
             else:
                 raise exceptions.NonRecoverableError(
                     'Unexpected output type: {0}'
