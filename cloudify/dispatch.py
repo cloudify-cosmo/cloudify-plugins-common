@@ -45,6 +45,10 @@ from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import workflow_context
 from cloudify.workflows import api
 from cloudify.constants import LOGGING_CONFIG_FILE
+from cloudify.error_handling import (
+    serialize_known_exception,
+    deserialize_known_exception
+)
 
 CLOUDIFY_DISPATCH = 'CLOUDIFY_DISPATCH'
 
@@ -67,14 +71,8 @@ if os.environ.get(CLOUDIFY_DISPATCH):
 
 try:
     from cloudify_agent import VIRTUALENV
-    from cloudify_agent.app import app as _app
-    task = _app.task(Strategy='cloudify.celery.gate_keeper:GateKeeperStrategy')
 except ImportError:
     VIRTUALENV = sys.prefix
-    _app = None
-
-    def task(fn):
-        return fn
 
 
 SYSTEM_DEPLOYMENT = '__system__'
@@ -148,32 +146,8 @@ class TaskHandler(object):
             if dispatch_output['type'] == 'result':
                 return dispatch_output['payload']
             elif dispatch_output['type'] == 'error':
-                error = dispatch_output['payload']
-
-                tb = error['traceback']
-                exception_type = error['exception_type']
-                message = error['message']
-
-                known_exception_type_kwargs = error[
-                    'known_exception_type_kwargs']
-                causes = known_exception_type_kwargs.pop('causes', [])
-                causes.append({
-                    'message': message,
-                    'type': exception_type,
-                    'traceback': tb
-                })
-                known_exception_type_kwargs['causes'] = causes
-
-                known_exception_type = getattr(exceptions,
-                                               error['known_exception_type'])
-                known_exception_type_args = error['known_exception_type_args']
-
-                if error['append_message']:
-                    known_exception_type_args.append(message)
-                else:
-                    known_exception_type_args.insert(0, message)
-                raise known_exception_type(*known_exception_type_args,
-                                           **known_exception_type_kwargs)
+                e = dispatch_output['payload']
+                raise deserialize_known_exception(e)
             else:
                 raise exceptions.NonRecoverableError(
                     'Unexpected output type: {0}'
@@ -609,7 +583,6 @@ TASK_HANDLERS = {
 }
 
 
-@task
 def dispatch(__cloudify_context, *args, **kwargs):
     dispatch_type = __cloudify_context['type']
     dispatch_handler_cls = TASK_HANDLERS.get(dispatch_type)
@@ -641,57 +614,14 @@ def main():
         payload = handler.handle()
         payload_type = 'result'
     except BaseException as e:
-
-        tb = StringIO.StringIO()
-        traceback.print_exc(file=tb)
-        trace_out = tb.getvalue()
-
-        # Needed because HttpException constructor sucks
-        append_message = False
-        # Convert exception to a know exception type that can be deserialized
-        # by the calling process
-        known_exception_type_args = []
-        if isinstance(e, exceptions.ProcessExecutionError):
-            known_exception_type = exceptions.ProcessExecutionError
-            known_exception_type_args = [e.error_type, e.traceback]
-            trace_out = e.traceback
-        elif isinstance(e, exceptions.HttpException):
-            known_exception_type = exceptions.HttpException
-            known_exception_type_args = [e.url, e.code]
-            append_message = True
-        elif isinstance(e, exceptions.NonRecoverableError):
-            known_exception_type = exceptions.NonRecoverableError
-        elif isinstance(e, exceptions.OperationRetry):
-            known_exception_type = exceptions.OperationRetry
-            known_exception_type_args = [e.retry_after]
-        elif isinstance(e, exceptions.RecoverableError):
-            known_exception_type = exceptions.RecoverableError
-            known_exception_type_args = [e.retry_after]
-        else:
-            # convert pure user exceptions to a RecoverableError
-            known_exception_type = exceptions.RecoverableError
-
-        try:
-            causes = e.causes
-        except AttributeError:
-            causes = []
-
         payload_type = 'error'
-        payload = {
-            'traceback': trace_out,
-            'exception_type': type(e).__name__,
-            'message': utils.format_exception(e),
-            'known_exception_type': known_exception_type.__name__,
-            'known_exception_type_args': known_exception_type_args,
-            'known_exception_type_kwargs': {'causes': causes or []},
-            'append_message': append_message,
-        }
+        payload = serialize_known_exception(e)
 
         logger = logging.getLogger(__name__)
         logger.error('Task {0}[{1}] raised:\n{2}'.format(
             handler.cloudify_context['task_name'],
             handler.cloudify_context.get('task_id', '<no-id>'),
-            trace_out))
+            payload['traceback']))
 
     finally:
         if handler:
