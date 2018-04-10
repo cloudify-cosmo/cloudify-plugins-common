@@ -71,14 +71,8 @@ if os.environ.get(CLOUDIFY_DISPATCH):
 
 try:
     from cloudify_agent import VIRTUALENV
-    from cloudify_agent.app import app as _app
-    task = _app.task(Strategy='cloudify.celery.gate_keeper:GateKeeperStrategy')
 except ImportError:
     VIRTUALENV = sys.prefix
-    _app = None
-
-    def task(fn):
-        return fn
 
 
 SYSTEM_DEPLOYMENT = '__system__'
@@ -589,7 +583,6 @@ TASK_HANDLERS = {
 }
 
 
-@task
 def dispatch(__cloudify_context, *args, **kwargs):
     dispatch_type = __cloudify_context['type']
     dispatch_handler_cls = TASK_HANDLERS.get(dispatch_type)
