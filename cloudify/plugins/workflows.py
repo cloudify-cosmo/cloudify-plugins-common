@@ -253,51 +253,15 @@ def _get_all_host_instances(ctx):
 @workflow
 def install_new_agents(ctx, install_agent_timeout, node_ids,
                        node_instance_ids, validate=True, install=True, **_):
-    if node_ids or node_instance_ids:
-        filtered_node_instances = _filter_node_instances(
-            ctx=ctx,
-            node_ids=node_ids,
-            node_instance_ids=node_instance_ids,
-            type_names=[])
-        error = False
-        for node_instance in filtered_node_instances:
-            if not lifecycle.is_host_node(node_instance):
-                msg = 'Node instance {0} is not host.'.format(node_instance.id)
-                ctx.logger.error(msg)
-                error = True
-            elif utils.internal.get_install_method(
-                    node_instance.node.properties) \
-                    == constants.AGENT_INSTALL_METHOD_NONE:
-                msg = ('Agent should not be installed on '
-                       'node instance {0}').format(node_instance.id)
-                ctx.logger.error(msg)
-                error = True
-        if error:
-            raise ValueError('Specified filters are not correct.')
-        else:
-            hosts = filtered_node_instances
-    else:
-        hosts = [host for host in _get_all_host_instances(ctx)
-                 if utils.internal.get_install_method(host.node.properties) !=
-                 constants.AGENT_INSTALL_METHOD_NONE]
 
-    for host in hosts:
-        state = host.get_state().get()
-        if state != 'started':
-            raise RuntimeError('Node {0} is not started (state: {1})'.format(
-                host.id,
-                state))
+    hosts = _create_hosts_list(ctx, node_ids, node_instance_ids)
+    _assert_hosts_started(hosts)
+
     graph = ctx.graph_mode()
     if validate:
-        validate_subgraph = graph.subgraph('validate')
-        for host in hosts:
-            seq = validate_subgraph.sequence()
-            seq.add(
-                host.send_event('Validating agent connection.'),
-                host.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.validate_amqp',
-                    kwargs={'current_amqp': False}),
-                host.send_event('Validation done'))
+        validate_subgraph =\
+            _add_validate_to_task_graph(graph, hosts, current_amqp=False)
+
     if install:
         install_subgraph = graph.subgraph('install')
         for host in hosts:
@@ -495,58 +459,21 @@ def update(ctx,
 def transfer_agents(ctx, transfer_agent_timeout, node_ids,
                     node_instance_ids, validate=True, manager_ip=None,
                     manager_certificate=None, manager_rest_token=None, **_):
-    if node_ids or node_instance_ids:
-        filtered_node_instances = _filter_node_instances(
-            ctx=ctx,
-            node_ids=node_ids,
-            node_instance_ids=node_instance_ids,
-            type_names=[])
-        error = False
-        for node_instance in filtered_node_instances:
-            if not lifecycle.is_host_node(node_instance):
-                msg = 'Node instance {0} is not host.'.format(node_instance.id)
-                ctx.logger.error(msg)
-                error = True
-            elif utils.internal.get_install_method(
-                    node_instance.node.properties) \
-                    == constants.AGENT_INSTALL_METHOD_NONE:
-                msg = ('Agent should not be installed on '
-                       'node instance {0}').format(node_instance.id)
-                ctx.logger.error(msg)
-                error = True
-        if error:
-            raise ValueError('Specified filters are not correct.')
-        else:
-            hosts = filtered_node_instances
-    else:
-        hosts = [host for host in _get_all_host_instances(ctx)
-                 if utils.internal.get_install_method(host.node.properties) !=
-                 constants.AGENT_INSTALL_METHOD_NONE]
 
+    hosts = _create_hosts_list(ctx, node_ids, node_instance_ids)
     # Make sure all hosts' state is started
-    for host in hosts:
-        state = host.get_state().get()
-        if state != 'started':
-            raise RuntimeError('Node {0} is not started (state: {1})'.format(
-                host.id,
-                state))
-    graph = ctx.graph_mode()
+    _assert_hosts_started(hosts)
+
     # Add validate_amqp to task graph
+    graph = ctx.graph_mode()
     if validate:
-        validate_subgraph = graph.subgraph('validate')
-        for host in hosts:
-            seq = validate_subgraph.sequence()
-            seq.add(
-                host.send_event('Validating agent connection.'),
-                host.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.validate_amqp',
-                    kwargs={'current_amqp': True}),
-                host.send_event('Validation done'))
+        validate_subgraph =\
+            _add_validate_to_task_graph(graph, hosts, current_amqp=True)
 
     # Add transfer_agents to new amqp to task graph
-    install_subgraph = graph.subgraph('transfer_agents')
+    transfer_subgraph = graph.subgraph('transfer_agents')
     for host in hosts:
-        seq = install_subgraph.sequence()
+        seq = transfer_subgraph.sequence()
         seq.add(
             host.send_event('Transfering agents to new manager'),
             host.execute_operation(
@@ -560,13 +487,25 @@ def transfer_agents(ctx, transfer_agent_timeout, node_ids,
                 allow_kwargs_override=True),
             host.send_event('Agent has been transferred to new manager.')
         )
-    if validate and install:
-        graph.add_dependency(install_subgraph, validate_subgraph)
+    if validate:
+        graph.add_dependency(transfer_subgraph, validate_subgraph)
     graph.execute()
 
 
 @workflow()
 def validate_agents(ctx, node_ids, node_instance_ids, **_):
+
+    hosts = _create_hosts_list(ctx, node_ids, node_instance_ids)
+    # Make sure all hosts' state is started
+    _assert_hosts_started(hosts)
+
+    # Add validate_amqp to task graph
+    graph = ctx.graph_mode()
+    _add_validate_to_task_graph(graph, hosts, current_amqp=True)
+    graph.execute()
+
+
+def _create_hosts_list(ctx, node_ids, node_instance_ids):
     if node_ids or node_instance_ids:
         filtered_node_instances = _filter_node_instances(
             ctx=ctx,
@@ -594,17 +533,19 @@ def validate_agents(ctx, node_ids, node_instance_ids, **_):
         hosts = [host for host in _get_all_host_instances(ctx)
                  if utils.internal.get_install_method(host.node.properties) !=
                  constants.AGENT_INSTALL_METHOD_NONE]
+    return hosts
 
-    # Make sure all hosts' state is started
+
+def _assert_hosts_started(hosts):
     for host in hosts:
         state = host.get_state().get()
         if state != 'started':
             raise RuntimeError('Node {0} is not started (state: {1})'.format(
                 host.id,
                 state))
-    graph = ctx.graph_mode()
 
-    # Add validate_amqp to task graph
+
+def _add_validate_to_task_graph(graph, hosts, current_amqp):
     validate_subgraph = graph.subgraph('validate')
     for host in hosts:
         seq = validate_subgraph.sequence()
@@ -612,5 +553,6 @@ def validate_agents(ctx, node_ids, node_instance_ids, **_):
             host.send_event('Validating agent connection.'),
             host.execute_operation(
                 'cloudify.interfaces.cloudify_agent.validate_amqp',
-                kwargs={'current_amqp': True}),
+                kwargs={'current_amqp': current_amqp}),
             host.send_event('Validation done'))
+    return validate_subgraph
