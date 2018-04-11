@@ -280,8 +280,8 @@ class TaskHandler(object):
 
     def _create_fallback_logger(self, handler_context):
         log_dir = None
-        if os.environ.get('CELERY_LOG_DIR'):
-            log_dir = os.path.join(os.environ['CELERY_LOG_DIR'], 'logs')
+        if os.environ.get('AGENT_LOG_DIR'):
+            log_dir = os.path.join(os.environ['AGENT_LOG_DIR'], 'logs')
         elif os.environ.get('AGENT_WORK_DIR'):
             log_dir = os.environ['AGENT_WORK_DIR']
         if log_dir:

@@ -95,7 +95,7 @@ class TestDispatchTaskHandler(testtools.TestCase):
             func=func5,
             logpath_func=lambda workdir, deployment_id: os.path.join(
                 workdir, 'logs', '{0}.log.fallback'.format(deployment_id)),
-            env_func=lambda workdir: {'CELERY_LOG_DIR': workdir})
+            env_func=lambda workdir: {'AGENT_LOG_DIR': workdir})
 
     def test_dispatch_to_subprocess_exception(self):
         exception_types = [
