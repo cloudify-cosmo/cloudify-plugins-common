@@ -456,9 +456,9 @@ def update(ctx,
 
 
 @workflow
-def transfer_agents(ctx, transfer_agent_timeout, node_ids,
-                    node_instance_ids, validate=True, manager_ip=None,
-                    manager_certificate=None, manager_rest_token=None, **_):
+def transfer_agents(ctx, transfer_agent_timeout, node_ids, node_instance_ids,
+                    manager_ip, manager_certificate, manager_rest_token,
+                    validate=True, **_):
 
     hosts = _create_hosts_list(ctx, node_ids, node_instance_ids)
     # Make sure all hosts' state is started
