@@ -1254,7 +1254,7 @@ class _TaskDispatcher(object):
         debuglog(task['id'], 'sending', task)
         client.channel.basic_publish(
             exchange=task['target'],
-            routing_key='',
+            routing_key='operation',
             properties=pika.BasicProperties(
                 reply_to=result_queue.method.queue,
                 correlation_id=task['id']),
