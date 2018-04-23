@@ -78,22 +78,10 @@ def deserialize_known_exception(error):
     :param error: A payload dict
     :return: A cloudify exception with the args and kwargs already present
     """
-    tb = error['traceback']
-    exception_type = error['exception_type']
     message = error['message']
 
-    known_exception_type_kwargs = error[
-        'known_exception_type_kwargs']
-    causes = known_exception_type_kwargs.pop('causes', [])
-    causes.append({
-        'message': message,
-        'type': exception_type,
-        'traceback': tb
-    })
-    known_exception_type_kwargs['causes'] = causes
-
-    known_exception_type = getattr(exceptions,
-                                   error['known_exception_type'])
+    known_exception_type_kwargs = error['known_exception_type_kwargs']
+    known_exception_type = getattr(exceptions, error['known_exception_type'])
     known_exception_type_args = error['known_exception_type_args']
 
     if error['append_message']:

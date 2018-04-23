@@ -147,7 +147,13 @@ class TaskHandler(object):
                 return dispatch_output['payload']
             elif dispatch_output['type'] == 'error':
                 e = dispatch_output['payload']
-                raise deserialize_known_exception(e)
+                error = deserialize_known_exception(e)
+                error.causes.append({
+                    'message': e['message'],
+                    'type': e['exception_type'],
+                    'traceback': e['traceback']
+                })
+                raise error
             else:
                 raise exceptions.NonRecoverableError(
                     'Unexpected output type: {0}'
