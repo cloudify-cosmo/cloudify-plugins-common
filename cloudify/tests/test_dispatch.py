@@ -26,7 +26,6 @@ from cloudify import amqp_client
 from cloudify import dispatch
 from cloudify import exceptions
 from cloudify import utils
-from cloudify.celery import logging_server
 from cloudify_rest_client.exceptions import InvalidExecutionUpdateStatus
 
 
@@ -306,47 +305,6 @@ class TestDispatchTaskHandler(testtools.TestCase):
         finally:
             workflow_handler._func = _normal_func
             workflow_handler._ctx = _normal_ctx
-
-    def _test_dispatch_to_subprocess_logging(
-            self, func, logpath_func, env_func=None,
-            expect_error=False):
-        message = 'MESSAGE_CONTENT'
-        workdir = tempfile.mkdtemp(prefix='cloudify-dispatch-')
-        os.mkdir(os.path.join(workdir, 'logs'))
-        self.addCleanup(lambda: shutil.rmtree(workdir, ignore_errors=True))
-        worker = Mock()
-        logserver = logging_server.ZMQLoggingServerBootstep(
-            worker=worker,
-            with_logging_server=True,
-            logging_server_logdir=workdir)
-
-        def stop_server():
-            logserver.stop(worker)
-            logserver.thread.join()
-        self.addCleanup(stop_server)
-        logserver.start(worker)
-        for deployment_id in [None, 'deployment']:
-            env = env_func(workdir) if env_func else {}
-            op_handler = self._operation(
-                func,
-                task_target='stub',
-                socket_url=logserver.socket_url,
-                args=[message],
-                deployment_id=deployment_id,
-                execution_env=env)
-            try:
-                op_handler.dispatch_to_subprocess()
-            except (exceptions.NonRecoverableError,
-                    exceptions.RecoverableError):
-                if not expect_error:
-                    raise
-            if not deployment_id:
-                deployment_id = dispatch.SYSTEM_DEPLOYMENT
-            logpath = logpath_func(workdir, deployment_id)
-            with open(logpath) as f:
-                content = f.read()
-                self.assertIn(message, content)
-            return content
 
     def _operation(
             self,
