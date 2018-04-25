@@ -260,10 +260,13 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
 
     graph = ctx.graph_mode()
     if validate:
-        validate_subgraph =\
-            _add_validate_to_task_graph(graph, hosts, current_amqp=False,
-                                        manager_ip=manager_ip,
-                                        manager_certificate=manager_certificate)  # noqa
+        validate_subgraph = _add_validate_to_task_graph(
+            graph,
+            hosts,
+            current_amqp=False,
+            manager_ip=manager_ip,
+            manager_certificate=manager_certificate
+        )
     if install:
         install_subgraph = graph.subgraph('install')
         for host in hosts:
