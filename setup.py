@@ -50,7 +50,6 @@ setup(
               'cloudify.compute',
               'cloudify.workflows',
               'cloudify.plugins',
-              'cloudify.celery',
               'cloudify.proxy',
               'cloudify.test_utils',
               'cloudify.ctx_wrappers'],
