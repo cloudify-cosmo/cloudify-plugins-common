@@ -252,16 +252,21 @@ def _get_all_host_instances(ctx):
 
 @workflow
 def install_new_agents(ctx, install_agent_timeout, node_ids,
-                       node_instance_ids, validate=True, install=True, **_):
+                       node_instance_ids, validate=True, install=True,
+                       manager_ip=None, manager_certificate=None, **_):
 
     hosts = _create_hosts_list(ctx, node_ids, node_instance_ids)
     _assert_hosts_started(hosts)
 
     graph = ctx.graph_mode()
     if validate:
-        validate_subgraph =\
-            _add_validate_to_task_graph(graph, hosts, current_amqp=False)
-
+        validate_subgraph = _add_validate_to_task_graph(
+            graph,
+            hosts,
+            current_amqp=False,
+            manager_ip=manager_ip,
+            manager_certificate=manager_certificate
+        )
     if install:
         install_subgraph = graph.subgraph('install')
         for host in hosts:
@@ -272,6 +277,8 @@ def install_new_agents(ctx, install_agent_timeout, node_ids,
                     'cloudify.interfaces.cloudify_agent.create_amqp',
                     kwargs={
                         'install_agent_timeout': install_agent_timeout,
+                        'manager_ip': manager_ip,
+                        'manager_certificate': manager_certificate
                     },
                     allow_kwargs_override=True),
                 host.send_event('New agent installed.'),
@@ -545,7 +552,8 @@ def _assert_hosts_started(hosts):
                 state))
 
 
-def _add_validate_to_task_graph(graph, hosts, current_amqp):
+def _add_validate_to_task_graph(graph, hosts, current_amqp, manager_ip=None,
+                                manager_certificate=None):
     validate_subgraph = graph.subgraph('validate')
     for host in hosts:
         seq = validate_subgraph.sequence()
@@ -553,6 +561,8 @@ def _add_validate_to_task_graph(graph, hosts, current_amqp):
             host.send_event('Validating agent connection.'),
             host.execute_operation(
                 'cloudify.interfaces.cloudify_agent.validate_amqp',
-                kwargs={'current_amqp': current_amqp}),
+                kwargs={'current_amqp': current_amqp,
+                        'manager_ip': manager_ip,
+                        'manager_certificate': manager_certificate}),
             host.send_event('Validation done'))
     return validate_subgraph
