@@ -13,7 +13,11 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+import ssl
 import json
+import time
+import uuid
+import Queue
 import logging
 import threading
 
@@ -21,12 +25,295 @@ import pika
 import pika.exceptions
 
 from cloudify import broker_config
-from cloudify import cluster
 from cloudify import exceptions
-from cloudify import utils
-from cloudify.constants import BROKER_PORT_SSL, BROKER_PORT_NO_SSL
 
 logger = logging.getLogger(__name__)
+
+HEARTBEAT_INTERVAL = 30
+
+
+class AMQPWorker(object):
+    MAX_BACKOFF = 30
+
+    def __init__(self, handlers, logger, name=None):
+        self._logger = logger
+        self._handlers = handlers
+        self._publish_queue = Queue.Queue()
+        self.name = name
+        self._connection_params = self._get_connection_params()
+        self._reconnect_backoff = 1
+        self._closed = False
+        self.connection = None
+
+    def _get_common_connection_params(self):
+        credentials = pika.credentials.PlainCredentials(
+            username=broker_config.broker_username,
+            password=broker_config.broker_password,
+        )
+        return {
+            'host': broker_config.broker_hostname,
+            'port': broker_config.broker_port,
+            'virtual_host': broker_config.broker_vhost,
+            'credentials': credentials,
+            'ssl': broker_config.broker_ssl_enabled,
+            'ssl_options': broker_config.broker_ssl_options,
+            'heartbeat': HEARTBEAT_INTERVAL
+        }
+
+    def _get_connection_params(self):
+        from cloudify_agent.api.factory import DaemonFactory
+        while True:
+            params = self._get_common_connection_params()
+            if self.name:
+                daemon = DaemonFactory().load(self.name)
+                if daemon.cluster:
+                    for node_ip in daemon.cluster:
+                        params['host'] = node_ip
+                        yield pika.ConnectionParameters(**params)
+                    continue
+            yield pika.ConnectionParameters(**params)
+
+    def _get_reconnect_backoff(self):
+        backoff = self._reconnect_backoff
+        self._reconnect_backoff = max(backoff * 2, self.MAX_BACKOFF)
+        return backoff
+
+    def _reset_reconnect_backoff(self):
+        self._reconnect_backoff = 1
+
+    def connect(self):
+        for params in self._connection_params:
+            try:
+                self.connection = pika.BlockingConnection(params)
+            except pika.exceptions.AMQPConnectionError:
+                time.sleep(self._get_reconnect_backoff())
+            else:
+                self._reset_reconnect_backoff()
+                self._closed = False
+                break
+
+        out_channel = self.connection.channel()
+        for handler in self._handlers:
+            handler.register(self.connection, self._publish_queue)
+            self._logger.info('Registered handler for {0}'
+                              .format(handler.routing_key))
+        return out_channel
+
+    def consume(self):
+        out_channel = self.connect()
+        while not self._closed:
+            try:
+                self.connection.process_data_events(0.2)
+                self._process_publish(out_channel)
+            except pika.exceptions.ConnectionClosed:
+                out_channel = self.connect()
+                continue
+
+    def _process_publish(self, channel):
+        while not self._closed:
+            try:
+                msg = self._publish_queue.get_nowait()
+            except Queue.Empty:
+                return
+            try:
+                channel.basic_publish(**msg)
+            except pika.exceptions.ConnectionClosed:
+                # if we couldn't send the message because the connection
+                # was down, requeue it to be sent again later
+                self._publish_queue.put(msg)
+                raise
+
+    def close(self):
+        self._closed = True
+        if self.connection:
+            self.connection.close()
+
+
+class TaskConsumer(object):
+    routing_key = ''
+
+    def __init__(self, queue, threadpool_size=5):
+        self.threadpool_size = threadpool_size
+        self.exchange = queue
+        self.queue = '{0}_{1}'.format(queue, self.routing_key)
+        self._sem = threading.Semaphore(threadpool_size)
+        self._output_queue = None
+        self.in_channel = None
+
+    def register(self, connection, output_queue):
+        self._output_queue = output_queue
+        self.in_channel = connection.channel()
+        self._register_queue(self.in_channel)
+
+    def _register_queue(self, channel):
+        channel.basic_qos(prefetch_count=self.threadpool_size)
+        channel.exchange_declare(
+            exchange=self.exchange, auto_delete=False, durable=True)
+        channel.queue_declare(queue=self.queue,
+                              durable=True,
+                              auto_delete=False)
+        channel.queue_bind(queue=self.queue,
+                           exchange=self.exchange,
+                           routing_key=self.routing_key)
+        channel.basic_consume(self.process, self.queue)
+
+    def process(self, channel, method, properties, body):
+        try:
+            full_task = json.loads(body)
+        except ValueError:
+            logger.error('Error parsing task: {0}'.format(body))
+            return
+
+        self._sem.acquire()
+        new_thread = threading.Thread(
+            target=self._process_message,
+            args=(properties, full_task)
+        )
+        new_thread.daemon = True
+        new_thread.start()
+        channel.basic_ack(method.delivery_tag)
+
+    def _process_message(self, properties, full_task):
+        try:
+            result = self.handle_task(full_task)
+        except Exception as e:
+            result = {'ok': False, 'error': repr(e)}
+            logger.error(
+                'ERROR - failed message processing: '
+                '{0!r}\nbody: {1}'.format(e, full_task)
+            )
+
+        if properties.reply_to:
+            self._output_queue.put({
+                'exchange': '',
+                'routing_key': properties.reply_to,
+                'properties': pika.BasicProperties(
+                    correlation_id=properties.correlation_id),
+                'body': json.dumps(result)
+            })
+        self._sem.release()
+
+    def handle_task(self, full_task):
+        raise NotImplementedError()
+
+
+class SendHandler(object):
+    exchange_settings = {
+        'auto_delete': False,
+        'durable': True,
+    }
+
+    def __init__(self, exchange, exchange_type='direct'):
+        self.exchange = exchange
+        self.exchange_type = exchange_type
+
+    def register(self, connection, output_queue):
+        self._output_queue = output_queue
+
+        out_channel = connection.channel()
+        out_channel.exchange_declare(exchange=self.exchange,
+                                     exchange_type=self.exchange_type,
+                                     **self.exchange_settings)
+
+    def publish(self, message, **kwargs):
+        self._output_queue.put({
+            'exchange': self.exchange,
+            'body': json.dumps(message)
+        })
+
+
+class _RequestResponseHandlerBase(TaskConsumer):
+    def __init__(self, exchange):
+        super(BlockingRequestResponseHandler, self).__init__(exchange)
+        self.result_queue = None
+
+    def _register_queue(self, channel):
+        result_queue = self.in_channel.queue_declare(exclusive=True)
+        self.queue = result_queue.method.queue
+        super(BlockingRequestResponseHandler, self)._register_queue(channel)
+
+    def publish(self, message, correlation_id=None):
+        if correlation_id is None:
+            correlation_id = uuid.uuid4().hex
+
+        self._response_queues[correlation_id] = Queue.Queue()
+        self._output_queue.put({
+            'exchange': self.exchange,
+            'body': json.dumps(message),
+            'properties': pika.BasicProperties(
+                reply_to=self.result_queue,
+                correlation_id=correlation_id)
+        })
+        return correlation_id
+
+    def process(self, channel, method, properties, body):
+        raise NotImplementedError()
+
+
+class BlockingRequestResponseHandler(_RequestResponseHandlerBase):
+    def __init__(self, *args, **kwargs):
+        super(BlockingRequestResponseHandler, self).__init__(*args, **kwargs)
+        self._response_queues = {}
+
+    def publish(self, *args, **kwargs):
+        timeout = kwargs.pop('timeout', None)
+        correlation_id = super(BlockingRequestResponseHandler, self)\
+            .publish(*args, **kwargs)
+        try:
+            resp = self._response_queues[correlation_id].get(timeout=timeout)
+            return resp
+        except Queue.Empty:
+            raise RuntimeError('No response received for task {0}'
+                               .format(correlation_id))
+        finally:
+            del self._response_queues[correlation_id]
+
+    def process(self, channel, method, properties, body):
+        channel.basic_ack(method.delivery_tag)
+        try:
+            response = json.loads(body)
+        except ValueError:
+            logger.error('Error parsing response: {0}'.format(body))
+            return
+        if properties.correlation_id in self._response_queues:
+            self._response_queues[properties.correlation_id].put(response)
+
+
+class CallbackRequestResponseHandler(_RequestResponseHandlerBase):
+    def __init__(self, *args, **kwargs):
+        super(CallbackRequestResponseHandler, self).__init__(*args, **kwargs)
+        self._callbacks = {}
+
+    def publish(self, *args, **kwargs):
+        callback = kwargs.pop('callback')
+        correlation_id = super(CallbackRequestResponseHandler, self)\
+            .publish(*args, **kwargs)
+        self._callbacks[correlation_id] = callback
+
+    def process(self, channel, method, properties, body):
+        channel.basic_ack(method.delivery_tag)
+        try:
+            response = json.loads(body)
+        except ValueError:
+            logger.error('Error parsing response: {0}'.format(body))
+            return
+        if properties.correlation_id in self._callbacks:
+            self._callbacks[properties.correlation_id](response)
+
+
+class CloudifyConnectionAMQPWorker(AMQPWorker):
+    """An AMQPWorker that takes amqp connection params overrides"""
+    def __init__(self, amqp_settings, *args, **kwargs):
+        self._amqp_settings = amqp_settings
+        super(CloudifyConnectionAMQPWorker, self).__init__(*args, **kwargs)
+
+    def _get_common_connection_params(self):
+        params = super(CloudifyConnectionAMQPWorker, self)\
+            ._get_common_connection_params()
+        for setting_name, setting in self._amqp_settings.items():
+            if setting:
+                params[setting_name] = setting
+        return params
 
 
 class AMQPClient(object):
@@ -40,89 +327,44 @@ class AMQPClient(object):
         'durable': True,
     }
 
-    def __init__(self,
-                 amqp_user,
-                 amqp_pass,
-                 amqp_host,
-                 amqp_vhost,
-                 ssl_enabled,
-                 ssl_cert_path):
-        self.connection = None
-        self.channel = None
+    def __init__(self, amqp_settings):
+        self.events_handler = SendHandler(self.EVENTS_EXCHANGE_NAME,
+                                          exchange_type='fanout')
+        self.logs_handler = SendHandler(self.LOGS_EXCHANGE_NAME,
+                                        exchange_type='fanout')
+        self._worker = CloudifyConnectionAMQPWorker([
+            self.events_handler, self.logs_handler])
         self._is_closed = False
-        credentials = pika.credentials.PlainCredentials(
-            username=amqp_user,
-            password=amqp_pass)
-        ssl_options = utils.internal.get_broker_ssl_options(ssl_enabled,
-                                                            ssl_cert_path)
-        self._connection_parameters = pika.ConnectionParameters(
-            host=amqp_host,
-            port=BROKER_PORT_SSL if ssl_enabled else BROKER_PORT_NO_SSL,
-            virtual_host=amqp_vhost,
-            socket_timeout=self.SOCKET_TIMEOUT,
-            connection_attempts=self.CONNECTION_ATTEMPTS,
-            credentials=credentials,
-            ssl=bool(ssl_enabled),
-            ssl_options=ssl_options)
-        self._connect()
+        self._consume_thread = None
 
-    def _connect(self):
-        self.connection = pika.BlockingConnection(self._connection_parameters)
-        self.channel = self.connection.channel()
-        self.channel.confirm_delivery()
-        for exchange in [self.EVENTS_EXCHANGE_NAME, self.LOGS_EXCHANGE_NAME]:
-            self.channel.exchange_declare(exchange=exchange,
-                                          exchange_type='fanout',
-                                          **self.channel_settings)
+    def connect(self):
+        self._worker.connect()
+        self._consume_thread = threading.Thread(target=self._worker.consume)
+        self._consume_thread.daemon = True
+        self._consume_thread.start()
 
     def publish_message(self, message, message_type):
         if self._is_closed:
             raise exceptions.ClosedAMQPClientException(
                 'Publish failed, AMQP client already closed')
         if message_type == 'event':
-            exchange = self.EVENTS_EXCHANGE_NAME
+            handler = self.events_handler
         else:
-            exchange = self.LOGS_EXCHANGE_NAME
-        routing_key = ''
+            handler = self.logs_handler
         body = json.dumps(message)
-        try:
-            self.channel.basic_publish(exchange=exchange,
-                                       routing_key=routing_key,
-                                       body=body)
-        except pika.exceptions.ConnectionClosed as e:
-            logger.warn(
-                'Connection closed unexpectedly for thread {0}, '
-                'reconnecting. ({1}: {2})'
-                .format(threading.current_thread(), type(e).__name__, repr(e)))
-            # obviously, there is no need to close the current
-            # channel/connection.
-            self._connect()
-            self.channel.basic_publish(exchange=exchange,
-                                       routing_key=routing_key,
-                                       body=body)
+        handler.publish(body)
 
     def close(self):
         if self._is_closed:
             return
         self._is_closed = True
         thread = threading.current_thread()
-        if self.channel:
-            logger.debug('Closing amqp channel of thread {0}'.format(thread))
+        if self._worker:
+            logger.debug('Closing amqp client of thread {0}'.format(thread))
             try:
-                self.channel.close()
+                self._worker.close()
             except Exception as e:
-                # channel might be already closed, log and continue
-                logger.debug('Failed to close amqp channel of thread {0}, '
-                             'reported error: {1}'.format(thread, repr(e)))
-
-        if self.connection:
-            logger.debug('Closing amqp connection of thread {0}'
-                         .format(thread))
-            try:
-                self.connection.close()
-            except Exception as e:
-                # connection might be already closed, log and continue
-                logger.debug('Failed to close amqp connection of thread {0}, '
+                logger.debug('Failed to close amqp client of thread {0}, '
                              'reported error: {1}'.format(thread, repr(e)))
 
 
@@ -137,26 +379,25 @@ def create_client(amqp_host=None,
     # there's 3 possible sources of the amqp settings: passed in arguments,
     # current cluster active manager (if any), and broker_config; use the first
     # that is defined, in that order
-    defaults = {
-        'amqp_host': broker_config.broker_hostname,
-        'amqp_user': broker_config.broker_username,
-        'amqp_pass': broker_config.broker_password,
-        'amqp_vhost': broker_config.broker_vhost,
-        'ssl_enabled': broker_config.broker_ssl_enabled,
-        'ssl_cert_path': broker_config.broker_cert_path
-    }
-    defaults.update(cluster.get_cluster_amqp_settings())
     amqp_settings = {
-        'amqp_user': amqp_user or defaults['amqp_user'],
-        'amqp_host': amqp_host or defaults['amqp_host'],
-        'amqp_pass': amqp_pass or defaults['amqp_pass'],
-        'amqp_vhost': amqp_vhost or defaults['amqp_vhost'],
-        'ssl_enabled': ssl_enabled or defaults['ssl_enabled'],
-        'ssl_cert_path': ssl_cert_path or defaults['ssl_cert_path']
+        'host': amqp_host,
+        'virtual_host': amqp_vhost,
+        'ssl': ssl_enabled,
     }
+    if amqp_user and amqp_pass:
+        amqp_settings['credentials'] = pika.credentials.PlainCredentials(
+            username=amqp_user,
+            password=amqp_pass
+        )
+    if ssl_cert_path:
+        amqp_settings['ssl_options'] = {
+            'ca_certs': ssl_cert_path,
+            'cert_reqs': ssl.CERT_REQUIRED,
+        }
 
     try:
-        client = AMQPClient(**amqp_settings)
+        client = AMQPClient(amqp_settings)
+        client.connect()
         logger.debug('AMQP client created for thread {0}'.format(thread))
     except Exception as e:
         logger.warning(
