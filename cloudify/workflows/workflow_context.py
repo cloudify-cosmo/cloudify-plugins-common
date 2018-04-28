@@ -1192,7 +1192,7 @@ class _TaskDispatcher(object):
         credentials = pika.credentials.PlainCredentials(
             username=tenant['rabbitmq_username'],
             password=tenant['rabbitmq_password'])
-        client = amqp_client.CloudifyConnectionAMQPWorker({
+        client = amqp_client.CloudifyConnectionAMQPConnection({
             'credentials': credentials,
             'virtual_host': self._get_vhost(task)
         }, [handler])
@@ -1213,9 +1213,7 @@ class _TaskDispatcher(object):
             (workflow_task, task, result)
         self._set_task_state(workflow_task, TASK_STARTED, {})
 
-        consumer_thread = threading.Thread(target=client.consume)
-        consumer_thread.daemon = True
-        consumer_thread.start()
+        client.consume_in_thread()
         return result
 
     def _set_task_state(self, workflow_task, state, event):

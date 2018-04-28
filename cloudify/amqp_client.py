@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL = 30
 
 
-class AMQPWorker(object):
+class AMQPConnection(object):
     MAX_BACKOFF = 30
 
     def __init__(self, handlers, logger, name=None):
@@ -108,6 +108,13 @@ class AMQPWorker(object):
             except pika.exceptions.ConnectionClosed:
                 out_channel = self.connect()
                 continue
+
+    def consume_in_thread(self):
+        """Spawn a thread to run consume"""
+        t = threading.Thread(target=self.consume)
+        t.daemon = True
+        t.start()
+        return t
 
     def _process_publish(self, channel):
         while not self._closed:
@@ -301,14 +308,14 @@ class CallbackRequestResponseHandler(_RequestResponseHandlerBase):
             self._callbacks[properties.correlation_id](response)
 
 
-class CloudifyConnectionAMQPWorker(AMQPWorker):
-    """An AMQPWorker that takes amqp connection params overrides"""
+class CloudifyConnectionAMQPConnection(AMQPConnection):
+    """An AMQPConnection that takes amqp connection params overrides"""
     def __init__(self, amqp_settings, *args, **kwargs):
         self._amqp_settings = amqp_settings
-        super(CloudifyConnectionAMQPWorker, self).__init__(*args, **kwargs)
+        super(CloudifyConnectionAMQPConnection, self).__init__(*args, **kwargs)
 
     def _get_common_connection_params(self):
-        params = super(CloudifyConnectionAMQPWorker, self)\
+        params = super(CloudifyConnectionAMQPConnection, self)\
             ._get_common_connection_params()
         for setting_name, setting in self._amqp_settings.items():
             if setting:
@@ -316,8 +323,7 @@ class CloudifyConnectionAMQPWorker(AMQPWorker):
         return params
 
 
-class AMQPClient(object):
-
+class CloudifyEventsPublisher(object):
     EVENTS_EXCHANGE_NAME = 'cloudify-events'
     SOCKET_TIMEOUT = 5
     CONNECTION_ATTEMPTS = 3
@@ -332,16 +338,14 @@ class AMQPClient(object):
                                           exchange_type='fanout')
         self.logs_handler = SendHandler(self.LOGS_EXCHANGE_NAME,
                                         exchange_type='fanout')
-        self._worker = CloudifyConnectionAMQPWorker([
+        self._worker = CloudifyConnectionAMQPConnection([
             self.events_handler, self.logs_handler])
         self._is_closed = False
         self._consume_thread = None
 
     def connect(self):
         self._worker.connect()
-        self._consume_thread = threading.Thread(target=self._worker.consume)
-        self._consume_thread.daemon = True
-        self._consume_thread.start()
+        self.worker.consume_in_thread()
 
     def publish_message(self, message, message_type):
         if self._is_closed:
@@ -368,12 +372,12 @@ class AMQPClient(object):
                              'reported error: {1}'.format(thread, repr(e)))
 
 
-def create_client(amqp_host=None,
-                  amqp_user=None,
-                  amqp_pass=None,
-                  amqp_vhost=None,
-                  ssl_enabled=None,
-                  ssl_cert_path=None):
+def create_events_publisher(amqp_host=None,
+                            amqp_user=None,
+                            amqp_pass=None,
+                            amqp_vhost=None,
+                            ssl_enabled=None,
+                            ssl_cert_path=None):
     thread = threading.current_thread()
 
     # there's 3 possible sources of the amqp settings: passed in arguments,
@@ -396,7 +400,7 @@ def create_client(amqp_host=None,
         }
 
     try:
-        client = AMQPClient(amqp_settings)
+        client = CloudifyEventsPublisher(amqp_settings)
         client.connect()
         logger.debug('AMQP client created for thread {0}'.format(thread))
     except Exception as e:
