@@ -345,7 +345,7 @@ class CloudifyEventsPublisher(object):
 
     def connect(self):
         self._worker.connect()
-        self.worker.consume_in_thread()
+        self._worker.consume_in_thread()
 
     def publish_message(self, message, message_type):
         if self._is_closed:
