@@ -337,7 +337,7 @@ class CloudifyEventsPublisher(object):
                                           exchange_type='fanout')
         self.logs_handler = SendHandler(self.LOGS_EXCHANGE_NAME,
                                         exchange_type='fanout')
-        self._worker = CloudifyConnectionAMQPConnection([
+        self._worker = CloudifyConnectionAMQPConnection(amqp_settings, [
             self.events_handler, self.logs_handler])
         self._is_closed = False
         self._consume_thread = None
