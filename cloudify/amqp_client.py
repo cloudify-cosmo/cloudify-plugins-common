@@ -35,8 +35,7 @@ HEARTBEAT_INTERVAL = 30
 class AMQPConnection(object):
     MAX_BACKOFF = 30
 
-    def __init__(self, handlers, logger, name=None):
-        self._logger = logger
+    def __init__(self, handlers, name=None):
         self._handlers = handlers
         self._publish_queue = Queue.Queue()
         self.name = name
@@ -95,8 +94,8 @@ class AMQPConnection(object):
         out_channel = self.connection.channel()
         for handler in self._handlers:
             handler.register(self.connection, self._publish_queue)
-            self._logger.info('Registered handler for {0}'
-                              .format(handler.routing_key))
+            logger.info('Registered handler for {0}'
+                        .format(handler.routing_key))
         return out_channel
 
     def consume(self):
