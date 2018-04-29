@@ -225,7 +225,8 @@ class SendHandler(object):
     def publish(self, message, **kwargs):
         self._output_queue.put({
             'exchange': self.exchange,
-            'body': json.dumps(message)
+            'body': json.dumps(message),
+            'routing_key': self.routing_key
         })
 
 
@@ -240,7 +241,7 @@ class _RequestResponseHandlerBase(TaskConsumer):
                                       durable=True)
         channel.basic_consume(self.process, self.queue)
 
-    def publish(self, message, correlation_id=None):
+    def publish(self, message, correlation_id=None, routing_key=''):
         if correlation_id is None:
             correlation_id = uuid.uuid4().hex
 
@@ -249,7 +250,8 @@ class _RequestResponseHandlerBase(TaskConsumer):
             'body': json.dumps(message),
             'properties': pika.BasicProperties(
                 reply_to=self.result_queue,
-                correlation_id=correlation_id)
+                correlation_id=correlation_id),
+            'routing_key': routing_key
         })
         return correlation_id
 
