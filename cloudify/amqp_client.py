@@ -209,9 +209,10 @@ class SendHandler(object):
         'durable': True,
     }
 
-    def __init__(self, exchange, exchange_type='direct'):
+    def __init__(self, exchange, exchange_type='direct', routing_key=''):
         self.exchange = exchange
         self.exchange_type = exchange_type
+        self.routing_key = routing_key
 
     def register(self, connection, output_queue):
         self._output_queue = output_queue
