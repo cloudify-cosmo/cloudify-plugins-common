@@ -244,7 +244,6 @@ class _RequestResponseHandlerBase(TaskConsumer):
         if correlation_id is None:
             correlation_id = uuid.uuid4().hex
 
-        self._response_queues[correlation_id] = Queue.Queue()
         self._output_queue.put({
             'exchange': self.exchange,
             'body': json.dumps(message),
@@ -267,6 +266,7 @@ class BlockingRequestResponseHandler(_RequestResponseHandlerBase):
         timeout = kwargs.pop('timeout', None)
         correlation_id = super(BlockingRequestResponseHandler, self)\
             .publish(*args, **kwargs)
+        self._response_queues[correlation_id] = Queue.Queue()
         try:
             resp = self._response_queues[correlation_id].get(timeout=timeout)
             return resp
