@@ -231,13 +231,13 @@ class SendHandler(object):
 
 class _RequestResponseHandlerBase(TaskConsumer):
     def __init__(self, exchange):
-        super(BlockingRequestResponseHandler, self).__init__(exchange)
+        super(_RequestResponseHandlerBase, self).__init__(exchange)
         self.result_queue = None
 
     def _register_queue(self, channel):
         result_queue = self.in_channel.queue_declare(exclusive=True)
         self.queue = result_queue.method.queue
-        super(BlockingRequestResponseHandler, self)._register_queue(channel)
+        super(_RequestResponseHandlerBase, self)._register_queue(channel)
 
     def publish(self, message, correlation_id=None):
         if correlation_id is None:
