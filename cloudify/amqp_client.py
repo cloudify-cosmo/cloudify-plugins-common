@@ -238,7 +238,7 @@ class _RequestResponseHandlerBase(TaskConsumer):
         self.queue = uuid.uuid4().hex
         self.in_channel.queue_declare(queue=self.queue, exclusive=True,
                                       durable=True)
-        super(_RequestResponseHandlerBase, self)._register_queue(channel)
+        channel.basic_consume(self.process, self.queue)
 
     def publish(self, message, correlation_id=None):
         if correlation_id is None:
