@@ -156,6 +156,7 @@ class TaskConsumer(object):
         channel.exchange_declare(
             exchange=self.exchange, auto_delete=False, durable=True)
         channel.queue_declare(queue=self.queue,
+                              durable=True,
                               auto_delete=False)
         channel.queue_bind(queue=self.queue,
                            exchange=self.exchange,
