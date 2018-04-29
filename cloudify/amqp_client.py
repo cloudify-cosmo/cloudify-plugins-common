@@ -235,8 +235,8 @@ class _RequestResponseHandlerBase(TaskConsumer):
         self.result_queue = None
 
     def _register_queue(self, channel):
-        result_queue = self.in_channel.queue_declare(exclusive=True)
-        self.queue = result_queue.method.queue
+        self.queue = uuid.uuid4().hex
+        self.in_channel.queue_declare(queue=self.queue, exclusive=True)
         super(_RequestResponseHandlerBase, self)._register_queue(channel)
 
     def publish(self, message, correlation_id=None):
