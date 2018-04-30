@@ -95,8 +95,9 @@ class AMQPConnection(object):
         out_channel = self.connection.channel()
         for handler in self._handlers:
             handler.register(self.connection, self._publish_queue)
-            logger.info('Registered handler for {0}'
-                        .format(handler.routing_key))
+            logger.info('Registered handler for {0} [{1}]'
+                        .format(handler.__class__.__name__,
+                                handler.routing_key))
         return out_channel
 
     def consume(self):
