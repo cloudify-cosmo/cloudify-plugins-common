@@ -358,8 +358,7 @@ class CloudifyEventsPublisher(object):
             handler = self.events_handler
         else:
             handler = self.logs_handler
-        body = json.dumps(message)
-        handler.publish(body)
+        handler.publish(message)
 
     def close(self):
         if self._is_closed:
