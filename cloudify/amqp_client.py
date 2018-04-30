@@ -157,6 +157,7 @@ class TaskConsumer(object):
 
     def _register_queue(self, channel):
         channel.basic_qos(prefetch_count=self.threadpool_size)
+        channel.confirm_delivery()
         channel.exchange_declare(
             exchange=self.exchange, auto_delete=False, durable=True)
         channel.queue_declare(queue=self.queue,
