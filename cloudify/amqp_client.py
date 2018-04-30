@@ -43,6 +43,7 @@ class AMQPConnection(object):
         self._reconnect_backoff = 1
         self._closed = False
         self.connection = None
+        self._consumer_thread = None
 
     def _get_common_connection_params(self):
         credentials = pika.credentials.PlainCredentials(
@@ -110,10 +111,12 @@ class AMQPConnection(object):
 
     def consume_in_thread(self):
         """Spawn a thread to run consume"""
-        t = threading.Thread(target=self.consume)
-        t.daemon = True
-        t.start()
-        return t
+        if self._consumer_thread:
+            return
+        self._consumer_thread = threading.Thread(target=self.consume)
+        self._consumer_thread.daemon = True
+        self._consumer_thread.start()
+        return self._consumer_thread
 
     def _process_publish(self, channel):
         while not self._closed:
@@ -344,7 +347,6 @@ class CloudifyEventsPublisher(object):
         self._worker = CloudifyConnectionAMQPConnection(amqp_settings, [
             self.events_handler, self.logs_handler])
         self._is_closed = False
-        self._consume_thread = None
 
     def connect(self):
         self._worker.connect()
