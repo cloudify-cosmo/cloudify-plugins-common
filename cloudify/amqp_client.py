@@ -346,13 +346,13 @@ class CloudifyEventsPublisher(object):
                                           exchange_type='fanout')
         self.logs_handler = SendHandler(self.LOGS_EXCHANGE_NAME,
                                         exchange_type='fanout')
-        self._worker = CloudifyConnectionAMQPConnection(amqp_settings, [
+        self._connection = CloudifyConnectionAMQPConnection(amqp_settings, [
             self.events_handler, self.logs_handler])
         self._is_closed = False
 
     def connect(self):
-        self._worker.connect()
-        self._worker.consume_in_thread()
+        self._connection.connect()
+        self._connection.consume_in_thread()
 
     def publish_message(self, message, message_type):
         if self._is_closed:
@@ -369,10 +369,10 @@ class CloudifyEventsPublisher(object):
             return
         self._is_closed = True
         thread = threading.current_thread()
-        if self._worker:
+        if self._connection:
             logger.debug('Closing amqp client of thread {0}'.format(thread))
             try:
-                self._worker.close()
+                self._connection.close()
             except Exception as e:
                 logger.debug('Failed to close amqp client of thread {0}, '
                              'reported error: {1}'.format(thread, repr(e)))
