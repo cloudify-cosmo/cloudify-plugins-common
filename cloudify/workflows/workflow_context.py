@@ -1166,7 +1166,6 @@ class _AsyncResult(object):
 
 class _TaskDispatcher(object):
     def __init__(self):
-        self._lock = threading.Lock()
         self._tasks = {}
 
     def make_subtask(self, tenant, target, queue, *args, **kwargs):
