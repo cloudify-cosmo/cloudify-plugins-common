@@ -233,7 +233,7 @@ class SendHandler(object):
 class _RequestResponseHandlerBase(TaskConsumer):
     def __init__(self, exchange):
         super(_RequestResponseHandlerBase, self).__init__(exchange)
-        self.result_queue = None
+        self.queue = None
 
     def _register_queue(self, channel):
         self.queue = uuid.uuid4().hex
@@ -249,7 +249,7 @@ class _RequestResponseHandlerBase(TaskConsumer):
             'exchange': self.exchange,
             'body': json.dumps(message),
             'properties': pika.BasicProperties(
-                reply_to=self.result_queue,
+                reply_to=self.queue,
                 correlation_id=correlation_id),
             'routing_key': routing_key
         })
