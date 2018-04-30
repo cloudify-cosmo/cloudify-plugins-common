@@ -1206,7 +1206,8 @@ class _TaskDispatcher(object):
 
         callback = functools.partial(self._received, task['id'], client)
         debuglog(task['id'], 'sending', task)
-        handler.publish(task, callback=callback, routing_key='operation')
+        handler.publish(task, callback=callback, routing_key='operation',
+                        correlation_id=task['id'])
         debuglog(task['id'], '...sent')
 
         self._tasks.setdefault(client, {})[task['id']] = \
