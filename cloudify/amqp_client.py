@@ -112,6 +112,8 @@ class AMQPConnection(object):
                 self.connected.clear()
                 out_channel = self.connect()
                 continue
+        self._process_publish(out_channel)
+        self.connection.close()
 
     def consume_in_thread(self):
         """Spawn a thread to run consume"""
@@ -124,7 +126,7 @@ class AMQPConnection(object):
         return self._consumer_thread
 
     def _process_publish(self, channel):
-        while not self._closed:
+        while True:
             try:
                 msg = self._publish_queue.get_nowait()
             except Queue.Empty:
@@ -132,6 +134,8 @@ class AMQPConnection(object):
             try:
                 channel.basic_publish(**msg)
             except pika.exceptions.ConnectionClosed:
+                if self._closed:
+                    return
                 # if we couldn't send the message because the connection
                 # was down, requeue it to be sent again later
                 self._publish_queue.put(msg)
@@ -139,8 +143,6 @@ class AMQPConnection(object):
 
     def close(self):
         self._closed = True
-        if self.connection:
-            self.connection.close()
 
 
 class TaskConsumer(object):
