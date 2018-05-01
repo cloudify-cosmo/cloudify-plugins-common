@@ -1195,7 +1195,7 @@ class _TaskDispatcher(object):
             'credentials': credentials,
             'virtual_host': self._get_vhost(task)
         }, [handler])
-        client.connect()
+        client.consume_in_thread()
         return client, handler
 
     def send_task(self, workflow_task, task):
@@ -1213,7 +1213,6 @@ class _TaskDispatcher(object):
             (workflow_task, task, result)
         self._set_task_state(workflow_task, TASK_STARTED, {})
 
-        client.consume_in_thread()
         return result
 
     def _set_task_state(self, workflow_task, state, event):

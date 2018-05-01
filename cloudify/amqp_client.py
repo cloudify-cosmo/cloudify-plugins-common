@@ -44,6 +44,7 @@ class AMQPConnection(object):
         self._closed = False
         self.connection = None
         self._consumer_thread = None
+        self.connected = threading.Event()
 
     def _get_common_connection_params(self):
         credentials = pika.credentials.PlainCredentials(
@@ -98,6 +99,7 @@ class AMQPConnection(object):
             logger.info('Registered handler for {0} [{1}]'
                         .format(handler.__class__.__name__,
                                 handler.routing_key))
+        self.connected.set()
         return out_channel
 
     def consume(self):
@@ -107,6 +109,7 @@ class AMQPConnection(object):
                 self.connection.process_data_events(0.2)
                 self._process_publish(out_channel)
             except pika.exceptions.ConnectionClosed:
+                self.connected.clear()
                 out_channel = self.connect()
                 continue
 
@@ -117,6 +120,7 @@ class AMQPConnection(object):
         self._consumer_thread = threading.Thread(target=self.consume)
         self._consumer_thread.daemon = True
         self._consumer_thread.start()
+        self.connected.wait()
         return self._consumer_thread
 
     def _process_publish(self, channel):
@@ -351,7 +355,6 @@ class CloudifyEventsPublisher(object):
         self._is_closed = False
 
     def connect(self):
-        self._connection.connect()
         self._connection.consume_in_thread()
 
     def publish_message(self, message, message_type):
