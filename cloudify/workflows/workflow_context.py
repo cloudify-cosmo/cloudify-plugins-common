@@ -21,6 +21,7 @@ import threading
 import Queue
 import pika
 import time
+import logging
 
 from proxy_tools import proxy
 
@@ -65,11 +66,6 @@ except ImportError:
 
 
 DEFAULT_LOCAL_TASK_THREAD_POOL_SIZE = 1
-
-
-def debuglog(*a):
-    with open('/tmp/foo.log', 'a') as f:
-        f.write('{0}\n'.format(repr(a)))
 
 
 class CloudifyWorkflowRelationshipInstance(object):
@@ -1167,6 +1163,7 @@ class _AsyncResult(object):
 class _TaskDispatcher(object):
     def __init__(self):
         self._tasks = {}
+        self._logger = logging.getLogger('dispatch')
 
     def make_subtask(self, tenant, target, queue, *args, **kwargs):
         return {
@@ -1204,10 +1201,10 @@ class _TaskDispatcher(object):
         result = _AsyncResult(task)
 
         callback = functools.partial(self._received, task['id'], client)
-        debuglog(task['id'], 'sending', task)
+        self._logger.debug('Sending task [{0}] - {1}'.format(task['id'], task))
         handler.publish(task, callback=callback, routing_key='operation',
                         correlation_id=task['id'])
-        debuglog(task['id'], '...sent')
+        self._logger.debug('Task [{0}] sent'.format(task['id']))
 
         self._tasks.setdefault(client, {})[task['id']] = \
             (workflow_task, task, result)
@@ -1221,7 +1218,7 @@ class _TaskDispatcher(object):
             state, workflow_task, events.send_task_event_func_remote, event)
 
     def _received(self, task_id, client, response):
-        debuglog('received', response)
+        self._logger.debug('Response received - {0}'.format(response))
         try:
             if not response:
                 return
@@ -1250,8 +1247,8 @@ class _TaskDispatcher(object):
             result.result = _result
 
             self._maybe_stop_client(client)
-        except Exception as e:
-            debuglog('err', e)
+        except Exception:
+            self._logger.error('Error occurred while processing task', exc_info=True)
             raise
 
     def _maybe_stop_client(self, client):
