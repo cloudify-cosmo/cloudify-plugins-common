@@ -222,6 +222,7 @@ class SendHandler(object):
         self.exchange = exchange
         self.exchange_type = exchange_type
         self.routing_key = routing_key
+        self.logger = logging.getLogger('dispatch.{0}'.format(self.exchange))
 
     def register(self, connection, output_queue):
         self._output_queue = output_queue
@@ -231,7 +232,16 @@ class SendHandler(object):
                                      exchange_type=self.exchange_type,
                                      **self.exchange_settings)
 
+    def _log_message(self, message):
+        level = message.get('level', 'info')
+        log_func = getattr(self.logger, level, self.logger.info)
+        exec_id = message.get('context', {}).get('execution_id')
+        text = message['message']['text']
+        msg = '[{0}] {1}'.format(exec_id, text) if exec_id else text
+        log_func(msg)
+
     def publish(self, message, **kwargs):
+        self._log_message(message)
         self._output_queue.put({
             'exchange': self.exchange,
             'body': json.dumps(message),

@@ -240,20 +240,23 @@ class TaskHandler(object):
             sys_prefix_fallback=False)
 
     def setup_logging(self):
+        try:
+            handler_context = self.ctx.deployment.id
+        except AttributeError:
+            handler_context = SYSTEM_DEPLOYMENT
+        else:
+            # an operation may originate from a system wide workflow.
+            # in that case, the deployment id will be None
+            handler_context = handler_context or SYSTEM_DEPLOYMENT
+
+        # We put deployment specific logs in logs/DEP_ID.log
+        logs.setup_agent_logger(log_name='logs/{0}'.format(handler_context))
         socket_url = self.cloudify_context.get('socket_url')
         if socket_url:
             import zmq
             self._zmq_context = zmq.Context(io_threads=1)
             self._zmq_socket = self._zmq_context.socket(zmq.PUSH)
             self._zmq_socket.connect(socket_url)
-            try:
-                handler_context = self.ctx.deployment.id
-            except AttributeError:
-                handler_context = SYSTEM_DEPLOYMENT
-            else:
-                # an operation may originate from a system wide workflow.
-                # in that case, the deployment id will be None
-                handler_context = handler_context or SYSTEM_DEPLOYMENT
             fallback_logger = self._create_fallback_logger(handler_context)
             handler = logs.ZMQLoggingHandler(context=handler_context,
                                              socket=self._zmq_socket,

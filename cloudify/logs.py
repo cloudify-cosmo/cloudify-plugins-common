@@ -13,9 +13,9 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
-
+import os
 import sys
-import logging
+import logging.config
 import json
 import datetime
 from functools import wraps
@@ -370,3 +370,58 @@ class ZMQLoggingHandler(logging.Handler):
                 'Error sending message to logging server. ({0}: {1})'
                 '[context={2}, message={3}]'
                 .format(type(e).__name__, e, self._context, message))
+
+
+def get_logger_config(log_file, log_level='DEBUG', prefix=''):
+    return {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'file': {
+                'format': (
+                        prefix + ' %(asctime)-15s - %(name)s - %(levelname)s'
+                                 ' - %(message)s')
+            },
+            'console': {
+                'format': '%(name)s:%(levelname)s: %(message)s'
+            }
+        },
+        'handlers': {
+            'file': {
+                'class': 'logging.handlers.RotatingFileHandler',
+                'formatter': 'file',
+                'filename': log_file,
+                'level': log_level,
+                'maxBytes': 50000000,
+                'backupCount': 7
+            },
+            'console': {
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://sys.stdout',
+                'formatter': 'console',
+                'level': log_level
+            }
+        },
+        'loggers': {
+            'worker': {
+                'handlers': ['file', 'console'],
+                'propagate': True,
+                'level': log_level
+            },
+            'dispatch': {
+                'handlers': ['file', 'console'],
+                'propagate': True,
+                'level': log_level
+            },
+        }
+    }
+
+
+def setup_agent_logger(log_name, log_level='DEBUG'):
+    log_file = os.path.join(os.environ['AGENT_LOG_DIR'],
+                            '{0}.log'.format(log_name))
+    log_dir = os.path.dirname(log_file)
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
+    log_level = log_level or os.environ['AGENT_LOG_LEVEL']
+    logging.config.dictConfig(get_logger_config(log_file, log_level))
