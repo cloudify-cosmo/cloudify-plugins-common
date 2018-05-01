@@ -29,20 +29,20 @@ class AMQPWrappedThread(Thread):
     def __init__(self, target, *args, **kwargs):
 
         def wrapped_target(*inner_args, **inner_kwargs):
-            with global_amqp_client:
+            with global_events_publisher:
                 self.target_method(*inner_args, **inner_kwargs)
 
         self.target_method = target
         super(AMQPWrappedThread, self).__init__(target=wrapped_target, *args,
                                                 **kwargs)
-        self.started_amqp_client = global_amqp_client.client_started
+        self.started_amqp_client = global_events_publisher.client_started
         self.daemon = True
 
 
 _STOP = object()
 
 
-class _GlobalAMQPClient(object):
+class _GlobalEventsPublisher(object):
     def __init__(self, *client_args, **client_kwargs):
         self.client_started = Event()
         self._connect_lock = RLock()
@@ -80,8 +80,8 @@ class _GlobalAMQPClient(object):
         self._client.close()
 
     def _make_client(self):
-        return amqp_client.create_client(*self._client_args,
-                                         **self._client_kwargs)
+        return amqp_client.create_events_publisher(
+            *self._client_args, **self._client_kwargs)
 
     def _connect(self):
         self._client = self._make_client()
@@ -107,28 +107,28 @@ class _GlobalAMQPClient(object):
         self.client_started.clear()
 
 
-def init_amqp_client():
-    global_amqp_client.register_caller()
-    global_event_amqp_client.register_caller()
+def init_events_publisher():
+    global_events_publisher.register_caller()
+    global_management_events_publisher.register_caller()
 
 
 def get_amqp_client():
-    return global_amqp_client
+    return global_events_publisher
 
 
-def get_event_amqp_client():
+def get_management_events_publisher():
     """
     Returns an amqp client for publishing events/logs
     :param create: If set to True, a new client object will be created if one
     does not exist
     """
-    return global_event_amqp_client
+    return global_management_events_publisher
 
 
 def close_amqp_client():
-    global_amqp_client.unregister_caller()
-    global_event_amqp_client.unregister_caller()
+    global_events_publisher.unregister_caller()
+    global_management_events_publisher.unregister_caller()
 
 
-global_amqp_client = _GlobalAMQPClient()
-global_event_amqp_client = _GlobalAMQPClient(amqp_vhost='/')
+global_events_publisher = _GlobalEventsPublisher()
+global_management_events_publisher = _GlobalEventsPublisher(amqp_vhost='/')

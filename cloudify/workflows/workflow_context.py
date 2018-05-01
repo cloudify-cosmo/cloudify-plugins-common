@@ -16,7 +16,6 @@ from __future__ import absolute_import
 
 import functools
 import copy
-import json
 import uuid
 import threading
 import Queue
@@ -25,7 +24,7 @@ import time
 
 from proxy_tools import proxy
 
-from cloudify import context
+from cloudify import amqp_client, context
 from cloudify.manager import (get_node_instance,
                               update_node_instance,
                               update_execution_status,
@@ -44,7 +43,7 @@ from cloudify.workflows.tasks import (TASK_FAILED,
                                       DEFAULT_RETRY_INTERVAL,
                                       DEFAULT_SEND_TASK_EVENTS,
                                       DEFAULT_SUBGRAPH_TOTAL_RETRIES)
-from cloudify.constants import BROKER_PORT_SSL, MGMTWORKER_QUEUE
+from cloudify.constants import MGMTWORKER_QUEUE
 from cloudify import utils, broker_config, logs, exceptions
 from cloudify.state import current_workflow_ctx
 from cloudify.workflows import events
@@ -1165,54 +1164,8 @@ class _AsyncResult(object):
         return self.result
 
 
-class _AMQPClient(object):
-    def __init__(self, username, password, vhost):
-        self.vhost = vhost
-        self.credentials = pika.credentials.PlainCredentials(
-            username=username,
-            password=password)
-        self.ssl_options = utils.internal.get_broker_ssl_options(
-            True, broker_config.broker_cert_path)
-        self.connection_parameters = pika.ConnectionParameters(
-            host=broker_config.broker_hostname,
-            port=BROKER_PORT_SSL,
-            virtual_host=vhost,
-            credentials=self.credentials,
-            ssl=True,
-            ssl_options=self.ssl_options)
-        self.connection = None
-        self.channel = None
-        self._consumer_thread = None
-
-    def connect(self):
-        self.connection = pika.BlockingConnection(self.connection_parameters)
-        self.channel = self.connection.channel()
-        self.channel.basic_qos(prefetch_count=1)
-        self.channel.confirm_delivery()
-
-    def start_consuming(self):
-        if self._consumer_thread:
-            return
-        debuglog('starting thread')
-        self._consumer_thread = threading.Thread(target=self._consume)
-        self._consumer_thread.daemon = True
-        self._consumer_thread.start()
-        debuglog('started thread')
-
-    def _consume(self):
-        debuglog('start_consuming')
-        self.channel.start_consuming()
-        debuglog('end start_consuming')
-        self._consumer_thread = None
-
-    def disconnect(self):
-        self.channel.stop_consuming()
-        self.connection.close()
-
-
 class _TaskDispatcher(object):
     def __init__(self):
-        self._lock = threading.Lock()
         self._tasks = {}
 
     def make_subtask(self, tenant, target, queue, *args, **kwargs):
@@ -1233,42 +1186,32 @@ class _TaskDispatcher(object):
 
     def _get_client(self, task):
         tenant = task['tenant']
-        client = _AMQPClient(
+        handler = amqp_client.CallbackRequestResponseHandler(
+            exchange=task['target'])
+        credentials = pika.credentials.PlainCredentials(
             username=tenant['rabbitmq_username'],
-            password=tenant['rabbitmq_password'],
-            vhost=self._get_vhost(task))
-        client.connect()
-        return client
+            password=tenant['rabbitmq_password'])
+        client = amqp_client.CloudifyConnectionAMQPConnection({
+            'credentials': credentials,
+            'virtual_host': self._get_vhost(task)
+        }, [handler])
+        client.consume_in_thread()
+        return client, handler
 
     def send_task(self, workflow_task, task):
-        client = self._get_client(task)
+        client, handler = self._get_client(task)
 
         result = _AsyncResult(task)
 
-        client.channel.exchange_declare(
-            exchange=task['target'],
-            auto_delete=False,
-            durable=True)
-        result_queue = client.channel.queue_declare(exclusive=True)
-
+        callback = functools.partial(self._received, task['id'], client)
         debuglog(task['id'], 'sending', task)
-        client.channel.basic_publish(
-            exchange=task['target'],
-            routing_key='operation',
-            properties=pika.BasicProperties(
-                reply_to=result_queue.method.queue,
-                correlation_id=task['id']),
-            body=json.dumps(task))
+        handler.publish(task, callback=callback, routing_key='operation',
+                        correlation_id=task['id'])
         debuglog(task['id'], '...sent')
 
         self._tasks.setdefault(client, {})[task['id']] = \
             (workflow_task, task, result)
         self._set_task_state(workflow_task, TASK_STARTED, {})
-
-        client.channel.basic_consume(
-            functools.partial(self._received, client),
-            queue=result_queue.method.queue)
-        client.start_consuming()
 
         return result
 
@@ -1277,16 +1220,14 @@ class _TaskDispatcher(object):
         events.send_task_event(
             state, workflow_task, events.send_task_event_func_remote, event)
 
-    def _received(self, client, channel, method, properties, body):
-        debuglog('received', body)
+    def _received(self, task_id, client, response):
+        debuglog('received', response)
         try:
-            channel.basic_ack(method.delivery_tag)
-            response = json.loads(body)
             if not response:
                 return
             try:
                 workflow_task, task, result = \
-                    self._tasks[client].pop(properties.correlation_id)
+                    self._tasks[client].pop(task_id)
             except KeyError:
                 return
             if workflow_task.is_terminated:
@@ -1317,7 +1258,7 @@ class _TaskDispatcher(object):
         if self._tasks[client]:
             return
         self._tasks.pop(client)
-        client.disconnect()
+        client.close()
 
 
 class RemoteContextHandler(CloudifyWorkflowContextHandler):

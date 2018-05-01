@@ -360,7 +360,7 @@ class OperationHandler(TaskHandler):
         kwargs = self.kwargs
         if ctx.task_target:
             # # this operation requires an AMQP client
-            amqp_client_utils.init_amqp_client()
+            amqp_client_utils.init_events_publisher()
         else:
             # task is local (not through celery) so we need clone kwarg
             # and an amqp client is not required
@@ -416,7 +416,7 @@ class WorkflowHandler(TaskHandler):
         tenant = self.ctx._context['tenant'].get('original_name',
                                                  self.ctx.tenant_name)
         rest = get_rest_client(tenant=tenant)
-        amqp_client_utils.init_amqp_client()
+        amqp_client_utils.init_events_publisher()
         try:
             try:
                 self._workflow_started()
