@@ -1217,7 +1217,9 @@ class _TaskDispatcher(object):
             state, workflow_task, events.send_task_event_func_remote, event)
 
     def _received(self, task_id, client, response):
-        self._logger.debug('Response received - {0}'.format(response))
+        self._logger.debug(
+            '[{0}] Response received - {1}'.format(task_id, response)
+        )
         try:
             if not response:
                 return
