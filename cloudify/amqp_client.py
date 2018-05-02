@@ -144,6 +144,9 @@ class AMQPConnection(object):
     def close(self):
         self._closed = True
 
+    def add_handler(self, handler):
+        self._handlers.append(handler)
+
 
 class TaskConsumer(object):
     routing_key = ''
