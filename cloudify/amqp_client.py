@@ -350,6 +350,26 @@ class CloudifyConnectionAMQPConnection(AMQPConnection):
         return params
 
 
+def get_client(username=None, password=None, vhost=None):
+    """
+    Create a client without any handlers in it. Use the `add_handler` method
+    to add handlers to this client
+    :return: CloudifyConnectionAMQPConnection
+    """
+    username = username or broker_config.broker_username
+    password = password or broker_config.broker_password
+    vhost = vhost or broker_config.broker_vhost
+
+    credentials = pika.credentials.PlainCredentials(
+        username=username,
+        password=password
+    )
+    return CloudifyConnectionAMQPConnection({
+        'credentials': credentials,
+        'virtual_host': vhost
+    }, [])
+
+
 class CloudifyEventsPublisher(object):
     EVENTS_EXCHANGE_NAME = 'cloudify-events'
     SOCKET_TIMEOUT = 5
