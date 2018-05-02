@@ -1185,13 +1185,12 @@ class _TaskDispatcher(object):
         tenant = task['tenant']
         handler = amqp_client.CallbackRequestResponseHandler(
             exchange=task['target'])
-        credentials = pika.credentials.PlainCredentials(
+        client = amqp_client.get_client(
             username=tenant['rabbitmq_username'],
-            password=tenant['rabbitmq_password'])
-        client = amqp_client.CloudifyConnectionAMQPConnection({
-            'credentials': credentials,
-            'virtual_host': self._get_vhost(task)
-        }, [handler])
+            password=tenant['rabbitmq_password'],
+            vhost=self._get_vhost(task)
+        )
+        client.add_handler(handler)
         client.consume_in_thread()
         return client, handler
 

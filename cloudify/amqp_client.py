@@ -144,6 +144,9 @@ class AMQPConnection(object):
     def close(self):
         self._closed = True
 
+    def add_handler(self, handler):
+        self._handlers.append(handler)
+
 
 class TaskConsumer(object):
     routing_key = ''
@@ -345,6 +348,26 @@ class CloudifyConnectionAMQPConnection(AMQPConnection):
             if setting:
                 params[setting_name] = setting
         return params
+
+
+def get_client(username=None, password=None, vhost=None):
+    """
+    Create a client without any handlers in it. Use the `add_handler` method
+    to add handlers to this client
+    :return: CloudifyConnectionAMQPConnection
+    """
+    username = username or broker_config.broker_username
+    password = password or broker_config.broker_password
+    vhost = vhost or broker_config.broker_vhost
+
+    credentials = pika.credentials.PlainCredentials(
+        username=username,
+        password=password
+    )
+    return CloudifyConnectionAMQPConnection({
+        'credentials': credentials,
+        'virtual_host': vhost
+    }, [])
 
 
 class CloudifyEventsPublisher(object):
