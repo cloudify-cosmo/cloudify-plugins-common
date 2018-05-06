@@ -415,7 +415,8 @@ class CloudifyEventsPublisher(object):
             except Exception as e:
                 logger.debug('Failed to close amqp client of thread {0}, '
                              'reported error: {1}'.format(thread, repr(e)))
-        self._consume_thread.join()
+        if self._consume_thread:
+            self._consume_thread.join()
 
 
 def create_events_publisher(amqp_host=None,
