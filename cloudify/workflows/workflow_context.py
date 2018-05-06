@@ -19,7 +19,6 @@ import copy
 import uuid
 import threading
 import Queue
-import pika
 import time
 import logging
 
@@ -1150,12 +1149,14 @@ class CloudifyWorkflowContextHandler(object):
 
 
 class _AsyncResult(object):
+    NOTSET = object()
+
     def __init__(self, task):
         self._task = task
-        self.result = None
+        self.result = self.NOTSET
 
     def get(self):
-        while self.result is None:
+        while self.result is self.NOTSET:
             time.sleep(0.5)
         return self.result
 
@@ -1249,7 +1250,8 @@ class _TaskDispatcher(object):
 
             self._maybe_stop_client(client)
         except Exception:
-            self._logger.error('Error occurred while processing task', exc_info=True)
+            self._logger.error('Error occurred while processing task',
+                               exc_info=True)
             raise
 
     def _maybe_stop_client(self, client):
