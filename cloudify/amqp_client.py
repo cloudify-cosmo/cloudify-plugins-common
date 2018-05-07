@@ -27,6 +27,12 @@ import pika.exceptions
 from cloudify import broker_config
 from cloudify import exceptions
 
+try:
+    from cloudify_agent.api.factory import DaemonFactory
+except ImportError:
+    DaemonFactory = None
+
+
 logger = logging.getLogger(__name__)
 
 HEARTBEAT_INTERVAL = 30
@@ -62,10 +68,9 @@ class AMQPConnection(object):
         }
 
     def _get_connection_params(self):
-        from cloudify_agent.api.factory import DaemonFactory
         while True:
             params = self._get_common_connection_params()
-            if self.name:
+            if self.name and DaemonFactory is not None:
                 daemon = DaemonFactory().load(self.name)
                 if daemon.cluster:
                     for node_ip in daemon.cluster:
