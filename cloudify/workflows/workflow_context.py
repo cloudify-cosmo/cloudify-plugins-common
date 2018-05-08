@@ -1154,10 +1154,13 @@ class _AsyncResult(object):
     def __init__(self, task):
         self._task = task
         self.result = self.NOTSET
+        self.error = False
 
     def get(self):
         while self.result is self.NOTSET:
             time.sleep(0.5)
+        if self.error:
+            raise self.result
         return self.result
 
 
@@ -1240,6 +1243,7 @@ class _TaskDispatcher(object):
                 else:
                     state = TASK_FAILED
                 _result = exception
+                result.error = True
                 workflow_task.set_state(state)
             else:
                 state = TASK_SUCCEEDED
