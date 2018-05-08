@@ -1243,11 +1243,11 @@ class _TaskDispatcher(object):
                 else:
                     state = TASK_FAILED
                 _result = exception
+                result.error = True
                 workflow_task.set_state(state)
             else:
                 state = TASK_SUCCEEDED
                 _result = response.get('result')
-                result.error = True
                 self._set_task_state(workflow_task, state, {'result': _result})
 
             result.result = _result
