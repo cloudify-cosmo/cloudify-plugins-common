@@ -156,6 +156,7 @@ class AMQPConnection(object):
         self._closed = True
         if self._consumer_thread:
             self._consumer_thread.join()
+            self._consumer_thread = None
 
     def add_handler(self, handler):
         self._handlers.append(handler)
