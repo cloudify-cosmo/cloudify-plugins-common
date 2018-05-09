@@ -329,7 +329,7 @@ def with_amqp_client(func):
     def wrapper(*args, **kwargs):
         """Calls the wrapped func with an AMQP client instance."""
         # call the wrapped func with the amqp client
-        with amqp_client_utils.get_management_events_publisher() as client:
+        with amqp_client_utils.global_management_events_publisher as client:
             return func(client, *args, **kwargs)
 
     return wrapper

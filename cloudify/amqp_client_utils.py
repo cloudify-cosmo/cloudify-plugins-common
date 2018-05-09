@@ -112,19 +112,6 @@ def init_events_publisher():
     global_management_events_publisher.register_caller()
 
 
-def get_amqp_client():
-    return global_events_publisher
-
-
-def get_management_events_publisher():
-    """
-    Returns an amqp client for publishing events/logs
-    :param create: If set to True, a new client object will be created if one
-    does not exist
-    """
-    return global_management_events_publisher
-
-
 def close_amqp_client():
     global_events_publisher.unregister_caller()
     global_management_events_publisher.unregister_caller()

@@ -293,9 +293,9 @@ class WorkflowTask(object):
 
 
 class RemoteWorkflowTask(WorkflowTask):
-    """A WorkflowTask wrapping a celery based task"""
+    """A WorkflowTask wrapping an AMQP based task"""
 
-    # cache for registered tasks queries to celery workers
+    # cache for registered tasks queries to agent workers
     cache = {}
 
     def __init__(self,
@@ -354,11 +354,10 @@ class RemoteWorkflowTask(WorkflowTask):
 
     def apply_async(self):
         """
-        Call the underlying celery tasks apply_async. Verify the worker
+        Call the underlying tasks' apply_async. Verify the worker
         is alive and send an event before doing so.
 
-        :return: a RemoteWorkflowTaskResult instance wrapping the
-                 celery async result
+        :return: a RemoteWorkflowTaskResult instance wrapping the async result
         """
         try:
             self._set_queue_kwargs()
@@ -773,24 +772,3 @@ class HandlerResult(object):
     @classmethod
     def ignore(cls):
         return HandlerResult(cls.HANDLER_IGNORE)
-
-
-def verify_worker_alive(name, target, get_registered):
-
-    cache = RemoteWorkflowTask.cache
-    registered = cache.get(target)
-    if not registered:
-        registered = get_registered()
-        cache[target] = registered
-
-    if registered is None:
-        raise exceptions.RecoverableError(
-            'Timed out querying worker celery@{0} for its registered '
-            'tasks. [timeout={1} seconds]'.format(target, INSPECT_TIMEOUT))
-
-    if DISPATCH_TASK not in registered:
-        raise exceptions.NonRecoverableError(
-            'Missing {0} task in worker {1} \n'
-            'Registered tasks are: {2}. (This probably means the agent '
-            'configuration is invalid) [{3}]'.format(
-                DISPATCH_TASK, target, registered, name))
