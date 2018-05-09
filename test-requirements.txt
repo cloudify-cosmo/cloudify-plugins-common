@@ -1,3 +1,2 @@
 testtools
 mock==1.0.1
-celery==3.1.17

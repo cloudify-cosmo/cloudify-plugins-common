@@ -365,7 +365,7 @@ class OperationHandler(TaskHandler):
             # # this operation requires an AMQP client
             amqp_client_utils.init_events_publisher()
         else:
-            # task is local (not through celery) so we need clone kwarg
+            # task is local (not through AMQP) so we need clone kwarg
             # and an amqp client is not required
             kwargs = copy.deepcopy(kwargs)
 
