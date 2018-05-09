@@ -373,32 +373,41 @@ class ZMQLoggingHandler(logging.Handler):
                 .format(type(e).__name__, e, self._context, message))
 
 
-def setup_agent_logger(log_name, log_level='DEBUG'):
-    log_file = os.path.join(os.environ['AGENT_LOG_DIR'],
-                            '{0}.log'.format(log_name))
-    log_dir = os.path.dirname(log_file)
-    if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
-    log_level = log_level or os.environ['AGENT_LOG_LEVEL']
+def setup_agent_logger(log_name, log_level=None):
+    if log_level is None:
+        log_level = os.environ.get('AGENT_LOG_LEVEL') or 'DEBUG'
 
-    file_formatter = logging.Formatter(
-        ' %(asctime)-15s - %(name)s - %(levelname)s - %(message)s')
     console_formatter = logging.Formatter(
         '%(name)s:%(levelname)s: %(message)s')
-
-    file_handler = logging.handlers.RotatingFileHandler(
-        filename=log_file, maxBytes=50000000, backupCount=7)
-    file_handler.setLevel(log_level)
-    file_handler.setFormatter(file_formatter)
-
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
     console_handler.setFormatter(console_formatter)
 
+    root_logger = logging.getLogger()
+    root_logger.setLevel('INFO')
+    root_logger.addHandler(console_handler)
     worker_logger = logging.getLogger('worker')
-    worker_logger.addHandler(file_handler)
-    worker_logger.addHandler(console_handler)
-
     dispatch_logger = logging.getLogger('dispatch')
-    dispatch_logger.addHandler(file_handler)
-    dispatch_logger.addHandler(console_handler)
+
+    for logger in [worker_logger, dispatch_logger]:
+        logger.setLevel(log_level)
+        logger.addHandler(console_handler)
+
+    log_dir = os.environ.get('AGENT_LOG_DIR')
+    if log_dir:
+        log_file = os.path.join(log_dir, '{0}.log'.format(log_name))
+        # also create the parent directory to allow for nested log dirs
+        # eg. worker.log, and logs/deployment.log
+        log_dir = os.path.dirname(log_file)
+        if not os.path.exists(log_dir):
+            os.mkdir(log_dir)
+        file_formatter = logging.Formatter(
+            ' %(asctime)-15s - %(name)s - %(levelname)s - %(message)s')
+
+        file_handler = logging.handlers.RotatingFileHandler(
+            filename=log_file, maxBytes=50000000, backupCount=7)
+        file_handler.setLevel(log_level)
+        file_handler.setFormatter(file_formatter)
+
+        for logger in [worker_logger, dispatch_logger, root_logger]:
+            worker_logger.addHandler(file_handler)
