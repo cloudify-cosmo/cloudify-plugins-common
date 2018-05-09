@@ -395,10 +395,9 @@ class CloudifyEventsPublisher(object):
         self._connection = CloudifyConnectionAMQPConnection(amqp_settings, [
             self.events_handler, self.logs_handler])
         self._is_closed = False
-        self._consume_thread = None
 
     def connect(self):
-        self._consume_thread = self._connection.consume_in_thread()
+        self._connection.consume_in_thread()
 
     def publish_message(self, message, message_type):
         if self._is_closed:
