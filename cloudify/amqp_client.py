@@ -20,7 +20,6 @@ import uuid
 import Queue
 import logging
 import threading
-from contextlib import contextmanager
 
 import pika
 import pika.exceptions
@@ -131,13 +130,11 @@ class AMQPConnection(object):
         self.connected.wait()
         return self._consumer_thread
 
-    @contextmanager
-    def consume_and_close(self):
-        try:
-            self.consume_in_thread()
-            yield
-        finally:
-            self.close()
+    def __enter__(self):
+        self.consume_in_thread()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def _process_publish(self, channel):
         while True:
