@@ -81,7 +81,7 @@ class AMQPConnection(object):
 
     def _get_reconnect_backoff(self):
         backoff = self._reconnect_backoff
-        self._reconnect_backoff = max(backoff * 2, self.MAX_BACKOFF)
+        self._reconnect_backoff = min(backoff * 2, self.MAX_BACKOFF)
         return backoff
 
     def _reset_reconnect_backoff(self):
