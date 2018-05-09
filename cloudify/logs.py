@@ -396,6 +396,8 @@ def setup_agent_logger(log_name, log_level=None):
     log_dir = os.environ.get('AGENT_LOG_DIR')
     if log_dir:
         log_file = os.path.join(log_dir, '{0}.log'.format(log_name))
+        # also create the parent directory to allow for nested log dirs
+        # eg. worker.log, and logs/deployment.log
         log_dir = os.path.dirname(log_file)
         if not os.path.exists(log_dir):
             os.mkdir(log_dir)
