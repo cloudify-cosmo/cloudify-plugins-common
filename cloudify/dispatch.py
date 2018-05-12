@@ -251,25 +251,6 @@ class TaskHandler(object):
 
         # We put deployment specific logs in logs/DEP_ID.log
         logs.setup_agent_logger(log_name='logs/{0}'.format(handler_context))
-        socket_url = self.cloudify_context.get('socket_url')
-        if socket_url:
-            import zmq
-            self._zmq_context = zmq.Context(io_threads=1)
-            self._zmq_socket = self._zmq_context.socket(zmq.PUSH)
-            self._zmq_socket.connect(socket_url)
-            fallback_logger = self._create_fallback_logger(handler_context)
-            handler = logs.ZMQLoggingHandler(context=handler_context,
-                                             socket=self._zmq_socket,
-                                             fallback_logger=fallback_logger)
-        else:
-            # Used by tests calling dispatch directly with target_name set.
-            handler = logging.StreamHandler()
-        handler.setFormatter(DISPATCH_LOGGER_FORMATTER)
-        handler.setLevel(logging.DEBUG)
-        logger = logging.getLogger()
-        logger.handlers = []
-        logger.addHandler(handler)
-        logger.setLevel(logging.DEBUG)
         self._update_logging_level()
 
     @staticmethod

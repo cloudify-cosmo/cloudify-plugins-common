@@ -349,30 +349,6 @@ def _publish_message(client, message, message_type, logger):
                     json.dumps(message)))
 
 
-class ZMQLoggingHandler(logging.Handler):
-
-    def __init__(self, context, socket, fallback_logger):
-        logging.Handler.__init__(self)
-        self._context = context
-        self._socket = socket
-        self._fallback_logger = fallback_logger
-
-    def emit(self, record):
-        message = self.format(record)
-        message = message.decode('utf-8', 'ignore').encode('utf-8')
-        try:
-            # Not using send_json to avoid possible deadlocks (see CFY-4866)
-            self._socket.send(json.dumps({
-                'context': self._context,
-                'message': message
-            }))
-        except Exception as e:
-            self._fallback_logger.warn(
-                'Error sending message to logging server. ({0}: {1})'
-                '[context={2}, message={3}]'
-                .format(type(e).__name__, e, self._context, message))
-
-
 def setup_agent_logger(log_name, log_level=None):
     if log_level is None:
         log_level = os.environ.get('AGENT_LOG_LEVEL') or 'DEBUG'
@@ -410,4 +386,4 @@ def setup_agent_logger(log_name, log_level=None):
         file_handler.setFormatter(file_formatter)
 
         for logger in [worker_logger, dispatch_logger, root_logger]:
-            worker_logger.addHandler(file_handler)
+            logger.addHandler(file_handler)
