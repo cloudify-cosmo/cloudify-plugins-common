@@ -349,9 +349,11 @@ def _publish_message(client, message, message_type, logger):
                     json.dumps(message)))
 
 
-def setup_agent_logger(log_name, log_level=None):
+def setup_agent_logger(log_name, log_level=None, log_dir=None):
     if log_level is None:
         log_level = os.environ.get('AGENT_LOG_LEVEL') or 'DEBUG'
+    if log_dir is None:
+        log_dir = os.environ.get('AGENT_LOG_DIR')
 
     console_formatter = logging.Formatter(
         '%(name)s:%(levelname)s: %(message)s')
@@ -368,8 +370,6 @@ def setup_agent_logger(log_name, log_level=None):
     for logger in [worker_logger, dispatch_logger]:
         logger.setLevel(log_level)
         logger.addHandler(console_handler)
-
-    log_dir = os.environ.get('AGENT_LOG_DIR')
     if log_dir:
         log_file = os.path.join(log_dir, '{0}.log'.format(log_name))
         # also create the parent directory to allow for nested log dirs
