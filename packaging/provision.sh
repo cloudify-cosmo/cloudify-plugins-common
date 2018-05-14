@@ -62,7 +62,7 @@ function wagon_create_package(){
     if [ ! -z "$CONSTRAINTS_FILE" ] && [ -f "/vagrant/$CONSTRAINTS_FILE" ];then
         wagon create -s ../$PLUGIN_NAME/ -v -f -a '--no-cache-dir -c /vagrant/'$CONSTRAINTS_FILE''
     else
-        wagon create -s ../$PLUGIN_NAME/ -r dev-requirements.txt -v -f
+        wagon create -s ../$PLUGIN_NAME/ -r -v -f
     fi
 }
 
