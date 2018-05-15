@@ -50,6 +50,7 @@ from cloudify.error_handling import (
     deserialize_known_exception
 )
 
+ENV_ENCODING = 'utf-8'  # encoding for env variables
 CLOUDIFY_DISPATCH = 'CLOUDIFY_DISPATCH'
 
 # This is relevant in integration tests when cloudify-agent is installed in
@@ -172,7 +173,12 @@ class TaskHandler(object):
         # This is used to support environment variables configurations for
         # central deployment based operations. See workflow_context to
         # understand where this value gets set initially
-        env.update(self.cloudify_context.get('execution_env') or {})
+        # Note that this is received via json, so it is unicode. It must
+        # be encoded, because environment variables must be bytes.
+        execution_env = self.cloudify_context.get('execution_env') or {}
+        execution_env = dict((k.encode(ENV_ENCODING), v.encode(ENV_ENCODING))
+                             for k, v in execution_env.items())
+        env.update(execution_env)
 
         # Update PATH environment variable to include bin dir of current
         # virtualenv, and of plugin that includes the operation (if exists)
