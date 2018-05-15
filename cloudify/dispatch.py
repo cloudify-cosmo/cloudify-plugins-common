@@ -176,8 +176,8 @@ class TaskHandler(object):
         # Note that this is received via json, so it is unicode. It must
         # be encoded, because environment variables must be bytes.
         execution_env = self.cloudify_context.get('execution_env') or {}
-        execution_env = {k.encode(ENV_ENCODING): v.encode(ENV_ENCODING)
-                         for k, v in execution_env.items()}
+        execution_env = dict((k.encode(ENV_ENCODING), v.encode(ENV_ENCODING))
+                             for k, v in execution_env.items())
         env.update(execution_env)
 
         # Update PATH environment variable to include bin dir of current
