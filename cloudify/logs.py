@@ -369,7 +369,7 @@ def setup_agent_logger(log_name, log_level=None, log_dir=None):
 
     for logger in [worker_logger, dispatch_logger]:
         logger.setLevel(log_level)
-        logger.addHandler(console_handler)
+    root_logger.addHandler(console_handler)
     if log_dir:
         log_file = os.path.join(log_dir, '{0}.log'.format(log_name))
         # also create the parent directory to allow for nested log dirs
@@ -385,5 +385,4 @@ def setup_agent_logger(log_name, log_level=None, log_dir=None):
         file_handler.setLevel(log_level)
         file_handler.setFormatter(file_formatter)
 
-        for logger in [worker_logger, dispatch_logger, root_logger]:
-            logger.addHandler(file_handler)
+        root_logger.addHandler(file_handler)
