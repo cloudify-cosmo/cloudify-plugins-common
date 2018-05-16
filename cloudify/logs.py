@@ -160,7 +160,7 @@ def init_cloudify_logger(handler, logger_name,
         logger.removeHandler(h)
     handler.setFormatter(logging.Formatter("%(message)s"))
     handler.setLevel(logging_level)
-    logger.propagate = True
+    logger.propagate = False
     logger.addHandler(handler)
     return logger
 
