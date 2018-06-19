@@ -263,6 +263,7 @@ class TaskHandler(object):
         if socket_url:
             import zmq
             self._zmq_context = zmq.Context(io_threads=1)
+            self._zmq_context.setsockopt(zmq.LINGER, 3000)
             self._zmq_socket = self._zmq_context.socket(zmq.PUSH)
             self._zmq_socket.connect(socket_url)
             try:
