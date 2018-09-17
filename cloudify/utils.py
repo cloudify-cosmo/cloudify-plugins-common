@@ -26,7 +26,7 @@ import tempfile
 import traceback
 import StringIO
 
-from distutils.version import LooseVersion
+from distutils.version import StrictVersion
 
 from cloudify import cluster, constants
 from cloudify.state import workflow_ctx, ctx
@@ -428,6 +428,13 @@ class Internal(object):
         return broker_user, broker_pass, broker_vhost
 
     @staticmethod
+    def _get_formatted_version(version):
+        try:
+            return StrictVersion(version)
+        except ValueError:
+            return None
+
+    @staticmethod
     def _get_package_version(plugins_dir, package_name):
         # get all plugin dirs
         subdirs = next(os.walk(plugins_dir))[1]
@@ -435,10 +442,11 @@ class Internal(object):
         package_dirs = [dir for dir in subdirs if dir.startswith(package_name)]
         # cut package name prefix
         versions = [dir[len(package_name) + 1:] for dir in package_dirs]
-        # sort versions from new to old
-        versions.sort(key=lambda version: LooseVersion(version), reverse=True)
-        # return the latest
-        return versions[0]
+        # return the latest version
+        newest = max(versions, key=Internal._get_formatted_version)
+        if Internal._get_formatted_version(newest) is None:
+            return
+        return newest
 
     @staticmethod
     def plugin_prefix(package_name=None, package_version=None,
