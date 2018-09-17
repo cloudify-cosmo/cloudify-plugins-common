@@ -432,7 +432,9 @@ class Internal(object):
         # get all plugin dirs
         subdirs = next(os.walk(plugins_dir))[1]
         # filter by package name
-        package_dirs = [dir for dir in subdirs if dir.startswith(package_name)]
+        package_dirs = [dir for dir in subdirs
+                        if dir.startswith(package_name) and
+                        dir[len(package_name) + 1].isdigit()]
         # cut package name prefix
         versions = [dir[len(package_name) + 1:] for dir in package_dirs]
         # sort versions from new to old
