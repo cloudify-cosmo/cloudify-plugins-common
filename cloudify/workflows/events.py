@@ -17,7 +17,6 @@ import Queue
 
 from cloudify import logs, utils
 from cloudify.exceptions import OperationRetry
-from cloudify.celery.app import get_celery_app
 from cloudify.workflows import tasks as tasks_api
 
 
@@ -72,21 +71,7 @@ class Monitor(object):
                     pass
 
     def capture(self, tenant=None):
-        with get_celery_app(tenant=tenant) as app:
-            with app.connection() as connection:
-                if self._should_stop:
-                    return
-                connection.clone = lambda: connection
-                self._receiver = app.events.Receiver(connection, handlers={
-                    'task-sent': self.task_sent,
-                    'task-received': self.task_received,
-                    'task-started': self.task_started,
-                    'task-succeeded': self.task_succeeded,
-                    'task-failed': self.task_failed,
-                    'task-revoked': self.task_revoked,
-                    'task-retried': self.task_retried
-                })
-                self._receiver.capture(limit=None, timeout=None, wakeup=True)
+        pass
 
     def stop(self):
         self._should_stop = True
