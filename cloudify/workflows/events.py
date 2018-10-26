@@ -72,6 +72,7 @@ class Monitor(object):
                     pass
 
     def capture(self, tenant=None):
+        return
         with get_celery_app(tenant=tenant) as app:
             with app.connection() as connection:
                 if self._should_stop:
