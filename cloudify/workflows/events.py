@@ -85,7 +85,7 @@ class Monitor(object):
                     'task-failed': self.task_failed,
                     'task-revoked': self.task_revoked,
                     'task-retried': self.task_retried
-                })
+                }, routing_key='task.*')
                 self._receiver.capture(limit=None, timeout=None, wakeup=True)
 
     def stop(self):
