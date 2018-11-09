@@ -45,6 +45,7 @@ from cloudify.manager import update_execution_status, get_rest_client
 from cloudify.workflows import workflow_context
 from cloudify.workflows import api
 from cloudify.constants import LOGGING_CONFIG_FILE
+from cloudify.utils import exception_to_error_cause
 
 CLOUDIFY_DISPATCH = 'CLOUDIFY_DISPATCH'
 
@@ -379,7 +380,17 @@ class OperationHandler(TaskHandler):
         kwargs = self.kwargs
         if ctx.task_target:
             # # this operation requires an AMQP client
-            amqp_client_utils.init_amqp_client()
+            try:
+                amqp_client_utils.init_amqp_client()
+            except:
+                _, ex, tb = sys.exc_info()
+                # This one should never (!) raise an exception.
+                amqp_client_utils.close_amqp_client()
+                raise exceptions.RecoverableError(
+                    'Failed initializing AMQP connection',
+                    causes=[exception_to_error_cause(ex, tb)]
+                )
+
         else:
             # task is local (not through celery) so we need clone kwarg
             # and an amqp client is not required

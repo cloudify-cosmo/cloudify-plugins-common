@@ -61,7 +61,10 @@ class _GlobalAMQPClient(object):
     def unregister_caller(self):
         with self._connect_lock:
             self._callers -= 1
-            if self._callers == 0:
+            # Can theoretically be less than zero, if this function is called
+            # by dispatch.py as part of cleanup after the init_amqp_client call
+            # failed.
+            if self._callers <= 0:
                 self._disconnect()
                 self._thread.join()
 
