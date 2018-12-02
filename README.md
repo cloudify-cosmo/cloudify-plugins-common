@@ -7,4 +7,4 @@
 
 This package contains common modules that are mandatory for Cloudify's plugins.
 
-See [ReadTheDocs](http://cloudify-plugins-common.readthedocs.org/en/latest/) for an API reference.
+See [Documenation](https://docs.cloudify.co/cloudify-plugins-common/index.html) for an API reference.
