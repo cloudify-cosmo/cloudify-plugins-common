@@ -237,7 +237,7 @@ def uninstall_node_instance_subgraph(instance, graph, ignore_failure=False):
     state = instance.state
     subgraph = graph.subgraph(instance.id)
     sequence = subgraph.sequence()
-    if state not in ['stopped', 'deleting', 'deleted']:
+    if state not in ['uninitialized', 'stopped', 'deleting', 'deleted']:
         sequence.add(
             instance.set_state('stopping'),
             instance.send_event('Stopping node'),
@@ -254,7 +254,7 @@ def uninstall_node_instance_subgraph(instance, graph, ignore_failure=False):
                 'cloudify.interfaces.relationship_lifecycle.unlink',
                 reverse=True))
 
-    if state not in ['deleted']:
+    if state not in ['uninitialized', 'deleted']:
         sequence.add(
             instance.set_state('deleting'),
             instance.send_event('Deleting node'),
