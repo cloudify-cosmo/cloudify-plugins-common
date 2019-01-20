@@ -287,6 +287,10 @@ class CloudifyWorkflowNodeInstance(object):
         return self._node_instance.node_id
 
     @property
+    def state(self):
+        return self._node_instance.state
+
+    @property
     def relationships(self):
         """The node relationships"""
         return self._relationship_instances.itervalues()

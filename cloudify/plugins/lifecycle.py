@@ -234,29 +234,33 @@ def install_node_instance_subgraph(instance, graph, **kwargs):
 
 
 def uninstall_node_instance_subgraph(instance, graph, ignore_failure=False):
+    state = instance.state
     subgraph = graph.subgraph(instance.id)
     sequence = subgraph.sequence()
-    sequence.add(
-        instance.set_state('stopping'),
-        instance.send_event('Stopping node'),
-        instance.execute_operation('cloudify.interfaces.monitoring.stop')
-    )
-    if is_host_node(instance):
-        sequence.add(*_host_pre_stop(instance))
+    if state not in ['stopped', 'deleting', 'deleted']:
+        sequence.add(
+            instance.set_state('stopping'),
+            instance.send_event('Stopping node'),
+            instance.execute_operation('cloudify.interfaces.monitoring.stop')
+        )
+        if is_host_node(instance):
+            sequence.add(*_host_pre_stop(instance))
+        sequence.add(
+            instance.execute_operation('cloudify.interfaces.lifecycle.stop'),
+            instance.set_state('stopped'),
+            _relationships_operations(
+                subgraph,
+                instance,
+                'cloudify.interfaces.relationship_lifecycle.unlink',
+                reverse=True))
 
-    sequence.add(
-        instance.execute_operation('cloudify.interfaces.lifecycle.stop'),
-        instance.set_state('stopped'),
-        _relationships_operations(
-            subgraph,
-            instance,
-            'cloudify.interfaces.relationship_lifecycle.unlink',
-            reverse=True),
-        instance.set_state('deleting'),
-        instance.send_event('Deleting node'),
-        instance.execute_operation('cloudify.interfaces.lifecycle.delete'),
-        instance.set_state('deleted')
-    )
+    if state not in ['deleted']:
+        sequence.add(
+            instance.set_state('deleting'),
+            instance.send_event('Deleting node'),
+            instance.execute_operation('cloudify.interfaces.lifecycle.delete'),
+            instance.set_state('deleted')
+        )
 
     def set_ignore_handlers(_subgraph):
         for task in _subgraph.tasks.itervalues():
