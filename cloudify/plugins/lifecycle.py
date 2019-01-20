@@ -253,6 +253,11 @@ def uninstall_node_instance_subgraph(instance, graph, ignore_failure=False):
                 instance,
                 'cloudify.interfaces.relationship_lifecycle.unlink',
                 reverse=True))
+    else:
+        sequence.add(
+            instance.send_event("Node instance state is {0}; skipping stop "
+                                "and unlink".format(state))
+        )
 
     if state not in ['uninitialized', 'deleted']:
         sequence.add(
@@ -260,6 +265,11 @@ def uninstall_node_instance_subgraph(instance, graph, ignore_failure=False):
             instance.send_event('Deleting node'),
             instance.execute_operation('cloudify.interfaces.lifecycle.delete'),
             instance.set_state('deleted')
+        )
+    else:
+        sequence.add(
+            instance.send_event("Node instance state is {0}; skipping "
+                                "delete".format(state))
         )
 
     def set_ignore_handlers(_subgraph):
