@@ -459,33 +459,38 @@ def _host_pre_stop(host_node_instance):
             'cloudify.interfaces.monitoring_agent.uninstall'),
     ]
     if install_method != constants.AGENT_INSTALL_METHOD_NONE:
-        tasks.append(host_node_instance.send_event('Stopping agent'))
-        if install_method in constants.AGENT_INSTALL_METHODS_SCRIPTS:
-            # this option is only available since 3.3 so no need to
-            # handle 3.2 version here.
-            tasks += [
-                host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.stop_amqp'),
-                host_node_instance.send_event('Deleting agent'),
-                host_node_instance.execute_operation(
-                    'cloudify.interfaces.cloudify_agent.delete')
-            ]
-        else:
-            node_operations = host_node_instance.node.operations
-            if 'cloudify.interfaces.worker_installer.stop' in node_operations:
+        if 'cloudify_agent' in host_node_instance.runtime_properties:
+            tasks.append(host_node_instance.send_event('Stopping agent'))
+            if install_method in constants.AGENT_INSTALL_METHODS_SCRIPTS:
+                # this option is only available since 3.3 so no need to
+                # handle 3.2 version here.
                 tasks += [
                     host_node_instance.execute_operation(
-                        'cloudify.interfaces.worker_installer.stop'),
-                    host_node_instance.send_event('Deleting agent'),
-                    host_node_instance.execute_operation(
-                        'cloudify.interfaces.worker_installer.uninstall')
-                ]
-            else:
-                tasks += [
-                    host_node_instance.execute_operation(
-                        'cloudify.interfaces.cloudify_agent.stop'),
+                        'cloudify.interfaces.cloudify_agent.stop_amqp'),
                     host_node_instance.send_event('Deleting agent'),
                     host_node_instance.execute_operation(
                         'cloudify.interfaces.cloudify_agent.delete')
                 ]
+            else:
+                node_operations = host_node_instance.node.operations
+                if 'cloudify.interfaces.worker_installer.stop' in node_operations:
+                    tasks += [
+                        host_node_instance.execute_operation(
+                            'cloudify.interfaces.worker_installer.stop'),
+                        host_node_instance.send_event('Deleting agent'),
+                        host_node_instance.execute_operation(
+                            'cloudify.interfaces.worker_installer.uninstall')
+                    ]
+                else:
+                    tasks += [
+                        host_node_instance.execute_operation(
+                            'cloudify.interfaces.cloudify_agent.stop'),
+                        host_node_instance.send_event('Deleting agent'),
+                        host_node_instance.execute_operation(
+                            'cloudify.interfaces.cloudify_agent.delete')
+                    ]
+        else:
+            tasks.append(host_node_instance.send_event(
+                'Agent runtime property missing; assuming already '
+                'uninstalled'))
     return tasks
